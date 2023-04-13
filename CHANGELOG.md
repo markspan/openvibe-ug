@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] 2023-04-11
+
+### Added
+ - Driver: Shimmer3 GSR+ physiological sensor (extras#167)
+
+### Updated
+ - Dependency: Boost Regex config (meta#61)
+ - Box: Feature Aggregator chunk times checks reduced (sdk#140)
+ - Driver: ANTNeuro EEGO SDK (extras#209)
+ - Build: Missing includes added for gcc 12.2.1
+
+### Fixed
+ - Box: Temporal Filter parameter checks (sdk#139)
+ - Box: Regularized CSP matrix inversion check (sdk#145)
+ - Box: Univariate Statistics output format (extras#205)
+ - Driver: EEGO namespace position
+ - Driver: BrainProducts actiCHamp driver (extras#204)
+ - DevTool: Skeleton Generator categories parsing (extras#212)
+
 ## [3.4.0] 2022-12-05
 
 ### Added
@@ -43,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Box: CSV File Writer/Reader linebreaks handling in labels (Issue sdk#99})
+- Box: CSV File Writer/Reader linebreaks handling in labels (Issue sdk#99)
 - Box: CSV File Writer/Reader to handle only stimulations (Issue sdk#100)
 - Box: Revert C++14 feature - too advance (Issue sdk#108)
 - Box: NoiseGenerator default setting (Issue extras#130)

@@ -156,6 +156,9 @@ if (NOT USE_SYSTEM_${LIB})
     # Setup link option (options are "static", "shared" or "static,shared")
     set(${LIB}_LINK "link=static")
 
+    find_program(GIT_BIN NAMES git)
+    set (patch_cmd ${GIT_BIN} apply --ignore-whitespace --directory=libs/regex ${CMAKE_SOURCE_DIR}/patches/BoostRegexConfig.patch)
+
     ## #############################################################################
     ## Add external-project
     ## #############################################################################
@@ -164,6 +167,7 @@ if (NOT USE_SYSTEM_${LIB})
             GIT_REPOSITORY ${GIT_URL}
             GIT_TAG ${GIT_TAG}
             GIT_SUBMODULES ${${LIB}_MODULES}
+            PATCH_COMMAND "${patch_cmd}"
             BUILD_IN_SOURCE ON
             CONFIGURE_COMMAND ${CONFIG_CMD}
             BUILD_COMMAND ${BUILD_CMD} ${${LIB}_BUILD_TYPE} ${${LIB}_ADDRESS_MODEL} ${${LIB}_TOOLSET} ${${LIB}_LINK} ${${LIB}_CXXFLAGS} ${WITH_MODULES}

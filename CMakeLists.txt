@@ -10,7 +10,7 @@ cmake_policy(SET CMP0057 NEW)
 
 
 set(OPENVIBE_MAJOR_VERSION 3)
-set(OPENVIBE_MINOR_VERSION 4)
+set(OPENVIBE_MINOR_VERSION 5)
 set(OPENVIBE_PATCH_VERSION 0)
 
 set(CMAKE_CXX_STANDARD 11)
@@ -162,6 +162,7 @@ include("FindThirdPartyVRPN")
 # #############################################################################
 # Find Acquisition Drivers
 include("FindThirdPartyBrainProductsAmplifierAPI")
+include("FindThirdPartyEemagineEEGO")
 
 # #############################################################################
 # Add OpenViBE subdirectories

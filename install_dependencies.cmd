@@ -147,7 +147,7 @@ echo Installing dependencies for build target %platformTarget%
 
 rem The dependencies are hosted by Inria
 set PROXYPASS=anon:anon
-set URL=http://openvibe.inria.fr/dependencies/win32/3.4.0/
+set URL=http://openvibe.inria.fr/dependencies/win32/3.5.0/
 
 if not exist "%dependenciesDir%\arch\data" ( mkdir "%dependenciesDir%\arch\data" )
 if not exist "%dependenciesDir%\arch\build\windows" ( mkdir "%dependenciesDir%\arch\build\windows" )
