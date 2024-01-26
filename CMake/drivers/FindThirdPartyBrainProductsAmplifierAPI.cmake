@@ -26,28 +26,21 @@ get_property(OV_PRINTED GLOBAL PROPERTY OV_TRIED_FindThirdPartyBrainProductsAmpl
 add_library(brainproducts-amplifier-sdk INTERFACE)
 
 if(WIN32)
+    find_library(BRAINPRODUCTS_AMPLIFIER_LIB AmplifierSDK)
+    find_path(BRAINPRODUCTS_AMPLIFIER_SDK_DIR AmplifierSDK.h PATH_SUFFIXES sdk-brain-products)
 
-    if(EXISTS ${LIST_DEPENDENCIES_PATH}/sdk_brainproducts_amplifier)
-        set(BRAINPRODUCTS_AMPLIFIER_SDK_DIR ${LIST_DEPENDENCIES_PATH}/sdk_brainproducts_amplifier)
-    endif()
-
-    find_library(BRAINPRODUCTS_AMPLIFIER_LIB AmplifierSDK PATHS ${BRAINPRODUCTS_AMPLIFIER_SDK_DIR} PATH_SUFFIXES lib)
-    if(BRAINPRODUCTS_AMPLIFIER_LIB)
+    if(BRAINPRODUCTS_AMPLIFIER_LIB AND BRAINPRODUCTS_AMPLIFIER_SDK_DIR)
         ov_print(OV_PRINTED "  Found Brain Products Amplifier SDK API...")
 
-        target_include_directories(brainproducts-amplifier-sdk INTERFACE ${BRAINPRODUCTS_AMPLIFIER_SDK_DIR}/include)
+        target_include_directories(brainproducts-amplifier-sdk INTERFACE ${BRAINPRODUCTS_AMPLIFIER_SDK_DIR})
         target_link_libraries(brainproducts-amplifier-sdk INTERFACE ${BRAINPRODUCTS_AMPLIFIER_LIB})
         target_compile_options(brainproducts-amplifier-sdk
                                INTERFACE -DTARGET_HAS_ThirdPartyBrainProductsAmplifierSDK
         )
 
-        # Copy the DLL file at install - Could it be attached to the target and installed with the depending target instead ?
-        install(DIRECTORY ${BRAINPRODUCTS_AMPLIFIER_SDK_DIR}/bin/ DESTINATION ${DIST_BINDIR} FILES_MATCHING PATTERN "*.dll")
-        install(DIRECTORY ${BRAINPRODUCTS_AMPLIFIER_SDK_DIR}/bin/ DESTINATION ${DIST_BINDIR} FILES_MATCHING PATTERN "*.bit")
-
-    else(BRAINPRODUCTS_AMPLIFIER_LIB)
+    else(BRAINPRODUCTS_AMPLIFIER_LIB AND BRAINPRODUCTS_AMPLIFIER_SDK_DIR)
         ov_print(OV_PRINTED "  FAILED to find Brain Products Amplifier API (optional)")
-    endif(BRAINPRODUCTS_AMPLIFIER_LIB)
+    endif(BRAINPRODUCTS_AMPLIFIER_LIB AND BRAINPRODUCTS_AMPLIFIER_SDK_DIR)
 endif(WIN32)
 
 SET_PROPERTY(GLOBAL PROPERTY OV_TRIED_FindThirdPartyBrainProductsAmplifierSDK "Yes")

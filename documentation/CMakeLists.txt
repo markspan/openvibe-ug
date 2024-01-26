@@ -1,8 +1,7 @@
 message(STATUS "***** Begin META Documentation *****")
 
 # look for doxygen, if not present, no need to generate documentation
-FIND_PROGRAM(doxygen_bin "doxygen" PATHS ${LIST_DEPENDENCIES_PATH}/bin NO_DEFAULT_PATH)
-FIND_PROGRAM(doxygen_bin "doxygen" PATHS ${LIST_DEPENDENCIES_PATH}/bin "C:/Program Files/doxygen/bin")
+FIND_PROGRAM(doxygen_bin "doxygen" PATHS $ENV{CONDA_PREFIX}/bin $ENV{CONDA_PREFIX}/Library/bin NO_DEFAULT_PATH)
 
 if(!doxygen_bin)
 	message(STATUS "  FAILED to find doxygen...")
@@ -21,11 +20,13 @@ else(!doxygen_bin)
 	file(MAKE_DIRECTORY "${ROOT_DOC_DIR}/dox")
 
 	message(STATUS "    Folders for Documentation created")
-
 	#----- Run Plugin inspector -----
+
+	set(ENV{PYTHONHOME} $ENV{CONDA_PREFIX})
+
 	if(UNIX)
 		execute_process(
-			COMMAND  ${CMAKE_INSTALL_FULL_BINDIR}/../openvibe-plugin-inspector.sh 
+			COMMAND  ${CMAKE_INSTALL_FULL_BINDIR}/openvibe-plugin-inspector 
 				-d "${ROOT_DOC_DIR}" -p ${CMAKE_INSTALL_FULL_BINDIR}/../lib/ 
 				-k "${CMAKE_INSTALL_FULL_BINDIR}/../lib/" 
 				-c "${CMAKE_INSTALL_FULL_BINDIR}/../share/openvibe/kernel/openvibe.conf" 
@@ -33,7 +34,7 @@ else(!doxygen_bin)
 		)
 	elseif(WIN32)
 		execute_process(
-			COMMAND	${CMAKE_INSTALL_FULL_BINDIR}/../openvibe-plugin-inspector.cmd 
+			COMMAND	${CMAKE_INSTALL_FULL_BINDIR}/openvibe-plugin-inspector.exe
 				-d "${ROOT_DOC_DIR}" -p ${CMAKE_INSTALL_FULL_BINDIR}
 				-k "${CMAKE_INSTALL_FULL_BINDIR}"
 				-c "${CMAKE_INSTALL_FULL_BINDIR}/../share/openvibe/kernel/openvibe.conf" 
@@ -143,7 +144,7 @@ else(!doxygen_bin)
 	#----- Config & Run doxygen -----
 	CONFIGURE_FILE("${CMAKE_SOURCE_DIR}/documentation/Doxyfile-skeleton" "${CMAKE_SOURCE_DIR}/documentation/Doxyfile" @ONLY)
 	CONFIGURE_FILE("${CMAKE_SOURCE_DIR}/documentation/Main-skeleton.md" "${CMAKE_SOURCE_DIR}/documentation/Main.md" @ONLY)
-	MESSAGE(STATUS "Running doxygen")
+	MESSAGE(STATUS "Running doxygen: ${doxygen_bin}")
 	EXECUTE_PROCESS(
 		COMMAND ${doxygen_bin} "${CMAKE_SOURCE_DIR}/documentation/Doxyfile"
 		WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/documentation/"

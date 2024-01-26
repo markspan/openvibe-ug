@@ -26,31 +26,25 @@ get_property(OV_PRINTED GLOBAL PROPERTY OV_TRIED_ThirdPartyEemagineEEGO)
 
 if (WIN32)
     add_library(eemagine-eego-sdk)
-    if (EXISTS ${LIST_DEPENDENCIES_PATH}/sdk_eemagine_eego)
-        set(EEMAGINE_EEGO_SDK_DIR ${LIST_DEPENDENCIES_PATH}/sdk_eemagine_eego/eemagine/)
-    endif()
 
-    find_library(EEMAGINE_EEGO_SDK_LIB eego-SDK PATHS ${EEMAGINE_EEGO_SDK_DIR}/lib)
-    if(EEMAGINE_EEGO_SDK_LIB)
-        ov_print(OV_PRINTED "  Found EEmagine EEGO SDK...")
+    find_library(EEMAGINE_EEGO_SDK_LIB eego-SDK)
+    find_path(EEMAGINE_EEGO_SDK_DIR eemagine) # Find the directory containing the eemagine sdk
 
-        file(GLOB_RECURSE SRC_FILES ${EEMAGINE_EEGO_SDK_DIR}/sdk/*.cc ${EEMAGINE_EEGO_SDK_DIR}/sdk/*.h)
+    if(EEMAGINE_EEGO_SDK_LIB AND EEMAGINE_EEGO_SDK_DIR)
+        ov_print(OV_PRINTED "  Found EEmagine EEGO SDK...") 
+        file(GLOB_RECURSE SRC_FILES ${EEMAGINE_EEGO_SDK_DIR}/eemagine/src/*.cc ${EEMAGINE_EEGO_SDK_DIR}/eemagine/include/eemagine/sdk/*.h)
         target_sources(eemagine-eego-sdk
                        PRIVATE ${SRC_FILES}
         )
-        target_include_directories(eemagine-eego-sdk PUBLIC ${EEMAGINE_EEGO_SDK_DIR}/sdk/include)
+        target_include_directories(eemagine-eego-sdk PUBLIC ${EEMAGINE_EEGO_SDK_DIR}/eemagine/include)
         target_link_libraries(eemagine-eego-sdk PUBLIC ${EEMAGINE_EEGO_SDK_LIB})
         target_compile_definitions(eemagine-eego-sdk PRIVATE -DEEGO_SDK_BIND_DYNAMIC)
         target_compile_options(eemagine-eego-sdk
                                INTERFACE -DTARGET_HAS_ThirdPartyEEGOAPI
         )
-
-        # Copy the DLL file at install - Could it be attached to the target and installed with the depending target instead ?
-        install(DIRECTORY ${EEMAGINE_EEGO_SDK_DIR}/bin/ DESTINATION ${DIST_BINDIR} FILES_MATCHING PATTERN "*.dll")
-
-    else(EEMAGINE_EEGO_SDK_LIB)
+    else(EEMAGINE_EEGO_SDK_LIB AND EEMAGINE_EEGO_SDK_DIR)
         ov_print(OV_PRINTED "  FAILED to find EEmagine EEGO SDK (optional)")
-    endif(EEMAGINE_EEGO_SDK_LIB)
+    endif(EEMAGINE_EEGO_SDK_LIB AND EEMAGINE_EEGO_SDK_DIR)
 else()
     add_library(eemagine-eego-sdk INTERFACE)
 endif()

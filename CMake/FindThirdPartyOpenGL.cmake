@@ -1,0 +1,5 @@
+find_package(OpenGL REQUIRED COMPONENTS OpenGL)
+if(OpenGL_FOUND)
+  ov_print(OV_PRINTED "Found OpenGL library")
+  ADD_DEFINITIONS(-DTARGET_HAS_ThirdPartyOpenGL)
+endif()

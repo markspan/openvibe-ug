@@ -19,17 +19,10 @@
 
 get_property(OV_PRINTED GLOBAL PROPERTY OV_TRIED_ThirdPartyTinyXML2)
 
-if(EXISTS ${LIST_DEPENDENCIES_PATH}/tinyxml2)
-    ov_print(OV_PRINTED "Found TinyXML2 library")
+find_package(tinyxml2 REQUIRED)
 
-    # Create target to link against.
-    set(TinyXML2_ROOT ${LIST_DEPENDENCIES_PATH}/tinyxml2)
-    find_library(TinyXML2_LIBRARY NAMES tinyxml2 PATHS ${TinyXML2_ROOT} PATH_SUFFIXES lib)
-    add_library(tinyxml2 INTERFACE)
-    target_include_directories(tinyxml2 INTERFACE ${TinyXML2_ROOT}/include)
-    target_link_libraries(tinyxml2 INTERFACE ${TinyXML2_LIBRARY})
-else()
-    ov_print(OV_PRINTED "  FAILED to find TinyXML2")
+if(tinyxml2_FOUND)
+    ov_print(OV_PRINTED "Found TinyXML2 library")
 endif()
 
 set_property(GLOBAL PROPERTY OV_TRIED_ThirdPartyTinyXML2 "Yes")

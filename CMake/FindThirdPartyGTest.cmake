@@ -17,8 +17,4 @@
 # If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
-if(EXISTS ${LIST_DEPENDENCIES_PATH}/gtest)
-    set(GTEST_ROOT ${LIST_DEPENDENCIES_PATH}/gtest)
-endif()
-
 find_package(GTest REQUIRED)

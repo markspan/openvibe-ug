@@ -1,0 +1,279 @@
+variables:
+  LANG: "en_US.UTF-8"
+
+build_mr_macos:
+  stage: build
+  tags:
+    - macos
+  only:
+    - merge_requests
+    - web
+    - master
+    - development
+  script:
+    - if [[ -n $CI_MERGE_REQUEST_ID ]]; then
+        BRANCH_NAME=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME;
+      else
+        BRANCH_NAME=$CI_COMMIT_BRANCH;
+      fi
+    - git submodule foreach "git fetch --prune"
+    - git submodule foreach "git checkout development"
+    - git submodule foreach "git branch -D  $BRANCH_NAME || true"
+    - git submodule foreach "git switch $BRANCH_NAME || true"
+    - git submodule foreach "git pull"
+    - conda env remove -n openvibe
+    - mamba env update --file conda/env_osx.yaml
+    - conda activate openvibe
+    - rm -rf build
+    - mkdir build
+    - cd build
+    - cmake ..
+    - make -j3
+
+build_mr_linux:
+  stage: build
+  tags:
+    - linux
+  only:
+    - merge_requests
+    - web
+    - master
+    - development
+  script:
+    - if [[ -n $CI_MERGE_REQUEST_ID ]]; then
+        BRANCH_NAME=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME;
+      else
+        BRANCH_NAME=$CI_COMMIT_BRANCH;
+      fi
+    - git submodule foreach "git fetch --prune"
+    - git submodule foreach "git checkout development"
+    - git submodule foreach "git branch -D  $BRANCH_NAME || true"
+    - git submodule foreach "git switch $BRANCH_NAME || true"
+    - git submodule foreach "git pull"
+    - conda env remove -n openvibe
+    - mamba env update --file conda/env_linux.yaml 
+    - conda activate openvibe
+    - rm -rf build
+    - mkdir build
+    - cd build
+    - cmake ..
+    - make -j3
+
+build_mr_windows:
+  stage: build
+  tags:
+    - windows
+  only:
+    - merge_requests
+    - web
+    - master
+    - development
+  script:
+    - . C:\Users\ci\miniconda3\shell\condabin\conda-hook.ps1
+    - $vsPath = &"${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationpath
+    - Import-Module (Get-ChildItem $vsPath -Recurse -File -Filter Microsoft.VisualStudio.DevShell.dll).FullName
+    - Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64'
+    - if ($CI_MERGE_REQUEST_ID) {
+        $BRANCH_NAME=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+      }
+      else {
+        $BRANCH_NAME=$CI_COMMIT_BRANCH
+      }
+    - git submodule foreach "git fetch --prune"
+    - git submodule foreach "git checkout development"
+    - git submodule foreach "git branch -D  $BRANCH_NAME || true"
+    - git submodule foreach "git switch $BRANCH_NAME || true"
+    - git submodule foreach "git pull"
+    - conda env remove -n openvibe
+    - mamba env update --file conda/env_windows.yaml 
+    - conda activate openvibe
+    - (Remove-Item  "build" -ErrorAction Ignore -Recurse)
+    - (Copy-Item -Path "C:\Users\ci\Desktop\dependencies_x64" -Destination "." -Recurse)
+    - mkdir build
+    - cd build
+    - cmake .. -G Ninja
+    - ninja
+
+
+test-extras_macos:
+  stage: test
+  needs: [build_mr_macos]
+  tags:
+    - macos
+  only:
+    - merge_requests
+    - web
+    - master
+    - development
+  variables:
+    GIT_CHECKOUT: "false"
+  script:
+   - conda activate openvibe
+   - cd build/extras;
+   - echo "==== Testing Extras ===="
+   - ctest -T test --rerun-failed --output-on-failure --output-junit test-extras.xml
+  artifacts:
+    when: always
+    reports:
+      junit: build/extras/test-extras.xml
+
+test-extras_linux:
+  stage: test
+  needs: [build_mr_linux]
+  tags:
+    - linux
+  only:
+    - merge_requests
+    - web
+    - master
+    - development
+  variables:
+    GIT_CHECKOUT: "false"
+    DISPLAY: ":0"
+  script:
+    - conda activate openvibe
+    - cd build/extras;
+    - echo "==== Testing Extras ===="
+    - ctest -T test --rerun-failed --output-on-failure --output-junit test-extras.xml
+  artifacts:
+    when: always
+    reports:
+      junit: build/extras/test-extras.xml
+
+test-extras_windows:
+  stage: test
+  needs: [build_mr_windows]
+  tags:
+    - windows
+  only:
+    - merge_requests
+    - web
+    - master
+    - development
+  variables:
+    GIT_CHECKOUT: "false"
+  script:
+    - . C:\Users\ci\miniconda3\shell\condabin\conda-hook.ps1
+    - conda activate openvibe
+    - $env:PYTHONHOME=$env:CONDA_PREFIX
+    - cd build/extras;
+    - echo "==== Testing Extras ===="
+    - ctest -T test --rerun-failed --output-on-failure --output-junit test-extras.xml
+  artifacts:
+    when: always
+    reports:
+      junit: build/extras/test-extras.xml
+      
+test-sdk_macos:
+  stage: test
+  needs: [build_mr_macos]
+  tags:
+    - macos
+  only:
+    - merge_requests
+    - web
+    - master
+    - development
+  variables:
+    GIT_CHECKOUT: "false"
+  script:
+    - conda activate openvibe
+    - echo "==== Testing SDK ===="
+    - cd build/sdk/unit-test;
+    - ctest -T test -E uoTimeTest --rerun-failed --output-on-failure --output-junit test-sdk_unit.xml
+    - cd ../validation-test;
+    - ctest -T test --rerun-failed --output-on-failure --output-junit test-sdk_validation.xml
+  artifacts:
+    when: always
+    reports:
+      junit: build/sdk/**/test-sdk_*.xml
+        
+test-sdk_linux:
+  stage: test
+  needs: [build_mr_linux]
+  tags:
+    - linux
+  only:
+    - merge_requests
+    - web
+    - master
+    - development
+  variables:
+    GIT_CHECKOUT: "false"
+  script:
+    - conda activate openvibe
+    - echo "==== Testing SDK ===="
+    - cd build/sdk/unit-test;
+    - ctest -T test -E uoTimeTest --rerun-failed --output-on-failure --output-junit test-sdk_unit.xml
+    - cd ../validation-test;
+    - ctest -T test --rerun-failed --output-on-failure --output-junit test-sdk_validation.xml
+  artifacts:
+    when: always
+    reports:
+      junit: build/sdk/**/test-sdk_*.xml
+        
+test-sdk_windows:
+  stage: test
+  needs: [build_mr_windows]
+  tags:
+    - windows
+  only:
+    - merge_requests
+    - web
+    - master
+    - development
+  variables:
+    GIT_CHECKOUT: "false"
+  script:
+    - . C:\Users\ci\miniconda3\shell\condabin\conda-hook.ps1
+    - conda activate openvibe
+    - $env:PYTHONHOME=$env:CONDA_PREFIX
+    - echo "==== Testing SDK ===="
+    - cd build/sdk/unit-test;
+    - ctest -T test -E uoTimeTest -C Release --rerun-failed --output-on-failure --output-junit test-sdk_unit.xml
+    - cd ../validation-test;
+    - ctest -T test -C Release --rerun-failed --output-on-failure --output-junit test-sdk_validation.xml
+  artifacts:
+    when: always
+    reports:
+      junit: build/sdk/**/test-sdk_*.xml
+
+conda-build-linux:
+  stage: deploy
+  needs: [build_mr_linux]
+  tags:
+    - linux
+  only:
+    - master
+    - tags
+  variables:
+    GIT_CHECKOUT: "false"
+  script:
+    - conda mambabuild conda/recipe -c openvibe -c conda-forge
+
+conda-build-macos:
+  stage: deploy
+  needs: [build_mr_macos]
+  tags:
+    - macos
+  only:
+    - master
+    - tags
+  variables:
+    GIT_CHECKOUT: "false"
+  script:
+    - conda mambabuild conda/recipe -c openvibe -c conda-forge
+
+conda-build-windows:
+  stage: deploy
+  needs: [build_mr_windows]
+  tags:
+    - windows
+  only:
+    - master
+    - tags
+  variables:
+    GIT_CHECKOUT: "false"
+  script:
+    - . C:\Users\ci\miniconda3\shell\condabin\conda-hook.ps1
+    - conda mambabuild conda/recipe -c openvibe -c conda-forge

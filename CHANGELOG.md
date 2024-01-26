@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.0] 2024-01-25
+
+### Added
+ - Build: conda env for dependency management
+ - Build: OSX support (Intel) except Advanced Visualization
+ - Box: PulseRateCalculator
+ - Box: Asymmetry Index Metabox
+ - CI: gitlab-ci
+
+### Updated
+ - Box: LDA Classifier scale dependant
+ - Box: Classifier trainer randomized k-fold option move from conf to box settings
+ - Dependency: Boost version 1.71 -> 1.77
+ - Dependency: Eigen version 3.3.7 -> 3.3.8
+ - Dependency: Expat version 2.1.0 -> 2.5.0
+ - Dependency: Xerces-C version 3.1.3 -> 3.2.4
+ - Dependency: OGG version 1.2.1 -> 1.3.4
+ - Dependency: Vorbis version 1.3.2 -> 1.3.7
+ - Dependency: Lua version 5.1.4 -> 5.4.6
+
+### Removed
+ - Build: CMake ExternalProjects dependencies (now in conda)
+ - Build: Scripted dependency management
+ - CI: Jenkins CI (now in gitlab)
+
 ## [3.5.0] 2023-04-11
 
 ### Added

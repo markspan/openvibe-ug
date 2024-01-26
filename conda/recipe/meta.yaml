@@ -1,0 +1,117 @@
+package:
+  name: openvibe
+  version: {{ GIT_DESCRIBE_TAG }}
+
+source:
+  path: ../../
+
+build:
+  number: {{ GIT_DESCRIBE_NUMBER }}
+
+requirements:
+  build:
+    - cmake=3.25
+    - pkg-config
+    - python
+    - ninja=1.10.0
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - {{ cdt('xorg-x11-proto-devel') }}  # [linux]
+    - {{ cdt('libglvnd-devel') }}        # [linux]
+    - {{ cdt('mesa-libgl-devel') }}      # [linux]
+    - {{ cdt('mesa-libegl-devel') }}     # [linux]
+    - {{ cdt('mesa-dri-drivers') }}      # [linux]
+    - {{ cdt('libx11-devel') }}          # [linux]
+    - {{ cdt('libXt-devel') }}           # [linux]
+    - {{ cdt('libSM-devel') }}           # [linux]
+    - {{ cdt('libxext-devel') }}         # [linux]
+    - {{ cdt('libuuid-devel') }}         # [linux]
+    - {{ cdt('libICE-devel') }}          # [linux]
+    - {{ cdt('libxcb') }}                # [linux]
+    - {{ cdt('libxrender-devel') }}      # [linux]
+    - {{ cdt('libxau-devel') }}          # [linux]
+    - {{ cdt('libdrm-devel') }}          # [linux]
+    - {{ cdt('libxcomposite-devel') }}   # [linux]
+    - {{ cdt('libxcursor-devel') }}      # [linux]
+    - {{ cdt('libxi-devel') }}           # [linux]
+    - {{ cdt('libxrandr-devel') }}       # [linux]
+    - {{ cdt('pciutils-devel') }}        # [linux]
+    - {{ cdt('libxscrnsaver-devel') }}   # [linux]
+    - {{ cdt('libxtst-devel') }}         # [linux]
+    - {{ cdt('libselinux-devel') }}      # [linux]
+    - {{ cdt('libxdamage') }}            # [linux]
+    - {{ cdt('libxdamage-devel') }}      # [linux]
+    - {{ cdt('libxfixes') }}             # [linux]
+    - {{ cdt('libxfixes-devel') }}       # [linux]
+    - {{ cdt('libxxf86vm') }}            # [linux]
+    - libxkbfile                         # [linux]
+    - xorg-libx11=1.8.6                  # [osx]
+    - llvm-openmp                        # [osx]
+    - doxygen=1.9.2
+
+  host:
+    - numpy {{numpy}}
+    #- qt6-main=6.4.3
+    - boost-cpp=1.77
+    - eigen=3.3.8
+    - gtest=1.10.0
+    - gmock=1.10.0
+    - lua=5.4.6
+    - tinyxml2=9.0.0
+    - expat=2.5.0
+    - xerces-c=3.2.4
+    - gtk2=2.24          # [unix]
+    - gtk-2=2.24         # [win]
+    - python
+    - openal-soft=1.21.1
+    - freealut=1.1.0
+    - libvorbis=1.3.7
+    - libogg=1.3.4
+    - zlib=1.2.13
+    - vrpn=07.31
+    - fftw=3.3.10
+    - itpp=4.3.1
+    - liblsl=1.16
+    - glib=2.76.4
+    - libiconv=1.16      #[win]
+    - sdk-brain-products #[win]
+    - sdk-gtec-unicorn   #[win]
+    - sdk-eemagine-eego  #[win]
+    - sdk-micromed       #[win]
+    - sdk-tmsi           #[win]
+    - vs2013_runtime     #[win]
+
+  run:
+    - {{ pin_compatible('numpy', max_pin='x.x') }}
+    - {{ pin_compatible('qt6-main', max_pin='x.x') }}
+    - {{ pin_compatible('boost-cpp', max_pin='x.x') }}
+    - {{ pin_compatible('eigen', max_pin='x.x') }}
+    - {{ pin_compatible('gtest', max_pin='x.x') }}
+    - {{ pin_compatible('gmock', max_pin='x.x') }}
+    - {{ pin_compatible('lua', max_pin='x.x') }}
+    - {{ pin_compatible('tinyxml2', max_pin='x.x') }}
+    - {{ pin_compatible('expat', max_pin='x.x') }}
+    - {{ pin_compatible('xerces-c', max_pin='x.x') }}
+    - {{ pin_compatible('gtk2', max_pin='x.x') }}
+    - {{ pin_compatible('python', max_pin='x.x') }}
+    - {{ pin_compatible('openal-soft', max_pin='x.x') }}
+    - {{ pin_compatible('freealut', max_pin='x.x') }}
+    - {{ pin_compatible('libvorbis', max_pin='x.x') }}
+    - {{ pin_compatible('libogg', max_pin='x.x') }}
+    - {{ pin_compatible('zlib', max_pin='x.x') }}
+    - {{ pin_compatible('vrpn', max_pin='x.x') }}
+    - {{ pin_compatible('itpp', max_pin='x.x') }}
+    - {{ pin_compatible('liblsl', max_pin='x.x') }}
+    - {{ pin_compatible('fftw', max_pin='x.x') }}
+    - libiconv=1.16      #[windows]
+    - sdk-brain-products #[windows]
+    - sdk-gtec-unicorn   #[windows]
+    - sdk-eemagine-eego  #[windows]
+    - sdk-micromed       #[windows]
+    - sdk-tmsi           #[windows]
+
+about:
+  home: http://openvibe.inria.fr/
+  license: AGPL-3.0
+  license_file: ../../COPYING
+  summary: OpenViBE is a software platform that enables to design, test and use Brain-Computer Interfaces (BCIs).

@@ -19,10 +19,6 @@
 
 get_property(OV_PRINTED GLOBAL PROPERTY OV_TRIED_ThirdPartyEigen)
 
-if(EXISTS ${LIST_DEPENDENCIES_PATH}/eigen)
-    set(Eigen3_ROOT ${LIST_DEPENDENCIES_PATH}/eigen)
-endif()
-
 find_package(Eigen3 3.3.7)
 
 if(TARGET Eigen3::Eigen)

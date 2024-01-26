@@ -1,0 +1,30 @@
+---
+
+- hosts: all
+
+  become: true
+
+  pre_tasks:
+  - name: Update apt cache if needed.
+    shell: apt-get update --allow-releaseinfo-change
+
+  tasks:
+
+    - name: Test whoami
+      remote_user: vagrant
+      shell: whoami; 
+      register: whoami_output
+
+    - debug: 
+        msg: "{{ whoami_output }}"
+
+   
+    - name: Execute the UNAME command
+      shell: uname -a
+      register: uname_output
+
+    - name: Update distribution
+      apt:
+        upgrade: dist
+        update_cache: yes
+    

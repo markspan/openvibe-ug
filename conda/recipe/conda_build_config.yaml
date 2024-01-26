@@ -1,0 +1,20 @@
+python:
+  - 3.10
+numpy:
+  - 1.26
+compiler_version:
+    - 11.2.0               # [linux]
+    - 13.0                 # [osx]
+cxx_compiler_version:
+    - 11.2.0               # [linux]
+    - 13.0                 # [osx]
+cdt_name: cos7             # [linux]
+MACOSX_DEPLOYMENT_TARGET:  # [osx]
+  - '11.0'                # [osx]
+MACOSX_SDK_VERSION:        # [osx and x86_64]
+  - '11.0'                # [osx and x86_64]
+CONDA_BUILD_SYSROOT:                             # [osx]
+  # Modify here if you don't build on the CI machine
+  # For instance: - /Users/trcabel/Desktio/MacOSX-SDKs/MacOSX11.0.sdk # [osx]
+  # Dowload the SDK from https://github.com/phracker/MacOSX-SDKs
+  - /Users/ci/Desktop/MacOSX-SDKs/MacOSX11.0.sdk # [osx]

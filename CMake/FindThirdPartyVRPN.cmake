@@ -17,29 +17,25 @@
 # If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
-get_property(OV_PRINTED GLOBAL PROPERTY OV_TRIED_ThirdPartyVRPN)
+find_library(VRPN_LIBRARY NAMES vrpn vrpnd)
 
-if(EXISTS ${LIST_DEPENDENCIES_PATH}/vrpn)
-    set(VRPN_DIR ${LIST_DEPENDENCIES_PATH}/vrpn)
-endif()
-
-find_library(VRPN_LIBRARY NAMES vrpn vrpnd PATHS ${VRPN_DIR} PATH_SUFFIXES lib)
-find_library(QUAT_LIBRARY NAMES quat quatd PATHS ${VRPN_DIR} PATH_SUFFIXES lib)
+find_library(QUAT_LIBRARY NAMES quat quatd)
+find_path(VRPN_INCLUDE_DIR NAMES vrpn_Connection.h PATH_SUFFIXES vrpn)
 
 if(NOT VRPN_LIBRARY STREQUAL VRPN_LIBRARY-NOTFOUND
-   AND NOT QUAT_LIBRARY STREQUAL QUAT_LIBRARY-NOTFOUND)
+	AND NOT QUAT_LIBRARY STREQUAL QUAT_LIBRARY-NOTFOUND
+	AND NOT VRPN_INCLUDE_DIR STREQUAL VRPN_INCLUDE_DIR-NOTFOUND)
 
-    ov_print(OV_PRINTED "Found VRPN library")
+	ov_print(OV_PRINTED "Found VRPN library")
 
-    # Create target to link against.
-    add_library(vrpn INTERFACE)
-    target_include_directories(vrpn INTERFACE ${VRPN_DIR}/include)
-    target_link_libraries(vrpn INTERFACE ${VRPN_LIBRARY} ${QUAT_LIBRARY})
-
+	# Create target to link against.
+	add_library(vrpn INTERFACE)
+	target_include_directories(vrpn INTERFACE ${VRPN_INCLUDE_DIR})
+	target_link_libraries(vrpn INTERFACE ${VRPN_LIBRARY} ${QUAT_LIBRARY})
 else()
-    # Add empty target to avoid errors in CMakeLists linking against it
-    add_library(vrpn INTERFACE)
-    ov_print(OV_PRINTED "  FAILED to find VRPN")
+	# Add empty target to avoid errors in CMakeLists linking against it
+	add_library(vrpn INTERFACE)
+	ov_print(OV_PRINTED "  FAILED to find VRPN")
 endif()
 
 set_property(GLOBAL PROPERTY OV_TRIED_ThirdPartyVRPN "Yes")
