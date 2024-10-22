@@ -165,7 +165,7 @@ if (WIN32)
 	install(DIRECTORY ${CONDA_PREFIX}/Library/bin/
 			DESTINATION ${DIST_BINDIR} 
 			FILES_MATCHING PATTERN "*.dll"
-      PATTERN ".bit"
+      PATTERN "*.bit"
       PATTERN "intl.dll" EXCLUDE
       PATTERN "intl-8.dll" EXCLUDE
       PATTERN "iconv.dll" EXCLUDE
@@ -175,7 +175,7 @@ if (WIN32)
   file (COPY ${CONDA_PREFIX}/Library/bin/
         DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
         FILES_MATCHING PATTERN "*.dll"
-        PATTERN ".bit"
+        PATTERN "*.bit"
         PATTERN "intl.dll" EXCLUDE
         PATTERN "intl-8.dll" EXCLUDE
         PATTERN "iconv.dll" EXCLUDE
