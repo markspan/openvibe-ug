@@ -1,14 +1,17 @@
-name: openvibe
+name: openvibe-370
 
 channels:
-- conda-forge
 - openvibe
+- conda-forge
+- free
+- defaults
 
 dependencies:
 - cmake=3.25
 - pkg-config
 - vs2019_win-64=19.29.30139
 - vs2013_runtime
+- vs2010_runtime
 - ninja=1.10.0
 - numpy
 #- qt6-main=6.4.3
@@ -32,7 +35,7 @@ dependencies:
 - fftw=3.3.10
 - itpp=4.3.1
 - libiconv=1.16
-- openvibe::gtk-2
+- gtk-2
 - sdk-brain-products
 - sdk-gtec-unicorn
 - sdk-eemagine-eego
