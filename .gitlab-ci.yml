@@ -85,6 +85,7 @@ build_mr_windows:
     - git submodule foreach "git switch $BRANCH_NAME || true"
     - git submodule foreach "git pull"
     - conda env remove -n openvibe
+    - (Remove-Item  "C:\Users\ci\miniconda3\envs\openvibe" -ErrorAction Ignore -Recurse)
     - mamba env update --file conda/env_windows.yaml 
     - conda activate openvibe
     - (Remove-Item  "build" -ErrorAction Ignore -Recurse)

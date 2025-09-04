@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.0] 2025-08-12
+
+### Added
+ - Box: EDF File Reader
+ - Box: Riemanian Potato
+ - Box: Enthropy measure
+
+### Updated
+ - Box: EDF File Writer
+ - CMake: remove old policies
+
+### Fixed
+ - Driver: ANT Neuro EEGO device configuration
+ - Box: Regularized CSP Trainer output format
+ - Box: Missing stim codes for Python & Lua scripting boxes
+ - Box: P300 Magic card speller display
+ - Build: Windows missing DLLs at build time
+ - CI: env cleanup
+ - CMake: install wildcards (windows)
+
 ## [3.6.0] 2024-01-25
 
 ### Added
