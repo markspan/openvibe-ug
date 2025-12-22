@@ -9,12 +9,25 @@
   script:
 #    - pip install scan-build
     - source .gitlab/build.sh | tee ${LOGNAME}.log
+  after_script:
+    - |
+      if [ -d "$BUILD_FOLDER" ]; then
+        find "$BUILD_FOLDER" \
+          -maxdepth 1 \
+          -mindepth 1 \
+          -type d \
+          ! -name "analyzer_reports" \
+          -print \
+          -exec rm -rf {} +
+      else
+        echo "Target directory $BUILD_FOLDER does not exist"
+      fi
   artifacts:
     paths:
-      - build/compile_commands.json
-      - build/analyzer_reports
-      - build/build.log
-    expire_in: 1 week
+      - $BUILD_FOLDER/compile_commands.json
+      - $BUILD_FOLDER/analyzer_reports
+      - $BUILD_FOLDER/build.log
+    expire_in: 24h
     when: always
 
 build_openvibe_linux:
@@ -32,13 +45,26 @@ build_openvibe_linux:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
   script:
     - source .gitlab/build.sh | tee ${LOGNAME}.log
+  after_script:
+    - |
+      if [ -d "$BUILD_FOLDER" ]; then
+        find "$BUILD_FOLDER" \
+          -maxdepth 1 \
+          -mindepth 1 \
+          -type d \
+          ! -name "analyzer_reports" \
+          -print \
+          -exec rm -rf {} +
+      else
+        echo "Target directory $BUILD_FOLDER does not exist"
+      fi
   artifacts:
-    expire_in: 1 week
+    expire_in: 24h
     when: always
     paths:
-      - build/compile_commands.json
-      - build/build.log
-      - build/analyzer_reports
+      - $BUILD_FOLDER/compile_commands.json
+      - $BUILD_FOLDER/build.log
+      - $BUILD_FOLDER/analyzer_reports
   cache:
     key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
     untracked: true
@@ -75,16 +101,34 @@ build_openvibe_macosx:
     # Update
     #    - mamba env update --file conda/env_windows.yaml
     - conda activate openvibe
-    - (Remove-Item  "build" -ErrorAction Ignore -Recurse)
-    - mkdir build
-    - cd build
+    - (Remove-Item  "$BUILD_FOLDER" -ErrorAction Ignore -Recurse)
+    - mkdir $BUILD_FOLDER
+    - cd $BUILD_FOLDER
     - $env:Qt6_DIR = "C:\Qt\6.6.3\msvc2019_64\lib\cmake\"
     - cmake .. -G Ninja #                            OpenVibe
     - ninja -j1
+  after_script:
+    - powershell -NoProfile -Command @'
+        $TargetDir = $env:$BUILD_FOLDER
+
+        Write-Host "After-script cleanup (keeping analyzer_reports)"
+
+        if (Test-Path $TargetDir) {
+          Get-ChildItem $TargetDir -Directory |
+            Where-Object { $_.Name -ne "analyzer_reports" } |
+            ForEach-Object {
+              Write-Host "Removing" $_.FullName
+              Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $_.FullName
+            }
+        }
+        else {
+          Write-Host "Target directory $BUILD_FOLDER does not exist"
+        }
+      '@
   artifacts:
     paths:
-      - build/compile_commands.json
-    expire_in: 1 week
+      - $BUILD_FOLDER/compile_commands.json
+    expire_in: 24h
   cache:
     key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
     untracked: true

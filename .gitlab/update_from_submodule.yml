@@ -3,7 +3,7 @@
 #
 ---
 .update_repo: &update_repo_script
-  stage: .pre
+  stage: git_update
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
   variables:
@@ -11,6 +11,7 @@
     MAIN_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
    #    before: 151-deploy-sonarqube" # set to "" reset
     TEST_BRANCH: ""
+  needs: ['cleanup_linux']
   script:
       # 151-deploy-sonarqube is for testing purpose only, should be qt6 !
     - if [[ -n $CI_MERGE_REQUEST_ID ]]; then
@@ -58,7 +59,7 @@ update_repo_macosx:
 
 
 update_repo_windows:
-  stage: .pre
+  stage: git_update
   variables:
     GIT_STRATEGY: fetch
     MAIN_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
@@ -67,6 +68,7 @@ update_repo_windows:
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
   tags: ['windows']
+  needs: ['cleanup_windows']
   script:
     - if ($CI_MERGE_REQUEST_ID) {
         $BRANCH_NAME=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME 
