@@ -13,3 +13,6 @@ variables:
   BUILD_QT6_BRANCH: "false"
 
   GIT_STRATEGY: none
+  GIT_DEPTH: "1"
+  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_DEPTH: "1"

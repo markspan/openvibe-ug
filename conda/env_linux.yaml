@@ -63,6 +63,7 @@ dependencies:
 - libxt-devel-cos7-x86_64
 - libsm-devel-cos7-x86_64
 
+
 # For code quality
 - gcovr
 - cppcheck

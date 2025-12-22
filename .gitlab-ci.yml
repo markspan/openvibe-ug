@@ -1,9 +1,20 @@
 ---
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+    - when: never
+
+variables:
+  BUILD_FOLDER: $CI_PROJECT_DIR/build-$CI_MERGE_REQUEST_ID
+
 stages:
-  - .pre
+  - cleanup
+  - git_update
   - build
-  - test
   - analyze
+  - test
 
 include:
   - .gitlab/common.yml
@@ -11,3 +22,49 @@ include:
   - .gitlab/build.yml
   - .gitlab/test.yml
   - .gitlab/analyse.yml
+
+# Global cleanup at start
+cleanup_linux:
+  stage: cleanup
+  tags:
+    - linux
+  script:
+    - |
+      echo "Cleaning all build-* folder which have more than 6h"
+
+      if find "$CI_PROJECT_DIR" -maxdepth 1 -type d -name "build-*" -mmin +360 | grep -q .; then
+        find "$CI_PROJECT_DIR" \
+          -maxdepth 1 \
+          -type d \
+          -name "build-*" \
+          -mmin +360 \
+          -print \
+          -exec rm -rf {} \;
+      else
+        echo "No old build-* folders to clean"
+      fi
+  rules:
+    - when: always
+
+cleanup_windows:
+  stage: cleanup
+  tags:
+    - windows
+  rules:
+    - when: always
+  script:
+    - |
+        powershell -NoProfile -Command "
+          `$limit = (Get-Date).AddHours(-6)
+          `$root  = `$env:CI_PROJECT_DIR
+
+          Write-Host 'Cleaning all build-* folders older than 6h in' `$root
+          Write-Host 'Time limit:' `$limit
+
+          Get-ChildItem `$root -Directory -Filter 'build-*' |
+            Where-Object { `$_.LastWriteTime -lt `$limit } |
+            ForEach-Object {
+              Write-Host 'Removing' `$_.FullName '(last write:' `$_.LastWriteTime ')'
+              Remove-Item -Recurse -Force -ErrorAction SilentlyContinue `$_.FullName
+            }
+        "

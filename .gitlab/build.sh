@@ -12,57 +12,35 @@
 #
 ###
 set -e
-set -x
 
 
 # specific compilation flags on linux for linters
 if [[ "$SYSTEM" == "linux" ]]; then
-    FLAGS="-O0 -g -Wall -fPIC -fno-inline --coverage"
-#    SCAN_BUILD="scan-build  -v -plist --intercept-first --analyze-headers -o analyzer_reports "
-    SCAN_BUILD="scan-build  -v -plist -analyze-headers -o analyzer_reports "
+    CI_FLAGS="-O0 -g -Wall -fPIC -fno-inline --coverage"
+    SCAN_BUILD="scan-build --status-bugs -plist -analyze-headers -o analyzer_reports "
 fi
 
-case $SYSTEM in
-
-  linux)
-    conda remove -n openvibe --all
-    conda env update --file conda/env_linux.yaml --prune
-    ;;
-
-  macosx)
-    conda remove -n openvibe --all
-    conda env update --file conda/env_osx.yaml --prune
-   ;;
-
-  *)
+if [[ "$SYSTEM" == "linux" ]]; then
+    conda env update --name openvibe --file conda/env_linux.yaml --prune
+elif [[ "$SYSTEM" == "macosx" ]]; then
+    conda env update --name openvibe --file conda/env_osx.yaml --prune
+else
     echo "The SYSTEM environment variable is $SYSTEM. It is not one of: linux, macosx, windows -> exit 1."
     exit 1
-    ;;
-esac
+fi
 
 conda activate openvibe
-rm -rf build
-mkdir build
-cd build
+rm -rf $BUILD_FOLDER
+mkdir $BUILD_FOLDER
+cd $BUILD_FOLDER
 
 # Configure with CMake
-case $SYSTEM in
-
-  linux)
-    # configure the cmake project
-    cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
-    ;;
-
-  macosx)
-   # clang is used on macosx and it is not compatible with MORSE_ENABLE_COVERAGE=ON
-    cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
-   ;;
-
-  *)
-    echo "The SYSTEM environment variable is $SYSTEM. It is not one of: linux, macosx, windows -> exit 1."
-    exit 1
-    ;;
-esac
+cmake .. \
+  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+  -DCMAKE_BUILD_TYPE=Debug \
+  -DCMAKE_C_FLAGS_DEBUG="$CI_FLAGS" \
+  -DCMAKE_CXX_FLAGS_DEBUG="$CI_FLAGS" \
+  -Wno-dev
 
 # Compile openvibe
 # $TEST_PIPELINE_ONLY defined in common.yml
@@ -77,7 +55,7 @@ if [[ "$BUILD_QT6_BRANCH" == "true" ]]; then
     TARGET=""
 fi
 
-${SCAN_BUILD}make -j3 ${TARGET} 2>&1 | tee build.log
+${SCAN_BUILD}make -j2 ${TARGET} 2>&1 | tee build.log
 # sed '/^scan-build/d' build.log > test; mv test build.log 
 
 # Install

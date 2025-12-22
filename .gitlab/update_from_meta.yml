@@ -3,11 +3,12 @@
 #
 ---
 .update_repo: &update_repo_script
-  stage: .pre
+  stage: git_update
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
   variables:
     GIT_STRATEGY: fetch
+  needs: ['cleanup_linux']
   script:
     - git submodule update --init --recursive
     - echo "== Update repository =="
@@ -22,8 +23,8 @@
       fi
     - git reset --hard
     - git submodule foreach "git fetch --prune"
-    - git switch $BRANCH_NAME
-    - git pull
+    - git fetch origin $BRANCH_NAME --depth=1
+    - git checkout -B $BRANCH_NAME origin/$BRANCH_NAME
     - git submodule foreach "git checkout qt6"       # Using default branch for basis 
 
     - if [[ $BUILD_QT6_BRANCH == "true" ]]; then
@@ -36,8 +37,9 @@
     - git submodule foreach "git pull || true";
     - echo "======================="
     - git log --oneline -n 2;
-    - git submodule foreach "git log --oneline -n 2";
+    - git submodule foreach "git log --oneline -n 2 || true";
     - echo "======================="
+
 update_repo_linux:
   tags: ['linux']
   <<: *update_repo_script
@@ -48,12 +50,13 @@ update_repo_macosx:
 
 
 update_repo_windows:
-  stage: .pre
+  stage: git_update
   variables:
     GIT_STRATEGY: fetch
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
   tags: ['windows']
+  needs: ['cleanup_windows']
   script:
     - if ($CI_MERGE_REQUEST_ID) {
         $BRANCH_NAME=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME 
