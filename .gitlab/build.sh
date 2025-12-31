@@ -13,6 +13,8 @@
 ###
 set -e
 
+SCAN_BUILD=""
+CI_FLAGS=""
 
 # specific compilation flags on linux for linters
 if [[ "$SYSTEM" == "linux" ]]; then
@@ -29,6 +31,7 @@ else
     exit 1
 fi
 
+source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate openvibe
 rm -rf $BUILD_FOLDER
 mkdir $BUILD_FOLDER
@@ -44,15 +47,11 @@ cmake .. \
 
 # Compile openvibe
 # $TEST_PIPELINE_ONLY defined in common.yml
-# $BUILD_QT6_BRANCH defined in common.yml
 
 TARGET=""
 
 if [[ "$TEST_PIPELINE_ONLY" == "true" ]]; then
     TARGET=" openvibe"
-fi
-if [[ "$BUILD_QT6_BRANCH" == "true" ]]; then
-    TARGET=""
 fi
 
 ${SCAN_BUILD}make -j2 ${TARGET} 2>&1 | tee build.log
