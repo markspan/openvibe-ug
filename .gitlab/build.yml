@@ -6,8 +6,11 @@
   needs: ['update_repo_linux']
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
+      when: always
+    - if: ($CI_PIPELINE_SOURCE == "push")
+      when: always
   script:
-#    - pip install scan-build
+    - set -o pipefail
     - source .gitlab/build.sh | tee ${LOGNAME}.log
   after_script:
     - |
@@ -29,6 +32,10 @@
       - $BUILD_FOLDER/build.log
     expire_in: 24h
     when: always
+  cache:
+    key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
+    untracked: true
+    policy: push
 
 build_openvibe_linux:
   <<: *build_script_linux
@@ -43,6 +50,7 @@ build_openvibe_linux:
   needs: [update_repo_macosx]
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
+    - if: $CI_PIPELINE_SOURCE == "push"
   script:
     - source .gitlab/build.sh | tee ${LOGNAME}.log
   after_script:
@@ -65,10 +73,6 @@ build_openvibe_linux:
       - $BUILD_FOLDER/compile_commands.json
       - $BUILD_FOLDER/build.log
       - $BUILD_FOLDER/analyzer_reports
-  cache:
-    key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
-    untracked: true
-    policy: push
 
 build_openvibe_macosx:
   <<: *build_script_macosx
@@ -83,6 +87,7 @@ build_openvibe_macosx:
   needs: [update_repo_windows]
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
+    - if: $CI_PIPELINE_SOURCE == "push"
   script:
     - . C:\Users\ci\miniconda3\shell\condabin\conda-hook.ps1
     - $vsPath = &"${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationpath
@@ -109,7 +114,7 @@ build_openvibe_macosx:
     - ninja -j1
   after_script:
     - powershell -NoProfile -Command @'
-        $TargetDir = $env:$BUILD_FOLDER
+        $TargetDir = $env:BUILD_FOLDER
 
         Write-Host "After-script cleanup (keeping analyzer_reports)"
 
@@ -129,6 +134,7 @@ build_openvibe_macosx:
     paths:
       - $BUILD_FOLDER/compile_commands.json
     expire_in: 24h
+    when: always
   cache:
     key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
     untracked: true

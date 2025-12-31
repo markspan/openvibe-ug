@@ -9,10 +9,6 @@ variables:
 # to have a all openvibe, set to "false"
   TEST_PIPELINE_ONLY: "false"
 
-# true: Will force a new qt6 branch to be built and sent to sonarqube analysis for comparison
-  BUILD_QT6_BRANCH: "false"
-
   GIT_STRATEGY: none
   GIT_DEPTH: "1"
-  GIT_SUBMODULE_STRATEGY: recursive
   GIT_SUBMODULE_DEPTH: "1"

@@ -1,53 +1,77 @@
 #
-# This file list the preliminary checks done before trying to compile
+# This file lists the preliminary checks done before trying to compile
 #
 ---
 .update_repo: &update_repo_script
   stage: git_update
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
+      when: always
+    - if: ($CI_PIPELINE_SOURCE == "push")
+      when: always
+    - when: never
   variables:
     GIT_STRATEGY: fetch
-  needs: ['cleanup_linux']
   script:
-    - git submodule update --init --recursive
-    - echo "== Update repository =="
-    - git submodule foreach "git status"
-    - echo "Host IP"; hostname | awk '{print $1}'
-    - if [[ -n $CI_MERGE_REQUEST_ID ]]; then
-        BRANCH_NAME=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME;
-        echo "MR on $BRANCH_NAME";
-      else
-        BRANCH_NAME=$CI_COMMIT_BRANCH;
-        echo "Commit on $BRANCH_NAME";
-      fi
-    - git reset --hard
-    - git submodule foreach "git fetch --prune"
-    - git fetch origin $BRANCH_NAME --depth=1
-    - git checkout -B $BRANCH_NAME origin/$BRANCH_NAME
-    - git submodule foreach "git checkout qt6"       # Using default branch for basis 
+    - |
+        set -e
 
-    - if [[ $BUILD_QT6_BRANCH == "true" ]]; then
-         echo " ===== Update on qt6 =====";
-         git switch qt6 ;git submodule foreach "git switch qt6 || true";
-         git checkout $BRANCH_NAME -- .gitlab tools .gitlab-ci.yml conda;
-      else
-        echo " ===== Update on $BRANCH_NAME ======";git submodule foreach "git switch $BRANCH_NAME || true";
-      fi
-    - git submodule foreach "git pull || true";
-    - echo "======================="
-    - git log --oneline -n 2;
-    - git submodule foreach "git log --oneline -n 2 || true";
-    - echo "======================="
+        git submodule update --init --recursive
+
+        echo "== Update repository =="
+        git submodule foreach "git status"
+        echo "Host IP"; hostname | awk '{print $1}'
+
+        if [[ -n "$CI_MERGE_REQUEST_ID" ]]; then
+          BRANCH_NAME="$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+          echo "MR on $BRANCH_NAME"
+          echo "Target branch name: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME=="
+        else
+          BRANCH_NAME="$CI_COMMIT_BRANCH"
+          echo "Commit on $BRANCH_NAME"
+          echo "Target branch name: $PULL_REQUEST_BRANCH_NAME"
+        fi
+
+        git reset --hard
+        git fetch origin "$BRANCH_NAME" --depth=1 || true
+        git checkout -B "$BRANCH_NAME" "origin/$BRANCH_NAME" || true
+
+        echo "== Updating submodules =="
+        echo "== Target branch name: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME=="
+
+        git submodule foreach '
+         set -e
+         git fetch origin --prune
+
+         if git show-ref --quiet refs/remotes/origin/'"$BRANCH_NAME"'; then
+           echo "→ Using branch '"$BRANCH_NAME"' in $(pwd)"
+          git checkout -B '"$BRANCH_NAME"' origin/'"$BRANCH_NAME"'
+
+         elif [ -n "'"$PULL_REQUEST_BRANCH_NAME"'" ] && \
+              git show-ref --quiet refs/remotes/origin/'"$PULL_REQUEST_BRANCH_NAME"'; then
+           echo "→ Fallback to '"$PULL_REQUEST_BRANCH_NAME"' in $(pwd)"
+           git checkout -B '"$PULL_REQUEST_BRANCH_NAME"' origin/'"$PULL_REQUEST_BRANCH_NAME"'
+
+         else
+           echo "→ No matching branch in $(pwd), switch to $CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+           git checkout -B '"$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"' origin/'"$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"'
+         fi
+        '
+
+        echo "======================="
+        git branch
+        git submodule foreach "git branch || true"
+        echo "======================="
 
 update_repo_linux:
   tags: ['linux']
   <<: *update_repo_script
+  needs: ['cleanup_linux']
 
 update_repo_macosx:
   tags: ['macos']
   <<: *update_repo_script
-
+  needs: ['cleanup_mac']
 
 update_repo_windows:
   stage: git_update
@@ -55,24 +79,62 @@ update_repo_windows:
     GIT_STRATEGY: fetch
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
+      when: always
+    - if: ($CI_PIPELINE_SOURCE == "push")
+      when: always
+    - when: never
   tags: ['windows']
   needs: ['cleanup_windows']
   script:
-    - if ($CI_MERGE_REQUEST_ID) {
-        $BRANCH_NAME=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME 
-      }
-      else {
-        $BRANCH_NAME=$CI_COMMIT_BRANCH
-      }
-    - git submodule foreach "git fetch --prune"
-    - git submodule foreach "git checkout qt6"
-    - git submodule foreach "git branch -D  $BRANCH_NAME || true"
-    - git submodule foreach "git switch $BRANCH_NAME || true"
-    - git submodule foreach "git pull"
-    
-    - echo "======================="
-    - git log --oneline -n 2;
-    - git submodule foreach "git log --oneline -n 2";
-    - echo "======================="
+    - |
+        powershell -NoProfile -Command {
 
-        
+          if ($env:CI_MERGE_REQUEST_ID) {
+            $BRANCH_NAME = $env:CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+            Write-Host "MR on $BRANCH_NAME"
+          } else {
+            $BRANCH_NAME = $env:CI_COMMIT_BRANCH
+            Write-Host "Commit on $BRANCH_NAME"
+          }
+
+          git submodule update --init --recursive
+          git fetch origin $BRANCH_NAME
+          git checkout -B $BRANCH_NAME origin/$BRANCH_NAME
+
+          $submodules = git config --file .gitmodules --get-regexp path |
+                        ForEach-Object { $_.Split(' ')[1] }
+
+          foreach ($sub in $submodules) {
+            Write-Host "→ Processing submodule $sub"
+            Push-Location $sub
+
+            git fetch origin --prune
+
+            if (git show-ref --quiet "refs/remotes/origin/$BRANCH_NAME") {
+              Write-Host "  Using branch $BRANCH_NAME"
+              git checkout -B $BRANCH_NAME origin/$BRANCH_NAME
+
+            } elseif ($env:PULL_REQUEST_BRANCH -and
+                      (git show-ref --quiet "refs/remotes/origin/$env:PULL_REQUEST_BRANCH")) {
+              Write-Host "  Fallback to $env:PULL_REQUEST_BRANCH"
+              git checkout -B $env:PULL_REQUEST_BRANCH origin/$env:PULL_REQUEST_BRANCH
+
+            } else {
+              Write-Host "  No matching branch, switch to $CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+              git checkout -B $env:CI_MERGE_REQUEST_TARGET_BRANCH_NAME origin/$env:CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+            }
+
+            Pop-Location
+          }
+
+          Write-Host "======================="
+          git branch
+
+          foreach ($sub in $submodules) {
+            Push-Location $sub
+            git branch
+            Pop-Location
+          }
+
+          Write-Host "======================="
+        }

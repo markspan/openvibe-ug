@@ -7,6 +7,7 @@
 
 set -e
 
+source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate openvibe
 
 PROJECT="$CI_PROJECT_NAME"
@@ -38,7 +39,6 @@ PROJECT="$CI_PROJECT_NAME"
 #######################################
 cat > sonar-project.properties << EOF
 sonar.host.url=https://sonarqube.inria.fr/sonarqube
-sonar.token=$SONAR_TOKEN
 sonar.verbose=true
 sonar.qualitygate.wait=true
 
@@ -49,8 +49,8 @@ sonar.projectVersion=0.1
 sonar.projectDescription=OpenViBE – software for real-time neurosciences
 
 # Pull request integration
-sonar.pullrequest.key=$CI_MERGE_REQUEST_IID
-sonar.pullrequest.branch=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+# sonar.pullrequest.key=$CI_MERGE_REQUEST_IID
+# sonar.pullrequest.branch=$PULL_REQUEST_BRANCH_NAME
 
 # Links
 sonar.links.homepage=$CI_PROJECT_URL
@@ -125,8 +125,8 @@ sonar.cfamily.compile-commands=$BUILD_FOLDER/compile_commands.json
 sonar.cfamily.includeDirectories=\
 /builds/miniconda3/envs/openvibe/include,\
 /builds/miniconda3/envs/openvibe/include/qt,\
-/builds/builds/builds/QipiQL1uR/0/openvibe/meta/sdk/common/include, \
-/builds/builds/builds/QipiQL1uR/0/openvibe/meta/sdk/openvibe/include,\
+$BUILD_FOLDER/../sdk/common/include, \
+$BUILD_FOLDER/../sdk/openvibe/include,\
 /builds/miniconda3/envs/openvibe/include/qt6/QtQml/6.8.3/QtQml, \
 /builds/miniconda3/envs/openvibe/include/qt6/QtCore/6.8.3/QtCore
 EOF
@@ -140,4 +140,4 @@ echo "========================================"
 # 3. Run SonarQube Scanner
 #######################################
 
-/builds/sonar-scanner-cli/bin/sonar-scanner -Dsonar.projectBaseDir=$BUILD_FOLDER/.. -Dproject.settings=$BUILD_FOLDER/../sonar-project.properties  > >(tee /dev/tty) 2> sonar.log
+/builds/sonar-scanner-cli/bin/sonar-scanner -Dsonar.login="$SONAR_TOKEN" -Dsonar.projectBaseDir=$BUILD_FOLDER/.. -Dproject.settings=$BUILD_FOLDER/../sonar-project.properties  > >(tee /dev/tty) 2> sonar.log
