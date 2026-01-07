@@ -4,11 +4,11 @@
 #
 ---
 stages:
+  - cleanup
   - git_update
   - build
   - test
   - analyze
-  - cleanup
 
 include:
   - .gitlab/common.yml
