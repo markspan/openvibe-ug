@@ -9,7 +9,7 @@ sonarqube:
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
       when: always
-    - if: ($CI_PIPELINE_SOURCE == "push")
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_ID == ""'
       when: always
   script:
     - source ${CI_PROJECT_DIR}/.gitlab/analysis.sh
