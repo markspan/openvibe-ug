@@ -16,3 +16,4 @@ include:
   - .gitlab/build.yml
   - .gitlab/test.yml
   - .gitlab/analyse.yml
+  - .gitlab/cleanup.yml

@@ -9,6 +9,7 @@
       when: always
     - if: ($CI_PIPELINE_SOURCE == "push")
       when: always
+    - when: never
   variables:
     GIT_STRATEGY: fetch
     MAIN_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
