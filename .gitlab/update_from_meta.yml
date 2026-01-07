@@ -7,7 +7,7 @@
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
       when: always
-    - if: ($CI_PIPELINE_SOURCE == "push")
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_ID == ""'
       when: always
     - when: never
   variables:
@@ -80,7 +80,7 @@ update_repo_windows:
   rules:
     - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
       when: always
-    - if: ($CI_PIPELINE_SOURCE == "push")
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_ID == ""'
       when: always
     - when: never
   tags: ['windows']
@@ -114,10 +114,10 @@ update_repo_windows:
               Write-Host "  Using branch $BRANCH_NAME"
               git checkout -B $BRANCH_NAME origin/$BRANCH_NAME
 
-            } elseif ($env:PULL_REQUEST_BRANCH -and
-                      (git show-ref --quiet "refs/remotes/origin/$env:PULL_REQUEST_BRANCH")) {
-              Write-Host "  Fallback to $env:PULL_REQUEST_BRANCH"
-              git checkout -B $env:PULL_REQUEST_BRANCH origin/$env:PULL_REQUEST_BRANCH
+            } elseif ($env:PULL_REQUEST_BRANCH_NAME -and
+                      (git show-ref --quiet "refs/remotes/origin/$env:PULL_REQUEST_BRANCH_NAME")) {
+              Write-Host "  Fallback to $env:PULL_REQUEST_BRANCH_NAME"
+              git checkout -B $env:PULL_REQUEST_BRANCH_NAME origin/$env:PULL_REQUEST_BRANCH_NAME
 
             } else {
               Write-Host "  No matching branch, switch to $CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
