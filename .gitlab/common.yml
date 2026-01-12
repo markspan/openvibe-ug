@@ -3,7 +3,7 @@
 #
 ---
 variables:
-  GIT_SUBMODULE_STRATEGY: recursive
+  PULL_REQUEST_BRANCH_NAME: ""
 
 # to have a small subset of openvibe. Fastest way to test, set to "true"
 # to have a all openvibe, set to "false"
@@ -12,3 +12,21 @@ variables:
   GIT_STRATEGY: none
   GIT_DEPTH: "1"
   GIT_SUBMODULE_DEPTH: "1"
+
+workflow:
+  rules:
+    # Pipeline MR
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      variables:
+        PULL_REQUEST_BRANCH_NAME: "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_MERGE_REQUEST_ID"
+      when: always
+
+    # Pipeline after merge
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_ID == ""'
+      variables:
+        PULL_REQUEST_BRANCH_NAME: "$CI_COMMIT_BRANCH"
+        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_COMMIT_SHA"
+      when: always
+
+    - when: never
