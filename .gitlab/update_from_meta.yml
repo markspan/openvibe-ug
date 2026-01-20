@@ -4,12 +4,6 @@
 ---
 .update_repo: &update_repo_script
   stage: git_update
-  rules:
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
-      when: always
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_ID == ""'
-      when: always
-    - when: never
   variables:
     GIT_STRATEGY: fetch
   script:
@@ -77,12 +71,6 @@ update_repo_windows:
   stage: git_update
   variables:
     GIT_STRATEGY: fetch
-  rules:
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
-      when: always
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_ID == ""'
-      when: always
-    - when: never
   tags: ['windows']
   needs: ['cleanup_windows']
   script:
