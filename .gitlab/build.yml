@@ -4,11 +4,6 @@
   stage: build
   tags: ['linux']
   needs: ['update_repo_linux']
-  rules:
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
-      when: always
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_ID == ""'
-      when: always
   script:
     - set -o pipefail
     - source .gitlab/build.sh | tee ${LOGNAME}.log
@@ -48,11 +43,6 @@ build_openvibe_linux:
   stage: build
   tags: ['macos','sonoma']
   needs: [update_repo_macosx]
-  rules:
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
-      when: always
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_ID == ""'
-      when: always
   script:
     - source .gitlab/build.sh | tee ${LOGNAME}.log
   after_script:
@@ -87,11 +77,6 @@ build_openvibe_macosx:
   stage: build
   tags: ['windows']
   needs: [update_repo_windows]
-  rules:
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
-      when: always
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_ID == ""'
-      when: always
   script:
     - . C:\Users\ci\miniconda3\shell\condabin\conda-hook.ps1
     - $vsPath = &"${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationpath
