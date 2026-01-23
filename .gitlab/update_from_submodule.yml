@@ -2,6 +2,29 @@
 # This file list the preliminary checks done before trying to compile
 #
 ---
+
+stages:
+  - cleanup
+  - git_update
+  - build
+  - analyze
+  - test
+  - trigger
+
+
+trigger_qt6:
+  stage: trigger
+  tags: ['linux']
+  script:
+    - echo "Triggering meta/qt6 pipeline..."
+    - curl --request POST --form token=$PIPELINE_TRIGGER_TOKEN --form ref=qt6 "${CI_API_V4_URL}/projects/openvibe%2Fmeta/trigger/pipeline"
+
+    # only on "merged" event
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+      when: always
+    - when: never
+
 .update_repo: &update_repo_script
   stage: git_update
   variables:
@@ -9,6 +32,10 @@
     MAIN_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
    #    before: 151-deploy-sonarqube" # set to "" reset
     TEST_BRANCH: ""
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - when: never
   script:
       # 151-deploy-sonarqube is for testing purpose only, should be qt6 !
     - if [[ -n $CI_MERGE_REQUEST_ID ]]; then
@@ -66,6 +93,10 @@ update_repo_windows:
     TEST_BRANCH: ""
   tags: ['windows']
   needs: ['cleanup_windows']
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - when: never
   script:
     - if ($CI_MERGE_REQUEST_ID) {
         $BRANCH_NAME=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME 

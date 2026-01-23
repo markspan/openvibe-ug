@@ -34,19 +34,50 @@ cleanup_windows:
     - windows
   rules:
     - when: always
+  variables:
+    BUILD_ROOT: "E:/Gitlab-Runner/builds/$CI_PROJECT_NAME"
+    BUILD_FOLDER: "$BUILD_ROOT/build-$CI_PIPELINE_ID"
   script:
     - |
         powershell -NoProfile -Command "
-          `$limit = (Get-Date).AddHours(-6)
-          `$root  = `$env:CI_PROJECT_DIR
+          `$build_folder  = `$env:BUILD_FOLDER
+          `$build_root  = `$env:BUILD_ROOT
 
-          Write-Host 'Cleaning all build-* folders older than 6h in' `$root
-          Write-Host 'Time limit:' `$limit
+          if (!(Test-Path -Path `$build_root)) {
+              New-Item -ItemType Directory -Path `$build_root -Force | Out-Null;
+              Write-Host 'Created build folder:' `$build_root
+          }
 
-          Get-ChildItem `$root -Directory -Filter 'build-*' |
-            Where-Object { `$_.LastWriteTime -lt `$limit } |
-            ForEach-Object {
-              Write-Host 'Removing' `$_.FullName '(last write:' `$_.LastWriteTime ')'
-              Remove-Item -Recurse -Force -ErrorAction SilentlyContinue `$_.FullName
+          if (!(Test-Path -Path `$build_folder)) {
+              New-Item -ItemType Directory -Path `$build_folder -Force | Out-Null;
+              Write-Host 'Created build folder:' `$build_folder
+          } else {
+            Write-Host 'Build folder already exists:' `$build_folder
+          }
+
+          Write-Host '--- Disk space before cleanup ---'
+          Get-PSDrive -PSProvider FileSystem | ForEach-Object { 
+            Write-Host `$_.Name ': Free' ([math]::Round(`$_.Free/1GB,2)) 'GB'
+          }
+
+          Write-Host '--- Listing build-* folders ---'
+          Get-ChildItem `$build_root -Directory -Filter 'build-*' |
+            Sort-Object LastWriteTime |
+            ForEach-Object { 
+              Write-Host 'FOUND:' `$_.FullName 'LastWrite:' `$_.LastWriteTime 
             }
+
+          Write-Host '--- Removing old build-* folders (>6h) ---'
+          `$limit = (Get-Date).AddHours(-6)
+          Get-ChildItem `$build_root -Directory -Filter 'build-*' |
+            Where-Object { `$_.LastWriteTime -lt `$limit } |
+            ForEach-Object { 
+              Write-Host 'REMOVING:' `$_.FullName '(LastWrite:' `$_.LastWriteTime ')'
+              Remove-Item -Recurse -Force `$_.FullName
+            }
+
+          Write-Host '--- Disk space after cleanup ---'
+          Get-PSDrive -PSProvider FileSystem | ForEach-Object { 
+            Write-Host `$_.Name ': Free' ([math]::Round(`$_.Free/1GB,2)) 'GB'
+          }
         "
