@@ -8,7 +8,9 @@ test-extras_macos:
   tags:
     - macos
   rules:
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - when: never
   script:
    - conda activate openvibe
    - cd $BUILD_FOLDER/extras;
@@ -26,7 +28,9 @@ test-extras_linux:
   tags:
     - linux
   rules:
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - when: never
   variables:
     GIT_STRATEGY: none
     DISPLAY: ":0"
@@ -49,7 +53,9 @@ test-extras_windows:
   tags:
     - windows
   rules:
-    - if: ($CI_PIPELINE_SOURCE == "merge_request_event")
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - when: never
   script:
     - . C:\Users\ci\miniconda3\shell\condabin\conda-hook.ps1
     - conda activate openvibe
@@ -68,11 +74,10 @@ test-sdk_macosx:
   needs: [build_openvibe_macosx]
   tags:
     - macos
-  only:
-    - merge_requests
-    - web
-    - master
-    - development
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - when: never
   variables:
     GIT_STRATEGY: none
   script:
@@ -91,13 +96,12 @@ test-sdk_macosx:
 test-sdk_linux:
   stage: test
   needs: [build_openvibe_linux]
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - when: never
   tags:
     - linux
-  only:
-    - merge_requests
-    - web
-    - master
-    - development
   variables:
     GIT_STRATEGY: none
   script:
@@ -118,11 +122,10 @@ test-sdk_windows:
   needs: [build_openvibe_windows]
   tags:
     - windows
-  only:
-    - merge_requests
-    - web
-    - master
-    - development
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - when: never
   variables:
     GIT_STRATEGY: none
   script:
