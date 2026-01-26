@@ -17,8 +17,6 @@
       else
         echo "No old build-* folders to clean"
       fi
-  rules:
-    - when: always
 
 cleanup_linux:
   tags: ['linux']
@@ -32,8 +30,6 @@ cleanup_windows:
   stage: cleanup
   tags:
     - windows
-  rules:
-    - when: always
   variables:
     BUILD_ROOT: "E:/Gitlab-Runner/builds/$CI_PROJECT_NAME"
     BUILD_FOLDER: "$BUILD_ROOT/build-$CI_PIPELINE_ID"

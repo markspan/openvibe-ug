@@ -6,10 +6,6 @@ sonarqube:
   needs:
     - job: build_openvibe_linux
       artifacts: true  
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: always
-    - when: never
   script:
     - source ${CI_PROJECT_DIR}/.gitlab/analysis.sh
   artifacts:
