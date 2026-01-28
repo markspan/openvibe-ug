@@ -9,11 +9,10 @@ stages:
   - build
   - analyze
   - test
-  - trigger
 
 
 trigger_ref_qt6:
-  stage: trigger
+  stage: .post
   tags: ['linux']
   script:
     - echo "Triggering meta/qt6 pipeline..."
