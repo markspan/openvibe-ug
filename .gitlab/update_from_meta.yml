@@ -3,14 +3,6 @@
 #
 ---
 
-stages:
-  - cleanup
-  - git_update
-  - build
-  - analyze
-  - test
-
-
 .update_repo: &update_repo_script
   stage: git_update
   variables:
