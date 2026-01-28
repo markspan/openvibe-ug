@@ -18,8 +18,7 @@ trigger_ref_qt6:
   script:
     - echo "Triggering meta/qt6 pipeline..."
     - curl --request POST --form token=$PIPELINE_TRIGGER_TOKEN --form ref=qt6 "${CI_API_V4_URL}/projects/openvibe%2Fmeta/trigger/pipeline"
-
-    # only on "merged" event
+  # only on "merged" event
   rules:
     - if: '$CI_PIPELINE_SOURCE == "push"'
       when: always
@@ -32,7 +31,7 @@ trigger_ref_qt6:
     MAIN_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
     TEST_BRANCH: ""
   script:
-    echo "== Update submodules repository =="
+    - echo "== Update submodules repository =="
     - if [[ -n $CI_MERGE_REQUEST_ID ]]; then
         BRANCH_NAME=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME;
         echo "MR on $BRANCH_NAME";
