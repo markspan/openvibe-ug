@@ -102,7 +102,7 @@ build_openvibe_macosx:
     - cmake .. -G Ninja #                            OpenVibe
     - ninja -j1
   after_script:
-    - powershell -NoProfile -Command @'
+    - powershell -NoProfile -Command @"
         $TargetDir = $env:BUILD_FOLDER
 
         Write-Host "After-script cleanup (keeping analyzer_reports)"
@@ -116,9 +116,9 @@ build_openvibe_macosx:
             }
         }
         else {
-          Write-Host "Target directory $BUILD_FOLDER does not exist"
+          Write-Host "Target directory $TargetDir does not exist"
         }
-      '@
+      "@
   artifacts:
     paths:
       - $BUILD_FOLDER/compile_commands.json

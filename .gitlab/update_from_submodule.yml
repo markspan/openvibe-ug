@@ -12,7 +12,7 @@ stages:
   - trigger
 
 
-trigger_qt6:
+trigger_ref_qt6:
   stage: trigger
   tags: ['linux']
   script:
@@ -30,10 +30,9 @@ trigger_qt6:
   variables:
     GIT_STRATEGY: fetch
     MAIN_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
-   #    before: 151-deploy-sonarqube" # set to "" reset
     TEST_BRANCH: ""
   script:
-      # 151-deploy-sonarqube is for testing purpose only, should be qt6 !
+    echo "== Update submodules repository =="
     - if [[ -n $CI_MERGE_REQUEST_ID ]]; then
         BRANCH_NAME=$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME;
         echo "MR on $BRANCH_NAME";
@@ -85,7 +84,6 @@ update_repo_windows:
   variables:
     GIT_STRATEGY: fetch
     MAIN_BRANCH: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME
-   #    before: 151-deploy-sonarqube" # set to "" reset
     TEST_BRANCH: ""
   tags: ['windows']
   needs: ['cleanup_windows']

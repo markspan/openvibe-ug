@@ -21,7 +21,8 @@ stages:
 
         git submodule update --init --recursive
 
-        echo "== Update repository =="
+        echo "== Build folder set to $BUILD_FOLDER =="
+        echo "== Update main repository =="
         git submodule foreach "git status"
         echo "Host IP"; hostname | awk '{print $1}'
 
@@ -41,23 +42,29 @@ stages:
 
         echo "== Updating submodules =="
         echo "== Target branch name: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME=="
-
         git submodule foreach '
          set -e
          git fetch origin --prune
 
-         if git show-ref --quiet refs/remotes/origin/'"$BRANCH_NAME"'; then
-           echo "→ Using branch '"$BRANCH_NAME"' in $(pwd)"
-          git checkout -B '"$BRANCH_NAME"' origin/'"$BRANCH_NAME"'
+         if [ "$CI_PIPELINE_SOURCE" = "push" ]; then
+            BRANCH_TO_CHECKOUT="$CI_COMMIT_BRANCH"
+            echo "Push event: Using branch '$BRANCH_TO_CHECKOUT' in $(pwd)"
 
-         elif [ -n "'"$PULL_REQUEST_BRANCH_NAME"'" ] && \
-              git show-ref --quiet refs/remotes/origin/'"$PULL_REQUEST_BRANCH_NAME"'; then
-           echo "→ Fallback to '"$PULL_REQUEST_BRANCH_NAME"' in $(pwd)"
-           git checkout -B '"$PULL_REQUEST_BRANCH_NAME"' origin/'"$PULL_REQUEST_BRANCH_NAME"'
+         elif [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then
+             BRANCH_TO_CHECKOUT="$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
 
          else
-           echo "→ No matching branch in $(pwd), switch to $CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
-           git checkout -B '"$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"' origin/'"$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"'
+             BRANCH_TO_CHECKOUT="qt6"
+             echo "Default: Using branch '$BRANCH_TO_CHECKOUT' in $(pwd)"
+         fi
+
+         # Vérification et checkout
+         if [ -n "$BRANCH_TO_CHECKOUT" ] && git show-ref --quiet "refs/remotes/origin/$BRANCH_TO_CHECKOUT"; then
+             echo "→ Using branch '$BRANCH_TO_CHECKOUT' in $(pwd)"
+             git checkout -B "$BRANCH_TO_CHECKOUT" "origin/$BRANCH_TO_CHECKOUT"
+         else
+             echo "→ Branch '$BRANCH_TO_CHECKOUT' not found, defaulting to $CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+             git checkout -B "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME" "origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
          fi
         '
 
@@ -86,6 +93,8 @@ update_repo_windows:
     - |
         powershell -NoProfile -Command {
 
+          Write-Host "== Build folder set to $BUILD_FOLDER"
+
           if ($env:CI_MERGE_REQUEST_ID) {
             $BRANCH_NAME = $env:CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
             Write-Host "MR on $BRANCH_NAME"
@@ -107,20 +116,27 @@ update_repo_windows:
 
             git fetch origin --prune
 
-            if (git show-ref --quiet "refs/remotes/origin/$BRANCH_NAME") {
-              Write-Host "  Using branch $BRANCH_NAME"
-              git checkout -B $BRANCH_NAME origin/$BRANCH_NAME
-
-            } elseif ($env:PULL_REQUEST_BRANCH_NAME -and
-                      (git show-ref --quiet "refs/remotes/origin/$env:PULL_REQUEST_BRANCH_NAME")) {
-              Write-Host "  Fallback to $env:PULL_REQUEST_BRANCH_NAME"
-              git checkout -B $env:PULL_REQUEST_BRANCH_NAME origin/$env:PULL_REQUEST_BRANCH_NAME
-
-            } else {
-              Write-Host "  No matching branch, switch to $CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
-              git checkout -B $env:CI_MERGE_REQUEST_TARGET_BRANCH_NAME origin/$env:CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+            if ($env:CI_PIPELINE_SOURCE -eq "push") {
+                $branchToCheckout = $env:CI_COMMIT_BRANCH
+                echo "Push: Using branch '$branchToCheckout' in $(pwd)"
+            }
+            elseif ($env:CI_PIPELINE_SOURCE -eq "merge_request_event") {
+                $branchToCheckout = $env:CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+                echo "MR: Using branch '$branchToCheckout' in $(pwd)"
+            }
+            else {
+                $branchToCheckout = "qt6"
+                echo "Default: Using branch '$branchToCheckout' in $(pwd)"
             }
 
+            if (-not [string]::IsNullOrEmpty($branchToCheckout) -and (git show-ref --quiet "refs/remotes/origin/$branchToCheckout")) {
+                Write-Host "→ Using branch '$branchToCheckout' in $(Get-Location)"
+                git checkout -B "$branchToCheckout" "origin/$branchToCheckout"
+            }
+            else {
+                Write-Host "→ Branch '$branchToCheckout' not found, defaulting to $env:CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+                git checkout -B "$env:CI_MERGE_REQUEST_TARGET_BRANCH_NAME" "origin/$env:CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+            }
             Pop-Location
           }
 
