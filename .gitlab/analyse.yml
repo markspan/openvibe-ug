@@ -5,7 +5,12 @@ sonarqube:
   tags: ['linux']
   needs:
     - job: build_openvibe_linux
-      artifacts: true  
+      artifacts: true
+  variables:
+    GIT_STRATEGY: none
+  cache:
+    key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
+    policy: pull
   script:
     - source ${CI_PROJECT_DIR}/.gitlab/analysis.sh
   artifacts:
