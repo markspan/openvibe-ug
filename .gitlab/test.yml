@@ -34,6 +34,9 @@ test-extras_linux:
   variables:
     GIT_STRATEGY: none
     DISPLAY: ":0"
+  cache:
+    key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
+    policy: pull
   script:
     - conda activate openvibe
     - cd $BUILD_FOLDER/extras;
@@ -104,6 +107,9 @@ test-sdk_linux:
     - linux
   variables:
     GIT_STRATEGY: none
+  cache:
+    key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
+    policy: pull
   script:
     - conda activate openvibe
     - echo "==== Testing SDK ===="
