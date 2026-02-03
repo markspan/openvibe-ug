@@ -22,7 +22,7 @@ workflow:
       when: always
 
     # Pipeline after merge
-    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_ID == ""'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_ID == "0"'
       variables:
         PULL_REQUEST_BRANCH_NAME: "$CI_COMMIT_BRANCH"
         BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_COMMIT_SHA-push"
