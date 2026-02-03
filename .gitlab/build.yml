@@ -52,26 +52,25 @@ build_openvibe_macosx:
   tags: ['windows']
   needs: [update_repo_windows]
   script:
-    - $vsPath = &"${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationpath
-    - Import-Module (Get-ChildItem $vsPath -Recurse -File -Filter Microsoft.VisualStudio.DevShell.dll).FullName
-    - Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64'
     # Failed first time :
     # DirectoryNotACondaEnvironmentError: The target directory exists, but it is not a conda environment.
     #    - conda env remove -n openvibe
     - (Remove-Item  "C:\Users\ci\miniconda3\envs\openvibe" -ErrorAction Ignore -Recurse)
-    - Get-ChildItem -Force
-    - $env:PATH += ";C:\Users\ci\miniconda3\Library\bin;C:\Users\ci\miniconda3\bin;"
-    - $env:PATH
-    # create from scratch
-#    - mamba env remove -n openvibe
     - conda env create -f conda/env_windows.yaml -v
-    # Update
-    #    - mamba env update --file conda/env_windows.yaml
     - conda activate openvibe
     - (Remove-Item  "$BUILD_FOLDER" -ErrorAction Ignore -Recurse)
     - mkdir $BUILD_FOLDER
     - cd $BUILD_FOLDER
+    
+    # Setup MSVC
+    - $vsPath = &"${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationpath
+    - Import-Module (Get-ChildItem $vsPath -Recurse -File -Filter Microsoft.VisualStudio.DevShell.dll).FullName
+    - Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64'
+
+    # Setup Qt
     - $env:Qt6_DIR = "C:\Qt\6.6.3\msvc2019_64\lib\cmake\"
+
+    # Build
     - cmake .. -G Ninja #                            OpenVibe
     - ninja -j1
   artifacts:
