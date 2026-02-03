@@ -72,20 +72,27 @@ sonar.cxx.file.suffixes=.cxx,.cpp,.cc,.c,.hxx,.hpp,.h,.hh
 # EXCLUSIONS – cleaned & deduplicated
 ###############################################
 sonar.exclusions=\
-$BUILD_FOLDER/**,\
-$BUILD_FOLDER/../conda/**,\
-$BUILD_FOLDER/../**/CMakeFiles/**,\
-$BUILD_FOLDER/../**/cmake_modules/**,\
-$BUILD_FOLDER/../**/doc/**,\
-$BUILD_FOLDER/../**/*.png,\
-$BUILD_FOLDER/../**/*.svg,\
-$BUILD_FOLDER/../**/*.html,\
-$BUILD_FOLDER/../**/*.css,\
-$BUILD_FOLDER/../**/*.js,\
-$BUILD_FOLDER/../**/*.ts,\
-$BUILD_FOLDER/../**/qt6/**,\
-$BUILD_FOLDER/../**/deprecated/**,\
-$BUILD_FOLDER/../**/toolkit/deprecated/**
+**/build*/**,\
+**/conda/**,\
+**/CMakeFiles/**,\
+**/cmake_modules/**,\
+**/doc/**,\
+**/designer-legacy-2023/**,\
+**/Scalp.obj.hpp,\
+**/loreta_anatomic_voxels.hpp,\
+**/*.png,\
+**/*.svg,\
+**/*.txt,\
+**/*.json,\
+**/*.md,\
+**/*.html,\
+**/*.css,\
+**/*.js,\
+**/*.ts,\
+**/*.xml,\
+**/*.ov,\
+**/qt6/**,\
+**/deprecated/**
 
 ###############################################
 # COMPILATION DATABASE
@@ -140,4 +147,4 @@ echo "========================================"
 # 3. Run SonarQube Scanner
 #######################################
 
-/builds/sonar-scanner-cli/bin/sonar-scanner -Dsonar.login="$SONAR_TOKEN" -Dsonar.projectBaseDir=$BUILD_FOLDER/.. -Dproject.settings=$BUILD_FOLDER/../sonar-project.properties  > >(tee /dev/tty) 2> sonar.log
+/builds/sonar-scanner-cli/bin/sonar-scanner -Dsonar.token="$SONAR_TOKEN" -Dsonar.projectBaseDir=$BUILD_FOLDER/.. -Dproject.settings=$BUILD_FOLDER/../sonar-project.properties  > >(tee /dev/tty) 2> sonar.log
