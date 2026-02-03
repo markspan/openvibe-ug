@@ -52,9 +52,7 @@ build_openvibe_macosx:
   tags: ['windows']
   needs: [update_repo_windows]
   script:
-    # Failed first time :
-    # DirectoryNotACondaEnvironmentError: The target directory exists, but it is not a conda environment.
-    #    - conda env remove -n openvibe
+    - (& "C:\Users\ci\miniconda3\Scripts\conda.exe" "shell.powershell" "hook") | Out-String | Invoke-Expression
     - (Remove-Item  "C:\Users\ci\miniconda3\envs\openvibe" -ErrorAction Ignore -Recurse)
     - conda env create -f conda/env_windows.yaml -v
     - conda activate openvibe
