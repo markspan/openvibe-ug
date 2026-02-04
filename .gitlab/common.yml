@@ -25,13 +25,13 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_OPEN_MERGE_REQUESTS == null'
       variables:
         PULL_REQUEST_BRANCH_NAME: "$CI_COMMIT_BRANCH"
-        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_COMMIT_SHA-push"
+        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_COMMIT_SHORT_SHA-push"
       when: always
 
     - if: '$CI_PIPELINE_SOURCE == "trigger"'
       variables:
         PULL_REQUEST_BRANCH_NAME: "$CI_COMMIT_BRANCH"
-        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_COMMIT_SHA-trigger"
+        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_COMMIT_SHORT_SHA-trigger"
       when: always
 
     - when: never

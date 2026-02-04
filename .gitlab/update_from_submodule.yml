@@ -32,7 +32,7 @@ trigger_ref_qt6:
       fi
     - echo "BRANCH NAME = $BRANCH_NAME"
     - if [[ $MAIN_BRANCH == "" ]]; then
-        MAIN_BRANCH=PULL_REQUEST_BRANCH_NAME;
+        MAIN_BRANCH=$PULL_REQUEST_BRANCH_NAME;
       fi
     - if [[ $TEST_BRANCH == "" ]]; then
         TEST_BRANCH=$MAIN_BRANCH;
