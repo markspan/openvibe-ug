@@ -39,7 +39,7 @@ PROJECT="$CI_PROJECT_NAME"
 #######################################
 cat > sonar-project.properties << EOF
 sonar.host.url=https://sonarqube.inria.fr/sonarqube
-sonar.verbose=true
+sonar.verbose=false
 sonar.qualitygate.wait=true
 
 # Project metadata
@@ -147,4 +147,4 @@ echo "========================================"
 # 3. Run SonarQube Scanner
 #######################################
 
-/builds/sonar-scanner-cli/bin/sonar-scanner -Dsonar.token="$SONAR_TOKEN" -Dsonar.projectBaseDir=$BUILD_FOLDER/.. -Dproject.settings=$BUILD_FOLDER/../sonar-project.properties  > >(tee /dev/tty) 2> sonar.log
+/builds/sonar-scanner-cli/bin/sonar-scanner -Dsonar.token="$SONAR_TOKEN" -Dsonar.projectBaseDir=$BUILD_FOLDER/.. -Dproject.settings=$BUILD_FOLDER/../sonar-project.properties  2>&1 | tee sonar.log
