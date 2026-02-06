@@ -37,3 +37,4 @@ dependencies:
 - doxygen=1.9.2
 - xorg-libx11=1.8.6
 - llvm-openmp
+- nlohmann_json=3.11.3

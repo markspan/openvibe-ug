@@ -34,6 +34,7 @@ dependencies:
 - fftw=3.3.10
 - itpp=4.3.1
 - liblsl=1.16
+- nlohmann_json=3.11.3
 - doxygen=1.9.2
 - libglvnd-devel-cos7-x86_64
 - xorg-x11-proto-devel-cos7-x86_64
