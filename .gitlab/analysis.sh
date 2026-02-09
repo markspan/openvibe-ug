@@ -90,6 +90,7 @@ sonar.exclusions=\
 **/*.js,\
 **/*.ts,\
 **/*.xml,\
+**/*.xsd,\
 **/*.ov,\
 **/qt6/**,\
 **/deprecated/**
