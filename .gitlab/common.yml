@@ -12,12 +12,6 @@ variables:
   GIT_DEPTH: "1"
   GIT_SUBMODULE_DEPTH: "1"
 
-job_test:
-  tags: ['linux']
-  stage: cleanup
-  script:
-    - env | sort
-
 workflow:
   rules:
     # Pipeline MR
