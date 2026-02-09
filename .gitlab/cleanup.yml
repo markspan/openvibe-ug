@@ -4,18 +4,18 @@
   stage: cleanup
   script:
     - |
-      echo "Cleaning all build-* folder which have more than 6h"
+      echo "Cleaning all build-*-* folder which have more than 6h"
 
-      if find "$CI_PROJECT_DIR" -maxdepth 1 -type d -name "build-*" -mmin +360 | grep -q .; then
+      if find "$CI_PROJECT_DIR" -maxdepth 3 -type d -name "build-*-*" -mmin +360 | grep -q .; then
         find "$CI_PROJECT_DIR" \
           -maxdepth 1 \
           -type d \
-          -name "build-*" \
+          -name "build-*-*" \
           -mmin +360 \
           -print \
           -exec rm -rf {} \;
       else
-        echo "No old build-* folders to clean"
+        echo "No old build-*-* folders to clean"
       fi
 
 cleanup_linux:
@@ -31,7 +31,7 @@ cleanup_windows:
   tags:
     - windows
   variables:
-    BUILD_ROOT: "E:/Gitlab-Runner/builds/$CI_PROJECT_NAME"
+    BUILD_ROOT: "C:/Gitlab-Runner/builds/$CI_PROJECT_NAME"
     BUILD_FOLDER: "$BUILD_ROOT/build-$CI_PIPELINE_ID"
   script:
     - |
@@ -56,16 +56,16 @@ cleanup_windows:
             Write-Host `$_.Name ': Free' ([math]::Round(`$_.Free/1GB,2)) 'GB'
           }
 
-          Write-Host '--- Listing build-* folders ---'
-          Get-ChildItem `$build_root -Directory -Filter 'build-*' |
+          Write-Host '--- Listing build-*-* folders ---'
+          Get-ChildItem `$build_root -Directory -Filter 'build-*-*' -Recurse -Depth 2|
             Sort-Object LastWriteTime |
             ForEach-Object { 
               Write-Host 'FOUND:' `$_.FullName 'LastWrite:' `$_.LastWriteTime 
             }
 
-          Write-Host '--- Removing old build-* folders (>6h) ---'
+          Write-Host '--- Removing old build-*-* folders (>6h) ---'
           `$limit = (Get-Date).AddHours(-6)
-          Get-ChildItem `$build_root -Directory -Filter 'build-*' |
+          Get-ChildItem `$build_root -Directory -Filter 'build-*-*' -Recurse -Depth 2|
             Where-Object { `$_.LastWriteTime -lt `$limit } |
             ForEach-Object { 
               Write-Host 'REMOVING:' `$_.FullName '(LastWrite:' `$_.LastWriteTime ')'
