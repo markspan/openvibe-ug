@@ -43,6 +43,7 @@ cmake .. \
   -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_C_FLAGS_DEBUG="$CI_FLAGS" \
   -DCMAKE_CXX_FLAGS_DEBUG="$CI_FLAGS" \
+  -DCMAKE_INSTALL_PREFIX=$BUILD_FOLDER/openvibe_install \
   -Wno-dev
 
 # Compile openvibe
