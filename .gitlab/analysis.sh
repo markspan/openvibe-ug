@@ -93,6 +93,7 @@ sonar.exclusions=\
 **/*.xsd,\
 **/*.ov,\
 **/qt6/**,\
+**/dependencies-source/**,\
 **/deprecated/**
 
 ###############################################
