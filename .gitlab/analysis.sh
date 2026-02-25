@@ -12,6 +12,10 @@ conda activate openvibe
 
 PROJECT="$CI_PROJECT_NAME"
 
+run-clang-tidy -p . -j2 > clang-tidy-report.txt
+
+cppcheck   --enable=warning,style,performance  --inconclusive  --force --suppress=missingIncludeSystem --xml   --xml-version=2   -I include   -I src   . 2> cppcheck-report.xml
+
 #######################################
 # 1. Generate coverage
 #######################################
@@ -72,6 +76,7 @@ sonar.cxx.file.suffixes=.cxx,.cpp,.cc,.c,.hxx,.hpp,.h,.hh
 # EXCLUSIONS – cleaned & deduplicated
 ###############################################
 sonar.exclusions=\
+**/builds/miniconda3/**\
 **/build*/**,\
 **/conda/**,\
 **/CMakeFiles/**,\
@@ -98,30 +103,30 @@ sonar.exclusions=\
 
 ###############################################
 # COMPILATION DATABASE
+# At 23/02/26  * C++ (Community) 2.2.0.1110 (cxx)
 ###############################################
-sonar.cfamily.compile-commands=$BUILD_FOLDER/compile_commands.json
+sonar.cxx.compile-commands=$BUILD_FOLDER/compile_commands.json
+sonar.cxx.cppcheck.reportPaths=$BUILD_FOLDER/../cppcheck-report.xml
+sonar.cxx.clangtidy.reportPaths=$BUILD_FOLDER/../clang-tidy-report.txt
+sonar.cxx.defines=QT_CORE_LIB,QT_QML_LIB,OPENVIBE_USE_MY_FEATURE,DEBUG=1
 
 ###############################################
 # TEST REPORTS
 ###############################################
-# NOT used by SonarQube Server 24.12 CFamily plugin
 # sonar.cxx.xunit.reportPaths=$BUILD_FOLDER/test.xml
 # sonar.cxx.cobertura.reportPaths=$BUILD_FOLDER/coverage.xml
-# sonar.cxx.cppcheck.reportPaths=$BUILD_FOLDER/../cppcheck.xml
 # sonar.cxx.clangsa.reportPaths=$BUILD_FOLDER/analyzer_reports/*/*.plist
 # sonar.cxx.valgrind.reportPaths=$BUILD_FOLDER/../valgrind.xml
 
 ###############################################
 # GCC LOG PARSING
 ###############################################
-# NOT used by SonarQube Server 24.12 CFamily plugin
 # sonar.cxx.gcc.reportPaths=$BUILD_FOLDER/build.log
 # sonar.cxx.gcc.encoding=UTF-8
 
 ###############################################
 # INCLUDE DIRECTORIES (correct paths)
 ###############################################
-# NOT used by SonarQube Server 24.12 CFamily plugin
 # sonar.cxx.includeDirectories=\
 #   ${GCC_INC} \
 #   $BUILD_FOLDER/../sdk/openvibe/include/,\
@@ -131,13 +136,17 @@ sonar.cfamily.compile-commands=$BUILD_FOLDER/compile_commands.json
 #   $BUILD_FOLDER/../extras/applications/examples/vrpn-to-openvibe/include/,\
 #   $BUILD_FOLDER/../designer/visualization-toolkit/include
 
-sonar.cfamily.includeDirectories=\
+sonar.cxx.includeDirectories=\
+$BUILD_FOLDER/../openvibe_install/include,\
+$BUILD_FOLDER/../sdk/common/include,\
+$BUILD_FOLDER/../sdk/openvibe/include,\
+/builds/miniconda3/envs/openvibe/include/qt6,\
 /builds/miniconda3/envs/openvibe/include,\
 /builds/miniconda3/envs/openvibe/include/qt,\
-$BUILD_FOLDER/../sdk/common/include, \
-$BUILD_FOLDER/../sdk/openvibe/include,\
-/builds/miniconda3/envs/openvibe/include/qt6/QtQml/6.8.3/QtQml, \
-/builds/miniconda3/envs/openvibe/include/qt6/QtCore/6.8.3/QtCore
+/builds/miniconda3/envs/openvibe/include/qt6/QtQml/6.8.3/QtQml,\
+/builds/miniconda3/envs/openvibe/include/qt6/QtCore/6.8.3/QtCore/private,\
+/builds/miniconda3/envs/openvibe/include/qt6/QtCore
+
 EOF
 
 echo "====== sonar-project.properties ========"
