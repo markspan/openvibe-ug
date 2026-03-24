@@ -38,3 +38,4 @@ dependencies:
 - xorg-libx11=1.8.6
 - llvm-openmp
 - libxcb
+- nlohmann_json=3.11.3
