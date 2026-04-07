@@ -55,12 +55,6 @@ include("OvPrint")
 include("OvConfigureRC")
 
 set(BUILD_ARCH "x64" CACHE STRING "Architecture tu build for (x64 or x86)")
-if(${BUILD_ARCH} STREQUAL "x64")
-  set(DEPENDENCIES_ARCH "_x64")
-endif()
-if (UNIX)  #TODO: install deps in _x64 foler on unix and remove this condition
-  set(DEPENDENCIES_ARCH "")
-endif()
 
 set(CMAKE_INSTALL_LIBDIR lib)  # Enforce as all distros may not have the same default (e.g. lib, lib32/lib64)
 # Set CMake variables
