@@ -14,6 +14,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH_BASE}
                       ${CMAKE_MODULE_PATH_BASE}/drivers
 )
 
+set(CMAKE_AUTOMOC ON)
+
 ## #################################################################
 ## Generate compilation database
 ## #################################################################
