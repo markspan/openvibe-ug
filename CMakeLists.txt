@@ -133,6 +133,7 @@ set(VALIDATION_FOLDER Validation-Tests)
 # #############################################################################
 # Find external projects
 find_package(PythonBuildStandalone)
+include(DeployPythonBuildStandalone)
 
 include("FindThirdPartyBoost")
 include("FindThirdPartyEigen")
