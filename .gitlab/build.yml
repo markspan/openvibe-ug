@@ -56,8 +56,8 @@ build_openvibe_macosx:
   tags: ['windows']
   needs: [update_repo_windows]
   script:
-    - (& "C:\ProgramData\miniconda3\Scripts\conda.exe" "shell.powershell" "hook") | Out-String | Invoke-Expression
-    - (Remove-Item  "C:\Users\ci\miniconda3\envs\openvibe" -ErrorAction Ignore -Recurse)
+    - (& "D:\miniconda3\Scripts\conda.exe" "shell.powershell" "hook") | Out-String | Invoke-Expression
+    - (Remove-Item  "D:\miniconda3\envs\openvibe" -ErrorAction Ignore -Recurse)
     - conda env create -f conda/env_windows.yaml -v
     - conda activate openvibe
     - (Remove-Item  "$BUILD_FOLDER" -ErrorAction Ignore -Recurse)
@@ -70,7 +70,7 @@ build_openvibe_macosx:
     - Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64'
 
     # Setup Qt
-    - $env:Qt6_DIR = "C:\Qt\6.6.3\msvc2019_64\lib\cmake\"
+    - $env:Qt6_DIR = "C:\Qt\6.9.3\msvc2022_64\lib\cmake\"
 
     # Build
     - cmake .. -DCMAKE_INSTALL_PREFIX=$BUILD_FOLDER/openvibe_install -G Ninja #                            OpenVibe
