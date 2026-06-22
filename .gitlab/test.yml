@@ -135,7 +135,7 @@ test-sdk_windows:
   variables:
     GIT_STRATEGY: none
   script:
-    - . C:\Users\ci\miniconda3\shell\condabin\conda-hook.ps1
+    - . D:\miniconda3\shell\condabin\conda-hook.ps1
     - conda activate openvibe
     - $env:PYTHONHOME=$env:CONDA_PREFIX
     - echo "==== Testing SDK ===="
