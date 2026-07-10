@@ -123,7 +123,8 @@ update_repo_windows:
                 echo "Default: Using branch '$branchToCheckout' in $(pwd)"
             }
 
-            if (-not [string]::IsNullOrEmpty($branchToCheckout) -and (git show-ref --quiet "refs/remotes/origin/$branchToCheckout")) {
+            git show-ref --quiet "refs/remotes/origin/$branchToCheckout"
+            if (-not [string]::IsNullOrEmpty($branchToCheckout) -and $LASTEXITCODE -eq 0) {
                 Write-Host "→ Using branch '$branchToCheckout' in $(Get-Location)"
                 git checkout -B "$branchToCheckout" "origin/$branchToCheckout"
             }
