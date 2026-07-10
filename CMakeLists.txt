@@ -152,6 +152,8 @@ include("FindThirdPartyOpenGL")
 include("FindThirdPartyXercesC")
 include("FindThirdPartyQt")
 
+qt_policy(SET QTP0004 NEW)
+
 # #############################################################################
 # Find Acquisition Drivers
 include("FindThirdPartyBrainProductsAmplifierAPI")
@@ -219,16 +221,43 @@ endif()
 include(GenerateExportHeader)
 
 # #############################################################################
+# CTest configuration
+# enable_testing() must be called here (repo root) rather than in a nested CMakeLists.txt,
+# so its "testing enabled" directory property propagates to every subdirectory (sdk/, extras/),
+# letting a single "ctest" invocation from the build root discover all native (add_test /
+# gtest_discover_tests) suites project-wide.
+
+# Temporary dirs used by sdk/unit-test and sdk/validation-test around each Test stage run
+# (must match what sdk/unit-test/CMakeLists.txt and sdk/validation-test/CMakeLists.txt compute locally)
+set(OVT_UNIT_TEST_TEMPORARY_DIR ${CMAKE_BINARY_DIR}/sdk/Testing/Temporary/OVT/)
+set(OVT_VALIDATION_TEST_TEMPORARY_DIR ${CMAKE_BINARY_DIR}/sdk/validation-test/Testing/Temporary/OVT/)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/CTestCustom.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/CTestCustom.cmake @ONLY)
+
+# Memcheck configuration
+IF(UNIX)
+	find_program(MEMORYCHECK_COMMAND valgrind /usr/bin/valgrind)
+	file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}/data/resources/valgrind.supp" MEMORYCHECK_SUPPRESSIONS_FILE)
+	set(MEMORYCHECK_COMMAND_OPTIONS "--trace-children=yes --leak-check=full --run-libc-freeres=no --show-possibly-lost=no" )
+ELSEIF(WIN32)
+	find_program(MEMORYCHECK_COMMAND purify "C:/Program Files (x86)/")
+ENDIF()
+
+# Timeout must be set first
+set(DART_TESTING_TIMEOUT 72000 CACHE STRING "Maximum time allowed before CTest will kill the test." FORCE)
+include(CTest)
+enable_testing()
+
+# #############################################################################
 # Add OpenViBE subdirectories
 
 # Add SDK to build
 add_subdirectory(sdk)
 
-# Add Designer to build
-add_subdirectory(designer)
-
 # Add extras to build
 add_subdirectory(extras)
+
+# Add Designer to build
+add_subdirectory(designer)
 
 # Add Documentation to Build
 if(BUILD_DOCUMENTATION)
