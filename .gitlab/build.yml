@@ -42,10 +42,7 @@ build_openvibe_linux:
 
 build_openvibe_macosx:
   <<: *build_script_macosx
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: always
-    - when: never
+  rules: !reference [.mr_or_web_rules, rules]
   variables:
     SYSTEM: macosx
     LOGNAME: "${CI_PROJECT_NAME}-build-${SYSTEM}"
@@ -87,10 +84,7 @@ build_openvibe_macosx:
 
 build_openvibe_windows:
   <<: *build_script_windows
-  rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: always
-    - when: never
+  rules: !reference [.mr_or_web_rules, rules]
   variables:
     SYSTEM: windows
     CHERE_INVOKING: "yes"

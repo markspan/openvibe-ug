@@ -42,3 +42,14 @@ workflow:
       when: always
 
     - when: never
+
+# Shared rule set for jobs that should run on MR pipelines and on manual
+# "Run pipeline" (web) triggers. Reused across files with `!reference`, since
+# plain YAML anchors don't resolve across separately-included CI files.
+.mr_or_web_rules:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: always
+    - when: never
