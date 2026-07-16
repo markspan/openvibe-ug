@@ -1,69 +1,6 @@
 ---
-
-test-extras_macos:
-  stage: test
-  needs: [build_openvibe_macosx]
-  variables:
-    GIT_STRATEGY: none
-  tags:
-    - macos
-  rules: !reference [.mr_or_web_rules, rules]
-  script:
-   - conda activate openvibe
-   - cd $BUILD_FOLDER/extras;
-   - echo "==== Testing Extras ===="
-   - ctest -j2 -V --rerun-failed --output-on-failure --output-junit test-extras.xml
-  artifacts:
-    when: always
-    reports:
-      junit: $BUILD_FOLDER/extras/test-extras.xml
-  allow_failure: true # To be removed when Qt6 porting is done
-
-test-extras_linux:
-  stage: test
-  needs: [build_openvibe_linux]
-  tags:
-    - linux
-  rules: !reference [.mr_or_web_rules, rules]
-  variables:
-    GIT_STRATEGY: none
-    DISPLAY: ":0"
-  cache:
-    key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
-    policy: pull
-  script:
-    - conda activate openvibe
-    - cd $BUILD_FOLDER/extras;
-    - echo "==== Testing Extras ===="
-    - ctest -j2 --rerun-failed --output-on-failure --output-junit test-extras.xml
-  artifacts:
-    when: always
-    reports:
-      junit: $BUILD_FOLDER/extras/test-extras.xml
-  allow_failure: true # To be removed when Qt6 porting is done
-
-test-extras_windows:
-  stage: test
-  needs: [build_openvibe_windows]
-  variables:
-    GIT_STRATEGY: none
-  tags:
-    - windows
-  rules: !reference [.mr_or_web_rules, rules]
-  script:
-    - . C:\Users\ci\miniconda3\shell\condabin\conda-hook.ps1
-    - conda activate openvibe
-    - $env:PYTHONHOME=$env:CONDA_PREFIX
-    - cd $BUILD_FOLDER/extras;
-    - echo "==== Testing Extras ===="
-    - ctest -j2 -V --rerun-failed --output-on-failure --output-junit test-extras.xml
-  artifacts:
-    when: always
-    reports:
-      junit: $BUILD_FOLDER/extras/test-extras.xml
-  allow_failure: true # To be removed when Qt6 porting is done
       
-test-sdk_macosx:
+test-macosx:
   stage: test
   needs: [build_openvibe_macosx]
   tags:
@@ -73,18 +10,16 @@ test-sdk_macosx:
     GIT_STRATEGY: none
   script:
     - conda activate openvibe
-    - echo "==== Testing SDK ===="
-    - cd $BUILD_FOLDER/sdk/unit-test;
-    - ctest -j2 -V -E uoTimeTest --rerun-failed --output-on-failure --output-junit test-sdk_unit.xml
-    - cd ../validation-test;
-    - ctest -j2 -V --rerun-failed --output-on-failure --output-junit test-sdk_validation.xml
+    - echo "==== Running Tests ===="
+    - cd $BUILD_FOLDER/;
+    - ctest -j2 -V -E uoTimeTest --rerun-failed --output-on-failure --output-junit test.xml
   artifacts:
     when: always
     reports:
-      junit: $BUILD_FOLDER/sdk/**/test-sdk_*.xml
+      junit: $BUILD_FOLDER/test.xml
   allow_failure: true # To be removed when Qt6 porting is done
         
-test-sdk_linux:
+test-linux:
   stage: test
   needs: [build_openvibe_linux]
   rules: !reference [.mr_or_web_rules, rules]
@@ -97,18 +32,16 @@ test-sdk_linux:
     policy: pull
   script:
     - conda activate openvibe
-    - echo "==== Testing SDK ===="
-    - cd $BUILD_FOLDER/sdk/unit-test;
-    - ctest -j2 -V  --rerun-failed --output-on-failure --output-junit test-sdk_unit.xml
-    - cd ../validation-test;
-    - ctest -j2 -V --rerun-failed --output-on-failure --output-junit test-sdk_validation.xml
+    - echo "==== Running Tests ===="
+    - cd $BUILD_FOLDER/
+    - ctest -j2 -V  --rerun-failed --output-on-failure --output-junit test.xml
   artifacts:
     when: always
     reports:
-      junit: $BUILD_FOLDER/sdk/**/test-sdk_*.xml
+      junit: $BUILD_FOLDER/test.xml
   allow_failure: true # To be removed when Qt6 porting is done
         
-test-sdk_windows:
+test-windows:
   stage: test
   needs: [build_openvibe_windows]
   tags:
@@ -120,18 +53,12 @@ test-sdk_windows:
     - . D:\miniconda3\shell\condabin\conda-hook.ps1
     - conda activate openvibe
     - $env:PYTHONHOME=$env:CONDA_PREFIX
-    - echo "==== Testing SDK ===="
-    - cd $BUILD_FOLDER/sdk/unit-test;
-    - echo "---- OVT temp dir before unit-test ctest run ----"
-    - Get-ChildItem -Path "$BUILD_FOLDER/sdk/Testing/Temporary" -ErrorAction SilentlyContinue
-    - ctest -j2 -V -E uoTimeTest -C Release --rerun-failed --output-on-failure --output-junit test-sdk_unit.xml
-    - echo "---- OVT temp dir after unit-test ctest run ----"
-    - Get-ChildItem -Path "$BUILD_FOLDER/sdk/Testing/Temporary" -ErrorAction SilentlyContinue
-    - cd ../validation-test;
-    - ctest -j2 -V -C Release --rerun-failed --output-on-failure --output-junit test-sdk_validation.xml
+    - echo "==== Running Tests ===="
+    - cd $BUILD_FOLDER/
+    - ctest -j2 -V -E uoTimeTest -C Release --rerun-failed --output-on-failure --output-junit test.xml
   artifacts:
     when: always
     reports:
-      junit: $BUILD_FOLDER/sdk/**/test-sdk_*.xml
+      junit: $BUILD_FOLDER/test.xml
   allow_failure: true # To be removed when Qt6 porting is done
 
