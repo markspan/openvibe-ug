@@ -32,6 +32,7 @@ test-linux:
     policy: pull
   script:
     - conda activate openvibe
+    - export QT_QPA_PLATFORM=offscreen
     - echo "==== Running Tests ===="
     - cd $BUILD_FOLDER/
     - ctest -V  --rerun-failed --output-on-failure --output-junit test.xml
