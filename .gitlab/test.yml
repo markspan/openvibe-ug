@@ -52,10 +52,9 @@ test-windows:
   script:
     - . D:\miniconda3\shell\condabin\conda-hook.ps1
     - conda activate openvibe
-    - $env:PYTHONHOME=$env:CONDA_PREFIX
     - echo "==== Running Tests ===="
     - cd $BUILD_FOLDER/
-    - ctest -V -E uoTimeTest -C Release --rerun-failed --output-on-failure --output-junit test.xml
+    - ctest -j2 -V -E uoTimeTest -C Release --rerun-failed --output-on-failure --output-junit test.xml
   artifacts:
     when: always
     reports:
