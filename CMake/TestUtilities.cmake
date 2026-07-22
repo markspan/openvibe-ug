@@ -17,7 +17,6 @@ function(add_validation_test TEST_PATH TEST_NAME COMPARE OUTPUT_EXT USE_THRESHOL
 		add_test(clean_${TEST_NAME}		"${CMAKE_COMMAND}" "-E" "remove" "-f" "${TEST_FILE}-output.${OUTPUT_EXT}")
 	endif(COMPARE)
 
-	message(STATUS "add_test run_${TEST_NAME}")
 	add_test(run_${TEST_NAME}		"${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/designer" "--no-session-management" "--no-gui" "--play-fast" "${TEST_FILE}-test.xml")
 
 	#set_tests_properties(run_${TEST_NAME} DIRECTORY ${TEST_PATH} PROPERTIES FAIL_REGULAR_EXPRESSION "${failRegex}")
@@ -53,7 +52,6 @@ endfunction()
 # Function to factorise basic validation test with a csv output (Run a scenario and compare output csv with a ref)
 # How to use : add_validation_test_with_csv(your-folder Your-Test-Name) folder can be ""
 function(add_validation_test_with_csv TEST_PATH TEST_NAME)
-	message(STATUS "add_validation_test_with_csv(${TEST_PATH} ${TEST_NAME})")
 	if(TEST_PATH)
 		add_validation_test(${TEST_PATH} ${TEST_NAME} TRUE csv TRUE 0.0001)
 	else()
