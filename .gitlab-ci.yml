@@ -14,4 +14,4 @@ include:
   - .gitlab/test.yml
   - .gitlab/analyse.yml
   - .gitlab/cleanup.yml
-  - .gitlab/reviewer.yml
+#  - .gitlab/reviewer.yml
