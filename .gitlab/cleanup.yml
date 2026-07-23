@@ -33,6 +33,7 @@ cleanup_linux:
 
 cleanup_mac:
   tags: ['macos']
+  rules: !reference [.never_rules, rules]
   variables:
     CACHE_DIR: "/Users/ci/cache"
   <<: *cleanup_script

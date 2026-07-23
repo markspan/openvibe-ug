@@ -5,7 +5,7 @@ test-macosx:
   needs: [build_openvibe_macosx]
   tags:
     - macos
-  rules: !reference [.mr_or_web_rules, rules]
+  rules: !reference [.never_rules, rules]
   variables:
     GIT_STRATEGY: none
   script:

@@ -53,3 +53,9 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "web"'
       when: always
     - when: never
+
+# Used to temporarily disable a job/stage (e.g. macOS while it's unavailable),
+# without deleting its definition. Reference from a job's `rules:` to switch it off.
+.never_rules:
+  rules:
+    - when: never

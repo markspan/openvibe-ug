@@ -65,6 +65,7 @@ update_repo_linux:
 
 update_repo_macosx:
   tags: ['macos']
+  rules: !reference [.never_rules, rules]
   <<: *update_repo_script
   needs: ['cleanup_mac']
 
