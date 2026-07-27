@@ -53,25 +53,8 @@ build_openvibe_macosx:
   tags: ['windows']
   needs: [update_repo_windows]
   script:
-    - (& "D:\miniconda3\Scripts\conda.exe" "shell.powershell" "hook") | Out-String | Invoke-Expression
-    - (Remove-Item  "D:\miniconda3\envs\openvibe" -ErrorAction Ignore -Recurse)
-    - conda env create -f conda/env_windows.yaml -v
-    - conda activate openvibe
-    - (Remove-Item  "$BUILD_FOLDER" -ErrorAction Ignore -Recurse)
-    - mkdir $BUILD_FOLDER
-    - cd $BUILD_FOLDER
-    
-    # Setup MSVC
-    - $vsPath = &"${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationpath
-    - Import-Module (Get-ChildItem $vsPath -Recurse -File -Filter Microsoft.VisualStudio.DevShell.dll).FullName
-    - Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments '-arch=x64'
-
-    # Setup Qt
-    - $env:Qt6_DIR = "C:\Qt\6.9.3\msvc2022_64\lib\cmake\"
-
-    # Build
-    - cmake .. -DCMAKE_INSTALL_PREFIX=$BUILD_FOLDER/openvibe_install -G Ninja #                            OpenVibe
-    - ninja
+    - pixi install
+    - pixi run ci-build
   artifacts:
     paths:
       - $BUILD_FOLDER/compile_commands.json

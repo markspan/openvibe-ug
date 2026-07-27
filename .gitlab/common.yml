@@ -5,9 +5,6 @@
 variables:
   PULL_REQUEST_BRANCH_NAME: ""
 
-# to have a small subset of openvibe. Fastest way to test, set to "true"
-# to have a all openvibe, set to "false"
-  TEST_PIPELINE_ONLY: "false"
   GIT_STRATEGY: none
   GIT_DEPTH: "1"
   GIT_SUBMODULE_DEPTH: "1"
