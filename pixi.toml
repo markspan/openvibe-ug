@@ -97,7 +97,7 @@ ci-test = { cmd = "cd \"$BUILD_FOLDER\" && ctest -T Test"  } # depends-on = ["ci
 ci-configure = 'cmake -G Ninja -S . -B $BUILD_FOLDER -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS_DEBUG=-O0\ -g\ -Wall\ -fPIC\ -fno-inline\ --coverage -DCMAKE_CXX_FLAGS_DEBUG=-O0\ -g\ -Wall\ -fPIC\ -fno-inline\ --coverage -Wno-dev'
 ci-build = { cmd = "ninja -C $BUILD_FOLDER -j2", depends-on = ["ci-configure"] }
 
-ci-analyze = { cmd = "cd \"$BUILD_FOLDER\" && analyze-build --status-bugs -plist -analyze-headers -o analyzer_reports --cdb compile_commands.json", depends-on = ["ci-build"] }
+ci-analyze = { cmd = "cd \"$BUILD_FOLDER\" && analyze-build --status-bugs --plist --analyze-headers -o analyzer_reports --cdb compile_commands.json", depends-on = ["ci-build"] }
 
 [target.win-64.tasks]
 test = { cmd = "ctest -T Test -E uoTimeTest", cwd = "build", depends-on = ["build"] }
