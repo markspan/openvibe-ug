@@ -28,6 +28,7 @@ test-linux:
     key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
     policy: pull
   script:
+    - export QT_QPA_PLATFORM=offscreen
     - pixi run ci-test -V  --rerun-failed --output-on-failure --output-junit test.xml
   artifacts:
     when: always
