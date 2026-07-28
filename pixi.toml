@@ -94,7 +94,7 @@ ci-build = { cmd = "ninja -C $BUILD_FOLDER", depends-on = ["ci-configure"] }
 ci-test = { cmd = "cd \"$BUILD_FOLDER\" && ctest -T Test"  } # depends-on = ["ci-build"] but intentionally removed to avoid rerunning configure & build chain.
 
 [target.linux-64.tasks]
-ci-configure = 'cmake -G Ninja -S . -B $BUILD_FOLDER -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS_DEBUG=\"-O0 -g -Wall -fPIC -fno-inline --coverage\" -DCMAKE_CXX_FLAGS_DEBUG=\"-O0 -g -Wall -fPIC -fno-inline --coverage\" -Wno-dev'
+ci-configure = 'cmake -G Ninja -S . -B $BUILD_FOLDER -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS_DEBUG=-O0\ -g\ -Wall\ -fPIC\ -fno-inline\ --coverage -DCMAKE_CXX_FLAGS_DEBUG=-O0\ -g\ -Wall\ -fPIC\ -fno-inline\ --coverage -Wno-dev'
 
 ci-analyze = { cmd = "cd \"$BUILD_FOLDER\" && analyze-build --status-bugs -plist -analyze-headers -o analyzer_reports --cdb compile_commands.json", depends-on = ["ci-build"] }
 
