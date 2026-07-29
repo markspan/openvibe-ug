@@ -11,7 +11,7 @@ eval "$(pixi shell-hook)"
 
 PROJECT="$CI_PROJECT_NAME"
 
-run-clang-tidy -p . -j2 > clang-tidy-report.txt
+run-clang-tidy -p "$BUILD_FOLDER" -j2 > clang-tidy-report.txt
 
 cppcheck   --enable=warning,style,performance  --inconclusive  --force --suppress=missingIncludeSystem --xml   --xml-version=2   -I include   -I src   . 2> cppcheck-report.xml
 
