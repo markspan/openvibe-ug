@@ -20,6 +20,8 @@ sonarqube:
       - sonar.log
       - sonar-project.properties
       - coverage.xml
+      - cppcheck-report.xml
+      - clang-tidy-report.txt
       - $BUILD_FOLDER/compile_commands.json
       - $BUILD_FOLDER/analyzer_reports
       - $BUILD_FOLDER/build.log
