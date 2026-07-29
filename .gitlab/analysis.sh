@@ -6,13 +6,13 @@
 ###
 
 set -e
+set -o pipefail
 
-source "$(conda info --base)/etc/profile.d/conda.sh"
-conda activate openvibe
+eval "$(pixi shell-hook)"
 
 PROJECT="$CI_PROJECT_NAME"
 
-run-clang-tidy -p . -j2 > clang-tidy-report.txt
+run-clang-tidy -p "$BUILD_FOLDER" -j2 > clang-tidy-report.txt
 
 cppcheck   --enable=warning,style,performance  --inconclusive  --force --suppress=missingIncludeSystem --xml   --xml-version=2   -I include   -I src   . 2> cppcheck-report.xml
 
@@ -76,9 +76,8 @@ sonar.cxx.file.suffixes=.cxx,.cpp,.cc,.c,.hxx,.hpp,.h,.hh
 # EXCLUSIONS – cleaned & deduplicated
 ###############################################
 sonar.exclusions=\
-**/builds/miniconda3/**\
+**/.pixi/**,\
 **/build*/**,\
-**/conda/**,\
 **/CMakeFiles/**,\
 **/cmake_modules/**,\
 **/doc/**,\
@@ -137,15 +136,14 @@ sonar.cxx.defines=QT_CORE_LIB,QT_QML_LIB,OPENVIBE_USE_MY_FEATURE,DEBUG=1
 #   $BUILD_FOLDER/../designer/visualization-toolkit/include
 
 sonar.cxx.includeDirectories=\
-$BUILD_FOLDER/../openvibe_install/include,\
 $BUILD_FOLDER/../sdk/common/include,\
 $BUILD_FOLDER/../sdk/openvibe/include,\
-/builds/miniconda3/envs/openvibe/include/qt6,\
-/builds/miniconda3/envs/openvibe/include,\
-/builds/miniconda3/envs/openvibe/include/qt,\
-/builds/miniconda3/envs/openvibe/include/qt6/QtQml/6.8.3/QtQml,\
-/builds/miniconda3/envs/openvibe/include/qt6/QtCore/6.8.3/QtCore/private,\
-/builds/miniconda3/envs/openvibe/include/qt6/QtCore
+$CONDA_PREFIX/include/qt6,\
+$CONDA_PREFIX/include,\
+$CONDA_PREFIX/include/qt,\
+$CONDA_PREFIX/include/qt6/QtQml/6.8.3/QtQml,\
+$CONDA_PREFIX/include/qt6/QtCore/6.8.3/QtCore/private,\
+$CONDA_PREFIX/include/qt6/QtCore
 
 EOF
 

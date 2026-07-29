@@ -9,10 +9,7 @@ test-macosx:
   variables:
     GIT_STRATEGY: none
   script:
-    - conda activate openvibe
-    - echo "==== Running Tests ===="
-    - cd $BUILD_FOLDER/;
-    - ctest -V -E uoTimeTest --rerun-failed --output-on-failure --output-junit test.xml
+    - pixi run ci-test -V -E uoTimeTest --rerun-failed --output-on-failure --output-junit test.xml
   artifacts:
     when: always
     reports:
@@ -31,11 +28,8 @@ test-linux:
     key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
     policy: pull
   script:
-    - conda activate openvibe
     - export QT_QPA_PLATFORM=offscreen
-    - echo "==== Running Tests ===="
-    - cd $BUILD_FOLDER/
-    - ctest -V  --rerun-failed --output-on-failure --output-junit test.xml
+    - pixi run ci-test -V  --rerun-failed --output-on-failure --output-junit test.xml
   artifacts:
     when: always
     reports:
@@ -51,11 +45,7 @@ test-windows:
   variables:
     GIT_STRATEGY: none
   script:
-    - . D:\miniconda3\shell\condabin\conda-hook.ps1
-    - conda activate openvibe
-    - echo "==== Running Tests ===="
-    - cd $BUILD_FOLDER/
-    - ctest -V -E uoTimeTest -C Release --rerun-failed --output-on-failure --output-junit test.xml
+    - pixi run ci-test -V --rerun-failed --output-on-failure --output-junit test.xml
   artifacts:
     when: always
     reports:
