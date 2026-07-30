@@ -11,7 +11,7 @@ stages:
   - analyze
 
 include:
-  - .gitlab/reviewer.yml
+  # - .gitlab/reviewer.yml
   - .gitlab/common.yml
   - .gitlab/update_from_submodule.yml
   - .gitlab/build.yml
