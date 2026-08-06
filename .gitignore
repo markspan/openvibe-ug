@@ -24,10 +24,6 @@ CustomCMakeLists.txt
 *.log
 *-output.*
 
-# file Configurated
-documentation/Doxyfile
-documentation/Main.md
-
 # pixi environments
 .pixi/*
 !.pixi/config.toml

@@ -103,7 +103,6 @@ option(OV_DISPLAY_ERROR_LOCATION "display complete error locations" ON)
 option(OV_PACKAGE "Create a package in build directory" OFF)
 option(BUILD_VALIDATION_TEST "Build the validation tests" ON)
 option(BUILD_UNIT_TEST "Build the unit tests" ON)
-option(BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" OFF)
 option(BUILD_GCOV "Add coverage compilation options" OFF)
 
 message(STATUS "META OPTIONS : ")
@@ -112,7 +111,6 @@ message(STATUS "  OV_DISPLAY_ERROR_LOCATION = '${OV_DISPLAY_ERROR_LOCATION}'")
 message(STATUS "  OV_PACKAGE = '${OV_PACKAGE}'")
 message(STATUS "  BUILD_VALIDATION_TEST = '${BUILD_VALIDATION_TEST}'")
 message(STATUS "  BUILD_UNIT_TEST = '${BUILD_UNIT_TEST}'")
-message(STATUS "  BUILD_DOCUMENTATION = '${BUILD_DOCUMENTATION}'")
 
 # By setting SKIP[_FOLDER]* you can skip a subtree (example: SKIP_A_B_C skips folder a/b/c and all its subfolders if any)
 # Skip building documentation
@@ -259,7 +257,27 @@ add_subdirectory(extras)
 # Add Designer to build
 add_subdirectory(designer)
 
-# Add Documentation to Build
-if(BUILD_DOCUMENTATION)
-	add_subdirectory(documentation)
-endif()
+# The plugin-inspector renders its box snapshots with the designer's Box.qml, but it is
+# configured back in extras/ before OVVisualization exists. Import the QML plugins here,
+# once the module is known, otherwise the tool fails at runtime with
+# "module OVVisualization is not installed".
+qt_import_qml_plugins(openvibe-plugin-inspector)
+
+# Documentation and (notably plugin-inspector) depend on every target shared objects.
+function(ov_collect_targets_recursive out_var dir)
+	get_property(subdirs DIRECTORY "${dir}" PROPERTY SUBDIRECTORIES)
+	get_property(targets DIRECTORY "${dir}" PROPERTY BUILDSYSTEM_TARGETS)
+	foreach(subdir IN LISTS subdirs)
+		ov_collect_targets_recursive(collected "${subdir}")
+		list(APPEND targets ${collected})
+	endforeach()
+	set(${out_var} "${targets}" PARENT_SCOPE)
+endfunction()
+
+ov_collect_targets_recursive(OV_ALL_TARGETS "${CMAKE_SOURCE_DIR}")
+set(OV_PLUGIN_TARGETS ${OV_ALL_TARGETS})
+list(FILTER OV_PLUGIN_TARGETS INCLUDE REGEX "^openvibe-plugins-")
+
+# Add Documentation to Build. This only defines the (ALL-excluded) "doc" target, so it is cheap
+# enough to configure unconditionally: build the documentation with "ninja doc".
+add_subdirectory(documentation)
