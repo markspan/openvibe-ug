@@ -1,18 +1,25 @@
-add_custom_target(PythonBuildStandalone_Deploy ALL
+# Driven by a stamp file rather than by a bare custom target: a custom target will trigger ninja to
+# re-run every time.
+set(PBS_DEPLOY_STAMP ${CMAKE_BINARY_DIR}/python-build-standalone-deploy.stamp)
+
+add_custom_command(
+    OUTPUT ${PBS_DEPLOY_STAMP}
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${python_standalone_SOURCE_DIR}/ ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_runtime/
     #COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_runtime/python${PY_VER_MAJOR}${PY_VER_MINOR}.dll ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/
     COMMAND ${PBS_EXECUTABLE} -s -m pip install numpy
+    COMMAND ${CMAKE_COMMAND} -E touch ${PBS_DEPLOY_STAMP}
+    # Re-deploy when FetchContent brings in a different runtime (e.g. after a PBS_VERSION bump).
+    DEPENDS ${python_standalone_SOURCE_DIR}/${PBS_LIB_PATH}
     COMMENT "Copy Python-build-standalone to build directory"
 )
+
+add_custom_target(PythonBuildStandalone_Deploy ALL DEPENDS ${PBS_DEPLOY_STAMP})
 
 if(WIN32)
     #add_custom_command(TARGET PythonBuildStandalone_Deploy POST_BUILD
     #    COMMAND ${CMAKE_COMMAND} -E rename ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_runtime/python${PY_VER_MAJOR}${PY_VER_MINOR}.dll ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python${PY_VER_MAJOR}${PY_VER_MINOR}.dll
     #)
     install(DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python_runtime
-        DESTINATION bin
-    )
-    install(FILES ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/python${PY_VER_MAJOR}${PY_VER_MINOR}.dll
         DESTINATION bin
     )
 else()
