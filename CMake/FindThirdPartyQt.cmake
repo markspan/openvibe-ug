@@ -1,6 +1,6 @@
 get_property(OV_PRINTED GLOBAL PROPERTY OV_TRIED_ThirdPartyQt)
 
-find_package(Qt6 REQUIRED COMPONENTS Charts Core Graphs Gui GuiPrivate Qml Quick QuickControls2 Widgets Xml)
+find_package(Qt6 REQUIRED COMPONENTS Charts Core Graphs Gui Qml Quick QuickControls2 Widgets Xml)
 
 IF(Qt6_FOUND)
 
