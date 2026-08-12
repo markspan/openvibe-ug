@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: Inria <thomas.prampart@inria.fr>
+# SPDX-License-Identifier: AGPL-3.0-only
+
 # Driven by a stamp file rather than by a bare custom target: a custom target will trigger ninja to
 # re-run every time.
 set(PBS_DEPLOY_STAMP ${CMAKE_BINARY_DIR}/python-build-standalone-deploy.stamp)

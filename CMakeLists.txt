@@ -41,14 +41,7 @@ endif(WIN32 AND NOT CMAKE_CONFIGURATION_TYPES)
 
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
 set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-list(APPEND CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-
-list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
-
-if("${isSystemDir}" STREQUAL "-1")
-   set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
-endif("${isSystemDir}" STREQUAL "-1")
 
 include("Utilities")
 include("OvPrint")
@@ -62,6 +55,23 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
   set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/../dist/${BUILD_ARCH}" CACHE PATH "Install directory" FORCE)
 endif()
 
+# Install RPATH. No effect on Windows, which has no RPATH.
+list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" isSystemDir)
+if("${isSystemDir}" STREQUAL "-1")
+	# The origin-relative entries come first so that the installed tree keeps resolving its own
+	# libraries after being moved -- a packaged archive is extracted somewhere other than
+	# CMAKE_INSTALL_PREFIX by definition. Executables live in <root>/bin and libraries in <root>/lib,
+	# except for the plugins, which outputPath.cmake installs next to the executables.
+	if(APPLE)
+		set(OV_RPATH_ORIGIN "@loader_path")
+	else()
+		set(OV_RPATH_ORIGIN "$ORIGIN")
+	endif()
+	# The absolute prefix is kept as a trailing fallback, for running straight out of dist/.
+	set(CMAKE_INSTALL_RPATH "${OV_RPATH_ORIGIN}/../${CMAKE_INSTALL_LIBDIR}" "${OV_RPATH_ORIGIN}"
+	                        "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+endif("${isSystemDir}" STREQUAL "-1")
+
 
 # Todo: handle multi config generators
 #foreach( OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES} )
@@ -72,26 +82,29 @@ endif()
 #endforeach()
 
 
-set(DIST_ROOT ${CMAKE_INSTALL_PREFIX})
-
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(BUILD_DATADIR ${CMAKE_BINARY_DIR}/share/openvibe)
 
-set(DIST_BINDIR ${DIST_ROOT}/bin)
-set(DIST_LIBDIR ${DIST_ROOT}/lib)
-set(DIST_INCLUDEDIR ${DIST_ROOT}/include)
-set(DIST_DATADIR ${DIST_ROOT}/share)
-set(DIST_SYSCONFDIR ${DIST_ROOT}/etc)
-set(DIST_BINDIR_ABSOLUTE ${DIST_BINDIR})
+# The DIST_* variables below are *relative* to CMAKE_INSTALL_PREFIX: an absolute install(DESTINATION)
+# ignores DESTDIR and CPack's staging directory, which would make "cpack" package an empty tree.
+# DIST_ROOT_ABSOLUTE is for the few consumers that are not install() destinations.
+set(DIST_ROOT_ABSOLUTE ${CMAKE_INSTALL_PREFIX})
 
-# Add directories that OpenViBE will use to look for its components runtime, unless overridden by environment variables in the launch scripts.
-# These defines should only be used in "openvibe/ov_directories.h".
-add_definitions(-DOV_CMAKE_PATH_ROOT="${DIST_ROOT}")
-add_definitions(-DOV_CMAKE_PATH_BIN="${DIST_ROOT}/${CMAKE_INSTALL_BINDIR}")
-add_definitions(-DOV_CMAKE_PATH_LIB="${DIST_ROOT}/${CMAKE_INSTALL_LIBDIR}")
-add_definitions(-DOV_CMAKE_PATH_DATA="${DIST_ROOT}/share/openvibe")
+set(DIST_ROOT .)
+set(DIST_BINDIR ${CMAKE_INSTALL_BINDIR})
+set(DIST_LIBDIR ${CMAKE_INSTALL_LIBDIR})
+set(DIST_INCLUDEDIR ${CMAKE_INSTALL_INCLUDEDIR})
+set(DIST_DATADIR ${CMAKE_INSTALL_DATADIR})
+
+# Fallback paths for lookup done in "openvibe/StringDirectories.hpp". They are only used if OV_PATH_* (e.g. OV_PATH_ROOT) is set.
+# They are not needed unless someone knows exactly what they are doing. 
+# @TODO: remove them and their usages ?
+add_definitions(-DOV_CMAKE_PATH_ROOT="${DIST_ROOT_ABSOLUTE}")
+add_definitions(-DOV_CMAKE_PATH_BIN="${DIST_ROOT_ABSOLUTE}/${CMAKE_INSTALL_BINDIR}")
+add_definitions(-DOV_CMAKE_PATH_LIB="${DIST_ROOT_ABSOLUTE}/${CMAKE_INSTALL_LIBDIR}")
+add_definitions(-DOV_CMAKE_PATH_DATA="${DIST_ROOT_ABSOLUTE}/${CMAKE_INSTALL_DATADIR}/openvibe")
 
 set(OV_CONFIG_SUBDIR "${PROJECT_NAME}-${PROJECT_VERSION}" CACHE STRING "Subdirectory under user directory when configuration and logs will be saved")
 set(OVT_TEST_DATA_DIR "${CMAKE_SOURCE_DIR}/test-data")
@@ -100,7 +113,6 @@ set(OVT_TEST_DATA_DIR "${CMAKE_SOURCE_DIR}/test-data")
 # Options
 option(Flag_VerboseOutput "Verbose CMake output" OFF)
 option(OV_DISPLAY_ERROR_LOCATION "display complete error locations" ON)
-option(OV_PACKAGE "Create a package in build directory" OFF)
 option(BUILD_VALIDATION_TEST "Build the validation tests" ON)
 option(BUILD_UNIT_TEST "Build the unit tests" ON)
 option(BUILD_GCOV "Add coverage compilation options" OFF)
@@ -108,7 +120,6 @@ option(BUILD_GCOV "Add coverage compilation options" OFF)
 message(STATUS "META OPTIONS : ")
 message(STATUS "  Flag_VerboseOutput = '${Flag_VerboseOutput}'")
 message(STATUS "  OV_DISPLAY_ERROR_LOCATION = '${OV_DISPLAY_ERROR_LOCATION}'")
-message(STATUS "  OV_PACKAGE = '${OV_PACKAGE}'")
 message(STATUS "  BUILD_VALIDATION_TEST = '${BUILD_VALIDATION_TEST}'")
 message(STATUS "  BUILD_UNIT_TEST = '${BUILD_UNIT_TEST}'")
 
@@ -281,3 +292,7 @@ list(FILTER OV_PLUGIN_TARGETS INCLUDE REGEX "^openvibe-plugins-")
 # Add Documentation to Build. This only defines the (ALL-excluded) "doc" target, so it is cheap
 # enough to configure unconditionally: build the documentation with "ninja doc".
 add_subdirectory(documentation)
+
+# #############################################################################
+# Packaging. Must stay last: it ends with include(CPack), which snapshots the CPACK_* variables.
+include("OvPackaging")
