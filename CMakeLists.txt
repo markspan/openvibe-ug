@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 set(OPENVIBE_MAJOR_VERSION 3)
-set(OPENVIBE_MINOR_VERSION 6)
+set(OPENVIBE_MINOR_VERSION 7)
 set(OPENVIBE_PATCH_VERSION 0)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -182,7 +182,7 @@ if (WIN32)
 	install(DIRECTORY ${CONDA_PREFIX}/Library/bin/
 			DESTINATION ${DIST_BINDIR} 
 			FILES_MATCHING PATTERN "*.dll"
-      PATTERN ".bit"
+      PATTERN "*.bit"
       PATTERN "intl.dll" EXCLUDE
       PATTERN "intl-8.dll" EXCLUDE
       PATTERN "iconv.dll" EXCLUDE
@@ -202,7 +202,7 @@ if (WIN32)
   file (COPY ${CONDA_PREFIX}/Library/bin/
         DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
         FILES_MATCHING PATTERN "*.dll"
-        PATTERN ".bit"
+        PATTERN "*.bit"
         PATTERN "intl.dll" EXCLUDE
         PATTERN "intl-8.dll" EXCLUDE
         PATTERN "iconv.dll" EXCLUDE
