@@ -51,7 +51,8 @@ requirements:
 
   host:
     - numpy {{numpy}}
-    #- qt6-main=6.4.3
+    - qt6-main=6.6    # [unix] 
+    - qt6-graphs-6.6  # [unix]
     - boost-cpp=1.77
     - eigen=3.3.8
     - gtest=1.10.0
@@ -60,8 +61,6 @@ requirements:
     - tinyxml2=9.0.0
     - expat=2.5.0
     - xerces-c=3.2.4
-    - gtk2=2.24          # [unix]
-    - gtk-2=2.24         # [win]
     - python
     - openal-soft=1.21.1
     - freealut=1.1.0

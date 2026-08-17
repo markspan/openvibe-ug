@@ -1,0 +1,96 @@
+
+# Global cleanup at start
+.cleanup_env: &cleanup_script
+  stage: cleanup
+  script:
+    - |
+      echo "Cleaning cache files more than 5 days :"
+      if find "$CACHE_DIR" -type d -mtime +5; then
+        find "$CACHE_DIR" -type d -mtime +5 -exec rm -rf {} +
+      else
+        echo "No cache folder to clean"
+      fi
+
+      echo "Cleaning all build-*-* folder which have more than 6h"
+
+      if find "$CI_PROJECT_DIR" -maxdepth 3 -type d -name "build-*-*" -mmin +360 -type d | grep -q .; then
+        find "$CI_PROJECT_DIR" \
+          -maxdepth 1 \
+          -type d \
+          -name "build-*-*" \
+          -mmin +360 \
+          -print \
+          -exec rm -rf {} \;
+      else
+        echo "No old build-*-* folders to clean"
+      fi
+
+cleanup_linux:
+  tags: ['linux']
+  variables:
+    CACHE_DIR: "/builds/builds/cache"
+  <<: *cleanup_script
+
+cleanup_mac:
+  tags: ['macos']
+  rules: !reference [.never_rules, rules]
+  variables:
+    CACHE_DIR: "/Users/ci/cache"
+  <<: *cleanup_script
+
+cleanup_windows:
+  stage: cleanup
+  tags:
+    - windows
+  variables:
+    BUILD_ROOT: "D:/work/build/$CI_PROJECT_NAME"
+    BUILD_FOLDER: "$BUILD_ROOT/build-$CI_PIPELINE_ID"
+    CACHE_DIR: "D:/work/cache"
+  script:
+    - |
+        powershell -NoProfile -Command "
+          `$build_folder  = `$env:BUILD_FOLDER
+          `$build_root  = `$env:BUILD_ROOT
+
+
+          Write-Host "Cleaning caches older than 7 days in `$env:BUILD_FOLDER"
+
+          Get-ChildItem `$env:BUILD_FOLDER" -Directory -Recurse |
+          Where-Object { `$_.LastWriteTime -lt (Get-Date).AddDays(-7) } |
+          ForEach-Object {
+            Write-Host "Deleting:" `$_.FullName
+            Remove-Item `$_.FullName -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          Write-Host "Cleanup cache finished"
+
+
+          if (!(Test-Path -Path `$build_root)) {
+              New-Item -ItemType Directory -Path `$build_root -Force | Out-Null;
+              Write-Host 'Created build folder:' `$build_root
+          }
+
+          if (!(Test-Path -Path `$build_folder)) {
+              New-Item -ItemType Directory -Path `$build_folder -Force | Out-Null;
+              Write-Host 'Created build folder:' `$build_folder
+          } else {
+            Write-Host 'Build folder already exists:' `$build_folder
+          }
+
+          Write-Host '--- Listing build-*-* folders ---'
+          Get-ChildItem `$build_root -Directory -Filter 'build-*-*' -Recurse -Depth 2|
+            Sort-Object LastWriteTime |
+            ForEach-Object { 
+              Write-Host 'FOUND:' `$_.FullName 'LastWrite:' `$_.LastWriteTime 
+            }
+
+          Write-Host '--- Removing old build-*-* folders (>6h) ---'
+          `$limit = (Get-Date).AddHours(-6)
+          Get-ChildItem `$build_root -Directory -Filter 'build-*-*' -Recurse -Depth 2|
+            Where-Object { `$_.LastWriteTime -lt `$limit } |
+            ForEach-Object { 
+              Write-Host 'REMOVING:' `$_.FullName '(LastWrite:' `$_.LastWriteTime ')'
+              Remove-Item -Recurse -Force `$_.FullName
+            }
+
+        "

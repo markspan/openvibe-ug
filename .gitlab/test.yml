@@ -1,0 +1,54 @@
+---
+      
+test-macosx:
+  stage: test
+  needs: [build_openvibe_macosx]
+  tags:
+    - macos
+  rules: !reference [.never_rules, rules]
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - pixi run ci-test -V -E uoTimeTest --rerun-failed --output-on-failure --output-junit test.xml
+  artifacts:
+    when: always
+    reports:
+      junit: $BUILD_FOLDER/test.xml
+  allow_failure: true # To be removed when Qt6 porting is done
+        
+test-linux:
+  stage: test
+  needs: [build_openvibe_linux]
+  rules: !reference [.mr_or_web_rules, rules]
+  tags:
+    - linux
+  variables:
+    GIT_STRATEGY: none
+  cache:
+    key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
+    policy: pull
+  script:
+    - export QT_QPA_PLATFORM=offscreen
+    - pixi run ci-test -V  --rerun-failed --output-on-failure --output-junit test.xml
+  artifacts:
+    when: always
+    reports:
+      junit: $BUILD_FOLDER/test.xml
+  allow_failure: true # To be removed when Qt6 porting is done
+        
+test-windows:
+  stage: test
+  needs: [build_openvibe_windows]
+  tags:
+    - windows
+  rules: !reference [.mr_or_web_rules, rules]
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - pixi run ci-test -V --rerun-failed --output-on-failure --output-junit test.xml
+  artifacts:
+    when: always
+    reports:
+      junit: $BUILD_FOLDER/test.xml
+  allow_failure: true # To be removed when Qt6 porting is done
+

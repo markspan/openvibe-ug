@@ -859,7 +859,7 @@ WARN_FORMAT            = "$file:$line: $text"
 # messages should be written. If left blank the output is written to standard
 # error (stderr).
 
-WARN_LOGFILE           = Warning.log
+WARN_LOGFILE           = @ROOT_DOC_DIR@/Warning.log
 
 #---------------------------------------------------------------------------
 # Configuration options related to the input files
@@ -871,7 +871,7 @@ WARN_LOGFILE           = Warning.log
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = Main.md \
+INPUT                  = @ROOT_DOC_DIR@/Main.md \
                          License.md \
                          Stimulations.md \
                          Designer \
@@ -1004,6 +1004,7 @@ IMAGE_PATH             = images \
                          "Stream Structures/images" \
                          ../extras/contrib/plugins/server-drivers/openbci/doc \
                          ../designer/plugins/visualization/ovp-advanced-visualization/doc \
+                         ../extras/plugins/processing/examples/metaboxes/doc \
                          @ROOT_DOC_DIR@/box-algorithm-snapshots
 
 # The INPUT_FILTER tag can be used to specify a program that doxygen should
@@ -1060,7 +1061,7 @@ FILTER_SOURCE_PATTERNS =
 # (index.html). This can be useful if you have a project on for instance GitHub
 # and want to reuse the introduction page also for the doxygen output.
 
-USE_MDFILE_AS_MAINPAGE = Main.md
+USE_MDFILE_AS_MAINPAGE = @ROOT_DOC_DIR@/Main.md
 
 #---------------------------------------------------------------------------
 # Configuration options related to source browsing

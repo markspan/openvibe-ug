@@ -1,0 +1,58 @@
+#
+# This file describes the common rules for the stages
+#
+---
+variables:
+  PULL_REQUEST_BRANCH_NAME: ""
+
+  GIT_STRATEGY: none
+  GIT_DEPTH: "1"
+  GIT_SUBMODULE_DEPTH: "1"
+
+workflow:
+  rules:
+    # Pipeline MR
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      variables:
+        PULL_REQUEST_BRANCH_NAME: "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
+        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_MERGE_REQUEST_ID-mr"
+      when: always
+
+    # Pipeline after merge
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_IID == null && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      variables:
+        PULL_REQUEST_BRANCH_NAME: "$CI_COMMIT_BRANCH"
+        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_COMMIT_SHORT_SHA-push"
+      when: always
+
+    # Pipeline manually triggered from the GitLab UI ("Run pipeline")
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      variables:
+        PULL_REQUEST_BRANCH_NAME: "$CI_COMMIT_BRANCH"
+        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_COMMIT_SHORT_SHA-web"
+      when: always
+
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+      variables:
+        PULL_REQUEST_BRANCH_NAME: "$CI_COMMIT_BRANCH"
+        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_COMMIT_SHORT_SHA-trigger"
+      when: always
+
+    - when: never
+
+# Shared rule set for jobs that should run on MR pipelines and on manual
+# "Run pipeline" (web) triggers. Reused across files with `!reference`, since
+# plain YAML anchors don't resolve across separately-included CI files.
+.mr_or_web_rules:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: always
+    - when: never
+
+# Used to temporarily disable a job/stage (e.g. macOS while it's unavailable),
+# without deleting its definition. Reference from a job's `rules:` to switch it off.
+.never_rules:
+  rules:
+    - when: never
