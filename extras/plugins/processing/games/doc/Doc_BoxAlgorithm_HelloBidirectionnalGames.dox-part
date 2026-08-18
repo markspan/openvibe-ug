@@ -1,0 +1,76 @@
+/**
+ * \page BoxAlgorithm_HelloBidirectionnalGames Hello Bidirectionnal Games
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloBidirectionnalGames_Description|
+This box forwards the signals and stimulations it gets to two corresponding LabStreamingLayer (LSL) streams and receive back The size of cube in game and a Beep Stimulation from the Unity Game. 
+
+This stream can be read by the Unity Games Hello Bidirectionnal here : https://gitlab.inria.fr/openvibe/unity-games/hello-bidirectionnal
+
+Remarks : It is recommanded to run the Unity App Before to avoid "too big" lag in OpenViBE with continuous search of stream. Unity can support that easily.
+
+ * |OVP_DocEnd_BoxAlgorithm_HelloBidirectionnalGames_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloBidirectionnalGames_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_HelloBidirectionnalGames_Inputs|
+ *
+ * |OVP_DocBegin_BoxAlgorithm_HelloBidirectionnalGames_Input1|
+The signal input stream.
+ * |OVP_DocEnd_BoxAlgorithm_HelloBidirectionnalGames_Input1|
+ 
+ * |OVP_DocBegin_BoxAlgorithm_HelloBidirectionnalGames_Input2|
+The stimulation input stream.
+ * |OVP_DocEnd_BoxAlgorithm_HelloBidirectionnalGames_Input2|
+ __________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloSenderGames_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_HelloSenderGames_Outputs|
+ *
+ * |OVP_DocBegin_BoxAlgorithm_HelloSenderGames_Output1|
+The size of the Cube in Unity App.
+ * |OVP_DocEnd_BoxAlgorithm_HelloSenderGames_Output1|
+ 
+ * |OVP_DocBegin_BoxAlgorithm_HelloSenderGames_Output2|
+The Beep stimulation from the Unity App.
+ * |OVP_DocEnd_BoxAlgorithm_HelloSenderGames_Output2|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloBidirectionnalGames_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_HelloBidirectionnalGames_Settings|
+ *
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloBidirectionnalGames_Examples|
+Easiest way to test the box is to use a time signal box with a simple DSP sin(x) and a Clock Stimulation with stimulation `OVTK_StimulationId_Label_00` for inputs and just a display matrix and a stimulation listener for output.  
+Run the Game, next run the Scenario.
+ * |OVP_DocEnd_BoxAlgorithm_HelloBidirectionnalGames_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloBidirectionnalGames_Miscellaneous|
+The box creates each LSL stream at the beginning of the playback, after it has received its corresponding OpenViBE stream header information. Hence, if either signal or stimulus socket 
+of the box is not connected or does not receive a header, the box will not create the corresponding LSL stream.
+The reception LSL streams are searched during each process to create inlet when stream are available. 
+
+Stream formats: The signal stream is continuous float. The stimulation stream is noncontinuous int, and each 64bit OpenViBE stimulation is truncated to an int marker.
+
+ * |OVP_DocEnd_BoxAlgorithm_HelloBidirectionnalGames_Miscellaneous|
+ */

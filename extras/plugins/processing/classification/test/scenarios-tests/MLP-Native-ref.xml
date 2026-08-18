@@ -1,0 +1,24 @@
+<OpenViBE-Classifier-Box Creator="OpenViBE Designer" CreatorVersion="3.3.0" FormatVersion="4">
+	<Strategy-Identifier class-id="(0xffffffff, 0xffffffff)">Native</Strategy-Identifier>
+	<Algorithm-Identifier class-id="(0xf3fab4be, 0xdc401260)">Multi-layer Perceptron</Algorithm-Identifier>
+	<Stimulations>
+		<Class-Stimulation class-id="0">OVTK_StimulationId_Label_01</Class-Stimulation>
+		<Class-Stimulation class-id="1">OVTK_StimulationId_Label_02</Class-Stimulation>
+		<Class-Stimulation class-id="2">OVTK_StimulationId_Label_03</Class-Stimulation>
+	</Stimulations>
+	<OpenViBE-Classifier>
+		<MLP>
+			<Class-label>0 1 2 </Class-label>
+			<Neuron-configuration>
+				<Input-neuron-count>18</Input-neuron-count>
+				<Hidden-neuron-count>3</Hidden-neuron-count>
+			</Neuron-configuration>
+			<Minimum>4.845361e-004</Minimum>
+			<Maximum>2.268283e+000</Maximum>
+			<Input-weight> 6.876240e-002 1.224223e-001 9.173635e-002 4.274767e-002 1.259935e-001 2.638157e-002 -1.371038e-002 -3.799441e-003 -1.841799e-002 -5.049764e-002 -6.044699e-002 -3.242258e-002 -2.996066e-003 -1.269319e-001 -3.294942e-002 -1.330240e-001 -4.233320e-002 -6.550047e-002 5.252520e-002 4.981279e-002 6.444839e-002 1.531002e-002 6.307617e-002 -3.297821e-002 5.229701e-002 9.215418e-002 4.430745e-002 1.237688e-001 7.320464e-002 3.250340e-002 -1.651932e-002 -4.070696e-002 -4.017146e-002 -8.197449e-002 -7.618733e-002 1.547588e-002 8.481947e-002 9.648702e-002 1.142980e-001 1.010786e-001 9.272962e-002 1.127660e-001 -5.794735e-002 -3.209253e-001 -2.311726e-001 -2.499927e-001 -3.373584e-001 -9.079611e-002 5.904999e-002 1.102041e-001 -1.966671e-003 2.796822e-002 6.683831e-002 8.469565e-003</Input-weight>
+			<Input-bias> -5.956537e-002 -2.913165e-002 -4.364532e-002</Input-bias>
+			<Hidden-bias> 2.705702e-001 4.258950e-001 1.997073e-001</Hidden-bias>
+			<Hidden-weight> 1.823779e-001 -5.820583e-002 3.279074e-001 -1.138978e-001 5.335164e-002 -5.678828e-001 -2.152393e-001 -2.594239e-001 2.238079e-001</Hidden-weight>
+		</MLP>
+	</OpenViBE-Classifier>
+</OpenViBE-Classifier-Box>

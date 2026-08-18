@@ -1,0 +1,50 @@
+/**
+ * \page BoxAlgorithm_ConnectivitySpectrumExtractor 2D Matrix to Vector extraction
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivitySpectrumExtractor_Description|
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivitySpectrumExtractor_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivitySpectrumExtractor_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivitySpectrumExtractor_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivitySpectrumExtractor_Input1|
+ 3D Connectivity Matrix to extract Spectrum vector from
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivitySpectrumExtractor_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivitySpectrumExtractor_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivitySpectrumExtractor_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivitySpectrumExtractor_Output1|
+ Connectivity Spectrum of a pair of channels from source signal
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivitySpectrumExtractor_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivitySpectrumExtractor_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivitySpectrumExtractor_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivitySpectrumExtractor_Setting1|
+ First channel from source signal to get connectivity spectrum from
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivitySpectrumExtractor_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivitySpectrumExtractor_Setting2|
+ Second channel from source signal to get connectivity spectrum from
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivitySpectrumExtractor_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivitySpectrumExtractor_Setting3|
+ Sampling frequency of source signal
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivitySpectrumExtractor_Setting3|

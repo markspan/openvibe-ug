@@ -1,0 +1,236 @@
+<OpenViBE-Scenario>
+	<Creator>OpenVIBE</Creator>
+	<CreatorVersion>0.0.0</CreatorVersion>
+	<Settings>
+		<Setting>
+			<TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
+			<Name>Integer Setting</Name>
+			<DefaultValue>10</DefaultValue>
+			<Value>100</Value>
+		</Setting>
+		<Setting>
+			<TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
+			<Name>Float Setting</Name>
+			<DefaultValue>3.14</DefaultValue>
+			<Value>2.42</Value>
+		</Setting>
+		<Setting>
+			<TypeIdentifier>(0x79a9edeb, 0x245d83fc)</TypeIdentifier>
+			<Name>String Setting</Name>
+			<DefaultValue>Default string value</DefaultValue>
+			<Value>Modified string value</Value>
+		</Setting>
+	</Settings>
+	<Inputs>
+		<Input>
+			<TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+			<Name>Stimulation Input</Name>
+			<LinkedBoxIdentifier>(0x4468da36, 0x3fce3251)</LinkedBoxIdentifier>
+			<LinkedBoxInputIndex>0</LinkedBoxInputIndex>
+		</Input>
+		<Input>
+			<TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+			<Name>Disconnected Matrix Input</Name>
+			<LinkedBoxIdentifier>(0xffffffff, 0xffffffff)</LinkedBoxIdentifier>
+			<LinkedBoxInputIndex>0</LinkedBoxInputIndex>
+		</Input>
+	</Inputs>
+	<Outputs>
+		<Output>
+			<TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+			<Name>Stimulation Output</Name>
+			<LinkedBoxIdentifier>(0x66b53b19, 0x043b1afe)</LinkedBoxIdentifier>
+			<LinkedBoxOutputIndex>0</LinkedBoxOutputIndex>
+		</Output>
+		<Output>
+			<TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+			<Name>Disconnected Matrix Output</Name>
+			<LinkedBoxIdentifier>(0xffffffff, 0xffffffff)</LinkedBoxIdentifier>
+			<LinkedBoxOutputIndex>0</LinkedBoxOutputIndex>
+		</Output>
+	</Outputs>
+	<Boxes>
+		<Box>
+			<Identifier>(0x4468da36, 0x3fce3251)</Identifier>
+			<Name>Stimulation listener</Name>
+			<AlgorithmClassIdentifier>(0x65731e1d, 0x47de5276)</AlgorithmClassIdentifier>
+			<Inputs>
+				<Input>
+					<TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+					<Name>Stimulation stream 1</Name>
+				</Input>
+				<Input>
+					<TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+					<Name>Stimulation stream 2</Name>
+				</Input>
+			</Inputs>
+			<Settings>
+				<Setting>
+					<TypeIdentifier>(0xa88b3667, 0x0871638c)</TypeIdentifier>
+					<Name>Log level to use</Name>
+					<DefaultValue>Debug</DefaultValue>
+					<Value>Information</Value>
+					<Modifiability>false</Modifiability>
+				</Setting>
+			</Settings>
+			<Attributes>
+				<Attribute>
+					<Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+					<Value>176</Value>
+				</Attribute>
+				<Attribute>
+					<Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+					<Value>352</Value>
+				</Attribute>
+				<Attribute>
+					<Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+					<Value>(0xf451ad91, 0x14c75f86)</Value>
+				</Attribute>
+				<Attribute>
+					<Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+					<Value>1</Value>
+				</Attribute>
+				<Attribute>
+					<Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+					<Value>1</Value>
+				</Attribute>
+				<Attribute>
+					<Identifier>(0xfba64161, 0x65304e21)</Identifier>
+					<Value></Value>
+				</Attribute>
+			</Attributes>
+		</Box>
+		<Box>
+			<Identifier>(0x66b53b19, 0x043b1afe)</Identifier>
+			<Name>Clock stimulator</Name>
+			<AlgorithmClassIdentifier>(0x4f756d3f, 0x29ff0b96)</AlgorithmClassIdentifier>
+			<Outputs>
+				<Output>
+					<TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+					<Name>Generated stimulations</Name>
+				</Output>
+			</Outputs>
+			<Settings>
+				<Setting>
+					<TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
+					<Name>Interstimulation interval (in sec)</Name>
+					<DefaultValue>1.0</DefaultValue>
+					<Value>1</Value>
+					<Modifiability>false</Modifiability>
+				</Setting>
+				<Setting>
+					<TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+					<Name>Stimulation</Name>
+					<DefaultValue>OVTK_StimulationId_Label_00</DefaultValue>
+					<Value>OVTK_StimulationId_Label_00</Value>
+					<Modifiability>false</Modifiability>
+				</Setting>
+			</Settings>
+			<Attributes>
+				<Attribute>
+					<Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+					<Value>80</Value>
+				</Attribute>
+				<Attribute>
+					<Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+					<Value>464</Value>
+				</Attribute>
+				<Attribute>
+					<Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+					<Value>(0x27b3ee3c, 0xc50527e6)</Value>
+				</Attribute>
+				<Attribute>
+					<Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+					<Value>1</Value>
+				</Attribute>
+				<Attribute>
+					<Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+					<Value>2</Value>
+				</Attribute>
+			</Attributes>
+		</Box>
+	</Boxes>
+	<Links>
+		<Link>
+			<Identifier>(0x1dd7b2d2, 0x3c1d084d)</Identifier>
+			<Source>
+				<BoxIdentifier>(0x66b53b19, 0x043b1afe)</BoxIdentifier>
+				<BoxOutputIndex>0</BoxOutputIndex>
+			</Source>
+			<Target>
+				<BoxIdentifier>(0x4468da36, 0x3fce3251)</BoxIdentifier>
+				<BoxInputIndex>1</BoxInputIndex>
+			</Target>
+			<Attributes></Attributes>
+		</Link>
+	</Links>
+	<Comments>
+		<Comment>
+			<Identifier>(0x160bd469, 0x62a644ce)</Identifier>
+			<Text>This comment contains a newline
+and unicode characters 日本語</Text>
+			<Attributes>
+				<Attribute>
+					<Identifier>(0x473d9a43, 0x97fc0a97)</Identifier>
+					<Value>80</Value>
+				</Attribute>
+				<Attribute>
+					<Identifier>(0x7234b86b, 0x2b8651a5)</Identifier>
+					<Value>208</Value>
+				</Attribute>
+			</Attributes>
+		</Comment>
+		<Comment>
+			<Identifier>(0x24da4aa1, 0x7759a2ee)</Identifier>
+			<Text>Content of a comment</Text>
+			<Attributes>
+				<Attribute>
+					<Identifier>(0x473d9a43, 0x97fc0a97)</Identifier>
+					<Value>96</Value>
+				</Attribute>
+				<Attribute>
+					<Identifier>(0x7234b86b, 0x2b8651a5)</Identifier>
+					<Value>112</Value>
+				</Attribute>
+			</Attributes>
+		</Comment>
+	</Comments>
+	<Attributes>
+		<Attribute>
+			<Identifier>(0x20c6d158, 0xfe90aadd)</Identifier>
+			<Value>(0xa201286e, 0x9bdd6498)</Value>
+		</Attribute>
+		<Attribute>
+			<Identifier>(0x790d75b8, 0x3bb90c33)</Identifier>
+			<Value>AUTHOR NAME</Value>
+		</Attribute>
+		<Attribute>
+			<Identifier>(0x7a3a1558, 0xf12c63c2)</Identifier>
+			<Value>DETAILED DESCRIPTION</Value>
+		</Attribute>
+		<Attribute>
+			<Identifier>(0x84009d7c, 0x3c4e763b)</Identifier>
+			<Value>SHORT DESCRIPTION</Value>
+		</Attribute>
+		<Attribute>
+			<Identifier>(0x8c1fc55b, 0x7b433dc2)</Identifier>
+			<Value>SCENARIO VERSION</Value>
+		</Attribute>
+		<Attribute>
+			<Identifier>(0x9f5c4075, 0x4a0d3666)</Identifier>
+			<Value>SCENARIO NAME</Value>
+		</Attribute>
+		<Attribute>
+			<Identifier>(0xf36a1567, 0xd13c53da)</Identifier>
+			<Value>DOCUMENTATION PAGE</Value>
+		</Attribute>
+		<Attribute>
+			<Identifier>(0xf6b2e3fa, 0x7bd43926)</Identifier>
+			<Value>SCENARIO CATEGORY</Value>
+		</Attribute>
+		<Attribute>
+			<Identifier>(0xf8034a49, 0x8b3f37cc)</Identifier>
+			<Value>COMPANY NAME</Value>
+		</Attribute>
+	</Attributes>
+</OpenViBE-Scenario>

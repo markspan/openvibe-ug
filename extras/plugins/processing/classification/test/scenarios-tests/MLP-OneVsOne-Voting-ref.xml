@@ -1,0 +1,65 @@
+<OpenViBE-Classifier-Box Creator="OpenViBE Designer" CreatorVersion="3.3.0" FormatVersion="4">
+	<Strategy-Identifier class-id="(0x638c2f90, 0xeae10226)">OneVsOne</Strategy-Identifier>
+	<Algorithm-Identifier class-id="(0xf3fab4be, 0xdc401260)">Multi-layer Perceptron</Algorithm-Identifier>
+	<Stimulations>
+		<Class-Stimulation class-id="0">OVTK_StimulationId_Label_01</Class-Stimulation>
+		<Class-Stimulation class-id="1">OVTK_StimulationId_Label_02</Class-Stimulation>
+		<Class-Stimulation class-id="2">OVTK_StimulationId_Label_03</Class-Stimulation>
+	</Stimulations>
+	<OpenViBE-Classifier>
+		<OneVsOne>
+			<SubClassifierIdentifier algorithm-id="(0xf3fab4be, 0xdc401260)">Multi-layer Perceptron</SubClassifierIdentifier>
+			<SubClassifierCount>3</SubClassifierCount>
+			<PairwiseDecision algorithm-id="(0xa111b830, 0x4679bafd)">
+				<PairwiseDecision_Voting/>
+			</PairwiseDecision>
+			<SubClassifiers>
+				<SubClassifier first-class="0" second-class="1">
+					<MLP>
+						<Class-label>0 1 </Class-label>
+						<Neuron-configuration>
+							<Input-neuron-count>18</Input-neuron-count>
+							<Hidden-neuron-count>3</Hidden-neuron-count>
+						</Neuron-configuration>
+						<Minimum>4.845361e-004</Minimum>
+						<Maximum>2.268283e+000</Maximum>
+						<Input-weight> 3.265111e-002 1.893896e-002 -6.726365e-003 6.752450e-002 6.669157e-002 7.518958e-002 -4.624402e-002 -5.763957e-002 -4.724716e-003 -2.037034e-002 -9.832009e-002 -5.839245e-002 7.268098e-002 1.437851e-002 1.412504e-002 1.347727e-002 5.195679e-002 2.163682e-004 -4.880973e-002 -6.048513e-002 -8.091115e-002 -8.301331e-002 -6.222690e-002 -7.688192e-002 6.218686e-002 1.987608e-001 1.290448e-001 2.146974e-001 2.549721e-001 3.571590e-002 -6.405278e-002 4.072311e-002 4.646686e-002 9.457429e-003 -5.175775e-002 2.113265e-002 3.767719e-002 -4.146764e-002 -7.798771e-002 -4.918881e-002 -5.726005e-002 1.121734e-002 1.328471e-002 2.121330e-001 1.048606e-001 9.833502e-002 1.683611e-001 5.363718e-002 -2.337969e-002 -4.278146e-002 5.759837e-003 2.322528e-002 5.483354e-002 3.190861e-002</Input-weight>
+						<Input-bias> -4.880174e-002 2.410861e-002 2.960062e-002</Input-bias>
+						<Hidden-bias> 3.479534e-001 5.372738e-001</Hidden-bias>
+						<Hidden-weight> 2.791919e-002 -4.198710e-001 -3.160914e-001 -1.701236e-001 2.572860e-001 1.658777e-001</Hidden-weight>
+					</MLP>
+				</SubClassifier>
+				<SubClassifier first-class="0" second-class="2">
+					<MLP>
+						<Class-label>0 1 </Class-label>
+						<Neuron-configuration>
+							<Input-neuron-count>18</Input-neuron-count>
+							<Hidden-neuron-count>3</Hidden-neuron-count>
+						</Neuron-configuration>
+						<Minimum>4.845361e-004</Minimum>
+						<Maximum>2.057392e+000</Maximum>
+						<Input-weight> -6.141290e-002 -1.625853e-001 -9.106556e-002 -4.250763e-002 -1.626485e-001 -5.268437e-002 -2.247423e-002 -3.496491e-002 1.232693e-002 -4.053637e-002 4.539070e-002 5.257154e-002 5.257368e-002 1.744795e-001 6.268686e-002 1.371603e-001 1.553861e-001 9.287881e-002 -1.893111e-002 -7.112938e-002 -5.236303e-002 -2.823767e-002 6.986253e-003 -2.549400e-002 5.066683e-002 -5.189611e-003 7.549693e-002 -3.256059e-003 5.577104e-002 1.580524e-002 7.270138e-002 1.563296e-001 4.403563e-002 7.241450e-002 8.679406e-002 5.135545e-002 -7.378351e-002 -9.923939e-002 -6.990065e-002 -1.032670e-001 -1.411539e-001 -3.389220e-002 3.147444e-002 -2.240901e-002 -2.922804e-002 -2.692104e-002 1.316118e-002 -5.967522e-002 2.847068e-003 1.308290e-001 5.592824e-002 6.170755e-002 6.815247e-002 -1.222312e-002</Input-weight>
+						<Input-bias> 2.778977e-004 2.128342e-002 1.635011e-002</Input-bias>
+						<Hidden-bias> 4.628369e-001 4.019294e-001</Hidden-bias>
+						<Hidden-weight> -2.283368e-001 -2.323456e-001 -5.856357e-002 3.371563e-001 6.502155e-002 3.054334e-001</Hidden-weight>
+					</MLP>
+				</SubClassifier>
+				<SubClassifier first-class="1" second-class="2">
+					<MLP>
+						<Class-label>0 1 </Class-label>
+						<Neuron-configuration>
+							<Input-neuron-count>18</Input-neuron-count>
+							<Hidden-neuron-count>3</Hidden-neuron-count>
+						</Neuron-configuration>
+						<Minimum>6.547307e-004</Minimum>
+						<Maximum>2.268283e+000</Maximum>
+						<Input-weight> -5.618028e-002 -3.557725e-002 2.069557e-002 -1.004319e-002 9.088308e-003 2.154826e-003 4.122507e-002 2.503603e-001 1.823521e-001 1.898822e-001 2.701783e-001 5.379212e-002 -8.178669e-002 -1.866310e-001 -8.857253e-002 -1.274850e-001 -1.431309e-001 -5.955292e-002 -4.261586e-002 5.060305e-004 -1.346384e-002 8.669200e-003 2.108748e-002 -3.865425e-002 7.538518e-003 -7.731964e-002 -1.006034e-001 -8.836877e-002 -1.543496e-001 -6.226054e-003 -4.946107e-002 5.901460e-002 -1.552432e-002 6.621161e-002 9.085180e-002 7.089844e-003 -4.037184e-004 -1.562276e-002 -5.471420e-002 -2.502033e-002 -4.339770e-002 2.967733e-002 3.935786e-003 1.712256e-001 6.527469e-002 2.006832e-001 1.370156e-001 2.279560e-002 -2.461781e-002 -1.206536e-001 -3.734985e-002 -8.179394e-002 -1.308433e-001 -4.400393e-002</Input-weight>
+						<Input-bias> 5.652405e-003 3.100032e-002 1.403193e-002</Input-bias>
+						<Hidden-bias> 5.401755e-001 4.074083e-001</Hidden-bias>
+						<Hidden-weight> 3.661054e-001 -9.369432e-002 3.283126e-001 -4.532903e-001 2.388154e-001 -1.824975e-001</Hidden-weight>
+					</MLP>
+				</SubClassifier>
+			</SubClassifiers>
+		</OneVsOne>
+	</OpenViBE-Classifier>
+</OpenViBE-Classifier-Box>

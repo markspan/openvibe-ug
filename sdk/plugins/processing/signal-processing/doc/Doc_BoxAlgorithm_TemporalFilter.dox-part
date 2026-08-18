@@ -1,0 +1,77 @@
+/**
+ * \page BoxAlgorithm_TemporalFilter Temporal Filter
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_TemporalFilter_Description|
+ This plugin is used to filter the input signal. This plugin uses the Butterworth filter,
+ allow the selection of the filter type (low-pass, high-pass, band-pass, band-stop) and the low or/and the high edge of the filter.
+ Outputs can be added to apply a filter on the signal with the same type and order but on different frequencies.
+ * |OVP_DocEnd_BoxAlgorithm_TemporalFilter_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_TemporalFilter_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_TemporalFilter_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_TemporalFilter_Input1|
+ The input signal.
+ * |OVP_DocEnd_BoxAlgorithm_TemporalFilter_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_TemporalFilter_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_TemporalFilter_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_TemporalFilter_Output1|
+ The filtered signal.
+ * |OVP_DocEnd_BoxAlgorithm_TemporalFilter_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_TemporalFilter_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_TemporalFilter_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_TemporalFilter_Setting1|
+ Select the kind of filter between low-pass, high-pass, band-pass, band-stop.
+ * |OVP_DocEnd_BoxAlgorithm_TemporalFilter_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_TemporalFilter_Setting2|
+ Order \f$ n \f$ of the filter, with \f$ n \geq 1 \f$.
+ * |OVP_DocEnd_BoxAlgorithm_TemporalFilter_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_TemporalFilter_Setting3|
+ Low cut-off frequency  \f$ f_1 > 0 \f$ for high-pass, band-pass and band-stop filters (not used with low-pass filter).
+ Low cut-off frequency can not be above Nyquist-Shannon criteria (half of the sampling rate).
+ * |OVP_DocEnd_BoxAlgorithm_TemporalFilter_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_TemporalFilter_Setting4|
+ High cut-off frequency  \f$ f_2 > 0 \f$ for low-pass, band-pass and band-stop filters (not used with high-pass filter). For band-pass and band-stop filters, \f$ f_1 < f_2 \f$.
+ High cut-off frequency can not be above Nyquist-Shannon criteria (half of the sampling rate).
+ * |OVP_DocEnd_BoxAlgorithm_TemporalFilter_Setting4|
+
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_TemporalFilter_Examples|
+ Let's consider our input signal is very noisy (50 Hz).
+ To filter this signal, select a Low pass Butterworth filter of 4th order and High Edge equal to 30 Hz for example.
+ * |OVP_DocEnd_BoxAlgorithm_TemporalFilter_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_TemporalFilter_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_TemporalFilter_Miscellaneous|
+ */

@@ -1,0 +1,68 @@
+/**
+ * \page BoxAlgorithm_MatrixAffineTransformation Matrix Affine Transformation
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixAffineTransformation_Description|
+Compute and Apply the Bias matrix for Affine Transformation on square matrix (isR * M * isR^(-1) = I).  <see cref="CBias"/> for more details.
+You can load an existing bias matrix with the first setting.  
+Continuous update is to update Bias at each chunk or at the end.
+ * |OVP_DocEnd_BoxAlgorithm_MatrixAffineTransformation_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixAffineTransformation_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixAffineTransformation_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixAffineTransformation_Input1|
+Square matrix to transform.
+ * |OVP_DocEnd_BoxAlgorithm_MatrixAffineTransformation_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixAffineTransformation_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixAffineTransformation_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixAffineTransformation_Output1|
+Transformed Square Matrix
+ * |OVP_DocEnd_BoxAlgorithm_MatrixAffineTransformation_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixAffineTransformation_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixAffineTransformation_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixAffineTransformation_Setting1|
+Filename with previous computed Bias
+ * |OVP_DocEnd_BoxAlgorithm_MatrixAffineTransformation_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixAffineTransformation_Setting2|
+Filename to save computed Bias
+ * |OVP_DocEnd_BoxAlgorithm_MatrixAffineTransformation_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixAffineTransformation_Setting3|
+Update method, continuous to update at each chunk and not continuous to compute bias at the End.
+ * |OVP_DocEnd_BoxAlgorithm_MatrixAffineTransformation_Setting3|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixAffineTransformation_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixAffineTransformation_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixAffineTransformation_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixAffineTransformation_Miscellaneous|
+ */

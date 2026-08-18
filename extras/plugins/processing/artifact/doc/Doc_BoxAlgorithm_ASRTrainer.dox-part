@@ -1,0 +1,78 @@
+/**
+ * \page BoxAlgorithm_ASRTrainer ASR Trainer
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Description|
+ Artifact Subspace Reconstruction (ASR) Trainer (see \ref CASR::train).
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Input1|
+Stimulation to start the training.
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Input1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Input1|
+The input signal.
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Output1|
+Send \"OVTK_StimulationId_TrainCompleted\" when training is completed.
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Setting1|
+ ASR model Filename.
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Setting2|
+ Stimulation that starts the training.
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Setting3|
+ The Metric to use : Riemman or Euclidian.
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Setting4|
+ The Channel ratio to reconstruct at maximum in [0;1] 0 for no reconstruction, 1 to allow reconstruction of all channels.
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Setting4|
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Setting5|
+ The Rejection Limit of ASR model.
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Setting5|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRTrainer_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_ASRTrainer_Miscellaneous|
+ */

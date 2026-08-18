@@ -1,0 +1,51 @@
+/**
+ * \page BoxAlgorithm_Matrix3DTo2D 3D to 2D Matrix conversion
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix3DTo2D_Description|
+ This box extracts a 2D matrix from a 3D matrix by removing a dimension and selecting a 2D matrix at the desired index
+ of the removed dimension.
+ * |OVP_DocEnd_BoxAlgorithm_Matrix3DTo2D_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix3DTo2D_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_Matrix3DTo2D_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix3DTo2D_Input1|
+ 3D Matrix from which a 2D matrix ( a "slice") will be extracted.
+ * |OVP_DocEnd_BoxAlgorithm_Matrix3DTo2D_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix3DTo2D_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_Matrix3DTo2D_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix3DTo2D_Output1|
+ The 2D matrix extrated from the input Matrix
+ * |OVP_DocEnd_BoxAlgorithm_Matrix3DTo2D_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix3DTo2D_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_Matrix3DTo2D_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix3DTo2D_Setting1|
+ The dimension to remove from the 3D Matrix. Possible values are ranging in  [ 0 - 2 ].
+ * |OVP_DocEnd_BoxAlgorithm_Matrix3DTo2D_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix3DTo2D_Setting2|
+ The index from the removed dimension at which to extract the 2 Matrix (the "slice").
+ * |OVP_DocEnd_BoxAlgorithm_Matrix3DTo2D_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix3DTo2D_Setting3|
+ * |OVP_DocEnd_BoxAlgorithm_Matrix3DTo2D_Setting3|

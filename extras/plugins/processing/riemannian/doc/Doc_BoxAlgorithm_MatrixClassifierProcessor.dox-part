@@ -1,0 +1,71 @@
+/**
+ * \page BoxAlgorithm_MatrixClassifierProcessor Matrix Classifier Processor
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierProcessor_Description|
+Matrix classifier Processor. This box classify input matrix with the loaded classifier model. Actual methods are Minimum Distance to Mean (MDM) and Minimum Distance to Mean with geodesic filtering (FgMDM)\n
+<seealso cref="CMatrixClassifierMDM::classify(const Eigen::MatrixXd&, size_t&, std::vector<double>&, std::vector<double>&)"/> <seealso cref="CMatrixClassifierFgMDM::classify(const Eigen::MatrixXd&, size_t&, std::vector<double>&, std::vector<double>&)"/>
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierProcessor_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierProcessor_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierProcessor_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierProcessor_Input1|
+Matrix to classify.
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierProcessor_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierProcessor_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierProcessor_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierProcessor_Output1|
+Predicted Class Stimulation
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierProcessor_Output1|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierProcessor_Output2|
+ Distance between each class
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierProcessor_Output2|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierProcessor_Output3|
+ Probability of each class
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierProcessor_Output3|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierProcessor_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierProcessor_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierProcessor_Setting1|
+Classifier model Filename
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierProcessor_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierProcessor_Setting2|
+Log Level (None to see nothing)
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierProcessor_Setting2|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierProcessor_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierProcessor_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierProcessor_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierProcessor_Miscellaneous|
+ */

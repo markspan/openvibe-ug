@@ -1,0 +1,1103 @@
+<OpenViBE-Scenario>
+    <FormatVersion>3</FormatVersion>
+    <Creator>OpenViBE Designer</Creator>
+    <CreatorVersion>3.3.0</CreatorVersion>
+    <Settings>
+        <Setting>
+            <Identifier>(0x002d042d, 0x0a17b655)</Identifier>
+            <TypeIdentifier>(0x79a9edeb, 0x245d83fc)</TypeIdentifier>
+            <Name>Test Name</Name>
+            <DefaultValue>Matrix-Classifier-Training-FgMDM</DefaultValue>
+            <Value>Matrix-Classifier-Training-FgMDM</Value>
+            <Connections/>
+        </Setting>
+        <Setting>
+            <Identifier>(0x00007354, 0xbcb4f088)</Identifier>
+            <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+            <Name>Stimulation Class 1</Name>
+            <DefaultValue>OVTK_GDF_Left</DefaultValue>
+            <Value>OVTK_GDF_Left</Value>
+            <Connections>
+                <Connection>
+                    <BoxIdentifier>(0x000028d4, 0x0000144a)</BoxIdentifier>
+                    <BoxParameterName>Class 1 label</BoxParameterName>
+                </Connection>
+                <Connection>
+                    <BoxIdentifier>(0x000028d4, 0x0000144b)</BoxIdentifier>
+                    <BoxParameterName>Class 1 label</BoxParameterName>
+                </Connection>
+                <Connection>
+                    <BoxIdentifier>(0x000028d4, 0x0000144c)</BoxIdentifier>
+                    <BoxParameterName>Class 1 label</BoxParameterName>
+                </Connection>
+                <Connection>
+                    <BoxIdentifier>(0x000028d4, 0x0000144d)</BoxIdentifier>
+                    <BoxParameterName>Class 1 label</BoxParameterName>
+                </Connection>
+            </Connections>
+        </Setting>
+        <Setting>
+            <Identifier>(0x00661288, 0x24c82f34)</Identifier>
+            <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+            <Name>Stimulation Class 2</Name>
+            <DefaultValue>OVTK_GDF_Right</DefaultValue>
+            <Value>OVTK_GDF_Right</Value>
+            <Connections>
+                <Connection>
+                    <BoxIdentifier>(0x000028d4, 0x0000144a)</BoxIdentifier>
+                    <BoxParameterName>Class 2 label</BoxParameterName>
+                </Connection>
+                <Connection>
+                    <BoxIdentifier>(0x000028d4, 0x0000144b)</BoxIdentifier>
+                    <BoxParameterName>Class 2 label</BoxParameterName>
+                </Connection>
+                <Connection>
+                    <BoxIdentifier>(0x000028d4, 0x0000144c)</BoxIdentifier>
+                    <BoxParameterName>Class 2 label</BoxParameterName>
+                </Connection>
+                <Connection>
+                    <BoxIdentifier>(0x000028d4, 0x0000144d)</BoxIdentifier>
+                    <BoxParameterName>Class 2 label</BoxParameterName>
+                </Connection>
+            </Connections>
+        </Setting>
+        <Setting>
+            <Identifier>(0x00247680, 0x10742db8)</Identifier>
+            <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+            <Name>Train Stimulation</Name>
+            <DefaultValue>OVTK_StimulationId_EndOfFile</DefaultValue>
+            <Value>OVTK_StimulationId_Train</Value>
+            <Connections>
+                <Connection>
+                    <BoxIdentifier>(0x000028d4, 0x0000144a)</BoxIdentifier>
+                    <BoxParameterName>Train trigger</BoxParameterName>
+                </Connection>
+                <Connection>
+                    <BoxIdentifier>(0x000028d4, 0x0000144b)</BoxIdentifier>
+                    <BoxParameterName>Train trigger</BoxParameterName>
+                </Connection>
+                <Connection>
+                    <BoxIdentifier>(0x000028d4, 0x0000144c)</BoxIdentifier>
+                    <BoxParameterName>Train trigger</BoxParameterName>
+                </Connection>
+                <Connection>
+                    <BoxIdentifier>(0x000028d4, 0x0000144d)</BoxIdentifier>
+                    <BoxParameterName>Train trigger</BoxParameterName>
+                </Connection>
+                <Connection>
+                    <BoxIdentifier>(0x00005b5f, 0x000050b0)</BoxIdentifier>
+                    <BoxParameterName>Output Stimulation</BoxParameterName>
+                </Connection>
+            </Connections>
+        </Setting>
+    </Settings>
+    <Inputs/>
+    <Outputs/>
+    <Boxes>
+        <Box>
+            <Identifier>(0x000028d4, 0x0000144a)</Identifier>
+            <Name>MDM</Name>
+            <AlgorithmClassIdentifier>(0xc0b79b42, 0x4150c837)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Stimulations</Name>
+                </Input>
+                <Input>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Matrix for class 1</Name>
+                </Input>
+                <Input>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Matrix for class 2</Name>
+                </Input>
+            </Inputs>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Tran-completed Flag</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Train trigger</Name>
+                    <DefaultValue>OVTK_StimulationId_Train</DefaultValue>
+                    <Value>OVTK_StimulationId_Train</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier>
+                    <Name>Filename to save classifier model</Name>
+                    <DefaultValue>${Player_ScenarioDirectory}/my-classifier.xml</DefaultValue>
+                    <Value>${Player_ScenarioDirectory}/$var{Test Name}-MDM-output.xml</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x5261636b, 0x436c6173)</TypeIdentifier>
+                    <Name>Method</Name>
+                    <DefaultValue>Minimum Distance to Mean (MDM)</DefaultValue>
+                    <Value>Minimum Distance to Mean (MDM)</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x5261636b, 0x4d455452)</TypeIdentifier>
+                    <Name>Metric</Name>
+                    <DefaultValue>Riemann</DefaultValue>
+                    <Value>Riemann</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0xa88b3667, 0x0871638c)</TypeIdentifier>
+                    <Name>Log Level</Name>
+                    <DefaultValue>Information</DefaultValue>
+                    <Value>None</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Class 1 label</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_01</DefaultValue>
+                    <Value>OVTK_GDF_Left</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Class 2 label</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_02</DefaultValue>
+                    <Value>OVTK_GDF_Right</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>464</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>880</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0xbe345a8a, 0x87754e57)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>7</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>3</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xfba64161, 0x65304e21)</Identifier>
+                    <Value/>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x000028d4, 0x0000144b)</Identifier>
+            <Name>MDM Rebias</Name>
+            <AlgorithmClassIdentifier>(0xc0b79b42, 0x4150c837)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Stimulations</Name>
+                </Input>
+                <Input>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Matrix for class 1</Name>
+                </Input>
+                <Input>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Matrix for class 2</Name>
+                </Input>
+            </Inputs>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Tran-completed Flag</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Train trigger</Name>
+                    <DefaultValue>OVTK_StimulationId_Train</DefaultValue>
+                    <Value>OVTK_StimulationId_Train</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier>
+                    <Name>Filename to save classifier model</Name>
+                    <DefaultValue>${Player_ScenarioDirectory}/my-classifier.xml</DefaultValue>
+                    <Value>${Player_ScenarioDirectory}/$var{Test Name}-MDM-Rebias-output.xml</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x5261636b, 0x436c6173)</TypeIdentifier>
+                    <Name>Method</Name>
+                    <DefaultValue>Minimum Distance to Mean (MDM)</DefaultValue>
+                    <Value>Minimum Distance to Mean (MDM)</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x5261636b, 0x4d455452)</TypeIdentifier>
+                    <Name>Metric</Name>
+                    <DefaultValue>Riemann</DefaultValue>
+                    <Value>Riemann</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0xa88b3667, 0x0871638c)</TypeIdentifier>
+                    <Name>Log Level</Name>
+                    <DefaultValue>Information</DefaultValue>
+                    <Value>None</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Class 1 label</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_01</DefaultValue>
+                    <Value>OVTK_GDF_Left</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Class 2 label</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_02</DefaultValue>
+                    <Value>OVTK_GDF_Right</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>464</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>1008</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0xbe345a8a, 0x87754e57)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>7</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>3</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xfba64161, 0x65304e21)</Identifier>
+                    <Value/>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x000028d4, 0x0000144c)</Identifier>
+            <Name>FgMDM RT</Name>
+            <AlgorithmClassIdentifier>(0xc0b79b42, 0x4150c837)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Stimulations</Name>
+                </Input>
+                <Input>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Matrix for class 1</Name>
+                </Input>
+                <Input>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Matrix for class 2</Name>
+                </Input>
+            </Inputs>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Tran-completed Flag</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Train trigger</Name>
+                    <DefaultValue>OVTK_StimulationId_Train</DefaultValue>
+                    <Value>OVTK_StimulationId_Train</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier>
+                    <Name>Filename to save classifier model</Name>
+                    <DefaultValue>${Player_ScenarioDirectory}/my-classifier.xml</DefaultValue>
+                    <Value>${Player_ScenarioDirectory}/$var{Test Name}-FgMDM-output.xml</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x5261636b, 0x436c6173)</TypeIdentifier>
+                    <Name>Method</Name>
+                    <DefaultValue>Minimum Distance to Mean (MDM)</DefaultValue>
+                    <Value>Minimum Distance to Mean with geodesic filtering (FgMDM) (Real Time adaptation assumed)</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x5261636b, 0x4d455452)</TypeIdentifier>
+                    <Name>Metric</Name>
+                    <DefaultValue>Riemann</DefaultValue>
+                    <Value>Riemann</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0xa88b3667, 0x0871638c)</TypeIdentifier>
+                    <Name>Log Level</Name>
+                    <DefaultValue>Information</DefaultValue>
+                    <Value>None</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Class 1 label</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_01</DefaultValue>
+                    <Value>OVTK_GDF_Left</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Class 2 label</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_02</DefaultValue>
+                    <Value>OVTK_GDF_Right</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>464</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>1136</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0xbe345a8a, 0x87754e57)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>7</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>3</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xfba64161, 0x65304e21)</Identifier>
+                    <Value/>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x000028d4, 0x0000144d)</Identifier>
+            <Name>FgMDM RT Rebias</Name>
+            <AlgorithmClassIdentifier>(0xc0b79b42, 0x4150c837)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Stimulations</Name>
+                </Input>
+                <Input>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Matrix for class 1</Name>
+                </Input>
+                <Input>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Matrix for class 2</Name>
+                </Input>
+            </Inputs>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Tran-completed Flag</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Train trigger</Name>
+                    <DefaultValue>OVTK_StimulationId_Train</DefaultValue>
+                    <Value>OVTK_StimulationId_Train</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier>
+                    <Name>Filename to save classifier model</Name>
+                    <DefaultValue>${Player_ScenarioDirectory}/my-classifier.xml</DefaultValue>
+                    <Value>${Player_ScenarioDirectory}/$var{Test Name}-FgMDM-Rebias-output.xml</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x5261636b, 0x436c6173)</TypeIdentifier>
+                    <Name>Method</Name>
+                    <DefaultValue>Minimum Distance to Mean (MDM)</DefaultValue>
+                    <Value>Minimum Distance to Mean with geodesic filtering Rebias (FgMDM Rebias) (Real Time adaptation assumed)</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x5261636b, 0x4d455452)</TypeIdentifier>
+                    <Name>Metric</Name>
+                    <DefaultValue>Riemann</DefaultValue>
+                    <Value>Riemann</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0xa88b3667, 0x0871638c)</TypeIdentifier>
+                    <Name>Log Level</Name>
+                    <DefaultValue>Information</DefaultValue>
+                    <Value>None</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Class 1 label</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_01</DefaultValue>
+                    <Value>OVTK_GDF_Left</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Class 2 label</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_02</DefaultValue>
+                    <Value>OVTK_GDF_Right</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>464</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>1264</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0xbe345a8a, 0x87754e57)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>7</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>3</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xfba64161, 0x65304e21)</Identifier>
+                    <Value/>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x0000484f, 0x00003eff)</Identifier>
+            <Name>CSV File Reader</Name>
+            <AlgorithmClassIdentifier>(0x336a3d9a, 0x753f1ba4)</AlgorithmClassIdentifier>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Output stream</Name>
+                </Output>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Output stimulation</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier>
+                    <Name>Filename</Name>
+                    <DefaultValue/>
+                    <Value>${Player_ScenarioDirectory}/Matrix-Classifier-Training-inputA.csv</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>112</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>960</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x30a4e5c9, 0x83502953)</Identifier>
+                    <Value/>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0xa9cdc629, 0xb153eb33)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x0000484f, 0x00003f00)</Identifier>
+            <Name>CSV File Reader</Name>
+            <AlgorithmClassIdentifier>(0x336a3d9a, 0x753f1ba4)</AlgorithmClassIdentifier>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Output stream</Name>
+                </Output>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Output stimulation</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier>
+                    <Name>Filename</Name>
+                    <DefaultValue/>
+                    <Value>${Player_ScenarioDirectory}/Matrix-Classifier-Training-inputB.csv</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>112</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>1072</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x30a4e5c9, 0x83502953)</Identifier>
+                    <Value/>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0xa9cdc629, 0xb153eb33)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x00005b5f, 0x000050b0)</Identifier>
+            <Name>Timeout</Name>
+            <AlgorithmClassIdentifier>(0x24fcd292, 0x5c8f6aa8)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Input Stream</Name>
+                </Input>
+            </Inputs>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Output Stimulations</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
+                    <Name>Timeout delay</Name>
+                    <DefaultValue>5</DefaultValue>
+                    <Value>1</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Output Stimulation</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_00</DefaultValue>
+                    <Value>OVTK_StimulationId_Train</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>240</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>976</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0x1eaee00e, 0xdb05d34e)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc46b3d00, 0x3e0454e1)</Identifier>
+                    <Value>(0x00000000, 0x017178bd)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc73e83ec, 0xf855c5bc)</Identifier>
+                    <Value>false</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x00005b5f, 0x000050b1)</Identifier>
+            <Name>Timeout</Name>
+            <AlgorithmClassIdentifier>(0x24fcd292, 0x5c8f6aa8)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Input Stream</Name>
+                </Input>
+            </Inputs>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Output Stimulations</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
+                    <Name>Timeout delay</Name>
+                    <DefaultValue>5</DefaultValue>
+                    <Value>6</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Output Stimulation</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_00</DefaultValue>
+                    <Value>OVTK_StimulationId_TrainCompleted</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>240</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>912</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0x1eaee00e, 0xdb05d34e)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc46b3d00, 0x3e0454e1)</Identifier>
+                    <Value>(0x00000000, 0x017178bd)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc73e83ec, 0xf855c5bc)</Identifier>
+                    <Value>false</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x00005d4f, 0x00006de2)</Identifier>
+            <Name>Player Controller</Name>
+            <AlgorithmClassIdentifier>(0x5f426dce, 0x08456e13)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Stimulations</Name>
+                </Input>
+            </Inputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Stimulation name</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_00</DefaultValue>
+                    <Value>OVTK_StimulationId_TrainCompleted</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0xcc14d8d6, 0xf27ecb73)</TypeIdentifier>
+                    <Name>Action to perform</Name>
+                    <DefaultValue>Pause</DefaultValue>
+                    <Value>Stop</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>304</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>912</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0x568d148e, 0x650792b3)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x00007e8b, 0x00000ab7)</Identifier>
+            <Name>Identity</Name>
+            <AlgorithmClassIdentifier>(0x5dffe431, 0x35215c50)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Input stream 1</Name>
+                </Input>
+                <Input>
+                    <Identifier>(0x001a7a65, 0x69c5420d)</Identifier>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Input stream 2</Name>
+                </Input>
+                <Input>
+                    <Identifier>(0x004e1115, 0xaa2b1541)</Identifier>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Input stream 3</Name>
+                </Input>
+            </Inputs>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Output stream 1</Name>
+                </Output>
+                <Output>
+                    <Identifier>(0x005cfb9f, 0xf5a4c609)</Identifier>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Output stream 2</Name>
+                </Output>
+                <Output>
+                    <Identifier>(0x0048f877, 0x2f3bb87d)</Identifier>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Output stream 3</Name>
+                </Output>
+            </Outputs>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x17ee7c08, 0x94c14893)</Identifier>
+                    <Value/>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>304</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>1072</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x30a4e5c9, 0x83502953)</Identifier>
+                    <Value/>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0xa8ffe2a3, 0x27038f03)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
+                    <Value/>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xfba64161, 0x65304e21)</Identifier>
+                    <Value/>
+                </Attribute>
+            </Attributes>
+        </Box>
+    </Boxes>
+    <Links>
+        <Link>
+            <Identifier>(0x00001201, 0x00001753)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxOutputIdentifier>(0x005cfb9f, 0xf5a4c609)</BoxOutputIdentifier>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x000028d4, 0x0000144a)</BoxIdentifier>
+                <BoxInputIndex>1</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00001d64, 0x000048eb)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x0000484f, 0x00003f00)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxInputIdentifier>(0x004e1115, 0xaa2b1541)</BoxInputIdentifier>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00002c82, 0x000023c6)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxOutputIdentifier>(0x0048f877, 0x2f3bb87d)</BoxOutputIdentifier>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x000028d4, 0x0000144a)</BoxIdentifier>
+                <BoxInputIndex>2</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00002d30, 0x0000676e)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxOutputIdentifier>(0x0048f877, 0x2f3bb87d)</BoxOutputIdentifier>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x000028d4, 0x0000144b)</BoxIdentifier>
+                <BoxInputIndex>2</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x0000337c, 0x00006120)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00005b5f, 0x000050b1)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00005d4f, 0x00006de2)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00003e86, 0x000033df)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x0000484f, 0x00003eff)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00005b5f, 0x000050b1)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00003ec9, 0x00006ad4)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxOutputIdentifier>(0x0048f877, 0x2f3bb87d)</BoxOutputIdentifier>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x000028d4, 0x0000144d)</BoxIdentifier>
+                <BoxInputIndex>2</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00005578, 0x000024a8)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x000028d4, 0x0000144a)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00005c55, 0x000029cf)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxOutputIdentifier>(0x005cfb9f, 0xf5a4c609)</BoxOutputIdentifier>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x000028d4, 0x0000144d)</BoxIdentifier>
+                <BoxInputIndex>1</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00005e77, 0x00001e18)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxOutputIdentifier>(0x005cfb9f, 0xf5a4c609)</BoxOutputIdentifier>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x000028d4, 0x0000144b)</BoxIdentifier>
+                <BoxInputIndex>1</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00005e9d, 0x00000c90)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x0000484f, 0x00003eff)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00005b5f, 0x000050b0)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x0000619c, 0x00007407)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x000028d4, 0x0000144b)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x000065df, 0x00007916)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00005b5f, 0x000050b0)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x0000661a, 0x00004d72)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxOutputIdentifier>(0x0048f877, 0x2f3bb87d)</BoxOutputIdentifier>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x000028d4, 0x0000144c)</BoxIdentifier>
+                <BoxInputIndex>2</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x0000688d, 0x00002b01)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x000028d4, 0x0000144d)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00006b59, 0x00003fcc)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x0000484f, 0x00003eff)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxInputIdentifier>(0x001a7a65, 0x69c5420d)</BoxInputIdentifier>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x000076a0, 0x00003e44)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x000028d4, 0x0000144c)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00007b67, 0x00000d36)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007e8b, 0x00000ab7)</BoxIdentifier>
+                <BoxOutputIdentifier>(0x005cfb9f, 0xf5a4c609)</BoxOutputIdentifier>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x000028d4, 0x0000144c)</BoxIdentifier>
+                <BoxInputIndex>1</BoxInputIndex>
+            </Target>
+        </Link>
+    </Links>
+    <Comments>
+        <Comment>
+            <Identifier>(0x00006856, 0x000017a7)</Identifier>
+            <Text>Wait 5s after Begin Train Compute</Text>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x473d9a43, 0x97fc0a97)</Identifier>
+                    <Value>768</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x7234b86b, 0x2b8651a5)</Identifier>
+                    <Value>240</Value>
+                </Attribute>
+            </Attributes>
+        </Comment>
+    </Comments>
+    <Metadata>
+        <Entry>
+            <Identifier>(0x000062ac, 0x00003721)</Identifier>
+            <Type>(0x3bcce5d2, 0x43f2d968)</Type>
+            <Data>[{"boxIdentifier":"(0xffffffff, 0xffffffff)","childCount":1,"height":320,"identifier":"(0x0000041e, 0x000069b5)","name":"Default window","parentIdentifier":"(0xffffffff, 0xffffffff)","type":1,"width":480},{"boxIdentifier":"(0xffffffff, 0xffffffff)","childCount":1,"identifier":"(0x00004c5d, 0x000021d4)","index":0,"name":"Default tab","parentIdentifier":"(0x0000041e, 0x000069b5)","type":2},{"boxIdentifier":"(0xffffffff, 0xffffffff)","childCount":0,"identifier":"(0x0000420e, 0x000074bb)","index":0,"name":"Empty","parentIdentifier":"(0x00004c5d, 0x000021d4)","type":0}]</Data>
+        </Entry>
+    </Metadata>
+</OpenViBE-Scenario>

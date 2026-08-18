@@ -6,8 +6,6 @@ sonarqube:
   needs:
     - job: build_openvibe_linux
       artifacts: true
-  variables:
-    GIT_STRATEGY: none
   cache:
     key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
     policy: pull

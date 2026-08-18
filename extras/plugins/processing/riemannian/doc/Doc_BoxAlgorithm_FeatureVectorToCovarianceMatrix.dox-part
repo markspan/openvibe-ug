@@ -1,0 +1,68 @@
+/**
+ * \page BoxAlgorithm_FeatureVectorToCovarianceMatrix Covariance Matrix To Feature Vector
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Description|
+This box transforms the vector into matrix for use in a matrix classifier. <see cref="UnFeaturization"/> for more details.
+ * |OVP_DocEnd_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Input1|
+The Feature Vector on which the Covariance Matrix needs to be calculated.
+ * |OVP_DocEnd_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Output1|
+ Covariance Matrix generated.
+ * |OVP_DocEnd_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Setting1|
+Method of calculating the  Covariance Matrix : \n
+\c True : The feature vector is transposed into the tangent space. \n  
+\c False : The upper triangular matrix is used. \n
+ * |OVP_DocEnd_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Setting2|
+Link to the Reference Matrix CSV. A square matrix of size NxN with N the number of Features. The reference matrix is the same size as the input covariance matrices. The reference matrix is useful for calculating the feature vector on the tangent space.\nRemarks : If no reference an identity matrix is used.
+ * |OVP_DocEnd_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Setting3|
+Log Level (None to see nothing)
+ * |OVP_DocEnd_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Setting3|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_FeatureVectorToCovarianceMatrix_Miscellaneous|
+ */

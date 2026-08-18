@@ -1,0 +1,58 @@
+/**
+ * \page BoxAlgorithm_EntropyMeasure Entropy Measure
+__________________________________________________________________
+Detailed description
+__________________________________________________________________
+ * |OVP_DocBegin_BoxAlgorithm_EntropyMeasure_Description|
+ 
+ * |OVP_DocEnd_BoxAlgorithm_EntropyMeasure_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_EntropyMeasure_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_EntropyMeasure_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_EntropyMeasure_Input1|
+ The input EEG signal. 
+ * |OVP_DocEnd_BoxAlgorithm_EntropyMeasure_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_EntropyMeasure_Output1|
+ The entropy corresponding to the input signal. The form of the output varies according to the scale and the multivariate parameters.
+ In the case of univariate uniscale (scale = 1) entropy, there will be one output, with as many channels as there were input channels, each output channel being the entropy of the corresponding input channel.
+ For multivariate uniscale entropy, there will be one output with one channel corresponding to the multivariate entropy of all the input channels.
+ For multiscale entropy, there will be as many outputs as indicated by the scale (output with index i corresponding to the entropy of scale i), and the number of channels for each output will be the same as just explained for scale 1. 
+ * |OVP_DocEnd_BoxAlgorithm_EntropyMeasure_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_EntropyMeasure_Setting1|
+ The output entropy is the entropy of the last "Time window" seconds of signal. 
+ * |OVP_DocEnd_BoxAlgorithm_EntropyMeasure_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_EntropyMeasure_Setting2|
+ The output entropy is updated every "Time interval" seconds.
+ * |OVP_DocEnd_BoxAlgorithm_EntropyMeasure_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_EntropyMeasure_Setting3|
+ The pattern length for sample entropy.
+ * |OVP_DocEnd_BoxAlgorithm_EntropyMeasure_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_EntropyMeasure_Setting4|
+ The similarity threshold of patterns for sample entropy.
+ * |OVP_DocEnd_BoxAlgorithm_EntropyMeasure_Setting4|
+
+ * |OVP_DocBegin_BoxAlgorithm_EntropyMeasure_Setting5|
+ Scale > 1 means multiscale entropy of scale "Scale".
+ * |OVP_DocEnd_BoxAlgorithm_EntropyMeasure_Setting5|
+
+ * |OVP_DocBegin_BoxAlgorithm_EntropyMeasure_Setting6|
+ If "Multivariate" is true, then the box will compute multivariate entropy, otherwise it will compute univariate entropy.
+ * |OVP_DocEnd_BoxAlgorithm_EntropyMeasure_Setting6|

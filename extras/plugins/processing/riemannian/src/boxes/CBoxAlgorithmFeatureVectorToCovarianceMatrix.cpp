@@ -1,0 +1,155 @@
+///-------------------------------------------------------------------------------------------------
+/// 
+/// \file CBoxAlgorithmFeatureVectorToCovarianceMatrix.cpp
+/// \brief Classes implementation for the box computing the Feature vector with the covariance matrix.
+/// \author Thibaut Monseigne (Inria).
+/// \version 1.0.
+/// \date 17/10/2018.
+/// \copyright Copyright (C) 2022 Inria
+///
+/// This program is free software: you can redistribute it and/or modify
+/// it under the terms of the GNU Affero General Public License as published
+/// by the Free Software Foundation, either version 3 of the License, or
+/// (at your option) any later version.
+///
+/// This program is distributed in the hope that it will be useful,
+/// but WITHOUT ANY WARRANTY; without even the implied warranty of
+/// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+/// GNU Affero General Public License for more details.
+///
+/// You should have received a copy of the GNU Affero General Public License
+/// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+/// 
+///-------------------------------------------------------------------------------------------------
+
+#include "CBoxAlgorithmFeatureVectorToCovarianceMatrix.hpp"
+#include "eigen/convert.hpp"
+#include <fstream>
+
+#include "geometry/Basics.hpp"
+#include "geometry/Featurization.hpp"
+
+namespace OpenViBE {
+namespace Plugins {
+namespace Riemannian {
+//---------------------------------------------------------------------------------------------------
+bool CBoxAlgorithmFeatureVectorToCovarianceMatrix::initialize()
+{
+    //***** Codec Initialization *****
+    m_featureDecoder.initialize(*this, 0);
+    m_matrixEncoder.initialize(*this, 0);
+    m_iMatrix = m_featureDecoder.getOutputMatrix();
+    m_oMatrix = m_matrixEncoder.getInputMatrix();
+
+    //***** Settings Initialization *****
+    m_tangentSpace = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0);
+    m_logLevel     = Kernel::ELogLevel(uint64_t(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 2)));
+    if (m_tangentSpace) {
+        this->getLogManager() << m_logLevel << "Tangent Space\n";
+        OV_ERROR_UNLESS_KRF(initRef(), "Error Reference Matrix Creation", Kernel::ErrorType::BadSetting);
+    }
+    else { this->getLogManager() << m_logLevel << "Squeeze Upper Matrix\n"; }
+    return true;
+}
+//---------------------------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------------------------------
+bool CBoxAlgorithmFeatureVectorToCovarianceMatrix::uninitialize()
+{
+    m_matrixEncoder.uninitialize();
+    m_featureDecoder.uninitialize();
+    return true;
+}
+//---------------------------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------------------------------
+bool CBoxAlgorithmFeatureVectorToCovarianceMatrix::processInput(const size_t /*index*/)
+{
+    getBoxAlgorithmContext()->markAlgorithmAsReadyToProcess();
+    return true;
+}
+//---------------------------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------------------------------
+bool CBoxAlgorithmFeatureVectorToCovarianceMatrix::process()
+{
+    Kernel::IBoxIO& boxContext = this->getDynamicBoxContext();
+
+    for (size_t i = 0; i < boxContext.getInputChunkCount(0); ++i) {
+        m_featureDecoder.decode(i);                                         // Decode the chunk
+        OV_ERROR_UNLESS_KRF(m_iMatrix->getDimensionCount() == 1, "Invalid Input Signal", Kernel::ErrorType::BadInput);
+
+        const uint64_t start   = boxContext.getInputChunkStartTime(0, i),   // Time Code Chunk Start
+                       end     = boxContext.getInputChunkEndTime(0, i);     // Time Code Chunk End
+        const size_t nChannels = size_t(m_iMatrix->getDimensionSize(0));
+        const size_t nDim      = int((sqrt(1 + 8 * nChannels) - 1) / 2);
+
+        if (m_featureDecoder.isHeaderReceived())                            // Header received
+        {
+            m_oMatrix->resize(nDim, nDim);                                  // Update Size and set to 0
+            m_oMatrix->setNumLabels();
+            m_matrixEncoder.encodeHeader();                                 // Header encoded
+        }
+        else if (m_featureDecoder.isBufferReceived())                       // Buffer received
+        {
+            OV_ERROR_UNLESS_KRF(unFeaturization(), "Featurization Processing Error", Kernel::ErrorType::BadProcessing); // Transformation
+            m_matrixEncoder.encodeBuffer();                                 // Buffer encoded
+        }
+        else if (m_featureDecoder.isEndReceived()) { m_matrixEncoder.encodeEnd(); } // End receivded and encoded
+
+        boxContext.markOutputAsReadyToSend(0, start, end);                  // Makes the output available
+    }
+    return true;
+}
+//---------------------------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------------------------------
+bool CBoxAlgorithmFeatureVectorToCovarianceMatrix::unFeaturization() const
+{
+    Eigen::MatrixXd cov;
+    Eigen::RowVectorXd v;
+    if (!MatrixConvert(*m_iMatrix, v)) { return false; }
+    if (!Geometry::UnFeaturization(v, cov, m_tangentSpace, m_ref)) { return false; }
+    if (!MatrixConvert(cov, *m_oMatrix)) { return false; }
+    return true;
+}
+//---------------------------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------------------------------
+bool CBoxAlgorithmFeatureVectorToCovarianceMatrix::initRef()
+{
+    //***** Open the CSV *****
+    const CString name = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1);
+    if (name.length() == 0) {
+        this->getLogManager() << m_logLevel << "Empty reference Matrix\n";
+        return true;
+    }
+    std::ifstream file(name, std::ifstream::in);
+    OV_ERROR_UNLESS_KRF(file.is_open(), "Error opening file [" << name << "] for reading", Kernel::ErrorType::BadFileRead);
+
+    //***** Parse the CSV *****
+    std::string line;
+    getline(file, line);    // Header
+    getline(file, line);    // matrix line
+    const std::vector<std::string> data = Geometry::Split(line, ",");
+
+    //***** Transform to MatrixXd *****
+    const auto first = data.begin() + 2, last = data.end() - 3;
+    const std::vector<std::string> mat(first, last);
+    const Eigen::Index n = Eigen::Index(sqrt(mat.size()));
+    OV_ERROR_UNLESS_KRF(size_t(n*n) == mat.size(), "Error Reference Matrix Format", Kernel::ErrorType::BadFileParsing);
+    m_ref.resize(n, n);
+    Eigen::Index idx = 0;
+    for (Eigen::Index i = 0; i < n; ++i) { for (Eigen::Index j = 0; j < n; ++j) { m_ref(i, j) = std::stod(mat[idx++]); } }
+
+    //***** Log Information *****
+    this->getLogManager() << m_logLevel << "REF Matrix : \n" << Geometry::MatrixPrint(m_ref) << "\n";
+
+    //***** Close the CSV *****
+    file.close();
+    return true;
+}
+//---------------------------------------------------------------------------------------------------
+}  // namespace Riemannian
+}  // namespace Plugins
+}  // namespace OpenViBE

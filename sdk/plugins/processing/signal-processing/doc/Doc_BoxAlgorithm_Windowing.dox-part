@@ -1,0 +1,62 @@
+/**
+ * \page BoxAlgorithm_Windowing Windowing
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Windowing_Description|
+ * This plugin is used to apply a window to the input signal.
+ * This plugin allows the selection of the kind of window
+ * (None, Hamming, Hanning, Hann, Blackman, Triangular, Square Root).
+ * |OVP_DocEnd_BoxAlgorithm_Windowing_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Windowing_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_Windowing_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_Windowing_Input1|
+ * |OVP_DocEnd_BoxAlgorithm_Windowing_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Windowing_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_Windowing_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_Windowing_Output1|
+ * |OVP_DocEnd_BoxAlgorithm_Windowing_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Windowing_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_Windowing_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_Windowing_Setting1|
+ * Select the name of window between: None(equivalent to a rectangular window), Hamming, Hann, Hanning (equivalent to Hann window), Blackman, 
+ * Triangular and Square Root.
+ * |OVP_DocEnd_BoxAlgorithm_Windowing_Setting1|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Windowing_Examples|
+ * Let's consider our input signal.
+ * To prevent rebound in spectrum analysis due to the square root
+ * windowing, select a Hanning window for example.
+ * |OVP_DocEnd_BoxAlgorithm_Windowing_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Windowing_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_Windowing_Miscellaneous|
+ */

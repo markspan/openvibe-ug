@@ -1,0 +1,10 @@
+<Classifier>
+    <Classifier-data type="Minimum Distance to Mean (MDM)" class-count="2" metric="Riemann">
+        <Class class-id="0" nb-trials="7" size="3" stimulation="OVTK_GDF_Left">  1.92849825782369 -0.153821286177111 0.0107246340629554
+-0.153821286177111   1.41817158608418 0.0632691028813613
+0.0107246340629554 0.0632691028813613  0.666166545430859</Class>
+        <Class class-id="1" nb-trials="5" size="3" stimulation="OVTK_GDF_Right">   1.4652550378011  0.258979505256225 0.0317023806214989
+ 0.258979505256225   1.94533345060301 0.0357421702984759
+0.0317023806214989  0.035742170298476    1.1315311682654</Class>
+    </Classifier-data>
+</Classifier>

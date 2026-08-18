@@ -1,0 +1,42 @@
+<RiemannianPotatoes>
+    <RiemannianPotato DistanceMean="2.162649672766622" DistanceStd="0.52065087448040426">
+        <ReferenceCovariance>
+            <Entry value="16.580383011319324"/>
+            <Entry value="12.154083231963845"/>
+            <Entry value="14.407169935136885"/>
+            <Entry value="10.925232458466143"/>
+            <Entry value="12.154083231963845"/>
+            <Entry value="10.772397697065617"/>
+            <Entry value="10.023414835215627"/>
+            <Entry value="8.7892379493789381"/>
+            <Entry value="14.407169935136888"/>
+            <Entry value="10.023414835215625"/>
+            <Entry value="14.160840727796575"/>
+            <Entry value="9.9377306694825478"/>
+            <Entry value="10.92523245846615"/>
+            <Entry value="8.7892379493789399"/>
+            <Entry value="9.9377306694825478"/>
+            <Entry value="8.7123901735609515"/>
+        </ReferenceCovariance>
+    </RiemannianPotato>
+    <RiemannianPotato DistanceMean="0.9391156268570775" DistanceStd="0.5170498826956742">
+        <ReferenceCovariance>
+            <Entry value="223.14105694889756"/>
+            <Entry value="120.37445631624975"/>
+            <Entry value="35.149555553532132"/>
+            <Entry value="17.834818245555425"/>
+            <Entry value="120.37445631624976"/>
+            <Entry value="66.275758082469423"/>
+            <Entry value="19.293532901179137"/>
+            <Entry value="10.032886342462811"/>
+            <Entry value="35.149555553532153"/>
+            <Entry value="19.293532901179155"/>
+            <Entry value="10.176656713623908"/>
+            <Entry value="4.8721133580758931"/>
+            <Entry value="17.834818245555425"/>
+            <Entry value="10.032886342462811"/>
+            <Entry value="4.8721133580758913"/>
+            <Entry value="4.6525977803741316"/>
+        </ReferenceCovariance>
+    </RiemannianPotato>
+</RiemannianPotatoes>

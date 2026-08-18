@@ -1,0 +1,95 @@
+/**
+ * \page BoxAlgorithm_FeaturesSelectionTrainer Features Selection Trainer
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Description|
+ * This box stack all feature vector received in input and launch the selection method when a stimulation is received. Actual method is mRMR (minimum Redundancy Maximum Relevance).  <seealso cref="CMRMR"/>
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Input1|
+ * Stimulation to start the training.
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Input1|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Input2|
+ * Input for Class 1.
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Input2|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Input3|
+ * Input for Class 2.
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Input3|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Output1|
+ * Send \"OVTK_StimulationId_TrainCompleted\" when train is completed.
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Setting1|
+ * Log Level (None to see nothing).
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Setting2|
+ * Stimulation that starts the computation.
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Setting3|
+ * Filename to save a configuration file for Features Selector Box.
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Setting4|
+ * Method to use (actually only mRMR is possible) <seealso cref="CMRMR"/>
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Setting4|
+ 
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Setting5|
+ * Final Number of Features
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Setting5|
+ 
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Setting6|
+ * Apply Discretization of samples or not for compute.  <seealso cref="CMRMR::discretize(const double)"/>
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Setting6|
+ 
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Setting7|
+ * Threshold for compute.  <seealso cref="CMRMR::discretize(const double)"/>
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Setting7|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Setting8|
+ * mRMR method (MID or MIQ).  <seealso cref="CMRMR::discretize(const double, const size_t, const EMRMRMethod)"/>
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Setting8|
+
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelectionTrainer_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelectionTrainer_Miscellaneous|
+ */

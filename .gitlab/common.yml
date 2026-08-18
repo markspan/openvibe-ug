@@ -5,9 +5,21 @@
 variables:
   PULL_REQUEST_BRANCH_NAME: ""
 
-  GIT_STRATEGY: none
+  # GitLab does the clone/clean/fetch for every job, so no job manages the
+  # working directory itself. Jobs should not set GIT_STRATEGY; the one
+  # deliberate exception is gito-ai-review, which needs full history.
+  GIT_STRATEGY: fetch
   GIT_DEPTH: "1"
-  GIT_SUBMODULE_DEPTH: "1"
+
+  # `fetch` runs `git clean` before each job. `-e` is still honoured under `-x`,
+  # so ignored files are cleaned except for these two, which must survive:
+  #   build-*  $BUILD_FOLDER lives inside $CI_PROJECT_DIR and carries the build
+  #            tree from build/ to test/ and sonarqube/. Ageing these out is
+  #            cleanup.yml's job, not git's.
+  #   .pixi    the resolved pixi environment. Only build/ runs `pixi install`;
+  #            without this, every other job would re-resolve Qt, boost and the
+  #            MSVC toolchain from scratch.
+  GIT_CLEAN_FLAGS: "-ffdx -e build-* -e .pixi"
 
 workflow:
   rules:

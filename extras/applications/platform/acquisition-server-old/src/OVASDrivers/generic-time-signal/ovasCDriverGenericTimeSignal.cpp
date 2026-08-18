@@ -1,0 +1,111 @@
+#include "ovasCDriverGenericTimeSignal.h"
+
+#include "ovasParameterHelper.h"
+
+#include <toolkit/ovtk_all.h>
+
+#include <system/ovCTime.h>
+
+namespace OpenViBE {
+namespace AcquisitionServer {
+
+CDriverGenericTimeSignal::CDriverGenericTimeSignal(IDriverContext& ctx)
+    : IDriver(ctx)
+{
+    m_driverCtx.getLogManager() << Kernel::LogLevel_Trace << "CDriverGenericTimeSignal::CDriverGenericTimeSignal\n";
+
+    m_header.setSamplingFrequency(512);
+    m_header.setChannelCount(1);
+    m_header.setChannelName(0, "Time(s)");
+    m_header.setChannelUnits(0, OVTK_UNIT_Second, OVTK_FACTOR_Base);
+
+    loadParametersFromConfig(m_driverCtx.getConfigurationManager(),
+                             m_parameters,
+                             "AcquisitionServer_Driver_GenericTimeSignal",
+                             &m_header);
+}
+
+void CDriverGenericTimeSignal::release()
+{
+    m_driverCtx.getLogManager() << Kernel::LogLevel_Trace << "CDriverGenericTimeSignal::release\n";
+    delete this;
+}
+
+const char* CDriverGenericTimeSignal::getName()
+{
+    m_driverCtx.getLogManager() << Kernel::LogLevel_Trace << "CDriverGenericTimeSignal::getName\n";
+    return "Generic Time Signal";
+}
+
+//___________________________________________________________________//
+//                                                                   //
+
+bool CDriverGenericTimeSignal::initialize(const uint32_t /*nSamplePerSentBlock*/, IDriverCallback& callback)
+{
+    m_driverCtx.getLogManager() << Kernel::LogLevel_Trace << "CDriverGenericTimeSignal::initialize\n";
+    if (m_driverCtx.isConnected() || m_header.getChannelCount() == 0 || m_header.getSamplingFrequency() ==0 ) {
+        return false;
+    }
+
+    m_callback = &callback;
+    return true;
+}
+
+bool CDriverGenericTimeSignal::start()
+{
+    m_driverCtx.getLogManager() << Kernel::LogLevel_Trace << "CDriverGenericTimeSignal::start\n";
+    if (!m_driverCtx.isConnected() || m_driverCtx.isStarted()) { return false; }
+
+    m_nTotalSample = 0;
+    m_startTime    = System::Time::zgetTime();
+    return true;
+}
+
+bool CDriverGenericTimeSignal::loop()
+{
+    m_driverCtx.getLogManager() << Kernel::LogLevel_Debug << "CDriverGenericTimeSignal::loop\n";
+    if (!m_driverCtx.isConnected() || !m_driverCtx.isStarted()) { return true; }
+
+    // Find out how many samples to send; note that we always just send 1 at a time with this driver
+    const uint64_t now         = System::Time::zgetTime();
+    const uint64_t elapsed     = now - m_startTime;
+    const uint64_t neededSoFar = (m_header.getSamplingFrequency() * elapsed) >> 32;
+    if (neededSoFar <= m_nTotalSample) { return true; } // Too early
+
+    const float timeNow = float(CTime(now).toSeconds());
+    m_callback->setSamples(&timeNow, 1);
+    m_nTotalSample++;
+    m_driverCtx.correctDriftSampleCount(m_driverCtx.getSuggestedDriftCorrectionSampleCount());
+    return true;
+}
+
+bool CDriverGenericTimeSignal::stop()
+{
+    m_driverCtx.getLogManager() << Kernel::LogLevel_Trace << "CDriverGenericTimeSignal::stop\n";
+    if (!m_driverCtx.isConnected() || !m_driverCtx.isStarted()) { return false; }
+    return true;
+}
+
+bool CDriverGenericTimeSignal::uninitialize()
+{
+    m_driverCtx.getLogManager() << Kernel::LogLevel_Trace << "CDriverGenericTimeSignal::uninitialize\n";
+    if (!m_driverCtx.isConnected() || m_driverCtx.isStarted()) { return false; }
+    m_callback = nullptr;
+    return true;
+}
+
+//___________________________________________________________________//
+//                                                                   //
+
+bool CDriverGenericTimeSignal::configure()
+{
+    m_driverCtx.getLogManager() << Kernel::LogLevel_Trace << "CDriverGenericTimeSignal::configure\n";
+    saveParametersToConfig(m_driverCtx.getConfigurationManager(),
+                          m_parameters,
+                          "AcquisitionServer_Driver_GenericTimeSignal",
+                          &m_header);
+    return true;
+}
+
+}  // namespace AcquisitionServer
+}  // namespace OpenViBE

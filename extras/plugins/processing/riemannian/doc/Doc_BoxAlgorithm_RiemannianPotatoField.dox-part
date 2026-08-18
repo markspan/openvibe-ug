@@ -1,0 +1,78 @@
+/**
+ * \page BoxAlgorithm_RiemannianPotatoField Riemannian Potato Field
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Description|
+
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Input1|
+ The input filtered and epoched signal for the first potato of the field
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Output1|
+ The stimulations that are sent when box detects the beginning or the end of an artifact
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Setting1|
+ The number of potatoes will define how many inputs (=potatoes) the box has
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Setting2|
+ The ID of the stimulation to be sent when the beginning of a artifact is detected
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Setting3|
+ The ID of the stimulation to be sent when the end of a artifact is detected
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Setting4|
+ The speed of adaptation of the potato field [0 , 1]. The lower the value, the slower the adaptation.
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Setting4|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Setting5|
+ The threshold p-value for artifact detection
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Setting5|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Setting6|
+ The name of the trained field file to be used as the potato field initial state
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Setting6|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Setting7|
+ The name of the file to which the potato field final state will be written (optionnal)
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Setting7|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoField_Examples|
+ Example scenario available in extras/plugins/processing/riemannian/box-tutorials/riemannian-potato-field.xml
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoField_Examples|
+__________________________________________________________________
+
+*/

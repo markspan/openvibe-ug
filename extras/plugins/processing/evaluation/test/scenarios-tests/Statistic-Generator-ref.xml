@@ -1,0 +1,35 @@
+<Statistic>
+	<Stimulations-list>
+		<Stimulation>
+			<Identifier>(0x00000000, 0x00008100)</Identifier>
+			<Label>OVTK_StimulationId_Label_00</Label>
+			<Count>500</Count>
+		</Stimulation>
+	</Stimulations-list>
+	<Channel-list>
+		<Channel>
+			<Name>sinusOsc 1</Name>
+			<Maximum>2.9959498935</Maximum>
+			<Minimum>-2.9958162250</Minimum>
+			<Mean>0.0037440891</Mean>
+		</Channel>
+		<Channel>
+			<Name>sinusOsc 2</Name>
+			<Maximum>2.9955453841</Maximum>
+			<Minimum>-2.9959417073</Minimum>
+			<Mean>0.0021516936</Mean>
+		</Channel>
+		<Channel>
+			<Name>sinusOsc 3</Name>
+			<Maximum>2.9959425273</Maximum>
+			<Minimum>-2.9959158246</Minimum>
+			<Mean>0.0004745227</Mean>
+		</Channel>
+		<Channel>
+			<Name>sinusOsc 4</Name>
+			<Maximum>2.9959140852</Maximum>
+			<Minimum>-2.9959417073</Minimum>
+			<Mean>0.0012721927</Mean>
+		</Channel>
+	</Channel-list>
+</Statistic>

@@ -1,0 +1,58 @@
+include_directories("${CMAKE_SOURCE_DIR}/extras/contrib/common")
+
+set(ADDITIONAL_PATH "${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-extensions/external-stimulations/")
+include_directories(${ADDITIONAL_PATH})
+file(GLOB_RECURSE ADDITIONAL_SRC_FILES ${ADDITIONAL_PATH}/*.cpp ${ADDITIONAL_PATH}/*.h)
+set(SRC_FILES "${SRC_FILES};${ADDITIONAL_SRC_FILES}")
+
+set(ADDITIONAL_PATH "${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-extensions/tcp-tagging/")
+include_directories(${ADDITIONAL_PATH})
+file(GLOB ADDITIONAL_SRC_FILES ${ADDITIONAL_PATH}/*.cpp ${ADDITIONAL_PATH}/*.h)
+set(SRC_FILES "${SRC_FILES};${ADDITIONAL_SRC_FILES}")
+
+function(OV_ADD_CONTRIB_DRIVER DRIVER_PATH)
+
+	set(ADDITIONAL_PATH ${DRIVER_PATH})
+	include_directories(${ADDITIONAL_PATH}/src)
+	file(GLOB_RECURSE ADDITIONAL_SRC_FILES ${ADDITIONAL_PATH}/src/*.cpp ${ADDITIONAL_PATH}/src/*.h)
+	set(SRC_FILES "${SRC_FILES};${ADDITIONAL_SRC_FILES}" PARENT_SCOPE)
+
+	if(EXISTS "${ADDITIONAL_PATH}/share/")
+		file(COPY ${ADDITIONAL_PATH}/share/ DESTINATION ${BUILD_DATADIR}/applications/acquisition-server/)
+		install(DIRECTORY ${ADDITIONAL_PATH}/share/ DESTINATION "${DIST_DATADIR}/openvibe/applications/acquisition-server/")
+	endif(EXISTS "${ADDITIONAL_PATH}/share/")
+
+	# Add the dir to be parsed for documentation later.
+	get_property(OV_TMP GLOBAL PROPERTY OV_PROP_CURRENT_PROJECTS)
+	set(OV_TMP "${OV_TMP};${ADDITIONAL_PATH}")
+	set_property(GLOBAL PROPERTY OV_PROP_CURRENT_PROJECTS ${OV_TMP})
+				
+endfunction(OV_ADD_CONTRIB_DRIVER)
+
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/brainmaster-discovery")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/brainproducts-brainvisionrecorder")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/cognionics")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/ctfvsm-meg")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/encephalan")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/gtec-gipsa/common")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/gtec-gipsa/gusbamp")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/gtec-gipsa/unicorn")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/gtec-bcilab")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/gtec-gmobilabplus")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/gtec-gusbamp")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/gtec-gnautilus")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/mbt-smarting")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/mitsarEEG202A")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/openal-mono16bit-audiocapture")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/openeeg-modulareeg")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/openbci")
+OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/eemagine-eego")
+if(WIN32 AND "${PLATFORM_TARGET}" STREQUAL "x64")
+	message(STATUS "  SKIPPED fieldtrip on x64")
+else()
+	OV_ADD_CONTRIB_DRIVER("${CMAKE_SOURCE_DIR}/extras/contrib/plugins/server-drivers/field-trip-protocol")
+endif()
+
+if(OV_COMPILE_TESTS)
+	add_subdirectory("../../../contrib/plugins/server-extensions/tcp-tagging/test" "./test")
+endif(OV_COMPILE_TESTS)

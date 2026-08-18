@@ -1,0 +1,58 @@
+/**
+ * \page BoxAlgorithm_NoiseGenerator Noise generator
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_NoiseGenerator_Description|
+ * The Noise Generator outputs random signals with a configurable number of channels. The sampling frequency and epoch size can be configured as well. The data is sampled from a pseudorandom distribution.
+ * |OVP_DocEnd_BoxAlgorithm_NoiseGenerator_Description|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_NoiseGenerator_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_NoiseGenerator_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_NoiseGenerator_Output1|
+ * Random signal generated.
+ * |OVP_DocEnd_BoxAlgorithm_NoiseGenerator_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_NoiseGenerator_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_NoiseGenerator_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_NoiseGenerator_Setting1|
+ * Number of channels generated.
+ * |OVP_DocEnd_BoxAlgorithm_NoiseGenerator_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_NoiseGenerator_Setting2|
+ * Sampling frequency of generated signals.
+ * |OVP_DocEnd_BoxAlgorithm_NoiseGenerator_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_NoiseGenerator_Setting3|
+ * Number of samples per epoch
+ * |OVP_DocEnd_BoxAlgorithm_NoiseGenerator_Setting3|
+ 
+ * |OVP_DocBegin_BoxAlgorithm_NoiseGenerator_Setting4|
+ * Noise type (used distribution)
+ * |OVP_DocEnd_BoxAlgorithm_NoiseGenerator_Setting4|
+
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_NoiseGenerator_Miscellaneous|
+ * Uniform noise is drawn from the range \f$ ( 0,1 ( \f$. Gaussian noise has parameters 
+ * mean = 0, variance = 1.0. You can effectively change these parameters by using 
+ * the Simple DSP box on the resulting stream. For example, the mean and variance of 
+ * the resulting \f$ x \f$ from the Gaussian generator can be changed 
+ * by a formula like \f$ x*\sqrt{v} + m \f$ for new variance and mean, respectively.
+ * |OVP_DocEnd_BoxAlgorithm_NoiseGenerator_Miscellaneous|
+ */

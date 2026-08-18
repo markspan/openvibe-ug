@@ -1,0 +1,764 @@
+<OpenViBE-Scenario>
+    <FormatVersion>3</FormatVersion>
+    <Creator>OpenViBE Designer</Creator>
+    <CreatorVersion>3.3.0</CreatorVersion>
+    <Settings>
+        <Setting>
+            <Identifier>(0x572a27b9, 0x41a879a2)</Identifier>
+            <TypeIdentifier>(0x79a9edeb, 0x245d83fc)</TypeIdentifier>
+            <Name>Test Name</Name>
+            <DefaultValue>GDF-Reader</DefaultValue>
+            <Value>GDF-Reader</Value>
+            <Connections/>
+        </Setting>
+    </Settings>
+    <Inputs/>
+    <Outputs/>
+    <Boxes>
+        <Box>
+            <Identifier>(0x00000bef, 0x000059d0)</Identifier>
+            <Name>Timeout</Name>
+            <AlgorithmClassIdentifier>(0x24fcd292, 0x5c8f6aa8)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x544a003e, 0x6dcba5f6)</TypeIdentifier>
+                    <Name>Input Stream</Name>
+                </Input>
+            </Inputs>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Output Stimulations</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
+                    <Name>Timeout delay</Name>
+                    <DefaultValue>5</DefaultValue>
+                    <Value>3</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Output Stimulation</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_00</DefaultValue>
+                    <Value>OVTK_StimulationId_Label_00</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>272</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>800</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0x1eaee00e, 0xdb05d34e)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc46b3d00, 0x3e0454e1)</Identifier>
+                    <Value>(0x00000000, 0x010de8e3)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc73e83ec, 0xf855c5bc)</Identifier>
+                    <Value>false</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x000018b6, 0x0000159f)</Identifier>
+            <Name>v2.11</Name>
+            <AlgorithmClassIdentifier>(0x3eeb1264, 0x4edfbd9a)</AlgorithmClassIdentifier>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x403488e7, 0x565d70b6)</TypeIdentifier>
+                    <Name>Experiment information</Name>
+                </Output>
+                <Output>
+                    <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
+                    <Name>EEG stream</Name>
+                </Output>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Stimulations</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier>
+                    <Name>Filename</Name>
+                    <DefaultValue/>
+                    <Value>${Player_ScenarioDirectory}/$var{Test Name}-211.gdf</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
+                    <Name>Samples per buffer</Name>
+                    <DefaultValue>32</DefaultValue>
+                    <Value>32</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>176</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>560</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0x49639977, 0x355dca73)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc46b3d00, 0x3e0454e1)</Identifier>
+                    <Value>(0x00000000, 0x00db711d)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc73e83ec, 0xf855c5bc)</Identifier>
+                    <Value>false</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>3</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x00004b9d, 0x00001aed)</Identifier>
+            <Name>Player Controller</Name>
+            <AlgorithmClassIdentifier>(0x5f426dce, 0x08456e13)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Stimulations</Name>
+                </Input>
+            </Inputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x2c132d6e, 0x44ab0d97)</TypeIdentifier>
+                    <Name>Stimulation name</Name>
+                    <DefaultValue>OVTK_StimulationId_Label_00</DefaultValue>
+                    <Value>OVTK_StimulationId_Label_00</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0xcc14d8d6, 0xf27ecb73)</TypeIdentifier>
+                    <Name>Action to perform</Name>
+                    <DefaultValue>Pause</DefaultValue>
+                    <Value>Stop</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>336</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>800</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0x568d148e, 0x650792b3)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc46b3d00, 0x3e0454e1)</Identifier>
+                    <Value>(0x00000000, 0x00aaf6d7)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc73e83ec, 0xf855c5bc)</Identifier>
+                    <Value>false</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x00004fd4, 0x00005cd4)</Identifier>
+            <Name>Signal Merger</Name>
+            <AlgorithmClassIdentifier>(0x4bf9326f, 0x75603102)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
+                    <Name>Input 1</Name>
+                </Input>
+                <Input>
+                    <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
+                    <Name>Input 2</Name>
+                </Input>
+                <Input>
+                    <Identifier>(0xdaf27986, 0xcb81da00)</Identifier>
+                    <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
+                    <Name>Input 3</Name>
+                </Input>
+                <Input>
+                    <Identifier>(0xb4015b38, 0x6d8322f0)</Identifier>
+                    <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
+                    <Name>Input 4</Name>
+                </Input>
+            </Inputs>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
+                    <Name>Merged</Name>
+                </Output>
+            </Outputs>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>272</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>544</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0x990c5a68, 0x0d4024a3)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xfba64161, 0x65304e21)</Identifier>
+                    <Value/>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x000055b7, 0x000053cf)</Identifier>
+            <Name>v1.25</Name>
+            <AlgorithmClassIdentifier>(0x3eeb1264, 0x4edfbd9a)</AlgorithmClassIdentifier>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x403488e7, 0x565d70b6)</TypeIdentifier>
+                    <Name>Experiment information</Name>
+                </Output>
+                <Output>
+                    <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
+                    <Name>EEG stream</Name>
+                </Output>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Stimulations</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier>
+                    <Name>Filename</Name>
+                    <DefaultValue/>
+                    <Value>${Player_ScenarioDirectory}/$var{Test Name}-125.gdf</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
+                    <Name>Samples per buffer</Name>
+                    <DefaultValue>32</DefaultValue>
+                    <Value>32</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>176</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>464</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0x49639977, 0x355dca73)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc46b3d00, 0x3e0454e1)</Identifier>
+                    <Value>(0x00000000, 0x00df607a)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc73e83ec, 0xf855c5bc)</Identifier>
+                    <Value>false</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>3</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x00005ebb, 0x00004b97)</Identifier>
+            <Name>Stimulation multiplexer</Name>
+            <AlgorithmClassIdentifier>(0x07db4efa, 0x472b0938)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Input stimulations 1</Name>
+                </Input>
+                <Input>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Input stimulations 2</Name>
+                </Input>
+                <Input>
+                    <Identifier>(0x4e7e8035, 0xf6100a99)</Identifier>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Input stimulations 3</Name>
+                </Input>
+                <Input>
+                    <Identifier>(0x41e21c17, 0xaa13b833)</Identifier>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Input stimulations 4</Name>
+                </Input>
+            </Inputs>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Multiplexed stimulations</Name>
+                </Output>
+            </Outputs>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>272</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>672</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0xe7af82cd, 0x14edb4d4)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>1</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xfba64161, 0x65304e21)</Identifier>
+                    <Value/>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x00006988, 0x0000041a)</Identifier>
+            <Name>v2.21</Name>
+            <AlgorithmClassIdentifier>(0x3eeb1264, 0x4edfbd9a)</AlgorithmClassIdentifier>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x403488e7, 0x565d70b6)</TypeIdentifier>
+                    <Name>Experiment information</Name>
+                </Output>
+                <Output>
+                    <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
+                    <Name>EEG stream</Name>
+                </Output>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Stimulations</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier>
+                    <Name>Filename</Name>
+                    <DefaultValue/>
+                    <Value>${Player_ScenarioDirectory}/$var{Test Name}-221.gdf</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
+                    <Name>Samples per buffer</Name>
+                    <DefaultValue>32</DefaultValue>
+                    <Value>32</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>176</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>656</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0x49639977, 0x355dca73)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc46b3d00, 0x3e0454e1)</Identifier>
+                    <Value>(0x00000000, 0x00d44217)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc73e83ec, 0xf855c5bc)</Identifier>
+                    <Value>false</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>3</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x00007aef, 0x00004f33)</Identifier>
+            <Name>v2.22</Name>
+            <AlgorithmClassIdentifier>(0x3eeb1264, 0x4edfbd9a)</AlgorithmClassIdentifier>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x403488e7, 0x565d70b6)</TypeIdentifier>
+                    <Name>Experiment information</Name>
+                </Output>
+                <Output>
+                    <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
+                    <Name>EEG stream</Name>
+                </Output>
+                <Output>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Stimulations</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier>
+                    <Name>Filename</Name>
+                    <DefaultValue/>
+                    <Value>${Player_ScenarioDirectory}/$var{Test Name}-222.gdf</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
+                    <Name>Samples per buffer</Name>
+                    <DefaultValue>32</DefaultValue>
+                    <Value>32</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>176</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>752</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0x49639977, 0x355dca73)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc46b3d00, 0x3e0454e1)</Identifier>
+                    <Value>(0x00000000, 0x00d94a8a)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc73e83ec, 0xf855c5bc)</Identifier>
+                    <Value>false</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc80ce8af, 0xf699f813)</Identifier>
+                    <Value>3</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x00007d82, 0x00007644)</Identifier>
+            <Name>CSV File Writer</Name>
+            <AlgorithmClassIdentifier>(0x428375e8, 0x325f2db9)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input>
+                    <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
+                    <Name>Input stream</Name>
+                </Input>
+                <Input>
+                    <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+                    <Name>Stimulations stream</Name>
+                </Input>
+            </Inputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier>
+                    <Name>Filename</Name>
+                    <DefaultValue>record-[$core{date}-$core{time}].csv</DefaultValue>
+                    <Value>${Player_ScenarioDirectory}/$var{Test Name}-output.csv</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
+                    <Name>Precision</Name>
+                    <DefaultValue>10</DefaultValue>
+                    <Value>10</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
+                    <Name>Append data</Name>
+                    <DefaultValue>false</DefaultValue>
+                    <Value>false</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+                <Setting>
+                    <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
+                    <Name>Only last matrix</Name>
+                    <DefaultValue>false</DefaultValue>
+                    <Value>false</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>368</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>608</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0xc33e47e0, 0x70e5f31b)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
+                    <Value/>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>
+                    <Value>4</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xcfad85b0, 0x7c6d841c)</Identifier>
+                    <Value>2</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+    </Boxes>
+    <Links>
+        <Link>
+            <Identifier>(0x00000875, 0x00000cda)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x000055b7, 0x000053cf)</BoxIdentifier>
+                <BoxOutputIndex>1</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00004fd4, 0x00005cd4)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00000b09, 0x00007192)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00000bef, 0x000059d0)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00004b9d, 0x00001aed)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00000b31, 0x0000617d)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00005ebb, 0x00004b97)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00007d82, 0x00007644)</BoxIdentifier>
+                <BoxInputIndex>1</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x000021a4, 0x00003a8a)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00004fd4, 0x00005cd4)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00007d82, 0x00007644)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00004460, 0x00005a9f)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007aef, 0x00004f33)</BoxIdentifier>
+                <BoxOutputIndex>2</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00005ebb, 0x00004b97)</BoxIdentifier>
+                <BoxInputIdentifier>(0x41e21c17, 0xaa13b833)</BoxInputIdentifier>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00004886, 0x00000793)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00006988, 0x0000041a)</BoxIdentifier>
+                <BoxOutputIndex>1</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00004fd4, 0x00005cd4)</BoxIdentifier>
+                <BoxInputIdentifier>(0xdaf27986, 0xcb81da00)</BoxInputIdentifier>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00004e6d, 0x00007a7c)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x000018b6, 0x0000159f)</BoxIdentifier>
+                <BoxOutputIndex>2</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00005ebb, 0x00004b97)</BoxIdentifier>
+                <BoxInputIndex>1</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00005894, 0x00005641)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007aef, 0x00004f33)</BoxIdentifier>
+                <BoxOutputIndex>1</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00004fd4, 0x00005cd4)</BoxIdentifier>
+                <BoxInputIdentifier>(0xb4015b38, 0x6d8322f0)</BoxInputIdentifier>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00005b38, 0x00000dd9)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x000055b7, 0x000053cf)</BoxIdentifier>
+                <BoxOutputIndex>2</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00005ebb, 0x00004b97)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x000063fb, 0x00007e28)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00007aef, 0x00004f33)</BoxIdentifier>
+                <BoxOutputIndex>1</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00000bef, 0x000059d0)</BoxIdentifier>
+                <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00007325, 0x0000587a)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x000018b6, 0x0000159f)</BoxIdentifier>
+                <BoxOutputIndex>1</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00004fd4, 0x00005cd4)</BoxIdentifier>
+                <BoxInputIndex>1</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00007fa3, 0x00005eec)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00006988, 0x0000041a)</BoxIdentifier>
+                <BoxOutputIndex>2</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x00005ebb, 0x00004b97)</BoxIdentifier>
+                <BoxInputIdentifier>(0x4e7e8035, 0xf6100a99)</BoxInputIdentifier>
+            </Target>
+        </Link>
+    </Links>
+    <Comments/>
+    <Metadata>
+        <Entry>
+            <Identifier>(0x0000775c, 0x000078ff)</Identifier>
+            <Type>(0x3bcce5d2, 0x43f2d968)</Type>
+            <Data>[{"boxIdentifier":"(0xffffffff, 0xffffffff)","childCount":1,"height":320,"identifier":"(0x08ca2fb9, 0x39407d4e)","name":"Default window","parentIdentifier":"(0xffffffff, 0xffffffff)","type":1,"width":480},{"boxIdentifier":"(0xffffffff, 0xffffffff)","childCount":1,"identifier":"(0x068798dd, 0x7b740a24)","index":0,"name":"Default tab","parentIdentifier":"(0x08ca2fb9, 0x39407d4e)","type":2},{"boxIdentifier":"(0xffffffff, 0xffffffff)","childCount":0,"identifier":"(0x24c82442, 0x11487bbf)","index":0,"name":"Empty","parentIdentifier":"(0x068798dd, 0x7b740a24)","type":0}]</Data>
+        </Entry>
+    </Metadata>
+    <Attributes>
+        <Attribute>
+            <Identifier>(0x790d75b8, 0x3bb90c33)</Identifier>
+            <Value/>
+        </Attribute>
+        <Attribute>
+            <Identifier>(0x7a3a1558, 0xf12c63c2)</Identifier>
+            <Value/>
+        </Attribute>
+        <Attribute>
+            <Identifier>(0x84009d7c, 0x3c4e763b)</Identifier>
+            <Value/>
+        </Attribute>
+        <Attribute>
+            <Identifier>(0x8c1fc55b, 0x7b433dc2)</Identifier>
+            <Value>0.0.1</Value>
+        </Attribute>
+        <Attribute>
+            <Identifier>(0x9f5c4075, 0x4a0d3666)</Identifier>
+            <Value>Simple Scenario for Automatic Test</Value>
+        </Attribute>
+        <Attribute>
+            <Identifier>(0xf36a1567, 0xd13c53da)</Identifier>
+            <Value/>
+        </Attribute>
+        <Attribute>
+            <Identifier>(0xf6b2e3fa, 0x7bd43926)</Identifier>
+            <Value>Tests</Value>
+        </Attribute>
+        <Attribute>
+            <Identifier>(0xf8034a49, 0x8b3f37cc)</Identifier>
+            <Value>INRIA</Value>
+        </Attribute>
+    </Attributes>
+</OpenViBE-Scenario>

@@ -1,0 +1,83 @@
+/**
+ * \page BoxAlgorithm_CovarianceMeanCalculator Covariance Mean Calculator
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+* |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Description|
+Calculation of the mean of covariance matrix.\n
+The Calculation is done when a stimulation is received.\n
+The Mean is saved in a CSV File.
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Input1|
+Stimulation Input
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Input1|
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Input2|
+Covariance Matrix Input
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Input2|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Output1|
+Mean Computed.
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Setting1|
+Metric to use for computing the mean : \n
+Riemann\n
+Euclidian\n
+Log-Euclidian\n
+Log-Det\n
+Kullback\n
+Harmonic\n
+Identity Matrix  
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Setting2|
+CSV Filename to save the computed mean.
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Setting3|
+Stimulation that starts the computation.
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Setting4|
+Log Level (None to see nothing)
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Setting4|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMeanCalculator_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMeanCalculator_Miscellaneous|
+ */

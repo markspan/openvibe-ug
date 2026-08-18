@@ -1,0 +1,74 @@
+/**
+ * \page BoxAlgorithm_InputStreamSwitch Input Stream Switch
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Description|
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Input1|
+ Stimulations to switch from one output to another.
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Input1|
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Input2|
+ First possible stream to select. It can be any Streamed Matrix subtype.
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Input2|
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Input3|
+ Second possible stream to select. It can be any Streamed Matrix subtype.
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Input3|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Output1|
+ The selected stream. It can be any Streamed Matrix subtype.
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Settings|
+ The box has a stimulation setting for each of its inputs. Each such setting dictates the stimulation that selects the corresponding input to be output by the box.
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Setting1|
+ If this flag is set to true, the box will use the first input by default without requiring a stimulus first.
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Setting2|
+ The first stream switch trigger.
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Setting3|
+ The second stream switch trigger.
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Setting3|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_InputStreamSwitch_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_InputStreamSwitch_Miscellaneous|
+ */

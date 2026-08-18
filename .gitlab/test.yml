@@ -6,8 +6,6 @@ test-macosx:
   tags:
     - macos
   rules: !reference [.never_rules, rules]
-  variables:
-    GIT_STRATEGY: none
   script:
     - pixi run ci-test -V -E uoTimeTest --rerun-failed --output-on-failure --output-junit test.xml
   artifacts:
@@ -22,8 +20,6 @@ test-linux:
   rules: !reference [.mr_or_web_rules, rules]
   tags:
     - linux
-  variables:
-    GIT_STRATEGY: none
   cache:
     key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
     policy: pull
@@ -42,8 +38,6 @@ test-windows:
   tags:
     - windows
   rules: !reference [.mr_or_web_rules, rules]
-  variables:
-    GIT_STRATEGY: none
   script:
     - pixi run ci-test -V --rerun-failed --output-on-failure --output-junit test.xml
   artifacts:

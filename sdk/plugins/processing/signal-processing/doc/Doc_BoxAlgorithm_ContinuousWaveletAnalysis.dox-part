@@ -1,0 +1,147 @@
+/**
+ * \page BoxAlgorithm_ContinuousWaveletAnalysis Continuous Wavelet Analysis
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Description|
+ 
+ The Continuous Wavelet Transform (CWT) provides a Time-Frequency representation of an input signal, using Morlet, Paul or derivative of Gaussian wavelets.
+  
+ Considering an input signal \f$ X \in \mathbb{R}^{C \times N} \f$, composed of \f$ C \f$ channels and \f$ N \f$ temporal samples, 
+ this plugin computes the CWT of this signal \f$ \Phi \in \mathbb{C}^{C \times F \times N} \f$, composed of \f$ C \f$ channels, \f$ F \f$ scales and \f$ N \f$ temporal samples.
+ For the \f$ c^{ \text{th} } \f$ channel, the \f$ f^{ \text{th} } \f$ scale \f$ s_f \f$ and the \f$ n^{ \text{th} } \f$ sample, the Time-Frequency representation is defined as:
+ \f[ \Phi (c,f,n) = \sum_{n'=0}^{N-1} X(c,n') \ \psi^{*} \left( \frac{(n-n') \delta t}{s_f} \right) \ , \f]
+ where \f$ \psi \f$ is the normalized wavelet, \f$ (.)^{*} \f$ is the complex conjugate and \f$ \delta t \f$ is the sampling period.
+ 
+ Using the inverse relation between wavelet scale \f$ s_f \f$ and Fourier frequency \f$ \text{freq}_f \f$, output is finally defined as:
+ \f[ \Phi(c,f,n) = \Phi_r(c,f,n) + \mathsf{i} \times \Phi_i(c,f,n) = \left| \Phi(c,f,n) \right| \times e^{\mathsf{i} \arg(\Phi(c,f,n))} \ , \f]
+ with \f$ \mathsf{i} \f$ being the imaginary unit.
+ 
+ Output can be visualized with a \ref Doc_BoxAlgorithm_InstantBitmap3DStream.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Input1|
+ 
+ An input multichannel signal \f$ X \in \mathbb{R}^{C \times N} \f$, composed of \f$ C \f$ channels and \f$ N \f$ temporal samples.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Output1|
+ 
+ An output spectral amplitude (absolute value) \f$ \left| \Phi \right| \in \mathbb{R}^{C \times F \times N} \f$.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Output1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Output2|
+ 
+ An output spectral phase \f$ \arg(\Phi) \in \mathbb{R}^{C \times F \times N} \f$, in radians.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Output2|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Output3|
+ 
+ An output real part of the spectrum \f$ \Phi_r \in \mathbb{R}^{C \times F \times N} \f$.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Output3|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Output4|
+ 
+ An output imaginary part of the spectrum \f$ \Phi_i \in \mathbb{R}^{C \times F \times N} \f$.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Output4|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Setting1|
+ 
+ This setting defines the type of the wavelet: 
+ 
+ - Morlet:
+ 
+ \f[ \psi_0 (n) = \pi^{1/4} e^{\mathsf{i} \omega_0 n} e^{-n^2 / 2} \ , \f]
+ 
+ - Paul:
+ 
+ \f[ \psi_0 (n) = \frac{2^m \mathsf{i}^m m!}{\sqrt{\pi(2m)!}} (1-\mathsf{i} n)^{-(m+1)} \ , \f]
+ 
+ - derivative of Gaussian:
+ 
+ \f[ \psi_0 (n) = \frac{(-1)^{m+1}}{\sqrt{\Gamma(m+\frac{1}{2})}} \frac{d^m}{d n^m} (e^{-n^2 / 2}) \ . \f]
+ 
+ \n
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Setting2|
+ 
+ This setting defines the wavelet parameter: 
+ 
+ - Morlet wavelet: nondimensional frequency \f$ \omega_0 \f$, real positive parameter value. Values between 4.0 and 6.0 are typically used.
+ 
+ - Paul wavelet: order \f$ m \f$, positive integer values inferior to 20. Default value is 4.
+ 
+ - Derivative of Gaussian wavelet: derivative \f$ m \f$, positive even integer values. Value 2 gives the Marr or Mexican hat wavelet.
+ 
+ \n
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Setting3|
+ 
+ This setting defines the number of frequencies \f$ F \f$ of the CWT.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Setting4|
+ 
+ This setting defines the highest frequency \f$ \text{freq}_F \f$ of the CWT.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Setting4|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Setting5|
+ 
+ This setting is related to the frequency non-linear spacing of the CWT.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Setting5|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousWaveletAnalysis_Miscellaneous|
+ 
+ Reference:
+ 
+ C Torrence and GP Compo, <em>A Practical Guide to Wavelet Analysis</em>, Bulletin of the American Meteorological Society, vol. 79, pp. 61–78, 1998
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousWaveletAnalysis_Miscellaneous|
+ */

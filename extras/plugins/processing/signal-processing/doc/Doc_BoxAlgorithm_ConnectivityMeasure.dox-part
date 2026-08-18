@@ -1,0 +1,106 @@
+/**
+ * \page BoxAlgorithm_ConnectivityMeasure Connectivity Measure
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Description|
+ This box measure connectivity between all channels of a signal using several method. For now, Coherence, Magnitude Squared Coherence, Imaginary part of Coherence, and absolute value of the Imaginary part are available.
+ They are defined in [1].
+ 
+ The coherence definitions used are :
+	\f[ Coherence = \frac{\left| S_{xy} \right|}{sqrt{(P_{xx}.P_{yy})} } \f]
+	\f[ Magnitude Squared Coherence = \frac{\left| S_{xy} \right|^2}{(P_{xx}.P_{yy})} \f]
+	\f[ Imaginary Coherence =  \frac{Im(S_{xy})}{sqrt{(P_{xx}.P_{yy})} } \f]
+	\f[ Absolute Value Of Imaginary Coherence =  \frac{\left| Im(S_{xy}) \right|}{sqrt{(P_{xx}.P_{yy})} } \f]
+ 
+ With \e \f$ S_{xy} \f$  the cross-spectral density between two signal channels, and \e \f$  P_{xx} \f$  and \e  \f$ P_{yy} \f$  the Power Spectral Densities of the two channels.
+ The spectral densities are estimated via Welch's method [2]
+
+[1] Nolte & al (2004) "Identifying true brain interaction from EEG data using the imaginary part of coherency", Clinical Neurophysiology Volume 115, Issue 10, October 2004
+
+[2] Welch, P.D. (1967) "The Use of Fast Fourier Transform for the Estimation of Power Spectra: A Method Based on Time Averaging Over Short, Modified Periodograms", IEEE Transactions on Audio Electroacoustics, AU-15, 70–73
+	
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Input1|
+The input signal on which connectivity between channels will be measured.
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Outputs|
+ The output of the box is the connectivity Matrix
+
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Outputs|
+
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Output1|
+ The connectivity matrix is a 3D Matrix of size \e frequency_taps \e x \e nb_channels \e x \e nb_channels
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Output1|
+
+ 
+ 
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Setting1|
+ Choice of the algorithm to measure the connectivity (Magnitude Squared Coherence, Imaginary Coherence).
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Setting2|
+ The length of the window in seconds for the windowing method.
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Setting3|
+ The percentage of overlap of the windowing method
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Setting4|
+  Option to remove DC component from signal.
+  * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Setting4|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Setting5|
+ The amount of frequency taps for the connectivity measure.
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Setting5|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Setting6|
+ The PSD method. Can be Burg or Welch.
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Setting6|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Setting7|
+ Only in Burg PSD method.
+ The order of the autoregressive model.
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Setting7|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Setting8|
+  Only in Welch PSD method.
+ The windowing method to apply. Available options are Hamming, Hanning and Welch.
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Setting8|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Setting9|
+  Only in Welch PSD method.
+ The length of signal to receive (in seconds) before processing the connectivity on it.
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Setting9|
+
+ * |OVP_DocBegin_BoxAlgorithm_ConnectivityMeasure_Setting10|
+  Only in Welch PSD method.
+ The percentage of signal overlap to process the connectivity on.
+ * |OVP_DocEnd_BoxAlgorithm_ConnectivityMeasure_Setting10|
+

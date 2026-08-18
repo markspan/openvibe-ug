@@ -1,0 +1,64 @@
+/**
+ * \page BoxAlgorithm_HelloWorldGames Hello World Games
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloWorldGames_Description|
+This box forwards the signals and stimulations it gets to two corresponding LabStreamingLayer (LSL) streams. 
+
+This stream can be read by the Unity Games Hello World here : https://gitlab.inria.fr/openvibe/unity-games/hello-world
+
+Remarks : It is currently impossible to send and receive information by LSL in the same scenario. 
+Indeed, the LSL library waits to receive its flow (or gives up) before moving on. In addition, OpenViBE is not multi-process. 
+It blocks until it has received its flow (or gives up).
+It is therefore advisable to launch the transmitter before the receiver.
+Or plan for a shorter but repeated stream search after launch in the event of a startup failure.
+
+ * |OVP_DocEnd_BoxAlgorithm_HelloWorldGames_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloWorldGames_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_HelloWorldGames_Inputs|
+ *
+ * |OVP_DocBegin_BoxAlgorithm_HelloWorldGames_Input1|
+The signal input stream.
+ * |OVP_DocEnd_BoxAlgorithm_HelloWorldGames_Input1|
+ 
+ * |OVP_DocBegin_BoxAlgorithm_HelloWorldGames_Input2|
+The stimulation input stream.
+ * |OVP_DocEnd_BoxAlgorithm_HelloWorldGames_Input2|
+ 
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloWorldGames_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_HelloWorldGames_Settings|
+ *
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloWorldGames_Examples|
+Easiest way to test the box is to use a time signal box with a simple DSP sin(x) and a Clock Stimulation with stimulation `OVTK_StimulationId_Label_00`. Run the Scenario, next run the Game.
+ * |OVP_DocEnd_BoxAlgorithm_HelloWorldGames_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloWorldGames_Miscellaneous|
+The box creates each LSL stream at the beginning of the playback, after it has received its corresponding OpenViBE stream header information. Hence, if either signal or stimulus socket 
+of the box is not connected or does not receive a header, the box will not create the corresponding LSL stream.
+
+Stream formats: The signal stream is continuous float. The stimulation stream is noncontinuous int, and each 64bit OpenViBE stimulation is truncated to an int marker.
+
+ * |OVP_DocEnd_BoxAlgorithm_HelloWorldGames_Miscellaneous|
+ */

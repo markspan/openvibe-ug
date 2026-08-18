@@ -1,0 +1,72 @@
+/**
+ * \page BoxAlgorithm_ThresholdCrossingDetector Threshold Crossing Detector
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ThresholdCrossingDetector_Description|
+
+This box detects when the input goes over or under a chosen threshold. It will work on any matrix of exactly two dimensions, signal in particular. This box operates only on one channel. When the input values cross the threshold, a stimulation is sent. You can choose the stimulation to send when the value crosses the threshold in a way (over) or the other (under).
+
+ * |OVP_DocEnd_BoxAlgorithm_ThresholdCrossingDetector_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ThresholdCrossingDetector_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_ThresholdCrossingDetector_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ThresholdCrossingDetector_Input1|
+Input values. Must be a streamed matrix of exactly two dimensions. This box works well with signal.
+ * |OVP_DocEnd_BoxAlgorithm_ThresholdCrossingDetector_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ThresholdCrossingDetector_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_ThresholdCrossingDetector_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ThresholdCrossingDetector_Output1|
+Output stimulations.
+ * |OVP_DocEnd_BoxAlgorithm_ThresholdCrossingDetector_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ThresholdCrossingDetector_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_ThresholdCrossingDetector_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_ThresholdCrossingDetector_Setting1|
+Threshold that will trigger stimulations when it's crossed (default: 0).
+ * |OVP_DocEnd_BoxAlgorithm_ThresholdCrossingDetector_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ThresholdCrossingDetector_Setting2|
+Stimulation to send when the value goes over the threshold.
+ * |OVP_DocEnd_BoxAlgorithm_ThresholdCrossingDetector_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_ThresholdCrossingDetector_Setting3|
+Stimulation to send when the value goes under the threshold.
+ * |OVP_DocEnd_BoxAlgorithm_ThresholdCrossingDetector_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_ThresholdCrossingDetector_Setting4|
+Index of the channel to operate on.
+ * |OVP_DocEnd_BoxAlgorithm_ThresholdCrossingDetector_Setting4|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ThresholdCrossingDetector_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_ThresholdCrossingDetector_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ThresholdCrossingDetector_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_ThresholdCrossingDetector_Miscellaneous|
+ */
