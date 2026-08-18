@@ -1,0 +1,66 @@
+/**
+ * \page BoxAlgorithm_PulseRateCalculator Pulse Rate Calculator
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_PulseRateCalculator_Description|
+
+ * |OVP_DocEnd_BoxAlgorithm_PulseRateCalculator_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_PulseRateCalculator_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_PulseRateCalculator_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_PulseRateCalculator_Input1|
+ The input PPG signal.
+ * |OVP_DocEnd_BoxAlgorithm_PulseRateCalculator_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_PulseRateCalculator_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_PulseRateCalculator_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_PulseRateCalculator_Output1|
+ The pulse rate variability corresponding to the input signal, in milliseconds.
+ * |OVP_DocEnd_BoxAlgorithm_PulseRateCalculator_Output1|
+ * |OVP_DocBegin_BoxAlgorithm_PulseRateCalculator_Output2|
+ Stimulations corresponding to the subject's heart beats: when the signal starts to decrease right after 
+ a peak corresponding to a heart beat, a stimulation is sent (OVTK_StimulationId_Label_00). Stimulations can also be sent to indicate the algorithm's
+ false positives and false negatives.
+ - False positive: this happens when a peak is identified as a heart beat when it was actually not (usualy the P-peak of the PQRST complex). 
+ The algorithm detects such a peak when it notices another peak (the actual R peak), higher than the "false one", very close to it 
+ (such close that two healthy human heart beats could not have been that close). When that happens, the smallest of the
+ two peaks is removed and a stimulation is sent (OVTK_StimulationId_Label_01).
+ - False negative: this happens when an actual heart beat is not detected because its amplitude is lower than expected 
+ (due to a quick drop in the signal amplitude). When a peak is detected, the algorithm predicts when the next peak should
+ be, and if there is no peak around that time, the algorithm concludes that a peak was missed, so it registers one and
+ sends a stimulation (OVTK_StimulationId_Label_00).
+ * |OVP_DocEnd_BoxAlgorithm_PulseRateCalculator_Output2|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_PulseRateCalculator_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_PulseRateCalculator_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_PulseRateCalculator_Setting1|
+ A time window of n seconds means that at any point in time, only the last n seconds of signal will be used
+ to compute the average interbeat interval of the subject (which is used to track and correct errors in the peak detection algorithm).
+ The shorter the time window, the less impact rapid interbeat interval changes in the input signal will have on the PRV calculation.
+ Note that a Time Window parameter set to a value lower than twice the subject's interbeat interval will result in incoherent 
+ results, as the algorithm needs at least two intervals for the false peaks detetection to work properly. 
+ Setting it to 5 seconds or more should be safe for most subjects.
+ * |OVP_DocEnd_BoxAlgorithm_PulseRateCalculator_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_PulseRateCalculator_Setting2|
+ Choose whether or not you want the box to send stimulations when heart beats are detected.
+ * |OVP_DocEnd_BoxAlgorithm_PulseRateCalculator_Setting2|
+ */

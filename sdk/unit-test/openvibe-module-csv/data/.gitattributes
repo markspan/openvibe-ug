@@ -1,0 +1,2 @@
+testCSVSignalUNIXEndlines.csv eol=lf
+testCSVSignalWindowsEndlines.csv eol=crlf

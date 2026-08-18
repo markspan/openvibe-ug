@@ -1,0 +1,11 @@
+a	0x00008101	0x00008100 "key 'a' information"
+z	0x00008102	0x00008100 "key 'z' information"
+e	0x00008103	0x00008100 "key 'e' information"
+r	0x00008104	0x00008100 "key 'r' information"
+t	0x00008105	0x00008100 "key 't' information"
+y	0x00008106	0x00008100 "key 'y' information"
+u	0x00008107	0x00008100 "key 'u' information"
+i	0x00008108	0x00008100 "key 'i' information"
+o	0x00008109	0x00008100 "key 'o' information"
+p	0x0000810A	0x00008100 "key 'p' information"
+

@@ -1,0 +1,62 @@
+/**
+ * \page BoxAlgorithm_HelloSenderGames Hello Sender Games
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloSenderGames_Description|
+This box receives the signals and stimulations it gets from two corresponding LabStreamingLayer (LSL) streams. 
+
+These streams can be read by the Unity Games Hello Sender here : https://gitlab.inria.fr/openvibe/unity-games/hello-sender
+
+Remarks : It is currently impossible to send and receive information by LSL in the same scenario. 
+Indeed, the LSL library waits to receive its flow (or gives up) before moving on. In addition, OpenViBE is not multi-process. 
+It blocks until it has received its flow (or gives up).
+It is therefore advisable to launch the transmitter before the receiver or plan for a shorter but repeated stream search after launch in the event of a startup failure.
+
+ * |OVP_DocEnd_BoxAlgorithm_HelloSenderGames_Description|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloSenderGames_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_HelloSenderGames_Outputs|
+ *
+ * |OVP_DocBegin_BoxAlgorithm_HelloSenderGames_Output1|
+The matrix output stream.
+ * |OVP_DocEnd_BoxAlgorithm_HelloSenderGames_Output1|
+ 
+ * |OVP_DocBegin_BoxAlgorithm_HelloSenderGames_Output2|
+The stimulation output stream.
+ * |OVP_DocEnd_BoxAlgorithm_HelloSenderGames_Output2|
+ 
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloSenderGames_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_HelloSenderGames_Settings|
+ *
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloSenderGames_Examples|
+Run the Game, next run the Scenario.
+ * |OVP_DocEnd_BoxAlgorithm_HelloSenderGames_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_HelloSenderGames_Miscellaneous|
+The box creates each LSL stream at the beginning of the playback, the Process is stopped until available stream are found.
+
+Stream formats: The matrix stream is noncontinuous float. The stimulation stream is noncontinuous int.
+
+ * |OVP_DocEnd_BoxAlgorithm_HelloSenderGames_Miscellaneous|
+ */

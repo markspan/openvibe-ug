@@ -1,0 +1,68 @@
+/**
+ * \page BoxAlgorithm_RiemannianPotatoFieldTrainer Riemannian Potato Field Trainer
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoFieldTrainer_Description|
+
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoFieldTrainer_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoFieldTrainer_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoFieldTrainer_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoFieldTrainer_Input1|
+ The stimulations that, when received, will trigger the start / end of the training
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoFieldTrainer_Input1|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoFieldTrainer_Input2|
+ The input filtered and epoched signal for the first potato of the field
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoFieldTrainer_Input2|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoFieldTrainer_Input3|
+ The input filtered and epoched signal for the second potato of the field
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoFieldTrainer_Input3|
+
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoFieldTrainer_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoFieldTrainer_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoFieldTrainer_Setting1|
+ The number of potatoes will define how many inputs (=potatoes) the box has
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoFieldTrainer_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoFieldTrainer_Setting2|
+ The ID of the stimulation that will trigger the beginning of the training
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoFieldTrainer_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoFieldTrainer_Setting3|
+ The ID of the stimulation that will trigger the end of the training
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoFieldTrainer_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoFieldTrainer_Setting4|
+ The speed of adaptation of the potato field [0 , 1]. The lower the value, the slower the adaptation.
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoFieldTrainer_Setting4|
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoFieldTrainer_Setting5|
+ The name of the file to which the potato field final state will be written
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoFieldTrainer_Setting5|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_RiemannianPotatoFieldTrainer_Examples|
+ Example scenario available in extras/plugins/processing/riemannian/box-tutorials/riemannian-potato-field-trainer.xml
+ * |OVP_DocEnd_BoxAlgorithm_RiemannianPotatoFieldTrainer_Examples|
+__________________________________________________________________
+
+*/

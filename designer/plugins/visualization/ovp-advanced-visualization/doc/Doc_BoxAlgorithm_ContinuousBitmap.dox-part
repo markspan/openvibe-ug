@@ -1,0 +1,109 @@
+/**
+ * \page BoxAlgorithm_ContinuousBitmap Continuous Bitmap
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Description|
+ The <em>Continuous Bitmap</em> displays input data in form of a 2D map of colored blocks (or <em>bitmap</em>).
+ The display is done <b>continuously</b> , meaning that once the end of the horizontal scale is reached, it goes back to the origin.
+  
+ The <em> Continuous Bitmap </em> box shares common concepts and settings with the other boxes in the <b> Mensia Advanced Visualization Toolset </b>.
+ Additional information are available in the dedicated documentation pages:
+ - \ref Doc_Mensia_AdvViz_Concepts
+ - \ref Doc_Mensia_AdvViz_Configuration
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Input1|
+ The first input can be a streamed matrix or any derived stream (Signal, Spectrum, Feature Vector).
+ Please set the input type according to the actual stream type connected.
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Input1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Input2|
+ The second input expect stimulations. They will be displayed as <b> red vertical lines </b>.
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Input2|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Setting1|
+ The channel localisation file containing the cartesian coordinates of the electrodes to be displayed.
+ A default configuration file is provided, and its path stored in the configuration token <tt>${AdvancedViz_ChannelLocalisation}</tt>.
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Setting2|
+ Select <em> Time Locked </em> for a continuous data stream, and specify the <em>time scale</em> below.
+ Select <em>Independent </em> for a discontinuous data stream, and specify the <em>matrix count</em> below.
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Setting3|
+ The time scale in seconds, before the displays goes back to the origin.
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Setting4|
+ The number of input matrices to receive before the displays goes back to the origin.
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Setting4|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Setting5|
+ If this checkbox is ticked, the vertical scale is shifted so that 0 is at the bottom. Only positive values will be displayed.
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Setting5|
+ 
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Setting6|
+ Gain (floating-point scalar factor) to apply to the input values before display.
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Setting6|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Setting7|
+ Label to be displayed on top of the visualization window.
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Setting7|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Setting8|
+ This setting expect a value between 0 and 1, from transparent to opaque color rendering (nb: this value is the alpha component of the color).
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Setting8|
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Setting9|
+  Color gradient to use. This setting can be set manually using the color gradient editor.
+ Several presets exist in form of configuration tokens <tt>${AdvancedViz_ColorGradient_X}</tt>, where X can be:
+ - <tt>Matlab</tt> or <tt>Matlab_Discrete</tt>
+ - <tt>Icon</tt> or <tt>Icon_Discrete</tt>
+ - <tt>Elan</tt> or <tt>Elan_Discrete</tt>
+ - <tt>Fire</tt> or <tt>Fire_Discrete</tt>
+ - <tt>IceAndFire</tt> or <tt>IceAndFire_Discrete</tt>
+ 
+ The default values <tt>AdvancedViz_DefaultColorGradient</tt> or <tt>AdvancedViz_DefaultColorGradient_Discrete</tt> are equal to </t>Matlab</tt> and <tt>Matlab_Discrete</tt>.
+ 
+ An example of topography rendering using these color gradients can be found \ref Doc_Mensia_AdvViz_Configuration "here".
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Setting9|
+__________________________________________________________________
+
+Online visualisation settings
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_OnlineVisualizationSettings|
+ At runtime, all the advanced visualization shared settings are exposed, as described in \ref Doc_Mensia_AdvViz_Configuration_RuntimeToolbar.
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_OnlineVisualizationSettings|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ContinuousBitmap_Examples|
+ In the following example, we compute the band power of the input signal in the 8-15 Hz frequency range, and average it over the last 32 epochs received.
+ 
+ You can find a commented scenario in the provided sample set, the scenario file name is \textit{ContinuousBitmap.xml}.
+ 
+ \image html ContinuousBitmap_Example.png "Example of scenario using the Continuous Bitmap"
+ \image latex ContinuousBitmap_Example.png "Example of scenario using the Continuous Bitmap" width=\textwidth
+ * |OVP_DocEnd_BoxAlgorithm_ContinuousBitmap_Examples|
+ */

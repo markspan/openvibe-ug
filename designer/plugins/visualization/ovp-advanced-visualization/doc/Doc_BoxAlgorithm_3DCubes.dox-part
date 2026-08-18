@@ -1,0 +1,93 @@
+/**
+ * \page BoxAlgorithm_3DCubes 3D Cubes
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_3DCubes_Description|
+ The <em>3D Cubes</em> box displays the data in a topographic view, where each channel (correctly identified and positionned thanks to a channel localisation file) is associated with a cube.
+ All the cubes are positionned in a 3D space according to the corresponding positions of the electrodes on the scalp.
+ The input data is displayed through 2 modalities:
+ - the <b> cubes color </b>
+ - the <b> cubes size </b>
+
+ The cube size varies according to the same - absolute - range as the color, i.e. high negative or positive values will be 
+ displayed as big cube while values close to zero with be displayed as small cubes.
+
+ The <em>3D Cubes</em> box shares common concepts and settings with the other boxes in the <b>Mensia Advanced Visualization Toolset</b>.
+ Additional information are available in the dedicated documentation pages:
+ - \ref Doc_Mensia_AdvViz_Concepts
+ - \ref Doc_Mensia_AdvViz_Configuration
+ 
+ * |OVP_DocEnd_BoxAlgorithm_3DCubes_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_3DCubes_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_3DCubes_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_3DCubes_Input1|
+ The box input can be a streamed matrix or any derived stream (Signal, Spectrum, Feature Vector).
+ Please set the input type according to the actual stream type connected.
+ * |OVP_DocEnd_BoxAlgorithm_3DCubes_Input1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_3DCubes_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_3DCubes_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_3DCubes_Setting1|
+ The channel localisation file containing the cartesian coordinates of the electrodes to be displayed.
+ A default configuration file is provided, and its path stored in the configuration token <tt>${AdvancedViz_ChannelLocalisation}</tt>.
+ * |OVP_DocEnd_BoxAlgorithm_3DCubes_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_3DCubes_Setting2|
+ Gain (floating-point scalar factor) to apply to the input values before display.
+ * |OVP_DocEnd_BoxAlgorithm_3DCubes_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_3DCubes_Setting3|
+ Label to be displayed on top of the visualization window.
+ * |OVP_DocEnd_BoxAlgorithm_3DCubes_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_3DCubes_Setting4|
+ Color gradient to use. This setting can be set manually using the color gradient editor.
+ Several presets exist in form of configuration tokens <tt>${AdvancedViz_ColorGradient_X}</tt>, where X can be:
+ - <tt>Matlab</tt> or <tt>Matlab_Discrete</tt>
+ - <tt>Icon</tt> or <tt>Icon_Discrete</tt>
+ - <tt>Elan</tt> or <tt>Elan_Discrete</tt>
+ - <tt>Fire</tt> or <tt>Fire_Discrete</tt>
+ - <tt>IceAndFire</tt> or <tt>IceAndFire_Discrete</tt>
+
+ The default values <tt>AdvancedViz_DefaultColorGradient</tt> or <tt>AdvancedViz_DefaultColorGradient_Discrete</tt> are equal to </t>Matlab</tt> and <tt>Matlab_Discrete</tt>.
+ 
+ An example of topography rendering using these color gradients can be found \ref Doc_Mensia_AdvViz_Configuration "here".
+ * |OVP_DocEnd_BoxAlgorithm_3DCubes_Setting4|
+__________________________________________________________________
+
+Online visualisation settings
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_3DCubes_OnlineVisualizationSettings|
+ At runtime, all the advanced visualization shared settings are exposed, as described in \ref Doc_Mensia_AdvViz_Configuration_RuntimeToolbar.
+ Note that if the box receives a discontinuous data stream, such as a re-epoched signal through stimulation based epoching, the ERP replay features is exposed.
+ Using the ERP replay allows you to slowly visualize the last epoch received.
+ * |OVP_DocEnd_BoxAlgorithm_3DCubes_OnlineVisualizationSettings|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_3DCubes_Examples|
+ In the following example, we compute the band power of the signal in the 8-15 Hz frequency range, and average it over the last 32 epochs received.
+ 
+ You can find a commented scenario in the provided sample set, the scenario file name is \textit{3DCubes.xml}.
+ 
+ \image html 3DCubes_Example.png "Example of scenario using the 3D cubes"
+ \image latex 3DCubes_Example.png "Example of scenario using the 3D cubes" width=\textwidth
+ * |OVP_DocEnd_BoxAlgorithm_3DCubes_Examples|
+ */

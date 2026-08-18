@@ -1,0 +1,598 @@
+/**
+ * SPDX-FileCopyrightText: Inria <thomas.prampart@inria.fr>
+ * SPDX-License-Identifier: AGPL-3.0-only
+ */
+
+#include "AcquisitionController.h"
+
+#include <QQmlContext>
+#include <QQmlEngine>
+#include <QTimer>
+
+#include <system/ovCTime.h>
+#include <algorithm>
+#include <vector>
+
+#include <openvibe/CIdentifier.hpp>
+#include <openvibe/ov_all.h>
+
+#include <OVQmlLogListener.h>
+
+#include <openvibe/parameters/parameters.h>
+#include <parametersObject.h>
+#include <parameterStringVectorObject.h>
+
+#include "AbstractDriver.h"
+#include "AcquisitionManager.h"
+#include "Acquisition.h"
+#include "NetService.h"
+#include "TcpTaggingService.h"
+
+namespace OpenViBE {
+namespace AcquisitionServer {
+
+struct AcquisitionControllerPrivate {
+
+    AcquisitionControllerPrivate(const Kernel::IKernelContext& kernelCtx, AcquisitionController *q);
+    ~AcquisitionControllerPrivate();
+
+    void launchThread();
+    QJSValue toJSParams(const OpenViBE::Parameters::ParameterObjects& params);
+
+    AcquisitionManager& m_acqManager = AcquisitionManager::instance();
+    Services::NetService & m_netSrv = OpenViBE::Services::NetService::instance();
+    Services::TcpTaggingService & m_tcpTaggingSrv = OpenViBE::Services::TcpTaggingService::instance();
+    std::string m_acquisitionName = "Default Acquisition";
+    Acquisition* m_acquisition = nullptr;
+    std::vector<AbstractDriver*> m_drivers;
+    const Kernel::IKernelContext& m_kernelCtx;
+    std::thread* m_thread = nullptr;
+    OVQmlLogListener* m_qmlLogListener = nullptr;
+
+    QQmlEngine *m_engine = nullptr;
+    AcquisitionController *q = nullptr;
+
+    //config parameters
+    OpenViBE::Parameters::ParameterObjects m_configParams;
+    OpenViBE::Parameters::ParameterListStringObject m_driftCorrectionPolicy;
+    OpenViBE::Parameters::ParameterIntObject m_driftTolerance;
+    OpenViBE::Parameters::ParameterIntObject m_jitterEstimation;
+    OpenViBE::Parameters::ParameterIntObject m_oversamplingFactor;
+    OpenViBE::Parameters::ParameterBoolObject m_selectOnlyNamedChannels;
+    OpenViBE::Parameters::ParameterListStringObject m_NaNReplacement;
+
+    OpenViBE::Parameters::ParameterObjects m_deviceParams;
+    OpenViBE::Parameters::ParameterObjects m_driverParams;
+    std::unique_ptr<OpenViBE::Parameters::parameterStringVectorObject> m_channelNamesObj = nullptr;
+
+    OpenViBE::Parameters::ParameterIntObject* m_connectionPort;
+    OpenViBE::Parameters::ParameterIntObject* m_tcpTaggingPort;
+    OpenViBE::Parameters::ParameterListIntObject* m_sampleCountPerBlock;
+    std::vector<double> m_impedances;
+    std::vector<double> m_impedanceBuf;
+    QList<ImpedanceItem*> m_impedancesItems;
+    QTimer* m_impedanceTimer = nullptr;
+
+    double m_driftLimit = 5.0; ///< Default drift limit in ms.
+    double m_instantDrift = 0.0; ///< Instant drift in ms.
+    double m_globalDrift = 0.0; ///< Global drift in ms.
+    QTimer* m_driftTimer = nullptr;
+
+    Kernel::ILogManager& getLogManager() {
+        return m_kernelCtx.getLogManager();
+    }
+};
+
+AcquisitionControllerPrivate::AcquisitionControllerPrivate(const Kernel::IKernelContext& kernelCtx, AcquisitionController *q)
+    : m_kernelCtx(kernelCtx), 
+     q(q),
+     m_driftCorrectionPolicy("Drift Correction Policy", "Drift correction Policy", {"Let the Driver Decide", "Forced", "Disabled"}, "Disabled"),
+     m_driftTolerance("Drift Tolerance", "Drift tolerance in ms", 2, 0, 100),
+     m_jitterEstimation("Jitter Estimation", "Jitter estimation count for drift in ms", 16, 0, 1000),
+     m_oversamplingFactor("Oversampling Factor", "Oversampling factor", 1, 0, 100),
+     m_selectOnlyNamedChannels("Select Only Named Channels", "Select only named channels", false),
+     m_NaNReplacement("NaN value replacement", "How to replace NaN values", {"Disabled", "Zero", "LastCorrectValue"}, "Disabled")
+{
+    m_acquisition = m_acqManager.createAcquisition(0, m_acquisitionName);
+    for (auto& enabledWriter : m_acqManager.getAcquisitionWritersEnableParam(m_acquisitionName)) {
+        enabledWriter.second.connect([this](std::any value) {
+            emit this->q->configParametersChanged();
+        });
+    }
+    m_sampleCountPerBlock = new OpenViBE::Parameters::ParameterListIntObject(m_acquisition->getChunkSampleCount());
+
+    m_connectionPort = new OpenViBE::Parameters::ParameterIntObject(m_netSrv.getPortParameter());
+    m_tcpTaggingPort = new OpenViBE::Parameters::ParameterIntObject(m_tcpTaggingSrv.getPortParameter());
+
+
+    // Config Parameters
+    // -------------------------------------------------------------------------
+    // todo: get config params from acquisition
+
+
+    // Initialize PLugins and get their parameters
+    // -------------------------------------------------------------------------
+
+    // Plugins that just send out data must be the last in list (since other plugins may modify the data)
+    //m_acquisitionServer->m_Plugins.push_back(new Plugins::CPluginExternalStimulations(m_kernelCtx));
+    //m_acquisitionServer->m_Plugins.push_back(new Plugins::CPluginTCPTagging(m_kernelCtx));
+
+    //m_acquisitionServer->m_Plugins.push_back(new Plugins::CPluginLSLOutput(m_kernelCtx));
+    //m_acquisitionServer->m_Plugins.push_back(new Plugins::CPluginFiddler(m_kernelCtx));
+
+
+    /*std::vector<IAcquisitionServerPlugin*> plugins = m_acquisitionServer->getPlugins();
+
+    for (auto itp = plugins.begin(); itp != plugins.end(); ++itp) {
+        for(auto param: (*itp)->parameters()) {
+            m_configParams.push_back(OpenViBE::Parameters::ParameterObject::fromParameter(param));
+        }
+    }*/
+}
+
+AcquisitionControllerPrivate::~AcquisitionControllerPrivate()
+{
+    if (m_impedanceTimer) {
+        m_impedanceTimer->stop();
+        delete m_impedanceTimer;
+        m_impedanceTimer = nullptr;
+    }
+
+    for(auto paramObj: m_driverParams) {
+        delete paramObj;
+    }
+
+    for(auto *obj : m_impedancesItems) {
+        delete obj;
+    }
+    m_impedancesItems.clear();
+
+    if(m_qmlLogListener) {
+        delete m_qmlLogListener;
+        m_qmlLogListener = nullptr;
+    }
+}
+
+
+void AcquisitionControllerPrivate::launchThread()
+{
+
+}
+
+QJSValue AcquisitionControllerPrivate::toJSParams(const OpenViBE::Parameters::ParameterObjects& params)
+{
+    if (!m_engine) {
+        QQmlContext *context = QQmlEngine::contextForObject(q);
+        if (!context) {
+            m_kernelCtx.getLogManager() << Kernel::LogLevel_Error << "Could not obtain QQmlContext for object.\n";
+        } else {
+            m_engine = context->engine();
+        }
+    }
+
+    auto nb_params = params.size();
+    QJSValue js_params = m_engine->newArray((uint)nb_params);
+    for (int i = 0; i < nb_params; ++i) {
+        js_params.setProperty(i, m_engine->newQObject(params[i]));
+    }
+
+    return js_params;
+}
+
+AcquisitionController::AcquisitionController() {
+    OpenViBE::CKernelLoader kernelLoader;
+
+    std::cout << "[  INF  ] Created kernel loader, trying to load kernel module" << std::endl;
+    OpenViBE::CString error;
+
+    OpenViBE::CString kernelFile = OpenViBE::Directories::getLib("kernel");
+
+    if (!kernelLoader.load(kernelFile, &error)) { 
+        std::cout << "[ FAILED ] Error loading kernel from [" << kernelFile << "]: " << error << "\n"; 
+    }
+    else {
+        std::cout << "[  INF  ] Kernel module loaded, trying to get kernel descriptor" << std::endl;
+        OpenViBE::Kernel::IKernelDesc* kernelDesc = nullptr;
+        kernelLoader.initialize();
+        kernelLoader.getKernelDesc(kernelDesc);
+        if (!kernelDesc) {
+            std::cout << "[ FAILED ] No kernel descriptor" << std::endl;
+        }
+        else {
+            std::cout << "[  INF  ] Got kernel descriptor, trying to create kernel" << std::endl;
+
+
+            OpenViBE::CString configFile = OpenViBE::CString(OpenViBE::Directories::getDataDir() + "/kernel/openvibe.conf");
+
+            Kernel::IKernelContext* kernelCtx = kernelDesc->createKernel("acquisition-server", configFile);
+            if (!kernelCtx) {
+                std::cout << "[ FAILED ] No kernel created by kernel descriptor" << std::endl;
+            }
+            else {
+                kernelCtx->initialize();
+
+                OpenViBE::Kernel::IConfigurationManager& configManager = kernelCtx->getConfigurationManager();
+
+                bool res = configManager.addConfigurationFromFile(configManager.expand("${Path_Data}/applications/acquisition-server/acquisition-server-defaults.conf"));
+                if (! res) {
+                    kernelCtx->getLogManager() << OpenViBE::Kernel::LogLevel_Error << "Configuration file not found: " << configManager.expand("${Path_Data}/applications/acquisition-server/acquisition-server-defaults.conf") << ". Please fix the {Path_Data} variable in /kernel/openvibe.conf to point to ${Path_Data}/applications/acquisition-server/acquisition-server-defaults.conf\n";
+                }
+                // User configuration mods
+                res = configManager.addConfigurationFromFile(configManager.expand("${Path_UserData}/openvibe-acquisition-server.conf"));
+                if (!res) {
+                    kernelCtx->getLogManager() << OpenViBE::Kernel::LogLevel_Error << "Configuration file not found: " << configManager.expand("${Path_UserData}/openvibe-acquisition-server.conf") << ". Please fix the {Path_UserData} variable in /kernel/openvibe.conf to point to ${Path_UserData}/openvibe-acquisition-server.conf\n";
+                }
+                /* Likely not needed anymore with new acquisition server
+                res = kernelCtx->getPluginManager().addPluginsFromFiles(configManager.expand("${AcquisitionServer_Plugins}"));
+                if (!res) {
+                    kernelCtx->getLogManager() << OpenViBE::Kernel::LogLevel_Error << "Plugins files not found: " << configManager.expand("${AcquisitionServer_Plugins}") <<" Please fix the {AcquisitionServer_Plugins} variable in " << configManager.expand("${Path_Data}/applications/acquisition-server/acquisition-server-defaults.conf") << " to point to ${Path_Lib}/libopenvibe-plugins-*-stream-codec*\n";
+                }*/
+
+                /*
+                Commented out cause config is loaded from argc/argv in legacy, which is not in place here
+                for (auto itr = config.tokens.begin(); itr != config.tokens.end(); ++itr) {
+                    kernelCtx->getLogManager() << OpenViBE::Kernel::LogLevel_Trace << "Adding command line configuration token ["
+                            << (*itr).first.c_str() << " = " << (*itr).second.c_str() << "]\n";
+                    configManager.addOrReplaceConfigurationToken((*itr).first.c_str(), (*itr).second.c_str());
+                }   */
+
+                // Check the clock
+                if (!System::Time::isClockSteady()) {
+                    kernelCtx->getLogManager() << OpenViBE::Kernel::LogLevel_Warning
+                            << "The system does not seem to have a steady clock. This may affect the acquisition time precision.\n";
+                }
+
+                d = new AcquisitionControllerPrivate(*kernelCtx, this);
+                //create qml log controller
+                d->m_qmlLogListener = new OVQmlLogListener();
+                kernelCtx->getLogManager().addListener(d->m_qmlLogListener);
+
+                emit driverChanged();
+            }
+        }
+    }
+}
+
+QStringList AcquisitionController::getDrivers() {
+    QStringList drivers;
+    for (const std::string& name: d->m_acqManager.getDriverNames()) {
+        drivers.append(QString::fromStdString(name));
+    }
+    return drivers;
+}
+
+AcquisitionController::~AcquisitionController() {
+    delete d;
+
+}
+
+bool AcquisitionController::isAcquiring() {
+    return d->m_acqManager.isAcquisitionRunning(d->m_acquisitionName);
+}
+
+bool AcquisitionController::isCheckingImpedance() {
+    return d->m_acquisition && d->m_acquisition->state() == Acquisition::State::ImpedanceCheck;
+}
+
+bool AcquisitionController::supportsImpedanceCheck() {
+    return d->m_acquisition && d->m_acquisition->supportsImpedanceCheck();
+}
+
+bool AcquisitionController::toggleImpedanceCheck() {
+
+    bool res = false;
+
+    if (d->m_acquisition) {
+        if (d->m_acquisition->state() == Acquisition::State::ImpedanceCheck) {
+            if (d->m_impedanceTimer) {
+                d->m_impedanceTimer->stop();
+                delete d->m_impedanceTimer;
+                d->m_impedanceTimer = nullptr;
+            }
+            d->m_acquisition->stopImpedanceCheck();
+            emit isCheckingImpedanceChanged();
+            res = true;
+        } else if (d->m_acquisition->state() == Acquisition::State::Idle) {
+            if (d->m_acquisition->startImpedanceCheck()) {
+
+                auto channelNames = d->m_acquisition->getDriverChannelNames();
+                d->m_impedanceBuf.assign(channelNames.size(), 0.0);
+
+                d->m_impedanceTimer = new QTimer(this);
+                d->m_impedanceTimer->setInterval(500);
+                connect(d->m_impedanceTimer, &QTimer::timeout, this, [this]() {
+                    int n = d->m_acquisition->readImpedances(d->m_impedanceBuf.data(), d->m_impedanceBuf.size());
+
+                    double impedanceLimit = d->m_kernelCtx.getConfigurationManager().expandAsFloat(
+                        "${AcquisitionServer_DefaultImpedanceLimit}", 20000);
+                    auto channelNames = d->m_acquisition->getDriverChannelNames();
+
+                    bool rebuild = (n != d->m_impedancesItems.size());
+                    if (rebuild) {
+                        for (auto* obj : d->m_impedancesItems) delete obj;
+                        d->m_impedancesItems.clear();
+                    }
+
+                    for (int i = 0; i < n; ++i) {
+                        QString name = (i < static_cast<int>(channelNames.size())) ? QString::fromStdString(channelNames[i]) : QString("Ch %1").arg(i + 1);
+                        double val      = d->m_impedanceBuf[i];
+                        double fraction = std::min(val / impedanceLimit, 1.0);
+                        if (rebuild) {
+                            d->m_impedancesItems.append(new ImpedanceItem(name, val / 1000.0, fraction));
+                        } else {
+                            d->m_impedancesItems[i]->setValue(val / 1000.0);
+                            d->m_impedancesItems[i]->setFraction(fraction);
+                        }
+                    }
+
+                    if (rebuild) {
+                        emit impedancesChanged();
+                    }
+                });
+                d->m_impedanceTimer->start();
+
+                emit isCheckingImpedanceChanged();
+                emit supportsImpedanceCheckChanged();
+                res = true;
+            }
+        }
+    }
+    return res;
+}
+
+QJSValue AcquisitionController::configParameters() {
+    if (!d->m_engine) {
+        QQmlContext *context = QQmlEngine::contextForObject(this);
+        if (!context) {
+            d->m_kernelCtx.getLogManager() << Kernel::LogLevel_Error << "Could not obtain QQmlContext for object.\n";
+        } else {
+            d->m_engine = context->engine();
+        }
+    }
+
+    for (auto* p : d->m_configParams) {
+        delete p;
+    }
+    d->m_configParams.clear();
+
+    auto& enabledWriters = d->m_acqManager.getAcquisitionWritersEnableParam(d->m_acquisitionName);
+    std::vector<AbstractWriter*> writers = d->m_acquisition->getWriters();
+    QJSValue result = d->m_engine->newArray((quint32)writers.size());
+
+    size_t i = 0;
+    for (auto& enabledWriter : enabledWriters) {
+        QJSValue entry = d->m_engine->newObject();
+        entry.setProperty("name", QString::fromStdString(enabledWriter.first));
+
+        OpenViBE::Parameters::ParameterObjects writerParams;
+        auto* enableObj = OpenViBE::Parameters::ParameterObject::fromParameter(&enabledWriter.second);
+        d->m_configParams.push_back(enableObj);
+        writerParams.push_back(enableObj);
+
+        auto writerIt = std::find_if(writers.begin(), writers.end(), [enabledWriter](AbstractWriter* w) {
+            return w->name() == enabledWriter.first;
+        });
+        if (writerIt != writers.end()) {
+            for (auto* param : (*writerIt)->getParameters()) {
+                auto* obj = OpenViBE::Parameters::ParameterObject::fromParameter(param);
+                d->m_configParams.push_back(obj);
+                writerParams.push_back(obj);
+            }
+        }
+        entry.setProperty("parameters", d->toJSParams(writerParams));
+        result.setProperty((quint32)i, entry);
+        i++;
+    }
+
+    return result;
+}
+
+QJSValue AcquisitionController::driverParameters() {
+    OpenViBE::Parameters::Parameters params = d->m_acquisition->getDriverParameters();
+    
+    //TODO can be optimized by reusing the same objects
+    //clear old params
+    for(auto paramObj: d->m_driverParams) {
+        delete paramObj;
+    }
+    d->m_driverParams.clear();
+
+    for (auto param: params) {
+        d->m_driverParams.push_back(OpenViBE::Parameters::ParameterObject::fromParameter(param));
+    }
+    return d->toJSParams(d->m_driverParams);
+}
+
+QJSValue AcquisitionController::deviceParameters()
+{
+    /*d->getLogManager() << Kernel::LogLevel_Info << "Getting device parameters.\n";
+    auto * driver = d->m_acquisitionServer->getDriver();
+    if(!driver) {
+        d->getLogManager() << Kernel::LogLevel_Warning << "No driver set.\n";
+        return QJSValue();
+    }
+    IHeader* header = driver->getHeader();
+
+    for(auto paramObj: d->m_deviceParams) {
+        delete paramObj;
+    }*/
+    d->m_deviceParams.clear();
+
+/*    d->m_deviceParams.push_back(OpenViBE::Parameters::ParameterObject::fromParameter(&header->getExperimentIDParameter()));
+    d->m_deviceParams.push_back(OpenViBE::Parameters::ParameterObject::fromParameter(&header->getSubjectAgeParameter()));
+    d->m_deviceParams.push_back(OpenViBE::Parameters::ParameterObject::fromParameter(&header->getSubjectGenderParameter()));
+    d->m_deviceParams.push_back(OpenViBE::Parameters::ParameterObject::fromParameter(&header->getChannelCountParameter()));
+    d->m_deviceParams.push_back(OpenViBE::Parameters::ParameterObject::fromParameter(&header->getSamplingFrequencyParameter()));*/
+
+    d->getLogManager() << Kernel::LogLevel_Info << "device parameters count: " << d->m_deviceParams.size() << ".\n";
+    for(auto param: d->m_deviceParams) {
+        d->getLogManager() << Kernel::LogLevel_Info << "device parameter: " << param->name().toStdString() << ".\n";
+    }
+
+    d->getLogManager() << Kernel::LogLevel_Info << "Returning device parameters.\n";
+    return d->toJSParams(d->m_deviceParams);
+}
+
+QStringList AcquisitionController::getChannelNames()
+{
+    return d->m_channelNamesObj ? d->m_channelNamesObj->value() : QStringList();
+}
+
+void AcquisitionController::setChannelNames(const QStringList& channelNames)
+{
+    std::vector<std::string> names;
+    names.reserve(channelNames.size());
+    for (const auto& name : channelNames)
+        names.push_back(name.toStdString());
+    d->m_acquisition->setDriverChannelNames(names);
+}
+
+void AcquisitionController::setChannelName(int index, const QString& name)
+{
+    auto names = getChannelNames();
+    if (index < 0 || index >= names.size()) return;
+    names[index] = name;
+    setChannelNames(names);
+}
+
+QObject* AcquisitionController::connectionPort() const
+{
+    return d->m_connectionPort;
+}
+
+QObject* AcquisitionController::tcpTaggingPort() const
+{
+    return d->m_tcpTaggingPort;
+}
+
+QObject* AcquisitionController::getSampleCountPerBlock() const
+{
+    return d->m_sampleCountPerBlock;
+}
+
+QQmlListProperty<ImpedanceItem> AcquisitionController::impedances()
+{
+    return QQmlListProperty<ImpedanceItem>(this, &d->m_impedancesItems);
+}
+
+void AcquisitionController::setCurrentDriver(const QString& driverName)
+{
+    d->getLogManager() << Kernel::LogLevel_Info << "Setting current driver: " << driverName.toStdString() << ".\n";
+
+    // Delete wrapper before the old driver (and its parameters) are destroyed.
+    d->m_channelNamesObj.reset();
+
+    if (!d->m_acqManager.addAcquisitionDriver(0, d->m_acquisitionName, driverName.toStdString())) {
+        d->getLogManager() << Kernel::LogLevel_Error << "Failed to set driver: " << driverName.toStdString() << ".\n";
+    }
+
+    // Wrap the new driver's channel-names parameter and wire its Qt valueChanged signal.
+    auto* param = d->m_acquisition->getDriverChannelNamesParam();
+    if (param) {
+        d->m_channelNamesObj.reset(new OpenViBE::Parameters::parameterStringVectorObject(param));
+        connect(d->m_channelNamesObj.get(), &OpenViBE::Parameters::parameterStringVectorObject::valueChanged,
+                this, &AcquisitionController::channelNamesChanged);
+    }
+
+    emit driverParametersChanged();
+    emit channelNamesChanged();
+    emit supportsImpedanceCheckChanged();
+}
+
+double AcquisitionController::instantDrift()
+{
+    // Return drift in ms
+    return d->m_instantDrift;
+}
+
+double AcquisitionController::globalDrift()
+{
+    // Return drift in ms
+    return d->m_globalDrift;
+}
+
+double AcquisitionController::driftLimit()
+{
+    // Return drift limit in ms
+    return d->m_driftLimit;
+}
+
+bool AcquisitionController::connectDevice()
+{
+    d->getLogManager() << Kernel::LogLevel_Debug <<  "Connecting device.\n";
+    return false;
+}
+
+bool AcquisitionController::disconnectDevice()
+{
+    d->getLogManager() << Kernel::LogLevel_Info << "Disconnecting device.\n";
+    return false;
+}
+
+bool AcquisitionController::startAcquisition()
+{
+    d->getLogManager() << Kernel::LogLevel_Info << "Starting acquisition.\n";
+
+    // If transitioning from impedance check, stop the polling timer first.
+    if (d->m_impedanceTimer) {
+        d->m_impedanceTimer->stop();
+        delete d->m_impedanceTimer;
+        d->m_impedanceTimer = nullptr;
+    }
+
+    if (!d->m_driftTimer) {
+        d->m_driftTimer = new QTimer(this);
+    }
+    d->m_driftTimer->stop();
+    d->m_driftTimer->setInterval(1000);
+    connect(d->m_driftTimer, &QTimer::timeout, this, [this]() {
+        d->m_instantDrift = (d->m_acquisition->drift().instantDrift / 1000000.0);
+        d->m_globalDrift = (d->m_acquisition->drift().globalDrift / 1000000.0);
+        emit driftChanged();
+    });
+    d->m_driftTimer->start();
+
+    if (d->m_acqManager.startAcquisition(0, d->m_acquisitionName)) {
+        emit isAcquiringChanged();
+        emit isCheckingImpedanceChanged();
+        return true;
+    }
+    return false;
+}
+
+bool AcquisitionController::stopAcquisition()
+{
+    d->getLogManager() << Kernel::LogLevel_Info << "Stopping acquisition.\n";
+
+    if (d->m_impedanceTimer) {
+        d->m_impedanceTimer->stop();
+        delete d->m_impedanceTimer;
+        d->m_impedanceTimer = nullptr;
+    }
+
+    if (d->m_driftTimer) {
+        d->m_driftTimer->stop();
+        delete d->m_driftTimer;
+        d->m_driftTimer = nullptr;
+    }
+    d->m_instantDrift = 0.0;
+    d->m_globalDrift = 0.0;
+    emit driftChanged();
+
+    if (d->m_acqManager.stopAcquisition(0, d->m_acquisitionName)) {
+        emit isAcquiringChanged();
+        emit isCheckingImpedanceChanged();
+        return true;
+    }
+    return false;
+}
+
+void AcquisitionController::configureDeviceDriver()
+{
+    // Call driver configure
+    //d->m_acquisitionServer->getDriver()->configure();
+    d->getLogManager() << Kernel::LogLevel_Info << "Device driver configuration done.\n";
+}
+
+}  // namespace AcquisitionServer
+}  // namespace OpenViBE

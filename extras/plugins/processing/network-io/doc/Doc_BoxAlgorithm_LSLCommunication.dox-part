@@ -1,0 +1,42 @@
+/**
+ * \page BoxAlgorithm_LSLCommunication LSL Communication
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_LSLCommunication_Description|
+This box forwards/receives the signals and stimulations of corresponding LabStreamingLayer (LSL) streams. 
+
+The user can configure the names of the LSL streams. Each stream must have a unique name and each stream that sends will get a randomized source ID (64bit hex).
+
+The stimulations and signals output by the box are timestamped with LSL clock by default. If you would like them to be
+timestamped with local OpenViBE time, you can add the following line to the configuration file "openvibe.conf":
+
+\b LSL_UseOVTimestamps \b = \b True
+
+ * |OVP_DocEnd_BoxAlgorithm_LSLCommunication_Description|
+
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_LSLCommunication_Examples|
+Easiest way to test the box is to use the Acquisition Server (AS) LabStreamingLayer (LSL) driver to read from the box. First, send signal to the box. Then connect to it using AS. Start AS playback. In another Designer tab, use the Network Acquisition box to read the data back from the Acquisition Server.
+You can see the example in box tutorial (lsl-communication.xml) who send and receive his own signal.
+ * |OVP_DocEnd_BoxAlgorithm_LSLCommunication_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_LSLCommunication_Miscellaneous|
+The box creates each LSL stream at the beginning of the playback, after it has received its corresponding OpenViBE stream header information. Hence, if either signal or stimulus socket 
+of the box is not connected or does not receive a header, the box will not create the corresponding LSL stream.
+
+Stream formats: The signal stream is continuous float. The streamed matrix stream is noncontinuous float. The marker stream is noncontinuous int, and each 64bit OpenViBE stimulation is truncated to an int marker.
+
+This box should be compatible with the conventions used by OpenViBE Acquisition Server LabStreamingLayer (LSL) Driver, as well as its' LSL Output plugin.
+ * |OVP_DocEnd_BoxAlgorithm_LSLCommunication_Miscellaneous|
+ */

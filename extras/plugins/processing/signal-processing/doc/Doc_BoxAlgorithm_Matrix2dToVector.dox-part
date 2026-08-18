@@ -1,0 +1,52 @@
+/**
+ * \page BoxAlgorithm_Matrix2DToVector 2D Matrix to Vector extraction
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix2DToVector_Description|
+ * |OVP_DocEnd_BoxAlgorithm_Matrix2DToVector_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix2DToVector_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_Matrix2DToVector_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix2DToVector_Input1|
+ 2D Matrix signal from which a vector will be extracted.
+ * |OVP_DocEnd_BoxAlgorithm_Matrix2DToVector_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix2DToVector_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_Matrix2DToVector_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix2DToVector_Output1|
+ The Vector extracted from the input Matrix
+ * |OVP_DocEnd_BoxAlgorithm_Matrix2DToVector_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix2DToVector_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_Matrix2DToVector_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix2DToVector_Setting1|
+ The extraction mode of the vector
+ - Select: will pick a specific vector index in the dimension to work on
+ - Average: will average all vectors in the dimension to work on
+ * |OVP_DocEnd_BoxAlgorithm_Matrix2DToVector_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix2DToVector_Setting2|
+ The dimension of the 2D Matrix that will be used for extraction. Possible values are ranging in  [ 0 - 1 ].
+ * |OVP_DocEnd_BoxAlgorithm_Matrix2DToVector_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_Matrix2DToVector_Setting3|
+ The index from the selected dimension at which to extract the vector.
+ * |OVP_DocEnd_BoxAlgorithm_Matrix2DToVector_Setting3|

@@ -1,0 +1,172 @@
+/** 
+  \page Doc_Mensia_AdvViz_Concepts Concepts
+  
+  \section Doc_Mensia_AdvViz_Concepts_Intro Introduction 
+  The <b>Mensia Advanced Visualization Toolset</b> is a collection of boxes dedicated to 
+  the visualization of the result of electrophysiological signal analysis, and are especially suitable for the <b> real-time
+  analysis of EEG signals </b>, from raw signal display to 3D source reconstruction.
+  
+  It addresses many different use-cases among users. 
+  Neurophysiologists can observe accurately in real-time <b> spatial and
+  temporal patterns </b> in the brain activity (motor activity, cognitive processes). EEG signal
+  processing specialists can <b>evaluate and compare</b> instantly algorithms effects (source
+  separation, denoising techniques). BCI researchers can study how their ERP-based system may
+  be tuned to elicit and detect the best brain response.
+  
+  
+  \image html designer-box-list.png "Simple integration in the graphical user interface"
+  \image latex designer-box-list.png "Simple integration in the graphical user interface" width=\textwidth
+ 
+  \section Doc_Mensia_AdvViz_Concepts_VisualizationParadigms Visualization paradigms
+  This Toolset has been designed to be very versatile. The main design concept revolves around
+  the data presentation. You basically want to display matrices of numbers which may have temporal,
+  and/or spatial meanings. The most adapted data presentation may vary from one case to another, 
+  according to the type of events or patterns on which you need to get a good contrast.
+  
+  Before choosing the right visualization box, ask yourself:
+  - How do I want my data to be displayed ? curves ? levels ?
+  - What will be the best way to <b> enhance the contrast </b> between the information I want to extract and the rest of the data ?
+  - Is my data stream <b>continuous</b> in time ? or am I dealing with discontinuous epochs (e.g. ERPs) ?
+  
+  To be adapted in most situation, the Mensia Advanced Visualization Toolset has been designed to cover
+  different visualization paradigms. Take a look at all the possibilities and choose what will best fit your needs.
+  - \ref Doc_Mensia_AdvViz_Concepts_VisualizationParadigms_Oscilloscope
+  - \ref Doc_Mensia_AdvViz_Concepts_VisualizationParadigms_Bars
+  - \ref Doc_Mensia_AdvViz_Concepts_VisualizationParadigms_Bitmap
+  - \ref Doc_Mensia_AdvViz_Concepts_VisualizationParadigms_Topo
+  - \ref Doc_Mensia_AdvViz_Concepts_VisualizationParadigms_Reco
+  
+  You can also have a look at the \ref Doc_Mensia_AdvViz_UseCases "list of use-cases", showing how each box can be used on concrete, real-life examples.
+  
+  \subsection Doc_Mensia_AdvViz_Concepts_VisualizationParadigms_Oscilloscope The Oscilloscope view
+  It is the most basic paradigm, used to display temporal numerical data in the form of <b> curves </b> (dots linked by lines).
+  The Oscilloscope views are all expecting <b>centered</b> values (i.e. distributed around 0).
+  Hence it is advised to use at least one temporal filter (e.g. band passing between 2 and 40 Hz using a \ref Doc_BoxAlgorithm_TemporalFilter box) before displaying an EEG signal.
+  
+  Four boxes use this paradigm:
+  - <b> \ref Doc_BoxAlgorithm_ContinuousOscilloscope </b> box: displays continuous data from left to right on a defined horizontal scale (goes back to origin upon reaching the end of the scale),
+  channels are displayed vertically one after another, but spikes may overlap. 
+  - <b> \ref Doc_BoxAlgorithm_InstantOscilloscope </b> box: displays each block of data received as it comes, filling all the horizontal space available.
+  - <b> \ref Doc_BoxAlgorithm_ContinuousMultiOscilloscope </b> box: same as the Continuous Oscilloscope, but every input channels are displayed along the same horizontal axis with a different color, additively.
+  - <b> \ref Doc_BoxAlgorithm_InstantMultiOscilloscope </b> box: same as the Instant Oscilloscope, but every input channels are displayed along the same horizontal axis with a different color, additively.
+   
+  <b>Example</b>: raw EEG signal display.
+  \image html ContinuousOscilloscope_Display.png "Continuous Oscilloscope displaying 2 EEG channels"
+  \image latex ContinuousOscilloscope_Display.png "Continuous Oscilloscope displaying 2 EEG channels" width=10cm
+  
+  \subsection Doc_Mensia_AdvViz_Concepts_VisualizationParadigms_Bars The Bar view
+  Like histograms, this paradigm can be used to display and compare <b> series of levels </b> . Levels are displayed one after another from left to right, within a <b> color gradient </b> .
+  Channels are displayed vertically, one after another with a fixed interval (thus some "high" levels may overlap).
+  With a high definition (i.e. a rather high frequency display), the result can be viewed as a curve colored below the line.
+  
+  Two boxes uses this paradigm:
+  - <b> \ref Doc_BoxAlgorithm_ContinuousBars </b> box: displays continuous data from left to right on a defined horizontal scale (goes back to origin upon reaching the end of the scale).
+  - <b> \ref Doc_BoxAlgorithm_InstantBars </b> box: displays each block of data received as it comes, filling all the horizontal space.
+   
+  <b>Example</b>: spectrum display.
+  \image html InstantBars_Display.png "Instant Bars displaying the signal spectrum"
+  \image latex InstantBars_Display.png "Instant Bars displaying the signal spectrum" width=10cm
+   
+  \subsection Doc_Mensia_AdvViz_Concepts_VisualizationParadigms_Bitmap The Bitmap view
+  The bitmap paradigm displays matrices of data using a color gradient. The result is a <b> 2D map where each cell is given a color "bit" </b> .
+  This view using colors can enhance easily the constrast between 2 temporal or spatial patterns, as the difference
+  between "cold" and "hot" colors is quickly caught by the analyst's eye.
+  You can even add an additional dimension by using <b> stacked bitmaps </b> : every time a new bitmap is received, it is placed on top or left to the previous one.
+  
+  Four boxes uses this paradigm:
+  - <b> \ref Doc_BoxAlgorithm_ContinuousBitmap </b> box: displays continuous data from left to right on a defined  horizontal scale (goes back to origin upon reaching the end of the scale).
+  - <b> \ref Doc_BoxAlgorithm_InstantBitmap </b> box: displays each block of data received as it comes, filling all the horizontal space.
+  - <b> \ref Doc_BoxAlgorithm_StackedBitmapVertical </b> box: each bitmap is placed on <b> top </b> of the previous one.
+  - <b> \ref Doc_BoxAlgorithm_StackedBitmapHorizontal </b> box: each bitmap is placed <b> left </b> to the previous one.
+  
+  <b>Example</b>: Time-frequency map.
+  \image html StackedBitmapHorz_Display.png "Stacked Bitmap (Horizontal) displaying the result of a Time-Frequency analysis"
+  \image latex StackedBitmapHorz_Display.png "Stacked Bitmap (Horizontal) displaying the result of a Time-Frequency analysis" width=10cm
+   
+  \subsection Doc_Mensia_AdvViz_Concepts_VisualizationParadigms_Topo The Topographic view
+  This paradigm adds a strong spatial constraint on the input data: each channel must be <b> labelled
+  with an electrode name </b> in a defined nomenclature, such as the standard 10-20 system. 
+  Please see \ref Doc_Mensia_AdvViz_Concepts_ChannelLocalization for further details.
+  
+  Here again the data itself is displayed using a color gradient, mapped to a 2D or 3D model using <b> spherical spline interpolation</b>.
+  For more details about the spherical spline interpolation, please check <i>F. Perrin, J. Pernier, O. Bertrand, J.F. Echallier, 
+  Spherical splines for scalp potential and current density mapping, Electroencephalography and Clinical Neurophysiology, Volume 72, Issue 2, February 1989, Pages 184-187</i>.
+
+    The 2D model is a planar projection of the scalp, covering the scalp roughly from the frontal area to the occipital area (i.e. from Fp1-Fp2 to O9-O10 sites).
+  The projection result takes the shape of a disk with a crescent growth at the back for the occipital region.
+   
+  Three boxes uses this paradigm:
+  - <b> \ref Doc_BoxAlgorithm_2DTopography </b> box: maps the input (which channels are labelled in the 10-20 system standard) to a planar projection of the scalp.
+  - <b> \ref Doc_BoxAlgorithm_3DTopography </b> box: maps the input (which channels are labelled in the 10-20 system standard) to a projection on a 3D model of the scalp.
+  - <b> \ref Doc_BoxAlgorithm_3DCubes </b> box: an alternative view where each channel is represented by a 3D cube, positionned in space as the electrode would be on the 3D model. 
+  The activity is rendered by changing the size and color of the cubes.
+  
+  <b>Example</b>: Displaying the power of a specific frequency band on a 3D head model.
+  \image html 3DTopography_Display.png "Alpha power mapped on a head model using the 3D topography"
+  \image latex 3DTopography_Display.png "Alpha power mapped on a head model using the 3D topography" width=10cm
+
+  \subsection Doc_Mensia_AdvViz_Concepts_VisualizationParadigms_Reco The Reconstruction view
+  Tomographic reconstruction algorithms offer an inside look, into the brain, from only surface measurements.
+  Several techniques exist, including the algorithms of the popular LORETA family which slice the brain in a stack of little cubes called voxels, 
+  and computes the <em>inverse model</em>, a model reconstructing the sources of the potentials acquired at the measurement site.
+   
+  One box implements the source reconstruction view:
+  - <b> \ref Doc_BoxAlgorithm_3DSourceVisualization </b> box : displays a 3D source reconstruction using 2394 colored/translucent voxels in a 3D head model. 
+  This box expects 2394 input channels, produced by an inverse model (i.e. a spatial filter with N sensor inputs for 2394 sources outputs). This model must be
+  tailor-made for the precise EEG setup being used (e.g. using sLORETA).
+  
+  \image html 3DTomographicVisualization_Display.png "3D tomographic reconstruction using the 3D Tomographic Visualization box"
+  \image latex 3DTomographicVisualization_Display.png "3D tomographic reconstruction using the 3D Tomographic Visualization box" width=10cm
+  
+  \section Doc_Mensia_AdvViz_Concepts_ChannelLocalization Channel localization
+  Every visualization box can use the spatial information conveyed by the electrode naming. The channels can be positionned relatively to each 
+  other as long as you provide in the box settings a file containing the cartesian coordinates of the electrodes.
+  Most of the time, EEG manufacturers use the 10-20 system as an electrode naming standard. For convenience, we provide within the Toolset a file compiling all the
+  coordinates of the electrodes in the 10-20 system.
+  
+  The cartesian coordinates of all the electrodes are computed in the 3D space, where the origin is at the center of [Fpz,Oz] and [T7,T8].
+  - the X axis goes from the occipital lobe to the frontal lobe
+  - the Y axis goes from the right temporal lobe to the left temporal lobe
+  - the Z axis goes from the center of the head to the top
+  
+  And as for the unit, here are some key points at the maximum of the axis:
+  - Fpz (1,0,0)
+  - Oz (-1,0,0)
+  - T7 (0,1,0)
+  - T8 (0,-1,0)
+  - Cz (0,0,1)
+  
+  The following figures illustrates the cartesian coordinates of the extended 10-20 system used in the Mensia Advanced Visualization Toolset.
+  \image html CartesianCoordinates1.png "Cartesian coordinates of the 10-20 system, side view."
+  \image latex CartesianCoordinates1.png "Cartesian coordinates of the 10-20 system, side view." width=8cm
+  \image html CartesianCoordinates2.png "Cartesian coordinates of the 10-20 system, front view."
+  \image latex CartesianCoordinates2.png "Cartesian coordinates of the 10-20 system, front view." width=8cm
+ 
+  For more information, please see <i>Oostenveld, R. & Praamstra, P. (2001). The five percent electrode system
+  for high-resolution EEG and ERP measurements. Clinical Neurophysiology, 112:713-719</i>
+  
+  Please note that using the 10-20 system is not mandatory. To use all the Toolset features related to the spatial disposition of the electrodes, you
+  just need to provide a file that maps electrode name with their coordinates in the space described above.
+  
+  The format of this file is simple text. You must provide:
+  - the electrode names as a list of quoted labels
+  - the coordinate system labels
+  - the electrode coordinates of the electrodes, in the same order as in the electrode names
+  
+  For example:
+  \code
+[
+	["O1" "O2" ... ]
+	["x" "y" "z" ]
+]
+[
+	[-0.309017 -0.951057 4.48966e-011 ]
+]
+[
+	[0.309017 -0.951057 4.48966e-011 ]
+]
+...
+  \endcode
+  
+ For a complete example, please look at the file provided with the Toolset (<i>../share/mensia /openvibe-plugins/cartesian.txt</i>)
+ */

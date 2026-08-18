@@ -1,0 +1,62 @@
+/**
+ * \page BoxAlgorithm_ASRProcessor ASR Processor
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRProcessor_Description|
+ Artifact Subspace Reconstruction (ASR) Trainer (see \ref CASR::process).
+ * |OVP_DocEnd_BoxAlgorithm_ASRProcessor_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRProcessor_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_ASRProcessor_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRProcessor_Input1|
+The input signal on which the Artifact reconstruction is used.
+ * |OVP_DocEnd_BoxAlgorithm_ASRProcessor_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRProcessor_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_ASRProcessor_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRProcessor_Output1|
+  Send \"OVTK_StimulationId_TrainCompleted\" if signal is reconstructed.
+ * |OVP_DocEnd_BoxAlgorithm_ASRProcessor_Output1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRProcessor_Output2|
+ The reconstructed signal if needed, the input signal otherwise.
+ * |OVP_DocEnd_BoxAlgorithm_ASRProcessor_Output2|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRProcessor_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_ASRProcessor_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRProcessor_Setting1|
+ ASR model Filename.
+ * |OVP_DocEnd_BoxAlgorithm_ASRProcessor_Setting1|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRProcessor_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_ASRProcessor_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ASRProcessor_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_ASRProcessor_Miscellaneous|
+ */

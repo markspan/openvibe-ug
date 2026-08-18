@@ -38,7 +38,7 @@ Due to difficulties in setting up runtime environment for OpenViBE using the con
 
   1. install miniconda: https://docs.conda.io/projects/miniconda/en/latest/
 (for **Windows**, use a powershell for the following steps)
-  2. clone OpenVibe: `git clone --recurse-submodules git@gitlab.inria.fr:openvibe/meta.git`
+  2. clone OpenVibe: `git clone git@gitlab.inria.fr:openvibe/meta.git`
   3. install openvibe dependencies: `conda env update -f conda/env_{linux|osx|windows}.yaml`
   4. activate the environment: `conda activate openvibe`
   5. make build dir: `mkdir build ; cd build`
@@ -64,13 +64,10 @@ Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments 
 
 ## Updating the repository
 
-You can update the whole directory (including submodules) with :
-
 ```bash
 git pull
-git submodule sync --recursive
-git submodule update --init --recursive
 ```
 
-Aliases can be created to ease the global update process :
-`git config --global alias.spull '!git pull && git submodule sync --recursive && git submodule update --init --recursive'`
+`sdk/`, `designer/` and `extras/` are ordinary directories of this repository — they used to be
+submodules pointing at the `openvibe/sdk`, `openvibe/designer` and `openvibe/extras` projects, which
+are now archived. No `git submodule` step is needed any more; see `MIGRATION.md` for details.

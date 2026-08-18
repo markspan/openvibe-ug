@@ -1,0 +1,95 @@
+/**
+ * \page BoxAlgorithm_MatrixClassifierTrainer Matrix Classifier Trainer
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Description|
+Matrix classifier trainer. This box stack all matrix received in input and launch train function when a stimulation is received. Actual methods are Minimum Distance to Mean (MDM) and Minimum Distance to Mean with geodesic filtering (FgMDM) (With Real Time adaptation assumed) with or without Rebias\n
+<seealso cref="CMatrixClassifierMDM::train"/> <seealso cref="CMatrixClassifierMDMRebias::train"/> <seealso cref="CMatrixClassifierFgMDMRT::train"/> <seealso cref="CMatrixClassifierFgMDMRTRebias::train"/>
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Input1|
+Stimulation to start the training.
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Input1|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Input2|
+Input for Class 1
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Input2|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Input3|
+Input for Class 2
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Input3|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Output1|
+Send \"OVTK_StimulationId_TrainCompleted\" when train is completed.
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Setting1|
+Stimulation that starts the computation.
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Setting2|
+Classifier model Filename
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Setting3|
+Classifier Method :\n
+Minimum Distance to Mean (MDM)\n
+Minimum Distance to Mean Rebias (MDM Rebias)\n
+Minimum Distance to Mean with geodesic filtering (FgMDM)\n
+Minimum Distance to Mean with geodesic filtering Rebias (FgMDM Rebias)
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Setting4|
+Log Level (None to see nothing)
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Setting4|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Setting5|
+Metric to use : Riemman, Euclidian, Harmonic, Identity, Kullback, Log Determinant, Log Euclidian
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Setting5|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Setting6|
+Stimulation for Class 1.
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Setting6|
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Setting7|
+Stimulation for Class 2.
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Setting7|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_MatrixClassifierTrainer_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_MatrixClassifierTrainer_Miscellaneous|
+ */

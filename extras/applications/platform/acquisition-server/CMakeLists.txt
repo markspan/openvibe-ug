@@ -1,0 +1,182 @@
+# SPDX-FileCopyrightText: Inria <florent.leray@inria.fr>
+# SPDX-License-Identifier: AGPL-3.0-only
+
+###############################################################################
+## CMake global configuration
+###############################################################################
+
+# Minimal version requied of CMake
+cmake_minimum_required(VERSION 3.20)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+
+project(openvibe-acquisition-server VERSION ${OPENVIBE_MAJOR_VERSION}.${OPENVIBE_MINOR_VERSION}.${OPENVIBE_PATCH_VERSION})
+
+## ############################################################################
+## Define target name
+## ############################################################################
+set(TARGET_NAME ${PROJECT_NAME})
+
+## ############################################################################
+## Define sources, headers, and directories
+## ############################################################################
+list(APPEND APP_SOURCES
+    # Shared and Abstractions for extensions
+    abstractions/driver/AbstractDriver.cpp
+    abstractions/writer/AbstractWriter.cpp
+    
+    # Core
+    core/AcquisitionManager.cpp
+    core/Acquisition.cpp
+    core/Api.cpp
+    core/CircularBuffer.cpp
+    core/DriftCalculator.cpp
+    core/SampleBufferHandler.cpp
+    core/Thread.cpp
+	core/net-api/CNetAcqControlAPI.cpp
+
+    # Built-in extensions
+    builtin/drivers/stubs/DummyDriver.cpp
+    builtin/drivers/generic-oscillator/ovasCDriverGenericOscillator.cpp
+    builtin/drivers/tagging/TaggingDriver.cpp
+    builtin/drivers/labstreaminglayer/CDriverLabStreamingLayer.cpp
+    builtin/writers/net-writer/NetWriter.cpp
+    builtin/writers/lsl-output/LSLOutputWriter.cpp
+    
+    # Settings
+    settings/JsonSettings.cpp
+
+    #main
+    ApplicationPathHandling.cpp
+    CInitApp.cpp
+    main.cpp
+)
+
+list(APPEND APP_PUBLIC_HEADERS
+    # Shared and Abstractions for extensions
+    abstractions/driver/AbstractDriver.h
+    abstractions/driver/AbstractDriverBuilder.h
+    abstractions/writer/AbstractWriter.h
+    abstractions/writer/AbstractWriterBuilder.h
+)
+
+list(APPEND APP_PRIVATE_HEADERS    
+    # Core
+    core/AcquisitionManager.h
+    core/Acquisition.h
+    core/Api.h
+    core/CircularBuffer.h
+    core/DriftCalculator.h
+    core/SampleBufferHandler.h
+    core/samplesBuffer.h
+    core/Thread.h
+    #core/Bridges/CBridgesCollection.h
+	core/net-api/CNetAcqControlAPI.h
+
+    # Built-in extensions
+    builtin/drivers/generic-oscillator/ovasCDriverGenericOscillator.h
+    builtin/drivers/stubs/DummyDriver.h
+    builtin/drivers/tagging/TaggingDriver.h
+    builtin/drivers/labstreaminglayer/CDriverLabStreamingLayer.h
+    builtin/writers/net-writer/NetWriter.h
+    builtin/writers/lsl-output/LSLOutputWriter.h
+    
+    # Settings    
+    settings/ISettingsProvider.h
+    settings/JsonSettings.h
+    
+    # main
+    CInitApp.h
+    ApplicationPathHandling.h
+)
+
+extract_relative_directories( APP_PRIVATE_HEADERS   APP_PRIVATE_INCLUDE_DIRECTORIES)
+
+list(APPEND APP_PUBLIC_INCLUDE_DIRS
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/abstractions/driver/>
+	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/abstractions/writer/>
+	$<INSTALL_INTERFACE:include>
+)
+
+## ############################################################################
+## Create and configure the target
+## ############################################################################
+
+qt_add_executable(${TARGET_NAME})
+target_sources(${TARGET_NAME} PRIVATE ${APP_SOURCES} ${APP_PUBLIC_HEADERS} ${APP_PRIVATE_HEADERS})
+setup_output_paths_general(${TARGET_NAME})
+target_include_directories(${TARGET_NAME}
+    PRIVATE
+        ${APP_PRIVATE_INCLUDE_DIRECTORIES}
+        ${CMAKE_CURRENT_SOURCE_DIR}/ui
+	PUBLIC
+		${APP_PUBLIC_INCLUDE_DIRS}
+)
+
+target_compile_definitions(${TARGET_NAME} PRIVATE -DWIN32_LEAN_AND_MEAN)
+
+qt_add_qml_module(${TARGET_NAME}
+    URI
+        AcquisitionServer
+    VERSION
+        ${PROJECT_VERSION}
+    QML_FILES
+        ui/qml/ActionBar.qml
+        ui/qml/Main.qml
+        ui/qml/Impedances.qml
+        ui/qml/ChannelRename.qml
+        ui/qml/DriftBar.qml
+        ui/qml/DriftControl.qml
+    SOURCES
+        ui/AcquisitionController.h
+        ui/AcquisitionController.cpp
+        ui/ImpedanceItem.h
+)
+
+
+target_link_libraries(${TARGET_NAME} PRIVATE
+    NetService
+    TcpTaggingService
+    openvibe
+    openvibe-toolkit
+    openvibe-module-system
+    openvibe-module-system-delayload
+    openvibe-parameters-object
+    OVParameters
+    DesignSystem
+    OVControls
+    nlohmann_json::nlohmann_json
+    Qt::Gui
+    Qt::Quick
+    Qt6::QuickControls2
+    LSL::lsl
+)
+
+# Ported from Win32 overlapped I/O; only builds where the vendor SDK/lib is present.
+include(FindThirdPartyGUSBampCAPI)
+
+if(WIN32 AND OV_ThirdPartyGUSBAmp)
+    target_sources(${TARGET_NAME} PRIVATE
+        builtin/drivers/gtec-gusbamp/CDriverGTecGUSBamp.cpp
+        builtin/drivers/gtec-gusbamp/CDriverGTecGUSBamp.h
+        builtin/drivers/gtec-gusbamp/ringbuffer.h
+    )
+endif()
+
+create_filters(${TARGET_NAME})
+
+target_compile_definitions(${TARGET_NAME} PUBLIC -D_USE_MATH_DEFINES)
+
+if(MSVC)
+    target_link_options(${TARGET_NAME} PRIVATE "/DELAYLOAD:NetService.dll" "/DELAYLOAD:TcpTaggingService.dll")
+endif()
+
+target_compile_definitions(${TARGET_NAME}
+    PRIVATE
+        BUILTIN_PLUGIN
+)
+
+if(OV_COMPILE_TESTS)
+    add_subdirectory(test)
+endif(OV_COMPILE_TESTS)

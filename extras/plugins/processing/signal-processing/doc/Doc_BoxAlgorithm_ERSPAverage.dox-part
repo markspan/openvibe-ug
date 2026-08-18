@@ -1,0 +1,96 @@
+/**
+ * \page BoxAlgorithm_ERSPAverage ERSP Average
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ERSPAverage_Description|
+
+The ERSP Average box is intended to be used for computing 
+Event-Related Spectral Perturbation (ERSP) plots. These plots
+show, starting from a stimulus onset, how the power spectrum
+develops over time on the average across the trials. This is not
+straightforwardly achievable with the other averaging boxes, 
+as the OpenViBE Spectrum stream does not have a time dimension:
+a spectrum chunk is a matrix [frequency X channel], whereas to compute 
+the average evolution of a spectra over time, we would need a
+tensor [frequency X channel X time] per trial and then average 
+these across the trials.
+
+To achieve the average, the ERSP Average box collects individual 
+spectra, and computes the average when requested. In more detail, 
+assume you have EEG data for trial t. Using other boxes, you can 
+segment this trial to k spectral power estimates s1,s2,...,sk. 
+Now what the ERSP average does is to average these estimates 
+across the trials, and returns E[s1], E[s2], ..., E[sk], which 
+you can then plot as the average evolution of the spectrum 
+after the stimulus onset.
+
+ * |OVP_DocEnd_BoxAlgorithm_ERSPAverage_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ERSPAverage_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_ERSPAverage_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ERSPAverage_Input1|
+
+The spectrum stream to average
+
+ * |OVP_DocEnd_BoxAlgorithm_ERSPAverage_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ERSPAverage_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_ERSPAverage_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ERSPAverage_Output1|
+
+A sequence of chunks encoding the evolution of the spectra after stimulus onset.
+
+ * |OVP_DocEnd_BoxAlgorithm_ERSPAverage_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ERSPAverage_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_ERSPAverage_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_ERSPAverage_Setting1|
+
+The stimulation to identify the trial start (stimulus onset).
+
+ * |OVP_DocEnd_BoxAlgorithm_ERSPAverage_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ERSPAverage_Setting2|
+
+The stimulation to trigger the computation of the average.
+
+ * |OVP_DocEnd_BoxAlgorithm_ERSPAverage_Setting2|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ERSPAverage_Examples|
+ 
+See the box tutorial ersp-average.xml bundled with OpenViBE.
+
+ * |OVP_DocEnd_BoxAlgorithm_ERSPAverage_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ERSPAverage_Miscellaneous|
+ 
+The box does not return anything until the computation trigger is received. After that, its output is set to start from time 0. Upon computation, its buffers and counters will be automatically cleared.
+
+ * |OVP_DocEnd_BoxAlgorithm_ERSPAverage_Miscellaneous|
+ */

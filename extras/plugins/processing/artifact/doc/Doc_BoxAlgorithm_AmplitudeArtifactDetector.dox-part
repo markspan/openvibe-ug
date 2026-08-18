@@ -1,0 +1,75 @@
+/**
+ * \page BoxAlgorithm_AmplitudeArtifactDetector Amplitude Artifact Detector
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_AmplitudeArtifactDetector_Description|
+ Sends a stimulation when the signal crosses the absolute value of the threshold. 
+ You can choose what to do with the signal when this happens:
+	- "Stop" will cut the signal from before to after the artifact
+	- "Cutoff" will change all the values outside the threshold to the value of the threshold
+	- "Zero" will change all the values within the epochs that contain an artifact to 0
+	- "Stimulations only" won't change the signal
+ * |OVP_DocEnd_BoxAlgorithm_AmplitudeArtifactDetector_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_AmplitudeArtifactDetector_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_AmplitudeArtifactDetector_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_AmplitudeArtifactDetector_Input1|
+The input signal on which the Artifact detection is used.
+ * |OVP_DocEnd_BoxAlgorithm_AmplitudeArtifactDetector_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_AmplitudeArtifactDetector_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_AmplitudeArtifactDetector_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_AmplitudeArtifactDetector_Output1|
+The input signal processed according to the Action setting.
+ * |OVP_DocEnd_BoxAlgorithm_AmplitudeArtifactDetector_Output1|
+
+  * |OVP_DocBegin_BoxAlgorithm_AmplitudeArtifactDetector_Output2|
+The stimulations produced when artifacts are encountered.
+ * |OVP_DocEnd_BoxAlgorithm_AmplitudeArtifactDetector_Output2|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_AmplitudeArtifactDetector_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_AmplitudeArtifactDetector_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_AmplitudeArtifactDetector_Setting1|
+ The amplitude threshold.
+ * |OVP_DocEnd_BoxAlgorithm_AmplitudeArtifactDetector_Setting1|
+
+  * |OVP_DocBegin_BoxAlgorithm_AmplitudeArtifactDetector_Setting2|
+ The action to take when the threshold is crossed.
+ * |OVP_DocEnd_BoxAlgorithm_AmplitudeArtifactDetector_Setting2|
+
+  * |OVP_DocBegin_BoxAlgorithm_AmplitudeArtifactDetector_Setting3|
+ The stimulation to send when the threshold is crossed.
+ * |OVP_DocEnd_BoxAlgorithm_AmplitudeArtifactDetector_Setting3|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_AmplitudeArtifactDetector_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_AmplitudeArtifactDetector_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_AmplitudeArtifactDetector_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_AmplitudeArtifactDetector_Miscellaneous|
+ */

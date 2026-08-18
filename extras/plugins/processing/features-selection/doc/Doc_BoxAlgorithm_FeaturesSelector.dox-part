@@ -1,0 +1,63 @@
+/**
+ * \page BoxAlgorithm_FeaturesSelector Features Selector
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelector_Description|
+ * This box allows to restrict outgoing signal data to a subset of incoming data based on a list of features. It's possible to define multiple times the same Feature.
+ * Features are identified by their index.
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelector_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelector_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelector_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelector_Input1|
+ * The input feature vector which features should be selected.
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelector_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelector_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelector_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelector_Output1|
+ * The output feature vector with selected features.
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelector_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelector_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelector_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelector_Setting1|
+ * A semi colon separated list of channel identifiers. You must use the index of the channel. Also, ranges can be selected specifying first channel identifier, 
+ * followed by a colon, followed by the second channel identifier.
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelector_Setting1|
+
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelector_Examples|
+ * Suppose you want to select the first 8 features, The 2 first features, the 2 last features, and the 10 feature.
+ * You would then use the following string : [1:8;:2;2:;10]. 
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelector_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_FeaturesSelector_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_FeaturesSelector_Miscellaneous|
+ */

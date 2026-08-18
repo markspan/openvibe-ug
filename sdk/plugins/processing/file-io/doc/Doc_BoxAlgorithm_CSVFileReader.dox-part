@@ -1,0 +1,61 @@
+/**
+ * \page BoxAlgorithm_CSVFileReader CSV File Reader
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileReader_Description|
+This box reads a Comma Separated Values (CSV) text file. The file must be written using a specific
+OpenViBE convention. The format is described in detail in \ref Doc_BoxAlgorithm_CSVFileWriter
+
+The file can contain two streams, one for matrix-type data and one for stimulations.
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileReader_Description|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileReader_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileReader_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileReader_Output1|
+This output can carry Signal, Streamed Matrix, Covariance, Spectrum and Feature Vector data.
+\note This maybe unused if the file read contains only stimulations.
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileReader_Output1|
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileReader_Output2|
+This output will contain stimulations read from the file.
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileReader_Output2|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileReader_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileReader_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileReader_Setting1|
+Path of the CSV file to read.
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileReader_Setting1|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileReader_Examples|
+
+Example of a scenario using the CSV Reader box to read a signal file and display it using an Oscilloscope.
+
+ \image html csv-file-reader-example.png "Reading a CSV file"
+ \image latex csv-file-reader-example.png "Reading a CSV file" width=8cm
+
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileReader_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileReader_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileReader_Miscellaneous|
+ */

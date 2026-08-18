@@ -1,0 +1,81 @@
+/**
+ * \page BoxAlgorithm_SignalResampling Signal Resampling
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalResampling_Description| 
+ 
+ This plugin can apply a downsampling or an upsampling, to/from any sampling frequency, including non-integer sampling rate conversion. 
+ The signal is low-pass filtered with a FIR filter to avoid spectral aliasing, using a sinc function-based fractional delay filter bank.
+ 
+ If the sampling rate is badly conditioned, this plugin can induce latency.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_SignalResampling_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalResampling_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_SignalResampling_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalResampling_Input1|
+ 
+ An input multichannel signal \f$ X \in \mathbb{R}^{C \times N_1} \f$, composed of \f$ C \f$ channels and \f$ N_1 \f$ temporal samples, at the sampling frequency \f$ F_1 \f$.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_SignalResampling_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalResampling_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_SignalResampling_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalResampling_Output1|
+ 
+ An output multichannel signal \f$ Y \in \mathbb{R}^{C \times N_2} \f$, composed of \f$ C \f$ channels and \f$ N_2 \f$ temporal samples, at the sampling frequency \f$ F_2 \f$.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_SignalResampling_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalResampling_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_SignalResampling_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalResampling_Setting1|
+ 
+ New sampling frequency \f$ F_2 > 0 \f$. No processing is applied if \f$ F_2 = F_1 \f$.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_SignalResampling_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalResampling_Setting2|
+ 
+ Number of temporal samples \f$ N_2 > 0 \f$ per resampled buffer.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_SignalResampling_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalResampling_Setting3|
+ 
+ Low-pass filtering activation, to avoid spectral aliasing.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_SignalResampling_Setting3|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalResampling_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_SignalResampling_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalResampling_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_SignalResampling_Miscellaneous|
+ */

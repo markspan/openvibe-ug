@@ -1,0 +1,11 @@
+<Document name="test_reference">
+	<NodeWithChildren>
+		<ChildNodeWithData>child node data with more than 10 alphanumeric characters</ChildNodeWithData>
+		<ChildNodeEmpty></ChildNodeEmpty>
+		<ChildNodeWithChildren>
+			<ChildNodeEmpty></ChildNodeEmpty>
+		</ChildNodeWithChildren>
+	</NodeWithChildren>
+	<NodeWithData status="hasData">node data with special characters &lt;&gt;,;:!?./&amp;"'(-_)=~#{[|`\^@]}/*-+</NodeWithData>
+	<NodeEmptyWithNumber666 status="noData" ref="test"></NodeEmptyWithNumber666>
+</Document>

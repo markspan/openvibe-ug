@@ -3,7 +3,7 @@
 .build_script_linux_template: &build_script_linux
   stage: build
   tags: ['linux']
-  needs: ['update_repo_linux']
+  needs: ['cleanup_linux']
   script:
     - set -o pipefail
     - source .gitlab/build.sh | tee ${LOGNAME}.log
@@ -24,12 +24,11 @@ build_openvibe_linux:
   variables:
     SYSTEM: linux
     LOGNAME: "${CI_PROJECT_NAME}-build-${SYSTEM}"
-    GIT_STRATEGY: none
 
 .build_script_macosx_template: &build_script_macosx
   stage: build
   tags: ['macos','sonoma']
-  needs: [update_repo_macosx]
+  needs: [cleanup_mac]
   script:
     - source .gitlab/build.sh | tee ${LOGNAME}.log
   artifacts:
@@ -46,12 +45,11 @@ build_openvibe_macosx:
   variables:
     SYSTEM: macosx
     LOGNAME: "${CI_PROJECT_NAME}-build-${SYSTEM}"
-    GIT_STRATEGY: none
 
 .build_script_windows_template: &build_script_windows
   stage: build
   tags: ['windows']
-  needs: [update_repo_windows]
+  needs: [cleanup_windows]
   script:
     - pixi install
     - pixi run ci-build
@@ -73,4 +71,3 @@ build_openvibe_windows:
     CHERE_INVOKING: "yes"
     MSYSTEM: UCRT64
     LOGNAME: "${CI_PROJECT_NAME}-build-${SYSTEM}"
-    GIT_STRATEGY: none

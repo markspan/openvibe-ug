@@ -1,0 +1,70 @@
+/**
+ * \page BoxAlgorithm_StimulationConverter Stimulation Converter
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_StimulationConverter_Description|
+ * Convert a range of stimulation to one.
+ * |OVP_DocEnd_BoxAlgorithm_StimulationConverter_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_StimulationConverter_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_StimulationConverter_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_StimulationConverter_Input1|
+ * The stimulation set to convert.
+ * |OVP_DocEnd_BoxAlgorithm_StimulationConverter_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_StimulationConverter_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_StimulationConverter_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_StimulationConverter_Output1|
+ * The stimulation set converted according to the specified settings.
+ * |OVP_DocEnd_BoxAlgorithm_StimulationConverter_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_StimulationConverter_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_StimulationConverter_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_StimulationConverter_Setting1|
+ * Flag to indicate if out of range stimulation should be forwarded anyway.
+ * |OVP_DocEnd_BoxAlgorithm_StimulationConverter_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_StimulationConverter_Setting2|
+ * The stimulation starting the range.
+ * |OVP_DocEnd_BoxAlgorithm_StimulationConverter_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_StimulationConverter_Setting3|
+ * The stimulation ending the range.
+ * |OVP_DocEnd_BoxAlgorithm_StimulationConverter_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_StimulationConverter_Setting4|
+ * The stimulation sent if in range.
+ * |OVP_DocEnd_BoxAlgorithm_StimulationConverter_Setting4|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_StimulationConverter_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_StimulationConverter_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_StimulationConverter_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_StimulationConverter_Miscellaneous|
+ */

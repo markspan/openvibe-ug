@@ -1,0 +1,5 @@
+add_subdirectory(qml)
+add_subdirectory(platform)
+add_subdirectory(developer-tools)
+add_subdirectory(demos)
+add_subdirectory(examples)

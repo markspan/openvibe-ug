@@ -1,0 +1,58 @@
+/**
+ * \page BoxAlgorithm_KeypressEmulator Keypress Emulator
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_KeypressEmulator_Description|
+Emulates a keyboard keypress when receiving a specific stimulation. In principle this box could be used to drive some 3rd party application that allows keyboard control but not any other communication from OpenViBE. Currently this box is implemented only on Windows.
+ * |OVP_DocEnd_BoxAlgorithm_KeypressEmulator_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_KeypressEmulator_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_KeypressEmulator_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_KeypressEmulator_Input1|
+ Stimulation stream to listen to.
+ * |OVP_DocEnd_BoxAlgorithm_KeypressEmulator_Input1|
+
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_KeypressEmulator_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_KeypressEmulator_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_KeypressEmulator_Setting1|
+ The stimulation that will trigger the keypress.
+ * |OVP_DocEnd_BoxAlgorithm_KeypressEmulator_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_KeypressEmulator_Setting2|
+ The key to press.
+ * |OVP_DocEnd_BoxAlgorithm_KeypressEmulator_Setting2|
+ 
+ * |OVP_DocBegin_BoxAlgorithm_KeypressEmulator_Setting3|
+ The key modifier (alt, ctrl, ...)
+ * |OVP_DocEnd_BoxAlgorithm_KeypressEmulator_Setting3| 
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_KeypressEmulator_Examples|
+ An easy way to test the box is to make it receive stimulations from a Clock Stimulator box, and make a text editor active on the desktop after clicking Play. The characters corresponding to the key should appear in the editor.
+ * |OVP_DocEnd_BoxAlgorithm_KeypressEmulator_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_KeypressEmulator_Miscellaneous|
+ The Keypress Emulator should be enhanced to be able to map an arbitrary number of different stimulations. This development would be relatively straightforward (e.g. look at VRPN boxes for example). Meanwhile if you need several keys pressed, you can use several Keypress Emulator boxes, each configured for a different stimulation+key.
+ * |OVP_DocEnd_BoxAlgorithm_KeypressEmulator_Miscellaneous|
+ */

@@ -1,0 +1,83 @@
+/**
+ * \page BoxAlgorithm_InstantBitmap3DStream Instant Bitmap (3D Stream)
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_InstantBitmap3DStream_Description|
+ The <em>Instant Bitmap (3D Stream)</em> box displays input data in form of 2D maps of colored blocks (or <em>bitmap</em>).
+ Each time a matrix is received, its contents are displayed to fill the visualization. Depending on the input type, the three dimensions of the matrix will be ordonned differently.
+ The bitmap colors are chosen according to a custom gradient.
+ * |OVP_DocEnd_BoxAlgorithm_InstantBitmap3DStream_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_InstantBitmap3DStream_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_InstantBitmap3DStream_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_InstantBitmap3DStream_Input1|
+ The input matrices to be displayed. Currently this box supports only the Time-Frequency stream.
+ * |OVP_DocEnd_BoxAlgorithm_InstantBitmap3DStream_Input1|
+
+ * |OVP_DocBegin_BoxAlgorithm_InstantBitmap3DStream_Input2|
+  The second input expects stimulations. They will be displayed as <b>colored vertical lines</b>.
+ * |OVP_DocEnd_BoxAlgorithm_InstantBitmap3DStream_Input2|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_InstantBitmap3DStream_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_InstantBitmap3DStream_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_InstantBitmap3DStream_Setting1|
+  The channel localisation file containing the cartesian coordinates of the electrodes to be displayed.
+ A default configuration file is provided, and its path stored in the configuration token <tt>${AdvancedViz_ChannelLocalisation}</tt>.
+ * |OVP_DocEnd_BoxAlgorithm_InstantBitmap3DStream_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_InstantBitmap3DStream_Setting2|
+  Gain (floating-point scalar factor) to apply to the input values before display.
+ * |OVP_DocEnd_BoxAlgorithm_InstantBitmap3DStream_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_InstantBitmap3DStream_Setting3|
+ Label to be displayed on top of the visualization window.
+ * |OVP_DocEnd_BoxAlgorithm_InstantBitmap3DStream_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_InstantBitmap3DStream_Setting4|
+  Color gradient to use. This setting can be set manually using the color gradient editor.
+ Several presets exist in form of configuration tokens <tt>${AdvancedViz_ColorGradient_X}</tt>, where X can be:
+ - <tt>Matlab</tt> or <tt>Matlab_Discrete</tt>
+ - <tt>Icon</tt> or <tt>Icon_Discrete</tt>
+ - <tt>Elan</tt> or <tt>Elan_Discrete</tt>
+ - <tt>Fire</tt> or <tt>Fire_Discrete</tt>
+ - <tt>IceAndFire</tt> or <tt>IceAndFire_Discrete</tt>
+ 
+ The default values <tt>AdvancedViz_DefaultColorGradient</tt> or <tt>AdvancedViz_DefaultColorGradient_Discrete</tt> are equal to <tt>Matlab</tt> and <tt>Matlab_Discrete</tt>.
+ 
+ An example of topography rendering using these color gradients can be found \ref Doc_Mensia_AdvViz_Configuration "here".
+ * |OVP_DocEnd_BoxAlgorithm_InstantBitmap3DStream_Setting4|
+__________________________________________________________________
+
+Online visualisation settings
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_InstantBitmap3DStream_OnlineVisualizationSettings|
+  At runtime, all the advanced visualization shared settings are exposed, as described in \ref Doc_Mensia_AdvViz_Configuration_RuntimeToolbar.
+ * |OVP_DocEnd_BoxAlgorithm_InstantBitmap3DStream_OnlineVisualizationSettings|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_InstantBitmap3DStream_Examples|
+  In the following example, we compute the Time-Frequency Analysis for a generated signal.
+  You can find a commented scenario in the provided sample set, the scenario file name is InstantBitmap3DStream.xml.
+
+ 
+ \image html InstantBitmap3DStream_Example.png "Example of scenario using the Instant Bitmap (3D Stream)"
+ \image latex InstantBitmap3DStream_Example.png "Example of scenario using the Instant Bitmap (3D Stream)" width=\textwidth
+ * |OVP_DocEnd_BoxAlgorithm_InstantBitmap3DStream_Examples|
+ */

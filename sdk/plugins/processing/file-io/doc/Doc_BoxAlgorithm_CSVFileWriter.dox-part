@@ -1,0 +1,156 @@
+/**
+ * \page BoxAlgorithm_CSVFileWriter CSV File Writer
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileWriter_Description|
+This box writes incoming time series along with a stimulation stream into a text file using the
+Comma Separated Values format conforming to the RFC 4180 format.
+
+The header of the CSV file contains some additional information that enables additional features
+during subsequent reading. This format is described in the \ref Doc_BoxAlgorithm_CSVFileWriter_Miscellaneous
+section.
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileWriter_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileWriter_Inputs|
+The box can run two modes.\n
+"Mode 1", there are two inputs: one for time series, and the second for stimulations.\n
+"Mode 2" is to record stimulations only. Then there is only one input for stimulations.
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileWriter_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileWriter_Input1|
+Mode 1: Time series input, this can be either a Signal, Streamed Matrix, Spectrum, Covariance Matrix or Feature Vector stream.\n
+Mode 2: Stimulations
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileWriter_Input1|
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileWriter_Input2|
+Mode 1: Stimulations to be written alongside the signal.\n
+Mode 2: not applicable
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileWriter_Input2|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileWriter_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileWriter_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileWriter_Setting1|
+Path of the CSV file to be written.
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileWriter_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileWriter_Setting2|
+Precision, in number of decimal digits, of the resulting data. For longer data the precision can significantly impact the file size.
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileWriter_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileWriter_Setting3|
+By default this box will overwrite data in the file if it exists. If this setting is set to true, the box will append data to the file instead. If the file is empty a header will be added as well. It is up to the user to ensure herself that the data written is of the same type and dimensions.
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileWriter_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileWriter_Setting4|
+If this setting is activated, only the last received matrix will be written to the file. This can be used, for example, with cumulative average box.
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileWriter_Setting4|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileWriter_Examples|
+
+Example of writing a spectrum into a CSV file:
+
+ \image html csv-file-writer-example.png "Writing a CSV file"
+ \image latex csv-file-writer-example.png "Writing a CSV file" width=8cm
+
+
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileWriter_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CSVFileWriter_Miscellaneous|
+
+The CSV Format 
+
+## Example file containing Signal data and Stimulations
+
+Signal file sampled at 8Hz, with epochs of 0.5s length. Note that the timestamps do not have an end time which is implicit.
+
+In this example each x represents an arbitrary floating point value. The header contains the following rows:
+
+- Time:8Hz - contains the timestamp of each sample, this label also encodes the original sampling rate
+- Epoch - contains the number of the epoch in which each sample is contained, this allows encoding even overlapping signal
+- O1, O2, Pz, P3, P4 - channels containing EEG data
+- Event Id - contains a colon separated list of StimulationIds
+- Event Date - contains the same number of timestamps 
+- Event Duration - is constructed in the same manner as Event Date
+
+\code{.unparsed}
+Time:8Hz,Epoch,O1,O2,Pz,P3,P4,Event Id,Event Date,Event Duration
+0.00000,0,x,x,x,x,x,,,
+0.12500,0,x,x,x,x,x,,,
+0.25000,0,x,x,x,x,x,32000:32010,0.25000:0.25000,0:0
+0.37500,0,x,x,x,x,x,,,
+0.50000,1,x,x,x,x,x,,,
+0.62500,1,x,x,x,x,x,,,
+0.75000,1,x,x,x,x,x,35000,0.75250,0
+0.87500,1,x,x,x,x,x,,,
+\endcode
+
+## Example file containing a three dimensional matrix
+
+This example file contains 2x2x2 matrices produced every 0.125 seconds and spanning one second.
+
+The labels for this matrix are:
+
+- for first dimension "LA", "LB"
+- for second dimension "1", "2"
+- for third dimension "X", "Y"
+
+\code{.unparsed}
+Time:2x2x2,End Time,LA:1:X,LA:1:Y,LA:2:X,LA:2:Y,LB:1:X,...,LB:2:Y,Event Id,Event Date,Event Duration
+0.00000,1.00000,x,x,x,x,x,...,x,,, 
+0.12500,1.12500,x,x,x,x,x,...,x,,, 
+0.25000,1.25000,x,x,x,x,x,...,x,,,
+0.37500,1.37500,x,x,x,x,x,...,x,,, 
+0.50000,1.50000,x,x,x,x,x,...,x,,, 
+0.62500,1.62500,x,x,x,x,x,...,x,,, 
+0.75000,1.75000,x,x,x,x,x,...,x,,,
+0.87500,1.62500,x,x,x,x,x,...,x,,, 
+1.00000,2.00000,x,x,x,x,x,...,x,,, 
+1.12500,2.12500,x,x,x,x,x,...,x,,, 
+\endcode
+
+\note
+A label can be an empty string. If second dimension had an empty label then the first column would have label "LA::X", if it were the third dimension the column would have label "LA:1:"
+
+
+## Example file containing a spectrum
+
+Spectrum file with 2 channels, 128Hz signal and spectra calculated on periods of 1 second every 0.125 seconds. The last element in the Time column (128) represents the original sampling rate.  
+
+\code{.unparsed}
+Time:2x64:128,End Time,O1:0,O1:1.015873,...,O1:64,O2:0,...,O2:64,Event Id,Event Date,Event Duration
+0.00000,1.00000,x,x,...,x,x,...,x,,,
+0.12500,1.12500,x,x,...,x,x,...,x,,,
+0.25000,1.25000,x,x,...,x,x,...,x,,,
+0.37500,1.37500,x,x,...,x,x,...,x,,,
+0.50000,1.50000,x,x,...,x,x,...,x,,,
+0.62500,1.62500,x,x,...,x,x,...,x,,,
+0.75000,1.75000,x,x,...,x,x,...,x,,,
+0.87500,1.87500,x,x,...,x,x,...,x,,,
+1.00000,2.00000,x,x,...,x,x,...,x,,,
+1.12500,2.12500,x,x,...,x,x,...,x,,,
+\endcode
+
+
+
+ * |OVP_DocEnd_BoxAlgorithm_CSVFileWriter_Miscellaneous|
+ */

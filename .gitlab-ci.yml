@@ -2,14 +2,12 @@
 
 stages:
   - cleanup
-  - git_update
   - build
   - analyze
   - test
 
 include:
   - .gitlab/common.yml
-  - .gitlab/update_from_meta.yml
   - .gitlab/build.yml
   - .gitlab/test.yml
   - .gitlab/analyse.yml

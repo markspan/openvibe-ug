@@ -1,0 +1,86 @@
+<OpenViBE-Scenario>
+	<Creator>OpenVIBE</Creator>
+	<CreatorVersion>0.0.0</CreatorVersion>
+	<Settings>
+		<Setting>
+			<TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
+			<Name>Integer Setting</Name>
+			<DefaultValue>10</DefaultValue>
+		</Setting>
+	</Settings>
+	<Inputs>
+		<Input>
+			<TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+			<Name>Stimulation Input</Name>
+		</Input>
+	</Inputs>
+	<Outputs>
+		<Output>
+			<TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+			<Name>Stimulation Output</Name>
+		</Output>
+	</Outputs>
+	<Boxes>
+		<Box>
+			<Identifier>(0x4468da36, 0x3fce3251)</Identifier>
+			<Name>Stimulation listener</Name>
+			<AlgorithmClassIdentifier>(0x65731e1d, 0x47de5276)</AlgorithmClassIdentifier>
+			<Inputs>
+				<Input>
+					<TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+					<Name>Stimulation stream 1</Name>
+				</Input>
+				<Input>
+					<TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+					<Name>Stimulation stream 2</Name>
+				</Input>
+			</Inputs>
+			<Settings>
+				<Setting>
+					<TypeIdentifier>(0xa88b3667, 0x0871638c)</TypeIdentifier>
+					<Name>Log level to use</Name>
+					<DefaultValue>Debug</DefaultValue>
+				</Setting>
+			</Settings>
+			<Attributes>
+				<Attribute>
+					<Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+					<Value>176</Value>
+				</Attribute>
+			</Attributes>
+		</Box>
+		<Box>
+			<Identifier>(0x66b53b19, 0x043b1afe)</Identifier>
+			<Name>Clock stimulator</Name>
+			<AlgorithmClassIdentifier>(0x4f756d3f, 0x29ff0b96)</AlgorithmClassIdentifier>
+			<Outputs>
+				<Output>
+					<TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
+					<Name>Generated stimulations</Name>
+				</Output>
+			</Outputs>
+		</Box>
+	</Boxes>
+	<Links>
+		<Link>
+			<Identifier>(0x1dd7b2d2, 0x3c1d084d)</Identifier>
+			<Source>
+				<BoxIdentifier>(0x66b53b19, 0x043b1afe)</BoxIdentifier>
+				<BoxOutputIndex>0</BoxOutputIndex>
+			</Source>
+			<Target>
+				<BoxIdentifier>(0x4468da36, 0x3fce3251)</BoxIdentifier>
+				<BoxInputIndex>1</BoxInputIndex>
+			</Target>
+		</Link>
+	</Links>
+	<Comments>
+		<Comment>
+			<Identifier>(0x160bd469, 0x62a644ce)</Identifier>
+			<Text>This comment contains a newline
+and unicode characters 日本語</Text>
+		</Comment>
+	</Comments>
+	<Attributes>
+	</Attributes>
+</OpenViBE-Scenario>

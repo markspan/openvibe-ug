@@ -1,0 +1,8 @@
+<RiemannianPotatoes>
+    <RiemannianPotato DistanceMean="0" DistanceStd="0">
+        <ReferenceCovariance/>
+    </RiemannianPotato>
+    <RiemannianPotato DistanceMean="0" DistanceStd="0">
+        <ReferenceCovariance/>
+    </RiemannianPotato>
+</RiemannianPotatoes>

@@ -1,0 +1,3 @@
+add_subdirectory(OVASCore)
+add_subdirectory(OVASDrivers)
+add_subdirectory(OVASInterface)

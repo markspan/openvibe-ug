@@ -1,0 +1,72 @@
+/**
+ * \page BoxAlgorithm_CovarianceMatrixCalculator Covariance Matrix Calculator
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMatrixCalculator_Description|
+The covariance matrix calculator calculates the covariance matrix of each input chunk. The covariance matrix is a square matrix of size NxN with N the number of channels of the input signal.
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMatrixCalculator_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMatrixCalculator_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMatrixCalculator_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMatrixCalculator_Input1|
+The input signal on which the covariance matrix needs to be calculated.
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMatrixCalculator_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMatrixCalculator_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMatrixCalculator_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMatrixCalculator_Output1|
+Covariance Matrix generated.
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMatrixCalculator_Output1|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMatrixCalculator_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMatrixCalculator_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMatrixCalculator_Setting1|
+Method of calculating the covariance matrix:  \n
+Classical Covariance Estimator \n
+Pearson Correlation Estimator \n
+Ledoit and Wolf Estimator \n
+Oracle Approximating Shrinkage (OAS) Estimator \n
+Sample Covariance Matrix (SCM) Estimator \n
+Identity Matrix  
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMatrixCalculator_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMatrixCalculator_Setting2|
+Center or not the input data (each channel independently)
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMatrixCalculator_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMatrixCalculator_Setting3|
+Log Level (None to see nothing)
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMatrixCalculator_Setting3|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMatrixCalculator_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMatrixCalculator_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_CovarianceMatrixCalculator_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_CovarianceMatrixCalculator_Miscellaneous|
+ */

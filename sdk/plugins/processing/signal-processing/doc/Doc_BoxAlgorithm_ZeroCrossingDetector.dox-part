@@ -1,0 +1,100 @@
+/**
+ * \page BoxAlgorithm_ZeroCrossingDetector Zero-Crossing Detector
+__________________________________________________________________
+
+Detailed description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Description|
+ 
+ Using an hysteresis thresholding, this box detects the zero-crossings of the input, operating on all channels.
+
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Description|
+__________________________________________________________________
+
+Inputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Inputs|
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Inputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Input1|
+ 
+ The input signal \f$ X \in \mathbb{R}^{C \times N} \f$, composed of \f$ C \f$ sensors and \f$ N \f$ samples.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Input1|
+__________________________________________________________________
+
+Outputs description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Outputs|
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Outputs|
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Output1|
+ 
+ Zero-crossing signal \f$ Z \in \mathbb{R}^{C \times N} \f$, composed of \f$ C \f$ sensors and \f$ N \f$ samples.
+ It is defined as 1 for positive zero-crossings (negative-to-positive), -1 for negatives ones (positive-to-negative), 0 otherwise.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Output1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Output2|
+ 
+ For all channels, stimulations mark positive and negatives zero-crossings.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Output2|
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Output3|
+ 
+  For each channel, the rythm of negative-to-positive zero-crossings is computed in events per min.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Output3|
+__________________________________________________________________
+
+Settings description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Settings|
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Settings|
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Setting1|
+ 
+ This setting defines the value \f$ t \f$ of the hysteresis threshold, to provide a robust detection. 
+ 
+ \image html ZeroCrossingDetector_thresholding.png "Difference between naive and hysteresis sign thresholding"
+ \image latex ZeroCrossingDetector_thresholding.png "Difference between naive and hysteresis sign thresholding" width=\textwidth 
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Setting1|
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Setting2|
+ 
+ This setting defines the length of the time window for the rythm estimation.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Setting2|
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Setting3|
+ 
+ This setting defines the stimulation id for negative-to-positive crossings.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Setting3|
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Setting4|
+ 
+ This setting defines the stimulation id for positive-to-negative crossings.
+ 
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Setting4|
+__________________________________________________________________
+
+Examples description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Examples|
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Examples|
+__________________________________________________________________
+
+Miscellaneous description
+__________________________________________________________________
+
+ * |OVP_DocBegin_BoxAlgorithm_ZeroCrossingDetector_Miscellaneous|
+ * |OVP_DocEnd_BoxAlgorithm_ZeroCrossingDetector_Miscellaneous|
+ */
