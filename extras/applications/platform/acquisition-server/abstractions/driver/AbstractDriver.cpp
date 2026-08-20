@@ -10,11 +10,25 @@
  */
 
 #include <AbstractDriver.h>
-#include <Acquisition.h>
+#include <AbstractDriverBuilder.h> ///< For the complete AbstractDriverBuilder type used by DriverDeleter.
 
 #include <cstdint>
 #include <chrono>
 #include <any>
+
+/**
+ * @brief Releases a driver through the builder that created it.
+ *
+ * Kept out of line, and in this library rather than in a header, so that a driver
+ * allocated inside a plugin is also freed inside that plugin.
+ *
+ * @param driver The driver instance to release.
+ */
+void DriverDeleter::operator()(AbstractDriver* driver) const
+{
+    if (builder) { builder->destroyDriver(driver); }
+    else { delete driver; }
+}
 
 AbstractDriver::AbstractDriver()
 {

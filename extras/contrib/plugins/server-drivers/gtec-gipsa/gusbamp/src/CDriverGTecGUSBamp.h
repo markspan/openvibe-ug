@@ -114,4 +114,5 @@ private:
     std::string getSerialByHandler(HANDLE device) const;
 };
 
-REGISTER_DRIVER(CDriverGTecGUSBamp, "g.tec gUSBamp Gipsa-lab", false);
+// REGISTER_DRIVER lives in CDriverGTecGUSBamp.cpp: in plugin builds it defines the exported
+// getInstance() factory, which must exist in exactly one translation unit.

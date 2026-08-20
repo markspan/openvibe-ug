@@ -15,6 +15,10 @@
 #include "openvibe/parameters/parameters.h"
 #include "openvibe/parameters/parameterStringVector.h"
 
+#include <OVAcquisitionAbstractions_Export.h>
+
+#include <memory>
+
  /**
   * @brief Abstract base class for hardware drivers.
   *
@@ -24,7 +28,7 @@
   * essential functionalities. It also provides a default implementation for timestamps
   * retrieval and a virtual method for getting processed data.
   */
-class AbstractDriver
+class OVACQUISITIONABSTRACTIONS_EXPORT AbstractDriver
 {
 public:
     /**
@@ -201,3 +205,27 @@ protected:
 	 */
 	bool m_bAuxiliaryDriver = false;
 };
+
+class AbstractDriverBuilder; ///< Forward declaration; the complete type is only needed by the deleter's implementation.
+
+/**
+ * @brief Deleter that hands a driver back to the builder that created it.
+ *
+ * A driver coming from a plugin is allocated inside that plugin; destroying it from the
+ * host would pair the host's operator delete with the plugin's operator new. Routing the
+ * destruction back through AbstractDriverBuilder::destroyDriver() keeps allocation and
+ * deallocation on the same side of the library boundary. Falls back to a plain delete
+ * when no builder is known.
+ *
+ * @note operator() is deliberately out of line: it lives in the abstraction library, so
+ *       host and plugins all go through the same copy.
+ */
+struct OVACQUISITIONABSTRACTIONS_EXPORT DriverDeleter
+{
+	AbstractDriverBuilder const* builder = nullptr; ///< Builder the driver came from, or nullptr.
+
+	void operator()(AbstractDriver* driver) const;
+};
+
+/// Owning pointer to a driver, released through the builder that created it.
+using DriverPtr = std::unique_ptr<AbstractDriver, DriverDeleter>;

@@ -196,11 +196,22 @@ SET_PROPERTY(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:RelWithDeb
 
 set(CMAKE_INSTALL_FULL_DOCDIR "${CMAKE_INSTALL_FULL_BINDIR}/../doc/html")
 
-# Traverse these directories and build their components
+# Traverse these directories and build their components.
+#
+# The order is a dependency order, not an alphabetical one: a directory may only name targets that an
+# earlier one has already defined. "applications/" therefore stays after "plugins/", which is where
+# NetService and TcpTaggingService live. "contrib/" comes last because the driver plugins under
+# contrib/plugins/server-drivers/ link openvibe-acquisition-abstractions, defined by the acquisition
+# server under applications/.
+#
+# Note that extras/plugins/server-drivers/ -- the first-party counterpart, still an empty placeholder --
+# is traversed before applications/ and would hit that same problem. When a plugin lands there, move
+# the abstractions subdirectory out of the acquisition server's CMakeLists and add it here, before
+# "plugins/".
 add_subdirectory("modules/")
 add_subdirectory("plugins/")
-add_subdirectory("contrib/")
 add_subdirectory("applications/")
+add_subdirectory("contrib/")
 
 if(WIN32)
 	# Install VC Redists. These land in bin/ and are picked up by CPack like any other install rule.

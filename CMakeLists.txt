@@ -168,6 +168,7 @@ qt_policy(SET QTP0004 NEW)
 include("FindThirdPartyBrainProductsAmplifierAPI")
 include("FindThirdPartyEemagineEEGO")
 include("FindThirdPartyGTecUnicorn")
+include("FindThirdPartyGUSBampCAPI")
 include("FindThirdPartyMicromed")
 include("FindThirdPartyTMSI")
 

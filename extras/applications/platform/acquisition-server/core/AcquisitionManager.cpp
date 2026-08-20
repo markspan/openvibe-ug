@@ -230,7 +230,7 @@ bool AcquisitionManager::addAcquisitionDriver(uint64_t id, std::string name, std
         if (!clients.empty() && *clients.begin() == id) {
             auto driver = createDriver(driverName);
             if (driver) {
-                acquisitionIt->second->addDriver(driver);
+                acquisitionIt->second->addDriver(std::move(driver));
                 res = true;
             }
         }
@@ -397,26 +397,31 @@ std::list<uint64_t> AcquisitionManager::getClientsFromAcquisition(std::string na
  * This function checks if the specified driver name is valid and registered.
  * If valid, it creates a new driver instance and returns it.
  *
+ * The driver is returned as a DriverPtr carrying its builder, so that a driver created
+ * inside a plugin is destroyed inside that same plugin.
+ *
  * @param driverName The name of the driver to be created.
- * @return A pointer to the newly created driver instance, or nullptr if not found.
+ * @return An owning pointer to the newly created driver instance, or an empty one if not found.
  */
-AbstractDriver* AcquisitionManager::createDriver(const std::string& driverName)
+DriverPtr AcquisitionManager::createDriver(const std::string& driverName)
 {
-    AbstractDriver* driverRes = nullptr; ///< Initialize the driver pointer to nullptr.
+    AbstractDriverBuilder const* builder = nullptr; ///< Builder matching the requested name, if any.
 
     if (m_pImpl->driverBuilders.find(driverName) != m_pImpl->driverBuilders.end()) {
-        driverRes = m_pImpl->driverBuilders[driverName]->createDriver(); ///< Create a new driver instance using the specified driver name.
+        builder = m_pImpl->driverBuilders[driverName]; ///< Look up the builder for the specified driver name.
     }
     else {
         if (m_pImpl->auxDriverBuilders.find(driverName) != m_pImpl->auxDriverBuilders.end()) {
-            driverRes = m_pImpl->auxDriverBuilders[driverName]->createDriver();
+            builder = m_pImpl->auxDriverBuilders[driverName];
         }
         else {
             std::cout << "Driver not found: " << driverName << std::endl; ///< Print a message if the driver is not found.
         }
     }
 
-    return driverRes;
+    if (!builder) { return DriverPtr(); }
+
+    return DriverPtr(builder->createDriver(), DriverDeleter{ builder });
 }
 
 /**
