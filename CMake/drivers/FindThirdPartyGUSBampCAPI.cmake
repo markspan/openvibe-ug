@@ -56,9 +56,14 @@ endif(WIN32)
 
 
 if(UNIX)
-	# To try other versions of the gtec's library, change the number below
+	# To try other versions of the gtec's library, change the number below.
+	set(OV_SAVED_FIND_LIBRARY_SUFFIXES ${CMAKE_FIND_LIBRARY_SUFFIXES})
 	set(CMAKE_FIND_LIBRARY_SUFFIXES ".so.1.14")
 	find_library(gUSBAmpLinux_LIBRARY NAMES "gusbampapi" PATHS "/usr/lib" "/usr/local/lib")
+	# Reset CMAKE_FIND_LIBRARY_SUFFIXES to its original value not to affect future find_library calls.
+	set(CMAKE_FIND_LIBRARY_SUFFIXES ${OV_SAVED_FIND_LIBRARY_SUFFIXES})
+	unset(OV_SAVED_FIND_LIBRARY_SUFFIXES)
+
 	if(gUSBAmpLinux_LIBRARY)
 		OV_PRINT(OV_PRINTED "  Found gtec gUSBAmpAPILinux...")
 		OV_PRINT(OV_PRINTED "    [  OK  ] Third party lib ${gUSBAmpLinux_LIBRARY}")
