@@ -62,6 +62,9 @@ public:
     Q_INVOKABLE void saveScenario(int index, QUrl filePath);
     Q_INVOKABLE void removeScenario(int index);
 
+    //save the scenarios currently opened so that they are reopened on the next run
+    void saveSession();
+
     QString playerStatus() const;
     QString simulatedTime() const;
     QString simulatedTimeMs() const;

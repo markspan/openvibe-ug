@@ -44,6 +44,8 @@ qt_add_executable(${PROJECT_NAME}
   src/ScenarioIOConnection.cpp
   src/ScenarioParameterConnectionObject.h
   src/ScenarioParameterConnectionObject.cpp
+  src/SessionManager.h
+  src/SessionManager.cpp
   src/WindowManager.h
   src/WindowManager.cpp
   src/WindowManagerNode.h

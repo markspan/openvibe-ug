@@ -6,6 +6,7 @@
 #include "OVDesigner.h"
 
 #include <functional>
+#include <memory>
 
 #include <QtCore>
 #include <QGuiApplication>
@@ -32,6 +33,7 @@
 #include "defines.hpp"
 #include "PlayerBridge.h"
 #include "QmlEngineSingleton.h"
+#include "SessionManager.h"
 
 #define README_File                     OpenViBE::Directories::getDistRootDir() + "/ReadMe.txt"
 #define SCENARIOS_PATH                  "${Path_Data}/scenarios"
@@ -62,6 +64,7 @@ struct OVDesignerPrivate {
     OVQmlLogListener* m_qmlLogListener = nullptr;
     QStringList streamTypes; //here to have a lifetime as long as the application
     QTimer m_simulatedTimeTimer;
+    std::unique_ptr<SessionManager> m_session; //created by initialize(), once the command line is known
 };
 
 OVDesignerPrivate::~OVDesignerPrivate() { 
@@ -461,6 +464,31 @@ void OVDesigner::initialize() {
         }
     }
 
+    // Reopen the scenarios that were opened when the designer was last closed. Done before the
+    // command line is honoured so that a scenario given on the command line is appended last and
+    // ends up being the current one, as in the legacy designer.
+    const bool manageSession = !parser.isSet("no-session-management") && !bNoGUI;
+    d->m_session             = std::make_unique<SessionManager>(*d->m_context, manageSession);
+    connect(qApp, &QCoreApplication::aboutToQuit, this, &OVDesigner::saveSession);
+
+    int restoredScenarioIndex = -1;
+    const SessionManager::Session session = d->m_session->restore();
+    for (int i = 0; i < session.scenarioFiles.size(); ++i) {
+        const QString& scenarioFile = session.scenarioFiles[i];
+        if (!QFileInfo::exists(scenarioFile)) {
+            logMgr << Kernel::LogLevel_Warning << "Not restoring scenario [" << scenarioFile.toStdString() << "]: the file no longer exists\n";
+            continue;
+        }
+        logMgr << Kernel::LogLevel_Trace << "Restoring scenario [" << scenarioFile.toStdString() << "]\n";
+        if(!d->openScenario(scenarioFile.toStdString())) {
+            continue; //openScenario already reported the failure
+        }
+        //compute the index from the tabs actually restored, some of them may have failed to open
+        if (i == session.selectedIndex) {
+            restoredScenarioIndex = int(d->m_scenarios.size()) - 1;
+        }
+    }
+
     if(parser.isSet("open") || parser.isSet("play") || parser.isSet("play-fast")) {
         std::string fileName;
         if(parser.isSet("open"))      fileName = parser.value("open").toStdString();
@@ -480,8 +508,11 @@ void OVDesigner::initialize() {
             logMgr << Kernel::LogLevel_Error << "Failed to open scenario file [" << fileName << "]\n";
             return;
         }
+    } else if (restoredScenarioIndex != -1) {
+        //no scenario was requested on the command line, so bring back the one that was displayed
+        this->setCurrentScenarioIndex(restoredScenarioIndex);
     }
-    
+
     if (d->m_scenarios.empty()) {
         CIdentifier identifier;
         if(!d->m_context->getScenarioManager().createScenario(identifier)) {
@@ -489,6 +520,11 @@ void OVDesigner::initialize() {
         }
         d->m_scenarios.push_back(new DesignerScenario(d->m_context, d->m_context->getScenarioManager().getScenario(identifier), identifier));
         this->setCurrentScenarioIndex(d->m_scenarios.length() - 1);
+    }
+
+    if (int(d->m_CurrentScenarioIndex) < 0) {
+        //scenarios were restored but none of them was the one displayed on the previous run
+        this->setCurrentScenarioIndex(0);
     }
     // --------------------------------------------------------------------------------------------
 
@@ -598,6 +634,27 @@ void OVDesigner::createScenario(const QString &scenarioName, const QString& file
     emit scenariosChanged();
 
     this->setCurrentScenarioIndex(d->m_scenarios.length() - 1);
+    this->saveSession();
+}
+
+void OVDesigner::saveSession() {
+    if(!d->m_session) {
+        return; //initialize() has not run yet
+    }
+
+    SessionManager::Session session;
+    for(int i = 0; i < d->m_scenarios.size(); ++i) {
+        const QUrl filePath = d->m_scenarios[i]->filePath();
+        if(!filePath.isLocalFile()) {
+            continue; //a scenario that was never saved has nothing to restore from
+        }
+        if(int(d->m_CurrentScenarioIndex) == i) {
+            session.selectedIndex = int(session.scenarioFiles.size());
+        }
+        session.scenarioFiles << filePath.toLocalFile();
+    }
+
+    d->m_session->save(session);
 }
 
 void OVDesigner::saveScenario(int index, QUrl filePath) {
@@ -624,11 +681,14 @@ void OVDesigner::saveScenario(int index, QUrl filePath) {
             fileString += ".xml";
         }
     }
-    d->m_scenarios[index]->setFilePath(filePath);
-    d->m_context->getScenarioManager().exportScenarioToFile(exportContext, 
+    //the extension may have just been added, so the scenario must be told about the file that is
+    //really written, otherwise its tab label and the saved session point to a nonexistent file
+    d->m_scenarios[index]->setFilePath(filePath.isLocalFile() ? QUrl::fromLocalFile(fileString) : QUrl(fileString));
+    d->m_context->getScenarioManager().exportScenarioToFile(exportContext,
                                                             fileString.toStdString().c_str(),
                                                             d->m_scenarios[index]->id());
 
+    this->saveSession();
 }
 
 void OVDesigner::removeScenario(int index) {
@@ -671,6 +731,7 @@ void OVDesigner::removeScenario(int index) {
     }
 
     emit scenariosChanged();
+    this->saveSession();
 }
 
 int OVDesigner::currentScenarioIndex() const {
