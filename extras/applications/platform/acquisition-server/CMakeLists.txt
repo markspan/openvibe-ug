@@ -19,13 +19,15 @@ project(openvibe-acquisition-server VERSION ${OPENVIBE_MAJOR_VERSION}.${OPENVIBE
 set(TARGET_NAME ${PROJECT_NAME})
 
 ## ############################################################################
+## The driver/writer abstraction layer is a shared library of its own, so that
+## loadable driver and writer plugins can link against it.
+## ############################################################################
+add_subdirectory(abstractions)
+
+## ############################################################################
 ## Define sources, headers, and directories
 ## ############################################################################
 list(APPEND APP_SOURCES
-    # Shared and Abstractions for extensions
-    abstractions/driver/AbstractDriver.cpp
-    abstractions/writer/AbstractWriter.cpp
-    
     # Core
     core/AcquisitionManager.cpp
     core/Acquisition.cpp
@@ -53,15 +55,7 @@ list(APPEND APP_SOURCES
     main.cpp
 )
 
-list(APPEND APP_PUBLIC_HEADERS
-    # Shared and Abstractions for extensions
-    abstractions/driver/AbstractDriver.h
-    abstractions/driver/AbstractDriverBuilder.h
-    abstractions/writer/AbstractWriter.h
-    abstractions/writer/AbstractWriterBuilder.h
-)
-
-list(APPEND APP_PRIVATE_HEADERS    
+list(APPEND APP_PRIVATE_HEADERS
     # Core
     core/AcquisitionManager.h
     core/Acquisition.h
@@ -69,7 +63,6 @@ list(APPEND APP_PRIVATE_HEADERS
     core/CircularBuffer.h
     core/DriftCalculator.h
     core/SampleBufferHandler.h
-    core/samplesBuffer.h
     core/Thread.h
     #core/Bridges/CBridgesCollection.h
 	core/net-api/CNetAcqControlAPI.h
@@ -93,25 +86,17 @@ list(APPEND APP_PRIVATE_HEADERS
 
 extract_relative_directories( APP_PRIVATE_HEADERS   APP_PRIVATE_INCLUDE_DIRECTORIES)
 
-list(APPEND APP_PUBLIC_INCLUDE_DIRS
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/abstractions/driver/>
-	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/abstractions/writer/>
-	$<INSTALL_INTERFACE:include>
-)
-
 ## ############################################################################
 ## Create and configure the target
 ## ############################################################################
 
 qt_add_executable(${TARGET_NAME})
-target_sources(${TARGET_NAME} PRIVATE ${APP_SOURCES} ${APP_PUBLIC_HEADERS} ${APP_PRIVATE_HEADERS})
+target_sources(${TARGET_NAME} PRIVATE ${APP_SOURCES} ${APP_PRIVATE_HEADERS})
 setup_output_paths_general(${TARGET_NAME})
 target_include_directories(${TARGET_NAME}
     PRIVATE
         ${APP_PRIVATE_INCLUDE_DIRECTORIES}
         ${CMAKE_CURRENT_SOURCE_DIR}/ui
-	PUBLIC
-		${APP_PUBLIC_INCLUDE_DIRS}
 )
 
 target_compile_definitions(${TARGET_NAME} PRIVATE -DWIN32_LEAN_AND_MEAN)
@@ -138,6 +123,7 @@ qt_add_qml_module(${TARGET_NAME}
 target_link_libraries(${TARGET_NAME} PRIVATE
     NetService
     TcpTaggingService
+    openvibe-acquisition-abstractions
     openvibe
     openvibe-toolkit
     openvibe-module-system
@@ -152,17 +138,6 @@ target_link_libraries(${TARGET_NAME} PRIVATE
     Qt6::QuickControls2
     LSL::lsl
 )
-
-# Ported from Win32 overlapped I/O; only builds where the vendor SDK/lib is present.
-include(FindThirdPartyGUSBampCAPI)
-
-if(WIN32 AND OV_ThirdPartyGUSBAmp)
-    target_sources(${TARGET_NAME} PRIVATE
-        builtin/drivers/gtec-gusbamp/CDriverGTecGUSBamp.cpp
-        builtin/drivers/gtec-gusbamp/CDriverGTecGUSBamp.h
-        builtin/drivers/gtec-gusbamp/ringbuffer.h
-    )
-endif()
 
 create_filters(${TARGET_NAME})
 

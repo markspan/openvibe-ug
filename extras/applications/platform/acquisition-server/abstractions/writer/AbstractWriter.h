@@ -17,6 +17,8 @@
 #include <openvibe/acquisition-messaging/ovMsg.h>
 #include <openvibe/parameters/parameters.h>
 
+#include <OVAcquisitionAbstractions_Export.h>
+
 #include <functional>
 #include <list>
 #include <string>
@@ -29,7 +31,7 @@
  * It provides pure virtual methods for initialization, writing, and cleanup, as well as a virtual method for providing
  * a list of clients to send data to.
  */
-class AbstractWriter
+class OVACQUISITIONABSTRACTIONS_EXPORT AbstractWriter
 {
 public:
    /// Callback type used to retrieve the list of active client identifiers.

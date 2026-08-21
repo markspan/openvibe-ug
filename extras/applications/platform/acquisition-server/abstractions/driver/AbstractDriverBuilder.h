@@ -108,40 +108,46 @@ const static DriverBuilder<Driver, Driver##DriverInstance, Auxiliary> Driver##Bu
 
 #else
 
-// PLUGIN_PUBLIC 
-
 /**
- * @brief Macro to register a driver builder for plugin builds.
- * 
- * This macro is used to register a driver builder when building as a plugin. It defines a static instance
- * of the DriverBuilder class for the specified driver type, name, and auxiliary flag.
- * 
- * @param Driver The type of driver to be registered.
- * @param Name The name of the driver as a string literal.
- * @param Aux The auxiliary flag indicating whether the driver is auxiliary (true) or standard (false).
+ * @brief Template class for creating driver builders, plugin flavour.
+ *
+ * Same contract as the BUILTIN_PLUGIN flavour above, minus the self-registration:
+ * a plugin cannot reach the host's AcquisitionManager singleton, so the builder is
+ * handed over through the exported getInstance() factory instead and the host
+ * registers it itself (see CInitApp::loadOnePlugin).
+ *
+ * @tparam Driver The type of driver to be created.
+ * @tparam DriverName The name of the driver as a string literal.
+ * @tparam Aux The auxiliary flag indicating whether the driver is auxiliary (true) or standard (false).
  */
-template<typename Driver, const char* DriverName>
+template<typename Driver, const char* DriverName, bool Aux>
 class DriverBuilder : public AbstractDriverBuilder
 {
 public:
-    DriverBuilder() { } ///< Constructor that registers the driver builder with the AquisitionManager instance.
+    DriverBuilder() = default; ///< Constructor. Unlike the builtin flavour, it does not self-register.
     virtual ~DriverBuilder() = default;
 
     AbstractDriver* createDriver() const override final { Driver* ptr = new Driver(); ptr->setAuxiliaryStatus(Aux); return ptr; } ///< Function to create a driver instance of type Driver.
 
     constexpr std::string getDriverName() const override final { return DriverName; } ///< Function to get the driver name.    }
     constexpr size_t  getDriverTypeHash() const override final { return typeid(Driver).hash_code(); } ///< Function to get the driver type hash using RTTI.
-    constexpr bool getDriverAux()         const override final { return Aux; } ///< Function to check if the driver is auxiliary.
+    constexpr bool isDriverAux()          const override final { return Aux; } ///< Function to check if the driver is auxiliary.
 };
 
 /**
 * @brief Macro to register a driver builder.
 * 
-* This macro is used to register a driver builder for plugin builds. It creates a static instance
-* of the DriverBuilder class for the specified driver type, name, and auxiliary flag.
-* 
+* This macro is used to register a driver builder for plugin builds. It exports the
+* getInstance() factory that the host looks up with getProcAddr() once it has loaded
+* the shared library.
+*
+* @note The exported symbol name is fixed, so a plugin carries exactly **one** driver.
+*       Invoke this macro from a single translation unit -- the driver's .cpp, never its
+*       header -- otherwise the factory ends up multiply defined.
+*
 * @param Driver The type of driver to be registered.
-* @param Aux The auxiliary flag indicating whether the driver is auxiliary (true) or standard (false).
+* @param Name The name of the driver as a string literal.
+* @param Auxiliary The auxiliary flag indicating whether the driver is auxiliary (true) or standard (false).
 */
 #define REGISTER_DRIVER(Driver, Name, Auxiliary) \
 constexpr const static char Driver##DriverInstance[] = Name; \

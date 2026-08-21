@@ -16,9 +16,10 @@
 
 #include <openvibe/parameters/parameterBool.h>
 
+#include <AbstractDriver.h> ///< For DriverPtr, the owning driver handle handed out by createDriver().
+
 class AbstractDriverBuilder; ///< Forward declaration of the AbstractDriverBuilder class.
 class AbstractWriterBuilder; ///< Forward declaration of the AbstractWriterBuilder class.
-class AbstractDriver; ///< Forward declaration of the AbstractDriver class.
 class AbstractWriter; ///< Forward declaration of the AbstractWriter class.
 class Acquisition; ///< Forward declaration of the Acquisition class.
 
@@ -79,7 +80,7 @@ public:
     */
 
 private:
-    AbstractDriver* createDriver(const std::string& driverName); ///< Creates an instance of the specified driver.
+    DriverPtr createDriver(const std::string& driverName); ///< Creates an instance of the specified driver, owned through its builder.
     AbstractWriter* createWriter(const std::string& writerName); ///< Creates an instance of the specified writer.
 
 private:

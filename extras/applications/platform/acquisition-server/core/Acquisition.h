@@ -49,7 +49,7 @@ public:
     ~Acquisition();
 
 	// Driver management
-    void addDriver(AbstractDriver* driver); ///< Sets the driver for data acquisition.
+    void addDriver(DriverPtr driver); ///< Sets the driver for data acquisition, taking ownership of it.
 	void removeDriver(AbstractDriver* driver); ///< Removes the current driver.
 	std::vector<AbstractDriver*> getDrivers() const; ///< Provides all driver instances used by this acquisition.
 
@@ -139,8 +139,8 @@ private:
     std::unique_ptr<CircularBuffer>      m_circularBuffer; ///< Unique pointer to the circular buffer for storing acquired data.
     std::unique_ptr<DriftCalculator>     m_driftCalculator; ///< Unique pointer to the object responsible for calculating drift.
 
-    std::unique_ptr<AbstractDriver> m_driver; ///< Unique pointer to the abstract driver instance.
-    std::vector<std::unique_ptr<AbstractDriver>> m_auxiliaryDrivers; ///< Vector of unique pointers to auxiliary abstract drivers.
+    DriverPtr m_driver; ///< Owning pointer to the abstract driver instance, released through its builder.
+    std::vector<DriverPtr> m_auxiliaryDrivers; ///< Owning pointers to the auxiliary abstract drivers.
     std::vector<std::unique_ptr<AbstractWriter>> m_writers; ///< Vector of unique pointers to abstract writers.
 
     std::list<uint64_t> m_clientsList; ///< List of client identifiers.

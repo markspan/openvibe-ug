@@ -94,16 +94,17 @@ Acquisition::~Acquisition()
 /**
  * @brief Sets the driver for data acquisition.
  * 
- * This method takes ownership of the provided driver pointer and stores it in a unique pointer.
- * @param driver Pointer to the driver instance to be used for data acquisition.
+ * This method takes ownership of the provided driver, which is later released through the
+ * builder that created it (see DriverDeleter) rather than with a plain delete.
+ * @param driver Owning pointer to the driver instance to be used for data acquisition.
  */
-void Acquisition::addDriver(AbstractDriver* driver)
+void Acquisition::addDriver(DriverPtr driver)
 {
     if (driver) {
         if (driver->isAuxiliaryDriver()) {
-            m_auxiliaryDrivers.emplace_back(driver);
+            m_auxiliaryDrivers.push_back(std::move(driver));
         } else {
-            m_driver.reset(driver);
+            m_driver = std::move(driver);
         }
     }
 }
