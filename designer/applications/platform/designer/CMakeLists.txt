@@ -80,6 +80,7 @@ QML_FILES
   Footer.qml
   Main.qml
   MenuModel.qml
+  ScenarioTab.qml
   SettingsMenu.qml
   SettingsPopup.qml
   ShortcutManager.qml

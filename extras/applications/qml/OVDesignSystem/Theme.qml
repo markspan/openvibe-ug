@@ -53,7 +53,8 @@ QtObject {
                 iconHoverSecondary: "#E0EDFF",
                 iconHoverClose: "#FF4747",
                 iconPressed: "#2F80ED",
-                navBarBackground: "#F5F5F5",
+                navBarBackground: "#FFFFFF",
+                tabHoverBackground: "#F5F5F5",
                 boxBackground: "#F8F8F8",
                 tooltipBackground: "#051B38",
                 white: "#FFFFFF",
@@ -82,7 +83,8 @@ QtObject {
                 iconHoverSecondary: "#E0EDFF",
                 iconHoverClose: "#FF4747",
                 iconPressed: "#2F80ED",
-                iconDisabled: "#A0A3A7",
+                navBarBackground: "#FFFFFF",
+                tabHoverBackground: "#F5F5F5",
                 boxBackground: "#F8F8F8",
                 tooltipBackground: "#051B38",
                 white: "#FFFFFF",
@@ -117,6 +119,7 @@ QtObject {
     readonly property color iconHoverClose: colorPalettes.currentPalette.iconHoverClose
     readonly property color iconPressed: colorPalettes.currentPalette.iconPressed
     readonly property color navBarBackground: colorPalettes.currentPalette.navBarBackground
+    readonly property color tabHoverBackground: colorPalettes.currentPalette.tabHoverBackground
     readonly property color boxBackground: colorPalettes.currentPalette.boxBackground
     readonly property color tooltipBackground: colorPalettes.currentPalette.tooltipBackground
     readonly property color white: colorPalettes.currentPalette.white
@@ -376,7 +379,9 @@ QtObject {
     // Navbar
     ////////////////////////////////////////////////////////////////////////////
 
-    readonly property int navBarHeight: 32
+    readonly property int navBarHeight: 28
+    readonly property int tabMinWidth: 90
+    readonly property int tabMaxWidth: 180
 
     ////////////////////////////////////////////////////////////////////////////
     // Menu

@@ -4,17 +4,41 @@
 
 import QtQuick
 import QtQuick.Layouts
-import QtQuick.Controls
 
 import DesignSystem as DS
 import '.'
 
 Rectangle {
-    
-    implicitWidth: parent.width
-    height: DS.Theme.navBarHeight
+
+    // Drives the height of the ApplicationWindow header; width comes from Layout.fillWidth.
+    implicitHeight: DS.Theme.navBarHeight
 
     color: DS.Theme.navBarBackground
+
+    // Bring the current scenario's tab fully into view. Deferred, because selecting a tab changes
+    // its width -- it drops the elide cap to show its whole title -- so the row has to lay out
+    // again before these positions mean anything.
+    function ensureTabVisible() {
+        Qt.callLater(() => {
+            const tab = _tabRepeater.itemAt(OVDesigner.currentScenarioIndex)
+            if (!tab) {
+                return
+            }
+            if (tab.x < _tabStrip.contentX) {
+                _tabStrip.contentX = Math.max(0, tab.x)
+            } else if (tab.x + tab.width > _tabStrip.contentX + _tabStrip.width) {
+                _tabStrip.contentX = Math.min(Math.max(0, _tabStrip.contentWidth - _tabStrip.width),
+                                              tab.x + tab.width - _tabStrip.width)
+            }
+        })
+    }
+
+    Connections {
+        target: OVDesigner
+        // scenariosChanged covers a freshly created scenario, including the Ctrl+N path
+        function onCurrentScenarioIndexChanged() { ensureTabVisible() }
+        function onScenariosChanged() { ensureTabVisible() }
+    }
 
     RowLayout {
         anchors.fill: parent
@@ -34,58 +58,50 @@ Rectangle {
 
         DS.VerticalSpacer {}
         
-        // Scenario "TabBar" section
-        Repeater {
-            model: OVDesigner.scenarios
-            delegate: Rectangle {
-                id: _scenarioTab
-                required property int index
-                required property var modelData
-                
-                Layout.fillHeight: true
-                Layout.minimumWidth: 120
-                Layout.maximumWidth: 300
+        // Scenario "TabBar" section.
+        // Clipped so the tabs are cut at the separator instead of pushing the buttons on the right
+        // off the window, and scrollable with the wheel once they overflow.
+        Flickable {
+            id: _tabStrip
+            Layout.fillWidth: true
+            Layout.fillHeight: true
 
-                color: index === OVDesigner.currentScenarioIndex ? DS.Theme.white :  DS.Theme.navBarBackground
+            clip: true
+            contentWidth: _tabRow.width
+            contentHeight: height // equal to the height disables vertical flicking
+            boundsBehavior: Flickable.StopAtBounds
+            flickableDirection: Flickable.HorizontalFlick
+            interactive: contentWidth > width // don't swallow drags when everything fits
 
-                MouseArea {
-                    anchors.fill: parent
-                    onClicked: {
-                        OVDesigner.currentScenarioIndex = index
-                    }
+            // Closing tabs or widening the window can leave contentX past the end of the content,
+            // which would show a blank strip until the next interaction.
+            onContentWidthChanged: Qt.callLater(returnToBounds)
+            onWidthChanged: Qt.callLater(returnToBounds)
+
+            Row {
+                id: _tabRow
+                height: _tabStrip.height
+
+                Repeater {
+                    id: _tabRepeater
+                    model: OVDesigner.scenarios
+                    delegate: ScenarioTab {}
                 }
-                RowLayout {
-                    anchors.fill: parent
-                    spacing: 0
+            }
 
-                    RowLayout {
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    Layout.rightMargin: DS.Theme.spacingLg
-                    Layout.leftMargin: DS.Theme.spacingLg
-                    spacing: DS.Theme.spacingLg
+            WheelHandler {
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
 
-                    Label {
-                        Layout.fillWidth: true
-                        Layout.alignment: Qt.AlignHCenter
-                        text: modelData.name
-                        font: DS.Theme.textSmallRegular
-                        color: DS.Theme.textPrimary
+                onWheel: event => {
+                    // Qt swaps the axes for Shift+wheel, so preferring x also covers Shift and the
+                    // trackpad's horizontal swipe.
+                    const delta = event.angleDelta.x !== 0 ? event.angleDelta.x : event.angleDelta.y
+                    if (delta === 0) {
+                        return
                     }
-
-                    DS.IconButton {
-                        Layout.alignment: Qt.AlignHCenter
-                        iconName: "close"
-                        iconSize: DS.Theme.iconXs
-                        iconColor: DS.Theme.iconSecondary
-                        iconHoverColor: DS.Theme.iconHoverClose
-
-                        onClicked: {
-                            OVDesigner.removeScenario(index)
-                        }
-                    }
-                    }
-                    DS.VerticalSpacer {}
+                    const max = Math.max(0, _tabStrip.contentWidth - _tabStrip.width)
+                    _tabStrip.contentX = Math.max(0, Math.min(max, _tabStrip.contentX - delta))
+                    event.accepted = true
                 }
             }
         }
@@ -105,70 +121,11 @@ Rectangle {
             }
         }
 
-        Item {
-            id: _dragSpacer
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-
-            MouseArea {
-            anchors.fill: parent
-            onPressed: {
-                window.startSystemMove()
-            }
-            onDoubleClicked: {
-                _resizeIconButton.clicked()
-            }
-            }
-        }
-
         DS.VerticalSpacer {}
 
         SettingsMenu {
             Layout.preferredWidth: DS.Theme.navBarHeight
             Layout.preferredHeight: DS.Theme.navBarHeight
-        }
-
-        DS.IconButton {
-            Layout.preferredWidth: DS.Theme.navBarHeight
-            Layout.preferredHeight: DS.Theme.navBarHeight
-            iconName: "minimize"
-            iconSize: DS.Theme.iconMd
-            iconPressedSize: DS.Theme.iconSm
-
-            onClicked: {
-            window.showMinimized()
-            }
-        }
-
-        DS.IconButton {
-            id: _resizeIconButton
-            Layout.preferredWidth: DS.Theme.navBarHeight
-            Layout.preferredHeight: DS.Theme.navBarHeight
-            iconName: window.visibility === Window.Maximized ? "resize-down" : "resize-up"
-            iconSize: DS.Theme.iconMd
-            iconPressedSize: DS.Theme.iconSm
-
-            onClicked: {
-                if (window.visibility === Window.Maximized) {
-                    window.showNormal()
-                } else {
-                    window.showMaximized()
-                }
-            }
-        }
-
-        DS.IconButton {
-            Layout.preferredWidth: DS.Theme.navBarHeight
-            Layout.preferredHeight: DS.Theme.navBarHeight
-            iconName: "close-main"
-            iconSize: DS.Theme.iconMd
-            iconPressedSize: DS.Theme.iconSm
-            iconHoverColor: DS.Theme.iconHoverClose
-            iconPressedColor: DS.Theme.iconHoverClose // Unchanged from hover
-
-            onClicked: {
-            window.close()
-            }
         }
     }
 }

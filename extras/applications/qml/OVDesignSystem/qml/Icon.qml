@@ -23,7 +23,7 @@ Item {
         id: image
         anchors.fill: parent
         source: root.name ? "../resources/icons/" + root.name + ".svg" : ""
-        sourceSize: Qt.size(size, size)
+        sourceSize: Qt.size(size*Screen.devicePixelRatio, size*Screen.devicePixelRatio)
         fillMode: Image.PreserveAspectFit
         
         // Apply color using MultiEffect
