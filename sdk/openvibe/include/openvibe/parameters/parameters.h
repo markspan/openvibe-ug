@@ -13,5 +13,6 @@
 #include "parameterMultiSelect.h"
 #include "parameterPath.h"
 #include "parameterString.h"
+#include "parameterStringVector.h"
 #include "parameterTraits.h"
 #include "parameterUtils.h"

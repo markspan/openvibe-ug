@@ -190,10 +190,11 @@ void ParameterDouble::deserialize(std::istream& is) {
 
 void ParameterDouble::deserialize(const nlohmann::json& j)
 {
-    ParameterBase<double, ParameterDouble>::deserialize(j);
+    //bounds first: the base sets the value through setValue(), which clamps it to them
     m_min = j.at("min").get<double>();
     m_max = j.at("max").get<double>();
     m_decimals = j.at("decimals").get<int>();
+    ParameterBase<double, ParameterDouble>::deserialize(j);
 }
 
 // Register parameter type with factory

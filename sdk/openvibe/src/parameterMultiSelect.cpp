@@ -156,9 +156,9 @@ void ParameterMultiSelect::deserialize(std::istream& is) {
 }
 
 void ParameterMultiSelect::deserialize(const nlohmann::json& j) {
-    ParameterBase<std::vector<std::string>, ParameterMultiSelect>::deserialize(j);
+    //available values first: the base sets the value through setValue(), which needs to be in the list
     m_availableValues = j.at("availableValues").get<std::vector<std::string>>();
-    m_value = j.at("selectedValues").get<std::vector<std::string>>();
+    ParameterBase<std::vector<std::string>, ParameterMultiSelect>::deserialize(j);
 }
 
 // Register the parameter in the parameter factory

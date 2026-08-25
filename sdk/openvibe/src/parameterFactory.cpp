@@ -31,6 +31,10 @@ ParameterTraits* ParameterFactory::create(const std::string& type) {
     return res;
 }
 
+ParameterTraits* ParameterFactory::create(const char* type) { 
+    return create(std::string(type));
+}
+
 ParameterTraits* ParameterFactory::create(std::istream& is) {
     auto pos = is.tellg();
     std::string type = ParameterTraits::readField("type", is);
@@ -51,7 +55,7 @@ ParameterTraits* ParameterFactory::create(const std::string& type, std::any data
     return param;
 }
 
-ParameterTraits* ParameterFactory::create(nlohmann::json& j) {
+ParameterTraits* ParameterFactory::create(const nlohmann::json& j) {
     ParameterTraits* res = nullptr;
 
     if (!j.contains("type") || !j["type"].is_string()) {

@@ -477,6 +477,10 @@ public:
      *   "description": "<description>",
      *   "value": "<value>"
      * }
+     * @warning A derived class must read its own fields BEFORE delegating here, so the base call
+     * comes last in its override. The value is set through setValue(), which validates it against
+     * those fields: a derived class that delegates first has its stored value clamped or rejected
+     * against constraints that have not been read yet.
      */
     virtual void deserialize(const nlohmann::json& j) override
     {
@@ -488,7 +492,7 @@ public:
         {
             m_name = j.at("name").get<std::string>();
             m_description = j.at("description").get<std::string>();
-            m_value = j.at("value").template get<T>();
+            setValue(j.at("value").template get<T>());
         }
     }
 

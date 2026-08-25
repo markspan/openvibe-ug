@@ -130,8 +130,9 @@ void ParameterListInt::deserialize(std::istream& is)
 
 void ParameterListInt::deserialize(const nlohmann::json& j)
 {
-    ParameterBase<int, ParameterListInt>::deserialize(j);
+    //available values first: the base sets the value through setValue() which needs to be in the list
     m_availableValues = j.at("availableValues").get<std::vector<int>>();
+    ParameterBase<int, ParameterListInt>::deserialize(j);
 }
 
 // Register parameter type with factory

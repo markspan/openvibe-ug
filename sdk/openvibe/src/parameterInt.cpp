@@ -163,9 +163,10 @@ void ParameterInt::deserialize(std::istream& is) {
 
 void ParameterInt::deserialize(const nlohmann::json& j)
 {
-    ParameterBase<int, ParameterInt>::deserialize(j);
+    //bounds first: the base sets the value through setValue(), which clamps it to them
     m_min = j.at("min").get<int>();
     m_max = j.at("max").get<int>();
+    ParameterBase<int, ParameterInt>::deserialize(j);
 }
 
 // Register parameter type with factory

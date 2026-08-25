@@ -33,10 +33,7 @@ class OV_API ParameterStringVector : public ParameterBase<std::vector<std::strin
         std::string toString() const override;
         void fromString(const std::string& value) override;
 
-        void serialize(std::ostream& os) const override;
-        nlohmann::json serialize() const override;
-        void deserialize(std::istream& is) override;
-        void deserialize(const nlohmann::json& j) override;
+
 };
 
 } // namespace Parameters 

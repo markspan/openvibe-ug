@@ -123,9 +123,9 @@ void ParameterPath::deserialize(std::istream& is) {
 
 void ParameterPath::deserialize(const nlohmann::json& j)
 {
-    ParameterBase<std::string, ParameterPath>::deserialize(j);
     m_mode = static_cast<OpenMode>(j.at("mode").get<int>());
     m_filters = j.at("filters").get<std::vector<std::string>>();
+    ParameterBase<std::string, ParameterPath>::deserialize(j);
 }
 
 // Register parameter type with factory
