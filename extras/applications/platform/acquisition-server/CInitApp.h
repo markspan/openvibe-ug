@@ -119,7 +119,6 @@ private:
     // ==================================================================================
     void loadSingleService(const std::string& serviceName, bool isExtra);
     bool unloadServices();
-    void initializeServices();
 
 private:
     std::unique_ptr<CInitAppPrivate> d;

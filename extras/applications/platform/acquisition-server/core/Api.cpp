@@ -16,6 +16,7 @@
 
 #include <AcquisitionManager.h>
 #include <Acquisition.h>
+#include <SessionManager.h>
 
 /**
  * @brief Private implementation class for the Api.
@@ -106,9 +107,9 @@ std::vector<std::string> Api::getAcquisitionNames()
     return Api::instance().d->acqMgr.getAcquisitionNames();
 }
 
-bool Api::createAcquisition(uint64_t id, std::string acquisitionName)
+bool Api::createAcquisition(uint64_t id, std::string acquisitionName, EOwnership ownership)
 {
-    return Api::instance().d->acqMgr.createAcquisition(id, acquisitionName) != nullptr;
+    return Api::instance().d->acqMgr.createAcquisition(id, acquisitionName, ownership) != nullptr;
 }
 
 /**
@@ -124,12 +125,35 @@ bool Api::removeAcquisition(uint64_t id, std::string acquisitionName)
 
 bool Api::SetAcquisitionDriver(uint64_t id, std::string acquisitionName, std::string driverName)
 {
-    return Api::instance().d->acqMgr.addAcquisitionDriver(id, acquisitionName, driverName);
+    auto& sessionManager = OpenViBE::AcquisitionServer::SessionManager::instance();
+
+    // Save current driver settings before switching to a different one
+    sessionManager.rememberDriverState(acquisitionName);
+
+    if (!Api::instance().d->acqMgr.addAcquisitionDriver(id, acquisitionName, driverName)) {
+        return false;
+    }
+
+    // Apply new driver settings if any were saved
+    sessionManager.applyDriverState(acquisitionName);
+    // Save acquisition state
+    sessionManager.saveCurrent(acquisitionName);
+    return true;
 }
 
 bool Api::SetAcquisitionWriter(uint64_t id, std::string acquisitionName, std::string writerName)
 {
-    return Api::instance().d->acqMgr.addAcquisitionWriter(id, acquisitionName, writerName);
+    bool res = false;
+    if (Api::instance().d->acqMgr.addAcquisitionWriter(id, acquisitionName, writerName)) {
+
+        auto& sessionManager = OpenViBE::AcquisitionServer::SessionManager::instance();
+        // Apply new writer settings if any were saved
+        sessionManager.applyWriterState(acquisitionName);
+        // Save acquisition state
+        sessionManager.saveCurrent(acquisitionName);
+        res = true;
+    }
+    return res;
 }
 
 ///////////////////////////////////////////////////////////////////////////////

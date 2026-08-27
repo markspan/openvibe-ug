@@ -48,6 +48,7 @@ list(APPEND APP_SOURCES
     
     # Settings
     settings/JsonSettings.cpp
+    settings/SessionManager.cpp
 
     #main
     ApplicationPathHandling.cpp
@@ -78,10 +79,12 @@ list(APPEND APP_PRIVATE_HEADERS
     # Settings    
     settings/ISettingsProvider.h
     settings/JsonSettings.h
+    settings/SessionManager.h
     
     # main
     CInitApp.h
     ApplicationPathHandling.h
+    LightArgs.hpp
 )
 
 extract_relative_directories( APP_PRIVATE_HEADERS   APP_PRIVATE_INCLUDE_DIRECTORIES)

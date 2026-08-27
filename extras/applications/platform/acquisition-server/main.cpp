@@ -21,15 +21,23 @@
 #include <openvibe/Services/IService.h>
 #include <NetService.h>
 
+#include "Api.h"
+#include "SessionManager.h"
+
 int main(int argc, char *argv[])
 {
-    CInitApp appInit;
+    CInitApp appInit(argc, const_cast<char const**>(argv));
 
     appInit.loadSettings();
     appInit.loadServices();
     appInit.loadDriversAndWriters();
 
-    AcquisitionManager& acqManager = AcquisitionManager::instance();
+    // Shared default acquisition. Will be setup with restored session from SessionManager.
+    // UI user and Network client can both control it, or just the Network client, in headless mode.
+    if (!Api::createAcquisition(LOCAL_CLIENT_ID, DEFAULT_ACQUISITION_NAME, EOwnership::Shared)) {
+        std::cerr << "[Init] Could not create the default acquisition" << std::endl;
+    }
+    OpenViBE::AcquisitionServer::SessionManager::instance().restoreAll(DEFAULT_ACQUISITION_NAME);
 
     if (appInit.isHeadlessMode()) {
         std::cout << "[Init] Running in headless mode, starting acquisition server" << std::endl;
