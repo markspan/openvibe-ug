@@ -7,8 +7,8 @@
  * @file LightArgs.h
  * @brief A lightweight, header-only, zero-copy command line argument parser.
  *
- * This library leverages C++20 features (std::span, std::string_view) to parse
- * argc/argv directly without unnecessary allocations.
+ * This library leverages std::string_view to parse argc/argv directly without
+ * unnecessary allocations.
  *
  * Supports short (-f) and long (--file) flags automatically.
  *
@@ -25,10 +25,9 @@
 #include <string_view>
 #include <string>
 #include <map>
-#include <span>
 #include <optional>
 #include <charconv>
-#include <concepts>
+#include <type_traits>
 #include <iomanip>
 #include <cstdlib> // Pour std::wcstombs
 
@@ -201,8 +200,7 @@ namespace LightArgs
          * @brief Get value.
          * @detail It's by long name or short char.
          */
-        template <typename T>
-            requires std::integral<T> || std::floating_point<T>
+        template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
         [[nodiscard]] std::optional<T> Get(std::string_view name) const
         {
             std::optional<T> result = std::nullopt;
