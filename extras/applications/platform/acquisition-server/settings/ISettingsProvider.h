@@ -3,11 +3,9 @@
 // SPDX - License - Identifier: AGPL - 3.0 - only
 // SPDX-FileCopyrightText: Inria <florent.leray@inria.fr>
 
-#include <list>
-#include <map>
 #include <string>
 
-#include <openvibe/parameters/parameters.h>
+#include <nlohmann/json.hpp>
 
 /**
  * @brief Interface for settings management.
@@ -54,11 +52,27 @@ public:
     virtual void setBasePath(const std::string& settingPath) = 0;
 
     /**
-     * @brief Retrieves the parameters for a specific service.
+     * @brief Retrieves a whole top level section of the settings.
      *
-     * @return A map of service name to Parameter objects.
+     * The json document model is used as the exchange format between the provider and its callers,
+     * whatever the provider writes to its storage medium, because it is the one the parameters
+     * themselves serialize to (see OpenViBE::Parameters::ParameterTraits::serialize).
+     *
+     * @param name The key of the section.
+     * @return The section, or a null json object when the settings hold no such key.
      */
-    virtual std::map<std::string, std::list<OpenViBE::Parameters::ParameterTraits*>> getServiceParameters() = 0;
+    virtual nlohmann::json getSection(const std::string& name) const = 0;
+
+    /**
+     * @brief Sets or replaces a whole top level section of the settings.
+     *
+     * Other sections are left untouched, so a section this application does not know about
+     * survives a save.
+     *
+     * @param name The key of the section.
+     * @param section The section contents.
+     */
+    virtual void setSection(const std::string& name, const nlohmann::json& section) = 0;
 
     /**
      * @brief Indicates whether the application should run in headless mode.

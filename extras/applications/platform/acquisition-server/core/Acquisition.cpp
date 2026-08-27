@@ -98,13 +98,14 @@ Acquisition::~Acquisition()
  * builder that created it (see DriverDeleter) rather than with a plain delete.
  * @param driver Owning pointer to the driver instance to be used for data acquisition.
  */
-void Acquisition::addDriver(DriverPtr driver)
+void Acquisition::addDriver(DriverPtr driver, const std::string& name)
 {
     if (driver) {
         if (driver->isAuxiliaryDriver()) {
             m_auxiliaryDrivers.push_back(std::move(driver));
         } else {
-            m_driver = std::move(driver);
+            m_driver     = std::move(driver);
+            m_driverName = name;
         }
     }
 }
@@ -116,6 +117,7 @@ void Acquisition::removeDriver(AbstractDriver* driver)
 {
 	if (m_driver.get() == driver) {
 		m_driver.reset();
+		m_driverName.clear();
 	}
 	else {
 		auto it = std::find_if(m_auxiliaryDrivers.begin(), m_auxiliaryDrivers.end(), [driver](const auto& d) { return d.get() == driver; });

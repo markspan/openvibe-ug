@@ -29,6 +29,7 @@
 
 #include <cstdint>
 #include <list>
+#include <optional>
 
 class DriftCalculator; ///< Forward declaration of the DriftCalculator class.
 
@@ -49,7 +50,7 @@ public:
     ~Acquisition();
 
 	// Driver management
-    void addDriver(DriverPtr driver); ///< Sets the driver for data acquisition, taking ownership of it.
+    void addDriver(DriverPtr driver, const std::string& name = ""); ///< Sets the driver for data acquisition, taking ownership of it.
 	void removeDriver(AbstractDriver* driver); ///< Removes the current driver.
 	std::vector<AbstractDriver*> getDrivers() const; ///< Provides all driver instances used by this acquisition.
 
@@ -62,6 +63,16 @@ public:
     void addClient(uint64_t clientId);
     void removeClient(uint64_t clientId) { m_clientsList.remove(clientId); } ///< Removes a client from the clients list.
     std::list<uint64_t> getClients() const { return m_clientsList; } ///< Returns the asked clients list.
+
+    // Ownership
+    /// Sets which client may control this acquisition. An unset owner leaves it open to every client.
+    void setOwner(std::optional<uint64_t> owner) { m_owner = owner; }
+    /// True when no client owns this acquisition, so any of them may control it.
+    bool isShared() const { return !m_owner.has_value(); }
+    /// True when this acquisition belongs to the given client.
+    bool isOwnedBy(const uint64_t clientId) const { return m_owner.has_value() && *m_owner == clientId; }
+    /// True when the given client may change or drive this acquisition.
+    bool isControllableBy(const uint64_t clientId) const { return isShared() || isOwnedBy(clientId); }
 
 	// Acquisition control
     void initAcquisition(); ///< Initializes the acquisition process with the specified parameters.
@@ -90,7 +101,10 @@ public:
     void setNbCycles(uint32_t cycles);
 
     OpenViBE::Parameters::ParameterListInt* getChunkSampleCount() { return &m_chunkSampleCount; }
-    OpenViBE::Parameters::Parameters getDriverParameters() const { return m_driver->getParameters(); }
+    OpenViBE::Parameters::Parameters getDriverParameters() const { return !m_driver ? OpenViBE::Parameters::Parameters{} : m_driver->getParameters(); }
+
+    /// Name of the primary driver, as registered with the AcquisitionManager. Empty when unset.
+    const std::string& getDriverName() const { return m_driverName; }
 
     std::vector<std::string> getDriverChannelNames() const { return !m_driver ? std::vector<std::string>{} : m_driver->channelNames().value(); }
     void setDriverChannelNames(const std::vector<std::string>& names) { if (m_driver) m_driver->channelNames().setValue(names); }
@@ -140,8 +154,10 @@ private:
     std::unique_ptr<DriftCalculator>     m_driftCalculator; ///< Unique pointer to the object responsible for calculating drift.
 
     DriverPtr m_driver; ///< Owning pointer to the abstract driver instance, released through its builder.
+    std::string m_driverName; ///< Registered name of the primary driver, which the driver itself does not carry.
     std::vector<DriverPtr> m_auxiliaryDrivers; ///< Owning pointers to the auxiliary abstract drivers.
     std::vector<std::unique_ptr<AbstractWriter>> m_writers; ///< Vector of unique pointers to abstract writers.
 
     std::list<uint64_t> m_clientsList; ///< List of client identifiers.
+    std::optional<uint64_t> m_owner; ///< Client allowed to control this acquisition, unset when shared.
 };

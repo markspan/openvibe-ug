@@ -25,6 +25,25 @@ class Acquisition; ///< Forward declaration of the Acquisition class.
 
 class AcquisitionManagerPrivate; ///< Forward declaration of the AcquisitionManagerPrivate class.
 
+/// Name of the acquisition the application sets up at startup and both front ends work with.
+inline constexpr const char* DEFAULT_ACQUISITION_NAME = "Default Acquisition";
+/// Client identifier the application itself uses, as opposed to a remote one.
+inline constexpr uint64_t LOCAL_CLIENT_ID = 0;
+
+/**
+ * @brief Who is allowed to control an acquisition.
+ *
+ * A client that creates an acquisition for itself owns it: nobody else gets to change its driver or
+ * start and stop it while it is streaming from it. The acquisition the application sets up at
+ * startup is shared instead, because it stands for this machine's acquisition setup and belongs to
+ * whoever is driving the application, through the user interface or over the network alike.
+ */
+enum class EOwnership
+{
+    Exclusive, ///< only the creating client may control it
+    Shared     ///< any client may control it
+};
+
 /**
  * @brief Manages the acquisition of data from hardware drivers and writers.
  *
@@ -58,7 +77,7 @@ public:
     ///////////////////////////////////////////////////////////////////////////////
     // Acquisition Management
     //////////////////////////////////////////////////////////////////////////////
-    Acquisition* createAcquisition(uint64_t id, std::string name = ""); ///< Creates an instance of the Acquisition for data acquisition.
+    Acquisition* createAcquisition(uint64_t id, std::string name = "", EOwnership ownership = EOwnership::Exclusive); ///< Creates an instance of the Acquisition for data acquisition.
     bool removeAcquisition(uint64_t id, std::string name); ///< Removes the specified Acquisition by name
     std::vector<std::string> getAcquisitionNames() const; ///< Returns a list of registered acquisition names.
     Acquisition* getAcquisition(const std::string& acquisitionName); ///< Returns the Acquisition instance for the specified name.
@@ -74,10 +93,7 @@ public:
     bool removeClientFromAcquisition(uint64_t clientId, std::string name); ///< Removes a client from the specified acquisition.
     std::list<uint64_t> getClientsFromAcquisition(std::string name); ///< Retrieves the list of clients associated with the specified acquisition.
 
-    /* @TODO: add these and move some logic to API level
-    bool isClientOwner(uint64_t clientId, std::string acquisitionName); ///< Checks if the specified client is the owner of the specified acquisition.
-    bool isClientOwner(uint64_t clientId, Acquisition* acquisition); ///< Checks if the specified client is the owner of the specified acquisition.
-    */
+
 
 private:
     DriverPtr createDriver(const std::string& driverName); ///< Creates an instance of the specified driver, owned through its builder.

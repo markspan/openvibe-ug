@@ -5,6 +5,7 @@
 
 #include "AcquisitionController.h"
 
+#include <QCoreApplication>
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QTimer>
@@ -23,9 +24,11 @@
 #include <parameterStringVectorObject.h>
 
 #include "AbstractDriver.h"
+#include "AbstractWriter.h"
 #include "AcquisitionManager.h"
 #include "Acquisition.h"
 #include "NetService.h"
+#include "SessionManager.h"
 #include "TcpTaggingService.h"
 
 namespace OpenViBE {
@@ -39,10 +42,12 @@ struct AcquisitionControllerPrivate {
     void launchThread();
     QJSValue toJSParams(const OpenViBE::Parameters::ParameterObjects& params);
 
+    void wrapDriverChannelNames();
+
     AcquisitionManager& m_acqManager = AcquisitionManager::instance();
     Services::NetService & m_netSrv = OpenViBE::Services::NetService::instance();
     Services::TcpTaggingService & m_tcpTaggingSrv = OpenViBE::Services::TcpTaggingService::instance();
-    std::string m_acquisitionName = "Default Acquisition";
+    std::string m_acquisitionName = DEFAULT_ACQUISITION_NAME;
     Acquisition* m_acquisition = nullptr;
     std::vector<AbstractDriver*> m_drivers;
     const Kernel::IKernelContext& m_kernelCtx;
@@ -93,41 +98,31 @@ AcquisitionControllerPrivate::AcquisitionControllerPrivate(const Kernel::IKernel
      m_selectOnlyNamedChannels("Select Only Named Channels", "Select only named channels", false),
      m_NaNReplacement("NaN value replacement", "How to replace NaN values", {"Disabled", "Zero", "LastCorrectValue"}, "Disabled")
 {
-    m_acquisition = m_acqManager.createAcquisition(0, m_acquisitionName);
+    //Get default acquisition
+    m_acquisition = m_acqManager.getAcquisition(m_acquisitionName);
     for (auto& enabledWriter : m_acqManager.getAcquisitionWritersEnableParam(m_acquisitionName)) {
         enabledWriter.second.connect([this](std::any value) {
+            SessionManager::instance().applyWriterState(m_acquisitionName);
             emit this->q->configParametersChanged();
+            //Saving config change
+            SessionManager::instance().saveCurrent(m_acquisitionName);
         });
     }
+    
+    // Set UI objects with config values
+    wrapDriverChannelNames();
+
     m_sampleCountPerBlock = new OpenViBE::Parameters::ParameterListIntObject(m_acquisition->getChunkSampleCount());
 
     m_connectionPort = new OpenViBE::Parameters::ParameterIntObject(m_netSrv.getPortParameter());
     m_tcpTaggingPort = new OpenViBE::Parameters::ParameterIntObject(m_tcpTaggingSrv.getPortParameter());
 
+    const std::string acquisitionName = m_acquisitionName;
+    const auto saveOnChange = [acquisitionName](std::any) { SessionManager::instance().saveCurrent(acquisitionName); };
+    m_acquisition->getChunkSampleCount()->connect(saveOnChange);
+    m_netSrv.getPortParameter()->connect(saveOnChange);
+    m_tcpTaggingSrv.getPortParameter()->connect(saveOnChange);
 
-    // Config Parameters
-    // -------------------------------------------------------------------------
-    // todo: get config params from acquisition
-
-
-    // Initialize PLugins and get their parameters
-    // -------------------------------------------------------------------------
-
-    // Plugins that just send out data must be the last in list (since other plugins may modify the data)
-    //m_acquisitionServer->m_Plugins.push_back(new Plugins::CPluginExternalStimulations(m_kernelCtx));
-    //m_acquisitionServer->m_Plugins.push_back(new Plugins::CPluginTCPTagging(m_kernelCtx));
-
-    //m_acquisitionServer->m_Plugins.push_back(new Plugins::CPluginLSLOutput(m_kernelCtx));
-    //m_acquisitionServer->m_Plugins.push_back(new Plugins::CPluginFiddler(m_kernelCtx));
-
-
-    /*std::vector<IAcquisitionServerPlugin*> plugins = m_acquisitionServer->getPlugins();
-
-    for (auto itp = plugins.begin(); itp != plugins.end(); ++itp) {
-        for(auto param: (*itp)->parameters()) {
-            m_configParams.push_back(OpenViBE::Parameters::ParameterObject::fromParameter(param));
-        }
-    }*/
 }
 
 AcquisitionControllerPrivate::~AcquisitionControllerPrivate()
@@ -153,6 +148,19 @@ AcquisitionControllerPrivate::~AcquisitionControllerPrivate()
     }
 }
 
+
+void AcquisitionControllerPrivate::wrapDriverChannelNames()
+{
+    // The wrapper points into the driver, so it only lives as long as the driver it was built for.
+    m_channelNamesObj.reset();
+
+    auto* param = m_acquisition->getDriverChannelNamesParam();
+    if (param) {
+        m_channelNamesObj.reset(new OpenViBE::Parameters::parameterStringVectorObject(param));
+        QObject::connect(m_channelNamesObj.get(), &OpenViBE::Parameters::parameterStringVectorObject::valueChanged,
+                         q, &AcquisitionController::channelNamesChanged);
+    }
+}
 
 void AcquisitionControllerPrivate::launchThread()
 {
@@ -246,6 +254,10 @@ AcquisitionController::AcquisitionController() {
                 //create qml log controller
                 d->m_qmlLogListener = new OVQmlLogListener();
                 kernelCtx->getLogManager().addListener(d->m_qmlLogListener);
+
+                //the window may be closed in ways that do not go through the user interface, so
+                //hook the one signal every exit route passes through
+                connect(qApp, &QCoreApplication::aboutToQuit, this, &AcquisitionController::saveSession);
 
                 emit driverChanged();
             }
@@ -357,7 +369,7 @@ QJSValue AcquisitionController::configParameters() {
 
     auto& enabledWriters = d->m_acqManager.getAcquisitionWritersEnableParam(d->m_acquisitionName);
     std::vector<AbstractWriter*> writers = d->m_acquisition->getWriters();
-    QJSValue result = d->m_engine->newArray((quint32)writers.size());
+    QJSValue result = d->m_engine->newArray((quint32)enabledWriters.size());
 
     size_t i = 0;
     for (auto& enabledWriter : enabledWriters) {
@@ -445,6 +457,7 @@ void AcquisitionController::setChannelNames(const QStringList& channelNames)
     for (const auto& name : channelNames)
         names.push_back(name.toStdString());
     d->m_acquisition->setDriverChannelNames(names);
+    saveSession();
 }
 
 void AcquisitionController::setChannelName(int index, const QString& name)
@@ -475,28 +488,45 @@ QQmlListProperty<ImpedanceItem> AcquisitionController::impedances()
     return QQmlListProperty<ImpedanceItem>(this, &d->m_impedancesItems);
 }
 
+QString AcquisitionController::currentDriver() const
+{
+    return QString::fromStdString(d->m_acquisition->getDriverName());
+}
+
+void AcquisitionController::saveSession() {
+    SessionManager::instance().saveCurrent(d->m_acquisitionName);
+}
+
 void AcquisitionController::setCurrentDriver(const QString& driverName)
 {
+    if (driverName.isEmpty() || driverName == currentDriver()) {
+        return;   // the combo box also reports the selection it makes when the model is first set
+    }
+
     d->getLogManager() << Kernel::LogLevel_Info << "Setting current driver: " << driverName.toStdString() << ".\n";
+
+    // Save current driver settings before switching to a different one
+    SessionManager::instance().rememberDriverState(d->m_acquisitionName);
 
     // Delete wrapper before the old driver (and its parameters) are destroyed.
     d->m_channelNamesObj.reset();
 
-    if (!d->m_acqManager.addAcquisitionDriver(0, d->m_acquisitionName, driverName.toStdString())) {
+    if (!d->m_acqManager.addAcquisitionDriver(LOCAL_CLIENT_ID, d->m_acquisitionName, driverName.toStdString())) {
         d->getLogManager() << Kernel::LogLevel_Error << "Failed to set driver: " << driverName.toStdString() << ".\n";
     }
 
-    // Wrap the new driver's channel-names parameter and wire its Qt valueChanged signal.
-    auto* param = d->m_acquisition->getDriverChannelNamesParam();
-    if (param) {
-        d->m_channelNamesObj.reset(new OpenViBE::Parameters::parameterStringVectorObject(param));
-        connect(d->m_channelNamesObj.get(), &OpenViBE::Parameters::parameterStringVectorObject::valueChanged,
-                this, &AcquisitionController::channelNamesChanged);
-    }
+    // Apply new driver settings if any were saved
+    SessionManager::instance().applyDriverState(d->m_acquisitionName);
 
+    d->wrapDriverChannelNames();
+
+    emit driverChanged();
     emit driverParametersChanged();
     emit channelNamesChanged();
     emit supportsImpedanceCheckChanged();
+
+    // Save acquisition state
+    saveSession();
 }
 
 double AcquisitionController::instantDrift()
@@ -552,7 +582,7 @@ bool AcquisitionController::startAcquisition()
     });
     d->m_driftTimer->start();
 
-    if (d->m_acqManager.startAcquisition(0, d->m_acquisitionName)) {
+    if (d->m_acqManager.startAcquisition(LOCAL_CLIENT_ID, d->m_acquisitionName)) {
         emit isAcquiringChanged();
         emit isCheckingImpedanceChanged();
         return true;
@@ -579,7 +609,10 @@ bool AcquisitionController::stopAcquisition()
     d->m_globalDrift = 0.0;
     emit driftChanged();
 
-    if (d->m_acqManager.stopAcquisition(0, d->m_acquisitionName)) {
+    if (d->m_acqManager.stopAcquisition(LOCAL_CLIENT_ID, d->m_acquisitionName)) {
+        //the end of a recording is the natural checkpoint: the settings that produced it are worth
+        //keeping even if the application does not get to exit cleanly afterwards
+        saveSession();
         emit isAcquiringChanged();
         emit isCheckingImpedanceChanged();
         return true;

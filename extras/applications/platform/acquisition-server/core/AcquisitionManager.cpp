@@ -226,11 +226,10 @@ bool AcquisitionManager::addAcquisitionDriver(uint64_t id, std::string name, std
     std::lock_guard<std::mutex> lock(m_pImpl->acquisitionsMutex);
     auto acquisitionIt = m_pImpl->acquisitions.find(name);
     if (acquisitionIt != m_pImpl->acquisitions.end()) {
-        auto clients = acquisitionIt->second->getClients();
-        if (!clients.empty() && *clients.begin() == id) {
+        if (acquisitionIt->second->isControllableBy(id)) {
             auto driver = createDriver(driverName);
             if (driver) {
-                acquisitionIt->second->addDriver(std::move(driver));
+                acquisitionIt->second->addDriver(std::move(driver), driverName);
                 res = true;
             }
         }
@@ -245,8 +244,7 @@ bool AcquisitionManager::addAcquisitionWriter(uint64_t id, std::string name, std
     std::lock_guard<std::mutex> lock(m_pImpl->acquisitionsMutex);
     auto acquisitionIt = m_pImpl->acquisitions.find(name);
     if (acquisitionIt != m_pImpl->acquisitions.end()) {
-        auto clients = acquisitionIt->second->getClients();
-        if (!clients.empty() && *clients.begin() == id) {
+        if (acquisitionIt->second->isControllableBy(id)) {
             auto writer = createWriter(writerName);
             if (writer) {
                 acquisitionIt->second->addWriter(writer);
@@ -272,8 +270,7 @@ bool AcquisitionManager::startAcquisition(uint64_t id, std::string name) {
     std::lock_guard<std::mutex> lock(m_pImpl->acquisitionsMutex);
     auto acquisitionIt = m_pImpl->acquisitions.find(name);
     if (acquisitionIt != m_pImpl->acquisitions.end()) {
-        auto clients = acquisitionIt->second->getClients();
-        if (!clients.empty() && *clients.begin() == id) {
+        if (acquisitionIt->second->isControllableBy(id)) {
             if (!acquisitionIt->second->isRunning()) {
                 acquisitionIt->second->start();
             }
@@ -299,8 +296,7 @@ bool AcquisitionManager::stopAcquisition(uint64_t id, std::string name) {
     std::lock_guard<std::mutex> lock(m_pImpl->acquisitionsMutex);
     auto acquisitionIt = m_pImpl->acquisitions.find(name);
     if (acquisitionIt != m_pImpl->acquisitions.end()) {
-        auto clients = acquisitionIt->second->getClients();
-        if (!clients.empty() && *clients.begin() == id) {
+        if (acquisitionIt->second->isControllableBy(id)) {
             if (acquisitionIt->second->isRunning()) {
                 acquisitionIt->second->stop();
             }
@@ -461,7 +457,7 @@ AbstractWriter* AcquisitionManager::createWriter(const std::string& writerName)
  *
  * @return A pointer to the newly created Acquisition instance.
  */
-Acquisition* AcquisitionManager::createAcquisition(uint64_t id, std::string name)
+Acquisition* AcquisitionManager::createAcquisition(uint64_t id, std::string name, EOwnership ownership)
 {
     Acquisition* acquisition = nullptr;
 
@@ -472,11 +468,17 @@ Acquisition* AcquisitionManager::createAcquisition(uint64_t id, std::string name
         acquisition = new Acquisition(); ///< Create a new instance of the Acquisition.
             
         if (acquisition) {
-            acquisition->addDriver(createDriver(m_pImpl->driverBuilders.begin()->first));
+            if (ownership == EOwnership::Exclusive) {
+                acquisition->setOwner(id);
+            }
+            if (!m_pImpl->driverBuilders.empty()) {
+                const std::string& defaultDriverName = m_pImpl->driverBuilders.begin()->first;
+                acquisition->addDriver(createDriver(defaultDriverName), defaultDriverName);
+            }
             // All auxiliary drivers run alongside the primary driver by default;
             // there is currently no UI/API path to select them individually.
             for (const auto& [auxDriverName, auxDriverBuilder] : m_pImpl->auxDriverBuilders) {
-                acquisition->addDriver(createDriver(auxDriverName));
+                acquisition->addDriver(createDriver(auxDriverName), auxDriverName);
             }
             // All writers are added and can be enabled/disabled in UI (or via their params)
             for (auto it = m_pImpl->writerBuilders.begin(); it != m_pImpl->writerBuilders.end(); ++it) {
@@ -525,6 +527,8 @@ Acquisition* AcquisitionManager::createAcquisition(uint64_t id, std::string name
  * @param acquisition Pointer to the Acquisition instance to be removed.
  * @return true if the acquisition was successfully removed, false otherwise.
  */
+
+
 bool AcquisitionManager::removeAcquisition(uint64_t id, std::string name)
 {
     bool bRes = false; ///< Initialize the result variable to false.
@@ -532,15 +536,24 @@ bool AcquisitionManager::removeAcquisition(uint64_t id, std::string name)
     if (m_pImpl->acquisitions.find(name) != m_pImpl->acquisitions.end())
     {
         Acquisition* acquisition = m_pImpl->acquisitions[name];
-        if (acquisition) {
-            if (acquisition->isRunning())
-            {
-                acquisition->stop(); ///< Stop the acquisition if it is running.
-            }
-            delete acquisition; ///< Delete the acquisition instance.
+        //an acquisition somebody else owns is not this client's to delete
+        if (acquisition && !acquisition->isControllableBy(id))
+        {
+            std::cout << "Refusing to remove Acquisition instance owned by another client." << std::endl;
         }
-        m_pImpl->acquisitions.erase(name);
-        bRes = true; ///< Set true to indicate success.
+        else
+        {
+            if (acquisition)
+            {
+                if (acquisition->isRunning())
+                {
+                    acquisition->stop(); ///< Stop the acquisition if it is running.
+                }
+                delete acquisition; ///< Delete the acquisition instance.
+            }
+            m_pImpl->acquisitions.erase(name);
+            bRes = true; ///< Set true to indicate success.
+        }
     }
     else
     {

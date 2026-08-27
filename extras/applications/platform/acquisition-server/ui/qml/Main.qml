@@ -151,7 +151,14 @@ ApplicationWindow {
             model: controller.drivers
             centerText: true
 
+            //show the driver the controller actually holds, which is the one restored from the
+            //previous run, rather than defaulting to the first of the list
+            currentIndex: Math.max(0, controller.drivers.indexOf(controller.currentDriver))
+
             onCurrentTextChanged: {
+              if (currentText === controller.currentDriver) {
+                return
+              }
               controller.setCurrentDriver(currentText)
               _driver_param.updateParametersModel()
               _device_param.updateParametersModel()

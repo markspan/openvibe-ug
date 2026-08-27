@@ -20,6 +20,8 @@
 #include <string>
 #include <vector>
 
+#include "AcquisitionManager.h" ///< For EOwnership.
+
 class Acquisition;
 class ApiPrivate;
 
@@ -64,7 +66,7 @@ public:
     * @{
     */
     static std::vector<std::string> getAcquisitionNames(); ///< Returns a list of registered acquisition names.
-    static bool createAcquisition(uint64_t id, std::string contextName = ""); ///< Creates an instance of the Acquisition for data acquisition.
+    static bool createAcquisition(uint64_t id, std::string contextName = "", EOwnership ownership = EOwnership::Exclusive); ///< Creates an instance of the Acquisition for data acquisition.
     static bool removeAcquisition(uint64_t id, std::string acquisitionName); ///< Removes the specified Acquisition instance.
     //static Acquisition* getAcquisition(uint64_t id, std::string acquisitionName); ///< Returns the current Acquisition being used by the acquisition manager.
     static bool SetAcquisitionDriver(uint64_t id, std::string acquisitionName, std::string driverName); ///< Sets the driver for the specified acquisition.

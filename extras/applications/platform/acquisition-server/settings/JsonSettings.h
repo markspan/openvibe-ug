@@ -17,6 +17,9 @@
 class JsonSettings : public ISettingsProvider
 {
 public:
+    /// Name of the file the settings are stored in, inside the directory given to setBasePath().
+    static constexpr const char* DEFAULT_FILE_NAME = "settings.json";
+
     /**
      * @brief Default constructor.
      */
@@ -97,12 +100,29 @@ public:
         m_jsonData[key] = value;
     }
 
+
+
     /**
-     * @brief Retrieves the parameters for a specific service.
+     * @brief Retrieves a whole top level section of the settings.
      *
-     * @return A map of service name to Parameter objects.
+     * @param name The key of the section.
+     * @return The section, or a null json object when the settings hold no such key.
      */
-    std::map<std::string, std::list<OpenViBE::Parameters::ParameterTraits*>> getServiceParameters() override;
+    nlohmann::json getSection(const std::string& name) const override
+    {
+        return m_jsonData.contains(name) ? m_jsonData[name] : nlohmann::json();
+    }
+
+    /**
+     * @brief Sets or replaces a whole top level section of the settings.
+     *
+     * The other sections are left untouched, so a section this application does not know about
+     * survives a save.
+     *
+     * @param name The key of the section.
+     * @param section The section contents.
+     */
+    void setSection(const std::string& name, const nlohmann::json& section) override { m_jsonData[name] = section; }
 
     /**
      * @brief Indicates whether the application should run in headless mode.
@@ -123,6 +143,7 @@ private:
     std::filesystem::path getFilePath() const;
 
     std::string m_appName;         ///< Name of the application for folder creation.
+    std::string m_basePath;        ///< Directory holding the file, empty to derive it from the OS.
     std::string m_filename;        ///< Name of the json file (default: settings.json).
     nlohmann::json m_jsonData;     ///< In-memory representation of the JSON data.
 

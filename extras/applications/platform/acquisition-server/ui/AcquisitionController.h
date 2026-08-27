@@ -23,6 +23,7 @@ class AcquisitionController : public QObject
     Q_PROPERTY(bool isCheckingImpedance READ isCheckingImpedance NOTIFY isCheckingImpedanceChanged)
     Q_PROPERTY(bool supportsImpedanceCheck READ supportsImpedanceCheck NOTIFY supportsImpedanceCheckChanged)
     Q_PROPERTY(QStringList drivers READ getDrivers NOTIFY driverChanged)
+    Q_PROPERTY(QString currentDriver READ currentDriver NOTIFY driverChanged)
     Q_PROPERTY(QJSValue configParameters READ configParameters NOTIFY configParametersChanged)
     Q_PROPERTY(QJSValue driverParameters READ driverParameters NOTIFY driverParametersChanged)
     Q_PROPERTY(QJSValue deviceParameters READ deviceParameters NOTIFY deviceParametersChanged)
@@ -43,6 +44,7 @@ public:
     bool isCheckingImpedance();
     bool supportsImpedanceCheck();
     QStringList getDrivers();
+    QString currentDriver() const;
     QQmlListProperty<ImpedanceItem> impedances();
     QJSValue configParameters();
     QJSValue deviceParameters();
@@ -57,6 +59,10 @@ public:
     QObject* getSampleCountPerBlock() const;
 
     Q_INVOKABLE void setCurrentDriver(const QString& driverName);
+
+    /// Saves the driver, its settings, the chunk size, the ports and the writers, so that they are
+    /// restored on the next run. Connected to the application's aboutToQuit signal.
+    void saveSession();
     Q_INVOKABLE bool connectDevice();
     Q_INVOKABLE bool disconnectDevice();
     Q_INVOKABLE bool startAcquisition();

@@ -13,6 +13,8 @@
 #include <openvibe/Services/IService.h>
 #include <ISettingsProvider.h>
 #include <JsonSettings.h>
+#include <LightArgs.hpp>
+#include <SessionManager.h>
 #include <AbstractDriverBuilder.h>
 #include <AbstractWriterBuilder.h>
 #include <system/WindowsUtilities.h>
@@ -30,6 +32,10 @@ public:
     // Status
     bool headlessMode = false;
     bool isPortableMode = false;
+    bool manageSession = true;
+
+    // Settings
+    std::unique_ptr<ISettingsProvider> settings;
 
     // Configuration & Paths
     std::string appName;
@@ -41,7 +47,6 @@ public:
 
     // Services Data
     std::list<std::string> services;
-    std::map<std::string, std::list<OpenViBE::Parameters::ParameterTraits *>> servicesConfiguration;
     std::map<std::string, OpenViBE::Services::IService*> loadedServices;
 
     // Plugin Handles & Failure Tracking
@@ -83,7 +88,12 @@ CInitApp::CInitApp() : d(std::make_unique<CInitAppPrivate>())
 
 CInitApp::CInitApp(int argc, char const** argv) : d(std::make_unique<CInitAppPrivate>())
 {
-    //TODO: Process command line arguments if needed
+    LightArgs::Parser parser(argc, const_cast<char**>(argv));
+    parser.RegisterFlag("no-session-management", "Do not restore the previous session, and leave the stored one untouched");
+
+    static_cast<void>(parser.Parse());
+    d->manageSession = !parser.HasFlag("no-session-management");
+
     resolvePaths();
 }
 
@@ -152,7 +162,7 @@ std::string CInitApp::getAppName() const
 //////////////////////////////////////////////////////////////////////////////////////////////////
 std::string CInitApp::getSettingsFileName() const
 {
-    return (fs::path(d->appDataPath) / "AcquisitionServerAppSettings.json").string();
+    return (fs::path(d->appDataPath) / JsonSettings::DEFAULT_FILE_NAME).string();
 }
 
 std::string CInitApp::getConfigurationPath() const
@@ -189,19 +199,16 @@ std::string CInitApp::getServiceFolderPath() const
 */
 bool CInitApp::loadSettings()
 {
-    bool bRes = false;
+    d->settings = std::make_unique<JsonSettings>();
+    d->settings->setAppName(d->appName);
+    d->settings->setBasePath(d->appDataPath);
 
-    ISettingsProvider* setting = new JsonSettings();
-    setting->setAppName(d->appName);
-    setting->setBasePath(d->servicesPath);
+    const bool bRes = d->settings->load();
 
-    bRes = setting->load();
+    d->headlessMode = d->settings->headlessMode();
 
-    d->servicesConfiguration = setting->getServiceParameters();
-    d->headlessMode = setting->headlessMode();
-    
-    delete setting;
-    
+    OpenViBE::AcquisitionServer::SessionManager::instance().setProvider(d->settings.get(), d->manageSession);
+
     return bRes;
 }
 
@@ -232,7 +239,9 @@ bool CInitApp::loadServices()
         }
     }
 
-    initializeServices();
+    // The session manager owns both directions for the services. It needs the map here, where it is
+    // complete; applying the stored settings is restoreAll()'s job, once everything else is loaded.
+    OpenViBE::AcquisitionServer::SessionManager::instance().setServices(d->loadedServices);
 
     CNetAcqControlAPI::getInstance();
 
@@ -484,30 +493,4 @@ bool CInitApp::unloadServices()
     }
     
     return bRes;
-}
-
-/**
-* @brief Initializes loaded services by updating their parameters from the configuration.
-* This function iterates through the loaded services and updates their parameters.
-* If a service has stored parameters in the configuration, it updates the service's parameters accordingly.
-*/
-void CInitApp::initializeServices()
-{
-    for (auto& service : d->loadedServices)
-    {
-        if (d->servicesConfiguration.find(service.first) != d->servicesConfiguration.end())
-        {
-            for (auto& serviceParam : service.second->parameters())
-            {
-                for (auto& storedParam : d->servicesConfiguration[service.first])
-                {
-                    if (storedParam->name() == serviceParam->name())
-                    {
-                        serviceParam->setValue(storedParam->valueAsAny());
-                        break;
-                    }
-                }
-            }
-        }
-    }
 }

@@ -10,6 +10,10 @@ file(GLOB TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*Test.cpp)
 # Only add a class here once its dependencies are confirmed test-binary-safe (no Qt/NetService pulled in).
 set(TESTED_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../core/DriftCalculator.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../core/Acquisition.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../core/CircularBuffer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../core/SampleBufferHandler.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../core/Thread.cpp
 )
 
 add_executable(${PROJECT_NAME} ${TEST_SOURCES} ${TESTED_SOURCES})
@@ -17,6 +21,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/.
 set_property(TARGET ${PROJECT_NAME} PROPERTY FOLDER ${TESTS_FOLDER})
 target_link_libraries(${PROJECT_NAME} PRIVATE
     openvibe
+    openvibe-acquisition-abstractions
     GTest::GTest
     GTest::Main
 )
