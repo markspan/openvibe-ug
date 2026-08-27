@@ -66,7 +66,7 @@ if(WIN32)
 	# MANIFEST_DPI_AWARE it is bitmap-scaled and blurry on a scaled display.
 	# Checked here because CPack does not validate the path: a missing icon silently yields the stock
 	# one, or a makensis failure minutes into packaging.
-	set(OV_INSTALLER_ICON "${CMAKE_SOURCE_DIR}/designer/applications/platform/designer/share/ov-icon.ico")
+	set(OV_INSTALLER_ICON "${OV_ICON_FILE}")
 	if(NOT EXISTS "${OV_INSTALLER_ICON}")
 		message(FATAL_ERROR "Installer icon not found: ${OV_INSTALLER_ICON}")
 	endif()

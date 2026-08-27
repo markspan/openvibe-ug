@@ -20,8 +20,6 @@ add_definitions("-DOV_VERSION_MAJOR=\"${PROJECT_VERSION_MAJOR}\"")
 add_definitions("-DOV_VERSION_MINOR=\"${PROJECT_VERSION_MINOR}\"")
 add_definitions("-DOV_VERSION_PATCH=\"${PROJECT_VERSION_PATCH}\"")
 
-set(OV_CONFIG_SUBDIR OpenVIBE CACHE STRING "Subdirectory under user directory when configuration and logs will be saved")
-
 add_definitions("-DOV_CONFIG_SUBDIR=\"${OV_CONFIG_SUBDIR}\"")
 
 if(WIN32)

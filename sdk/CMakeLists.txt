@@ -15,17 +15,6 @@ message(STATUS "Appending compilation flags...")
 
 set(OV_SOURCE_DEPENDENCIES_PATH "${CMAKE_SOURCE_DIR}/sdk/dependencies-source")
 
-# ----------------------
-# Build CMake flags
-# ----------------------
-set(BRAND_NAME "OpenViBE" CACHE STRING "Brand with which titles and documentation will be prefixed")
-string(TIMESTAMP COPYRIGHT_DATE "2012-%Y")
-if(BRAND_NAME STREQUAL "NeuroRT")
-	set(COMPANY_NAME "Mensia Technologies SA")
-else()
-	set(COMPANY_NAME "Inria")
-endif()
-
 # Options and cache variables
 
 option(PUBLISH_DOC_ASSETS "Publish plugin documentation assets" ON)
@@ -101,26 +90,18 @@ function(SET_BUILD_PLATFORM)
 endfunction()
 
 # Custom cmakelist can be used to overwrite the default compilation & packaging parameters
-# e.g. OEM_DISTRIBUTION
 if(EXISTS "${CMAKE_SOURCE_DIR}/sdk/CustomCMakeLists.txt")
 	message(STATUS "Found custom build settings")
 	include("${CMAKE_SOURCE_DIR}/sdk/CustomCMakeLists.txt")
 endif()
 
 #################################################################
-string(TOLOWER ${BRAND_NAME} LOWER_BRAND_NAME)
 add_definitions(-DBRAND_NAME="${BRAND_NAME}")
-if(${BRAND_NAME} STREQUAL "NeuroRT")
-	add_definitions(-DOV_LOCAL_SYMBOLS)
-endif()
 
 if(OV_DISPLAY_ERROR_LOCATION)
 	add_definitions(-DOV_DISPLAY_ERROR_LOCATION)
 endif()
 #################################################################
-
-set(OV_LAUNCHER_SOURCE_PATH "${CMAKE_SOURCE_DIR}/sdk/cmake-modules/launchers")
-
 
 # Used by the various Find* scripts to locate OpenViBE modules
 set(OV_BASE_DIR ${CMAKE_SOURCE_DIR}/sdk)

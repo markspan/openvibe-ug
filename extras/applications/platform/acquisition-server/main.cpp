@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include <QGuiApplication>
+#include <QIcon>
 #include <QSettings>
 #include <QQuickStyle>
 #include <QLoggingCategory>
@@ -50,6 +51,8 @@ int main(int argc, char *argv[])
         app.setApplicationName(QString::fromStdString(appInit.getAppName()));
         app.setOrganizationName("inria");
         app.setOrganizationDomain("inria.fr");
+        // Set before the engine loads any QML, so every top-level window inherits it.
+        app.setWindowIcon(QIcon(":/qt/qml/AcquisitionServer/ov-icon.ico"));
         QSettings::setDefaultFormat(QSettings::IniFormat);
 
         QQuickStyle::setStyle("Basic");

@@ -47,6 +47,14 @@ include("Utilities")
 include("OvPrint")
 include("OvConfigureRC")
 
+set(OV_LAUNCHER_SOURCE_PATH "${CMAKE_SOURCE_DIR}/CMake/launchers")
+set(COMPANY_NAME "Inria")
+SET(BRAND_NAME "openvibe")
+string(TIMESTAMP COPYRIGHT_DATE "2012-%Y")
+
+# Icon shared by applications & installer
+set(OV_ICON_FILE "${CMAKE_SOURCE_DIR}/share/ov-icon.ico")
+
 set(BUILD_ARCH "x64" CACHE STRING "Architecture tu build for (x64 or x86)")
 
 set(CMAKE_INSTALL_LIBDIR lib)  # Enforce as all distros may not have the same default (e.g. lib, lib32/lib64)

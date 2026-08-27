@@ -93,8 +93,17 @@ extract_relative_directories( APP_PRIVATE_HEADERS   APP_PRIVATE_INCLUDE_DIRECTOR
 ## Create and configure the target
 ## ############################################################################
 
+if(WIN32)
+    # ov_configure_rc falls back to the target name for the product name, which is what Explorer and
+    # Add/Remove Programs display. The generated .rc embeds the icon into the executable, which is
+    # also where the NSIS Start-Menu shortcut picks it up from.
+    set(PROJECT_PRODUCT_NAME "OpenViBE Acquisition Server")
+    ov_configure_rc(NAME ${TARGET_NAME} ICON_PATH ${OV_ICON_FILE})
+    set(OV_ACQUISITION_SERVER_RC "${CMAKE_BINARY_DIR}/resource-files/${TARGET_NAME}.rc")
+endif()
+
 qt_add_executable(${TARGET_NAME})
-target_sources(${TARGET_NAME} PRIVATE ${APP_SOURCES} ${APP_PRIVATE_HEADERS})
+target_sources(${TARGET_NAME} PRIVATE ${APP_SOURCES} ${APP_PRIVATE_HEADERS} ${OV_ACQUISITION_SERVER_RC})
 setup_output_paths_general(${TARGET_NAME})
 target_include_directories(${TARGET_NAME}
     PRIVATE
@@ -103,6 +112,9 @@ target_include_directories(${TARGET_NAME}
 )
 
 target_compile_definitions(${TARGET_NAME} PRIVATE -DWIN32_LEAN_AND_MEAN)
+
+# Keep main.cpp on ":/qt/qml/AcquisitionServer/ov-icon.ico" and not worrying about the real file path
+set_source_files_properties(${OV_ICON_FILE} PROPERTIES QT_RESOURCE_ALIAS ov-icon.ico)
 
 qt_add_qml_module(${TARGET_NAME}
     URI
@@ -120,6 +132,8 @@ qt_add_qml_module(${TARGET_NAME}
         ui/AcquisitionController.h
         ui/AcquisitionController.cpp
         ui/ImpedanceItem.h
+    RESOURCES
+        ${OV_ICON_FILE}
 )
 
 
