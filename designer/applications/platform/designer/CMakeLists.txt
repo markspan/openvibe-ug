@@ -12,7 +12,7 @@ if(WIN32)
 	# ov_configure_rc falls back to the target name ("designer") for the product name, which is what
 	# Explorer and Add/Remove Programs display.
 	set(PROJECT_PRODUCT_NAME "OpenViBE Designer")
-	ov_configure_rc(NAME ${PROJECT_NAME} ICON_PATH ${CMAKE_CURRENT_SOURCE_DIR}/share/ov-icon.ico)
+	ov_configure_rc(NAME ${PROJECT_NAME} ICON_PATH ${OV_ICON_FILE})
 	set(OV_DESIGNER_RC "${CMAKE_BINARY_DIR}/resource-files/${PROJECT_NAME}.rc")
 endif()
 
@@ -69,7 +69,7 @@ set_source_files_properties(ShortcutManager.qml PROPERTIES QT_QML_SINGLETON_TYPE
 
 # Keep UI simpler by accessing icon with ":/qt/qml/designer/ov-icon.ico" and not worrying
 # about the real file path
-set_source_files_properties(share/ov-icon.ico PROPERTIES QT_RESOURCE_ALIAS ov-icon.ico)
+set_source_files_properties(${OV_ICON_FILE} PROPERTIES QT_RESOURCE_ALIAS ov-icon.ico)
 
 qt_add_qml_module(${PROJECT_NAME}
 URI
@@ -90,7 +90,7 @@ QML_FILES
   Toolbox.qml
   TopBar.qml
 RESOURCES
-  share/ov-icon.ico)
+  ${OV_ICON_FILE})
 
 target_include_directories(${PROJECT_NAME} PRIVATE src)
 #target_compile_definitions(${PROJECT_NAME} PRIVATE QML_PATH=\"${QT_QML_OUTPUT_DIRECTORY}\")

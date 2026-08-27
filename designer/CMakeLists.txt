@@ -13,7 +13,6 @@ INCLUDE("OvDelayLoad")
 # ----------------------
 # Build CMake flags
 # ----------------------
-SET(OEM_DISTRIBUTION "openvibe" CACHE STRING "The OEM distribution for this build, can be openvibe")
 SET(OV_SOURCE_DEPENDENCIES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/dependencies-source")
 
 if(NOT(${Flag_VerboseOutput}))
@@ -30,15 +29,8 @@ MESSAGE(STATUS "BUILDING VERSION Designer: ${PROJECT_VERSION}")
 # OpenViBE SDK modules list
 SET(INCLUDED_OV_SDK_COMPONENTS BASE ALLPLUGINS EBML SYSTEM FS XML TOOLKIT)
 
-string(TIMESTAMP COPYRIGHT_DATE "2012-%Y")
-
-# We deduce the branding from the OEM_DISTRIBUTION
-IF(OEM_DISTRIBUTION STREQUAL "openvibe")
-	SET(OV_CONFIG_SUBDIR "OpenVIBE" CACHE STRING "Subdirectory under user directory when configuration and logs will be saved")
-	SET(BRAND_NAME "OpenViBE")
-	SET(COMPANY_NAME "Inria")
-	SET(DESIGNER_NAME "Designer")
-	SET(LICENCE_TEXT "\
+SET(DESIGNER_NAME "Designer")
+SET(LICENCE_TEXT "\
 This program is free software: you can redistribute it and/or modify\
 it under the terms of the GNU Affero General Public License as\
 published by the Free Software Foundation, either version 3 of the\
@@ -51,9 +43,6 @@ Affero General Public License for more details.\
 \
 You should have received a copy of the GNU Affero General Public\
 License along with this program.  If not, see http://www.gnu.org/licenses/ .")
-ELSE()
-	MESSAGE(FATAL_ERROR "OEM_DISTRIBUTION unrecognized (${OEM_DISTRIBUTION}) ! CMake cannot deduce the brand and product names. ")
-ENDIF()
 
 IF(OV_DISPLAY_ERROR_LOCATION)
 	ADD_DEFINITIONS(-DOV_DISPLAY_ERROR_LOCATION)
@@ -95,14 +84,9 @@ IF(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/CustomCMakeLists.txt")
 ENDIF()
 
 
-#################################################################
-string(TOLOWER ${BRAND_NAME} LOWER_BRAND_NAME)
-string(TOLOWER ${DESIGNER_NAME} LOWER_DESIGNER_NAME)
+
 ADD_DEFINITIONS(-DBRAND_NAME="${BRAND_NAME}")
 ADD_DEFINITIONS(-DDESIGNER_NAME="${DESIGNER_NAME}")
-#################################################################
-
-SET(OV_LAUNCHER_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake-modules/launchers")
 
 # Used by the various Find* scripts to locate OpenViBE modules
 SET(OV_BASE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
