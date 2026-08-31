@@ -130,12 +130,14 @@ namespace LightArgs
                 // 2. Process found argument
                 if (foundInfo != nullptr)
                 {
+                    #if 0
                     // We use the longTag as the primary key for storage if it exists,
                     // otherwise we convert the shortTag to a string key.
                     // This normalizes storage: -p stores value under "port" if possible.
                     std::string_view storageKey = (!foundInfo->longTag.empty())
                         ? foundInfo->longTag
                         : std::string_view(&foundInfo->shortTag, 0); // Hacky for char key, dealt with logic below
+                    #endif
 
                     // Special handling to create a stable key for map if only short tag exists is tricky with views.
                     // For simplicity in this view-based lib, users SHOULD provide long tags for ease of query,
