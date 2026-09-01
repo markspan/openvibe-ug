@@ -43,6 +43,7 @@ prefix_postfix_list_items(DLL_PUBLIC_INCLUDE_DIRECTORIES "\$<BUILD_INTERFACE:${C
 prefix_postfix_list_items(DLL_PUBLIC_INCLUDE_DIRECTORIES "\$<INSTALL_INTERFACE:include/openvibe/acquisition-server/" ">" INSTALL_DLL_PUBLIC_INCLUDE_DIRS)
 
 list(APPEND DLL_PUBLIC_INCLUDE_DIRS
+    ${CMAKE_CURRENT_BINARY_DIR}
 	${BUILD_DLL_PUBLIC_INCLUDE_DIRS}
 	${INSTALL_DLL_PUBLIC_INCLUDE_DIRS}
 )
@@ -78,10 +79,10 @@ set(EXPORT_BASE_NAME OVAcquisitionAbstractions)
 generate_export_header(
 	${TARGET_NAME}
 	BASE_NAME "${EXPORT_BASE_NAME}"
-	EXPORT_FILE_NAME "${CMAKE_CURRENT_SOURCE_DIR}/${EXPORT_BASE_NAME}_Export.h"
+	EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_BASE_NAME}_Export.h"
 )
-create_filters(${TARGET_NAME} EXPORT_FILE_NAME "${CMAKE_CURRENT_SOURCE_DIR}/${EXPORT_BASE_NAME}_Export.h")
-target_sources(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/${EXPORT_BASE_NAME}_Export.h")
+create_filters(${TARGET_NAME} EXPORT_FILE_NAME "${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_BASE_NAME}_Export.h")
+target_sources(${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_BASE_NAME}_Export.h")
 # end
 #############################
 
@@ -93,7 +94,7 @@ create_filters(${TARGET_NAME})
 ## against an installed OpenViBE rather than from inside this tree.
 ## ############################################################################
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/samplesBuffer.h
-              ${CMAKE_CURRENT_SOURCE_DIR}/${EXPORT_BASE_NAME}_Export.h
+              ${CMAKE_CURRENT_BINARY_DIR}/${EXPORT_BASE_NAME}_Export.h
         DESTINATION ${DIST_INCLUDEDIR}/openvibe/acquisition-server/)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/driver/AbstractDriver.h
               ${CMAKE_CURRENT_SOURCE_DIR}/driver/AbstractDriverBuilder.h
