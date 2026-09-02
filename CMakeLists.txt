@@ -173,6 +173,7 @@ qt_policy(SET QTP0004 NEW)
 
 # #############################################################################
 # Find Acquisition Drivers
+include("FindThirdPartyBioSemiLabViewAPI")
 include("FindThirdPartyBrainProductsAmplifierAPI")
 include("FindThirdPartyEemagineEEGO")
 include("FindThirdPartyGTecUnicorn")

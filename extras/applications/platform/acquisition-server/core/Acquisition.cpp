@@ -17,6 +17,7 @@
 #include "DriftCalculator.h" // for DriftCalculator
 
 #include <chrono> // for high_resolution_clock
+#include <exception>
 #include <iostream>
 
 using Clock = std::chrono::steady_clock; ///< Monotonic clock for interval measurements.
@@ -193,11 +194,24 @@ void Acquisition::initAcquisition()
         unsigned int channelCount = m_driver->channelCount();
         
         computeWindowSize(sampleRate);
-        m_sampleBufferHandler = std::unique_ptr<SampleBufferHandler>(new SampleBufferHandler(channelCount, sampleRate, m_chunkSampleCount.value())); ///< Create a new sample buffer handler with the given parameters.
-        m_circularBuffer      = std::unique_ptr<CircularBuffer>(new CircularBuffer(m_sampleBufferHandler.get())); ///< Create a new circular buffer, using the sample buffer handler for buffer allocation.
-        m_driftCalculator     = std::unique_ptr<DriftCalculator>(new DriftCalculator(sampleRate, m_windowSize)); ///< Create a new drift calculator with the given sample rate and window size.
 
-        
+        try {
+            m_sampleBufferHandler = std::unique_ptr<SampleBufferHandler>(new SampleBufferHandler(channelCount, sampleRate, m_chunkSampleCount.value())); ///< Create a new sample buffer handler with the given parameters.
+            m_circularBuffer      = std::unique_ptr<CircularBuffer>(new CircularBuffer(m_sampleBufferHandler.get())); ///< Create a new circular buffer, using the sample buffer handler for buffer allocation.
+            m_driftCalculator     = std::unique_ptr<DriftCalculator>(new DriftCalculator(sampleRate, m_windowSize)); ///< Create a new drift calculator with the given sample rate and window size.
+        }
+        catch (const std::exception& e) {
+            // start() only proceeds when m_sampleBufferHandler is set, so dropping these leaves the
+            // acquisition idle rather than half-built.
+            std::cerr << "[Acquisition] Could not allocate the acquisition buffers for " << channelCount << " channels at "
+                      << sampleRate << " Hz with " << m_chunkSampleCount.value() << " samples per block: " << e.what() << std::endl;
+            m_driftCalculator.reset();
+            m_circularBuffer.reset();
+            m_sampleBufferHandler.reset();
+            return;
+        }
+
+
         for (auto& w : m_writers) {
             w->init(m_chunkSampleCount.value(), channelCount);
             w->onAcquisitionSetup(sampleRate, m_driver->channelNames().value());

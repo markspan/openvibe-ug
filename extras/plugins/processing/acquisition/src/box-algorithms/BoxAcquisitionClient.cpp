@@ -112,24 +112,32 @@ bool CBoxAcquisitionClient::process()
   } else if (m_headerSent && !m_chunkQueue.empty()) {
     Kernel::IBoxIO& boxContext = this->getDynamicBoxContext();
 
-    ReceivedChunk& chunk = m_chunkQueue.front();
+    // Drain everything that arrived since the last tick rather than one chunk per tick. The clock
+    // runs at getClockFrequency() (64 Hz), so emitting a single chunk per call capped this box at
+    // 64 * m_sampleChunk samples/s -- only 2048 Hz with the default 32-sample block. Past that the
+    // stream fell behind the wall clock (a 16384 Hz device advanced at an eighth of real time) and
+    // m_chunkQueue grew without bound. Sending several chunks from one process() is the usual
+    // pattern here; see CBoxAlgorithmOVCSVFileReader::process().
+    while (!m_chunkQueue.empty()) {
+      ReceivedChunk& chunk = m_chunkQueue.front();
 
-    double* buffer = m_signalMatrix->getBuffer();
-    std::copy(chunk.samples.begin(), chunk.samples.end(), buffer);
+      double* buffer = m_signalMatrix->getBuffer();
+      std::copy(chunk.samples.begin(), chunk.samples.end(), buffer);
 
-    for (const auto& stim : chunk.stims)
-      m_stimEncoder.getInputStimulationSet()->push_back(stim.id, stim.date, stim.duration);
+      for (const auto& stim : chunk.stims)
+        m_stimEncoder.getInputStimulationSet()->push_back(stim.id, stim.date, stim.duration);
 
-    m_signalEncoder.encodeBuffer();
-    m_stimEncoder.encodeBuffer();
-    m_stimEncoder.getInputStimulationSet()->clear();
+      m_signalEncoder.encodeBuffer();
+      m_stimEncoder.encodeBuffer();
+      m_stimEncoder.getInputStimulationSet()->clear();
 
-    m_chunkQueue.pop();
+      m_chunkQueue.pop();
 
-    m_lastEndTime = m_startTime + CTime(m_sampleRate, m_sampleChunk).time();
-    boxContext.markOutputAsReadyToSend(0, m_startTime, m_lastEndTime);
-    boxContext.markOutputAsReadyToSend(1, m_startTime, m_lastEndTime);
-    m_startTime = m_lastEndTime;
+      m_lastEndTime = m_startTime + CTime(m_sampleRate, m_sampleChunk).time();
+      boxContext.markOutputAsReadyToSend(0, m_startTime, m_lastEndTime);
+      boxContext.markOutputAsReadyToSend(1, m_startTime, m_lastEndTime);
+      m_startTime = m_lastEndTime;
+    }
   }
   return true;
 }
