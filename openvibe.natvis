@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+  <Type Name="OpenViBE::CString">
+    <DisplayString Condition="m_impl == nullptr">&lt;null&gt;</DisplayString>
+    <DisplayString>{*(std::string*)m_impl}</DisplayString>
+    <StringView>*(std::string*)m_impl</StringView>
+    <Expand>
+      <Item Name="value">*(std::string*)m_impl</Item>
+    </Expand>
+  </Type>
+
+</AutoVisualizer>

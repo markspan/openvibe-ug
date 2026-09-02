@@ -138,8 +138,13 @@ if(WIN32)
     find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS ${Qt6_DIR}/../../../bin)
     
     if(WINDEPLOYQT_EXECUTABLE)
+        # Scan only the directories that actually hold QML sources.
+        # Todo: move higher up in the CMake tree ? Not sure we should be pointing at extras/ here.
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${WINDEPLOYQT_EXECUTABLE} --qmldir ${CMAKE_SOURCE_DIR} $<TARGET_FILE:${PROJECT_NAME}>
+            COMMAND ${WINDEPLOYQT_EXECUTABLE}
+                    --qmldir ${CMAKE_SOURCE_DIR}/designer
+                    --qmldir ${CMAKE_SOURCE_DIR}/extras
+                    $<TARGET_FILE:${PROJECT_NAME}>
             COMMENT "Deploying Qt libraries"
         )
     endif()

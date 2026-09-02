@@ -115,6 +115,7 @@ public:
      * So a driver filling @p size samples writes @c data[i * channelCount() + j], and the base of
      * sample @c i is @c data + i * channelCount().
      *
+     * This allows acquisition-server to output data without copying or transposing, for best efficiency.
      * @endparblock
      *
      * @param data A pointer to the buffer where the read data will be stored, laid out as above.

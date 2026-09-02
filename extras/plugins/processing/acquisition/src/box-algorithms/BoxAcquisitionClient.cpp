@@ -13,6 +13,8 @@
 
 #include "BoxAcquisitionClient.h"
 
+#include <algorithm>
+
 namespace OpenViBE {
 namespace Plugins {
 namespace Acquisition {
@@ -214,11 +216,22 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
           auto& payload = msg.msgData.samplesStruct;
           std::lock_guard<std::mutex> lock(m_signalMutex);
 
+          // Acquisition-server streams interleaved (sample-major) data, so we need to transpose
+          // the received data into the signal matrix.
+          //
+          // The row length is m_sampleChunk, declared by
+          // OV_MSG_ACQUISITION_CONFIG, while payload.count is what this message actually carries.
+          // AbstractWriter only emits full chunks today, so the two normally agree, but a short
+          // chunk would leave stale values in each row's tail and a long one would run past the
+          // resize() below. Both would read as scrambled channel ordering.
           ReceivedChunk chunk;
-          chunk.samples.resize(m_channelCount * m_sampleChunk);
-          for (size_t i = 0; i < payload.count; ++i)
-            for (size_t j = 0; j < m_channelCount; ++j)
+          chunk.samples.assign(m_channelCount * m_sampleChunk, 0.0);
+          const size_t sampleCount = std::min<size_t>(payload.count, m_sampleChunk);
+          for (size_t i = 0; i < sampleCount; ++i) {
+            for (size_t j = 0; j < m_channelCount; ++j) {
               chunk.samples[j * m_sampleChunk + i] = static_cast<double>(payload.samples[i * m_channelCount + j]);
+            }
+          }
 
           // Offset m_startTime by the number of chunks already waiting so each
           // chunk's stims are anchored to the correct future OV time slot.
