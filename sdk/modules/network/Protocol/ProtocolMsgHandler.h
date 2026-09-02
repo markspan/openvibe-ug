@@ -20,6 +20,7 @@
 #include <vector>
 #include <memory>
 #include <utility>
+#include <cstdint>
 
 namespace Network
 {

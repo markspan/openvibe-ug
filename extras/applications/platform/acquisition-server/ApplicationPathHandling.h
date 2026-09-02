@@ -4,6 +4,8 @@
 // SPDX-FileCopyrightText: Inria <florent.leray@inria.fr>
 
 // Standard Library
+#include <string>
+#include <vector>
 #include <iostream>
 #include <algorithm>
 #include <cstdlib> // For std::getenv
