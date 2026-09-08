@@ -1,21 +1,22 @@
-///-------------------------------------------------------------------------------------------------
-/// \copyright Copyright (C) 2012, Mensia Technologies SA. All rights reserved.
-///
-/// This library is free software; you can redistribute it and/or
-/// modify it under the terms of the GNU Lesser General Public
-/// License as published by the Free Software Foundation; either
-/// version 2.1 of the License, or (at your option) any later version.
-///
-/// This library is distributed in the hope that it will be useful,
-/// but WITHOUT ANY WARRANTY; without even the implied warranty of
-/// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-/// Lesser General Public License for more details.
-///
-/// You should have received a copy of the GNU Lesser General Public
-/// License along with this library; if not, write to the Free Software
-/// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-/// MA 02110-1301  USA
-///-------------------------------------------------------------------------------------------------
+/**-------------------------------------------------------------------------------------------------
+ * \copyright Copyright (C) 2012, Mensia Technologies SA. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA 02110-1301  USA
+ *-------------------------------------------------------------------------------------------------
+ */
 
 #include "CDriverBioSemiActiveTwo.h"
 
@@ -33,8 +34,10 @@ namespace {
 constexpr uint64_t WARNING_PERIOD_MS = 2000;
 /// Milliseconds a recovered condition must hold before it is announced.
 constexpr uint64_t RECOVERY_DEBOUNCE_MS = 100;
-/// Milliseconds to wait after start() for the first packet, from which the bridge deduces the
-/// channel count, the speed mode and the AD-box generation.
+/**
+ * Milliseconds to wait after start() for the first packet, from which the bridge deduces the
+ * channel count, the speed mode and the AD-box generation.
+ */
 constexpr uint32_t FIRST_PACKET_WAIT_MS = 500;
 }  // namespace
 
@@ -67,13 +70,13 @@ bool CDriverBioSemiActiveTwo::init()
 
     if (!m_bridge.open())
     {
-        std::cout << "[BioSemi] Could not open the device.\n";
+        std::cout << "[BioSemi] Could not open the device." << std::endl;
         return false;
     }
 
     if (!m_bridge.start())
     {
-        std::cout << "[BioSemi] Could not start the device.\n";
+        std::cout << "[BioSemi] Could not start the device." << std::endl;
         m_bridge.close();
         return false;
     }
@@ -83,7 +86,7 @@ bool CDriverBioSemiActiveTwo::init()
 
     if (m_bridge.read() < 0)
     {
-        std::cout << "[BioSemi] An error occured while reading first data packet from device!\n";
+        std::cout << "[BioSemi] An error occured while reading first data packet from device!" << std::endl;
         m_bridge.stop();
         m_bridge.close();
         return false;
@@ -91,7 +94,7 @@ bool CDriverBioSemiActiveTwo::init()
 
     if (!m_bridge.discard()) // we discard the samples.
     {
-        std::cout << "[BioSemi] An error occured while dropping unused samples at initialization time.\n";
+        std::cout << "[BioSemi] An error occured while dropping unused samples at initialization time." << std::endl;
         m_bridge.stop();
         m_bridge.close();
         return false;
@@ -100,7 +103,7 @@ bool CDriverBioSemiActiveTwo::init()
     //Check speed mode: speed modes 1, 2 and 3 should not be used for acquisition
     if (m_bridge.getSpeedMode() < 4)
     {
-        std::cout << "[BioSemi] Speed modes 1 to 3 are designed to realize daisy chained montages, they should not be used for acquisition.\n";
+        std::cout << "[BioSemi] Speed modes 1 to 3 are designed to realize daisy chained montages, they should not be used for acquisition." << std::endl;
         m_bridge.stop();
         m_bridge.close();
         return false;
@@ -110,9 +113,9 @@ bool CDriverBioSemiActiveTwo::init()
               << "] [CH:" << m_bridge.getChannelCount()
               << "] [MKII:" << m_bridge.isDeviceMarkII()
               << "] [CMInRange:" << m_bridge.isCMSInRange()
-              << "] [LowBat:" << m_bridge.isBatteryLow() << "]\n";
+              << "] [LowBat:" << m_bridge.isBatteryLow() << "]" << std::endl;
 
-    if (m_bridge.isBatteryLow()) { std::cout << "[BioSemi] Device battery is low!\n"; }
+    if (m_bridge.isBatteryLow()) { std::cout << "[BioSemi] Device battery is low!" << std::endl; }
 
     m_samplingRate.setValue(int(m_bridge.getSamplingFrequency()));
 
@@ -129,14 +132,16 @@ bool CDriverBioSemiActiveTwo::init()
     {
         std::cout << "[BioSemi] The required channel count cannot be reached in current device configuration (data stream contains "
                   << m_bridge.getChannelCount()
-                  << " channels). Please check the device speed mode and setup capabilities. Channels with no data will be filled with zeros.\n";
+                  << " channels). Please check the device speed mode and setup capabilities. Channels with no data will be filled with zeros." << std::endl;
     }
 
     // Only fill in the blanks, so that channels the user renamed keep their name.
-    for (uint32_t i = 0; i < m_eegChannelCount; ++i) {
+    for (uint32_t i = 0; i < m_eegChannelCount; ++i)
+    {
         if (m_channelNames.getAt(i).empty()) { m_channelNames.setAt(i, "Channel " + std::to_string(i + 1)); }
     }
-    for (uint32_t i = 0; i < exChannels; ++i) {
+    for (uint32_t i = 0; i < exChannels; ++i)
+    {
         m_channelNames.setAt(m_eegChannelCount + i, "EX " + std::to_string(i + 1));
     }
 
@@ -146,10 +151,10 @@ bool CDriverBioSemiActiveTwo::init()
 bool CDriverBioSemiActiveTwo::unInit()
 {
     const bool stopped = m_bridge.stop();
-    if (!stopped) { std::cout << "[BioSemi] Could not stop the device.\n"; }
+    if (!stopped) { std::cout << "[BioSemi] Could not stop the device." << std::endl; }
 
     const bool closed = m_bridge.close();
-    if (!closed) { std::cout << "[BioSemi] Could not close the device.\n"; }
+    if (!closed) { std::cout << "[BioSemi] Could not close the device." << std::endl; }
 
     // Drop the EX channels from the channel count. This shrinks m_channelNames with it, so the EX
     // names are not persisted as if the user had chosen them.
@@ -174,10 +179,11 @@ bool CDriverBioSemiActiveTwo::start()
     m_stimQueue.clear();
 
     // Drop whatever piled up in the ring buffer between init() and here.
-    while (m_bridge.read() > 0) {
+    while (m_bridge.read() > 0)
+    {
         if (!m_bridge.discard())
         {
-            std::cout << "[BioSemi] An error occured while dropping samples.\n";
+            std::cout << "[BioSemi] An error occured while dropping samples." << std::endl;
             m_acquisitionStopped = true;
             return false;
         }
@@ -204,7 +210,7 @@ int CDriverBioSemiActiveTwo::read(sampleType* data, const uint64_t size)
     const int byteRead = m_bridge.read();
     if (byteRead < 0)
     {
-        std::cout << "[BioSemi] An error occured while reading data from device!\n";
+        std::cout << "[BioSemi] An error occured while reading data from device!" << std::endl;
         m_acquisitionStopped = true;
         // Deliberately not the negative error code AbstractDriver::read() documents:
         // AbstractDriver::getData() assigns the result into the uint64_t buff->count and then
@@ -222,15 +228,15 @@ int CDriverBioSemiActiveTwo::read(sampleType* data, const uint64_t size)
         // we consume one sample per channel, values are given in uV
         if (!m_bridge.consumeOneSamplePerChannel(data + written * channels, channels))
         {
-            std::cout << "[BioSemi] Something bad happened while consuming samples from device.\n";
+            std::cout << "[BioSemi] Something bad happened while consuming samples from device." << std::endl;
             if (m_bridge.getLastError() == BioSemiError_SyncLost)
             {
-                std::cout << "[BioSemi] \tSynchronization lost during acquisition. Fiber optic may be loose or damaged.\n";
+                std::cout << "[BioSemi] \tSynchronization lost during acquisition. Fiber optic may be loose or damaged." << std::endl;
             }
             if (m_bridge.getLastError() == BioSemiError_BufferOverflow)
             {
                 std::cout << "[BioSemi] \tBuffer overflow. Please check that you have enough CPU and memory available to run"
-                             " the acquisition server at full speed before retrying.\n";
+                             " the acquisition server at full speed before retrying." << std::endl;
             }
             m_acquisitionStopped = true;
             break;
@@ -265,7 +271,8 @@ void CDriverBioSemiActiveTwo::updateDeviceState()
     // triggers:
     // we simply send OVTK_StimulationId_Label_X where X is the trigger index between 1 and 16
     // We don't handle rising and falling edges.
-    for (uint32_t j = 0; j < m_triggers.size(); ++j) {
+    for (uint32_t j = 0; j < m_triggers.size(); ++j)
+    {
         if (m_bridge.getTrigger(j) != m_triggers[j])
         {
             m_triggers[j] = m_bridge.getTrigger(j);
@@ -303,7 +310,7 @@ void CDriverBioSemiActiveTwo::updateDeviceState()
                          "[BioSemi] \tThe corresponding sample range has been tagged with OVTK_StimulationId_SegmentStart"
                          " and OVTK_StimulationId_SegmentStop.\n"
                          "[BioSemi] \tPossible causes include broken wires, damaged cable isolation, bad connector contacts,"
-                         " defect IC inside the electrode.\n";
+                         " defect IC inside the electrode." << std::endl;
         }
 
         // the possibly incorrect sample range is tagged using OVTK_StimulationId_SegmentStart and OVTK_StimulationId_SegmentStop
@@ -321,12 +328,12 @@ void CDriverBioSemiActiveTwo::updateDeviceState()
             m_stimQueue.push_back(ovStimulation{ uint64_t(OVTK_StimulationId_SegmentStop), 0, 0 });
             m_bCMCurrentlyInRange = true;
         }
-            // CMS is considered "back in range" if it stayed in range for more than 100ms
-            // -> avoids announcing a flapping contact on every sample
+        // CMS is considered "back in range" if it stayed in range for more than 100ms
+        // -> avoids announcing a flapping contact on every sample
         else if (!m_bCMSBackInRange && (now > m_lastCmsBackInRange + RECOVERY_DEBOUNCE_MS))
         {
             m_bCMSBackInRange = true;
-            std::cout << "[BioSemi] CMS/DRL is back in range.\n";
+            std::cout << "[BioSemi] CMS/DRL is back in range." << std::endl;
         }
     }
 
@@ -336,7 +343,7 @@ void CDriverBioSemiActiveTwo::updateDeviceState()
         if (now > m_lastWarningTime + WARNING_PERIOD_MS)
         {
             warningDisplayed = true;
-            std::cout << "[BioSemi] (" << ((now - m_startTime) / 1000) << "') Device battery is low!\n";
+            std::cout << "[BioSemi] (" << ((now - m_startTime) / 1000) << "') Device battery is low!" << std::endl;
         }
         m_bBatteryCurrentlyOk = false;
         m_bBatteryBackOk      = false;
@@ -351,7 +358,7 @@ void CDriverBioSemiActiveTwo::updateDeviceState()
         else if (!m_bBatteryBackOk && (now > m_lastBatteryLow + RECOVERY_DEBOUNCE_MS))
         {
             m_bBatteryBackOk = true;
-            std::cout << "[BioSemi] (" << ((now - m_startTime) / 1000) << "') Device battery seems ok.\n";
+            std::cout << "[BioSemi] (" << ((now - m_startTime) / 1000) << "') Device battery seems ok." << std::endl;
         }
     }
 

@@ -15,9 +15,11 @@
 
 #include <cstdint>
 
-/// Highest sampling rate any BioSemi AD-box runs at, in Hz. AbstractDriver defaults m_samplingRate
-/// to a 1..10000 range, which would silently clamp the 16384 Hz speed modes, so both drivers widen
-/// the range with this before storing what the device reports.
+/**
+ * Highest sampling rate any BioSemi AD-box runs at, in Hz. AbstractDriver defaults m_samplingRate
+ * to a 1..10000 range, which would silently clamp the 16384 Hz speed modes, so both drivers widen
+ * the range with this before storing what the device reports.
+ */
 static constexpr int BIOSEMI_MAX_SAMPLING_RATE = 16384;
 
 /// Failure reported by a BioSemi bridge through getLastError().

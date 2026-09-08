@@ -23,15 +23,7 @@
 CircularBuffer::CircularBuffer(SampleBufferHandler* sampleBufferHandler, uint32_t internalBufferCount) : m_sampleBufferHandler(sampleBufferHandler), m_internalBufferCount(internalBufferCount)
 {
     m_allBuffers = new samplesBuffer*[m_internalBufferCount]();
-    try {
-        allocateRoundBuffer();
-    }
-    catch (...) {
-        // Nothing owns m_allBuffers until the constructor completes.
-        delete[] m_allBuffers;
-        m_allBuffers = nullptr;
-        throw;
-    }
+    allocateRoundBuffer();
     m_bCancel = true;
 }
 
@@ -197,21 +189,11 @@ void CircularBuffer::cleanBuffers()
  */
 void CircularBuffer::allocateRoundBuffer()
 {
-    uint32_t allocated = 0;
-    try {
-        for (; allocated < m_internalBufferCount; ++allocated) {
-            samplesBuffer* buff = m_sampleBufferHandler->createBuffer();
-            m_allBuffers[allocated] = buff;
-            pushFreeBuffer(buff);
-        }
-    }
-    catch (...) {
-        // createBuffer() throws if the acquisition parameters ask for more memory than can be
-        // allocated. Release the buffers that did get created before letting the failure through.
-        for (uint32_t i = 0; i < allocated; ++i) {
-            m_sampleBufferHandler->removeBuffer(m_allBuffers[i]);
-        }
-        throw;
+    for (uint32_t i = 0; i < m_internalBufferCount; ++i)
+    {
+        samplesBuffer* buff = m_sampleBufferHandler->createBuffer();
+        m_allBuffers[i]     = buff;
+        pushFreeBuffer(buff);
     }
 }
 

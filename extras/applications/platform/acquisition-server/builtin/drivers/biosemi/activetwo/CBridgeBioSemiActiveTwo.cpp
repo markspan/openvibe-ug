@@ -1,21 +1,22 @@
-///-------------------------------------------------------------------------------------------------
-/// \copyright Copyright (C) 2012, Mensia Technologies SA. All rights reserved.
-///
-/// This library is free software; you can redistribute it and/or
-/// modify it under the terms of the GNU Lesser General Public
-/// License as published by the Free Software Foundation; either
-/// version 2.1 of the License, or (at your option) any later version.
-///
-/// This library is distributed in the hope that it will be useful,
-/// but WITHOUT ANY WARRANTY; without even the implied warranty of
-/// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-/// Lesser General Public License for more details.
-///
-/// You should have received a copy of the GNU Lesser General Public
-/// License along with this library; if not, write to the Free Software
-/// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-/// MA 02110-1301  USA
-///-------------------------------------------------------------------------------------------------
+/**-------------------------------------------------------------------------------------------------
+ * \copyright Copyright (C) 2012, Mensia Technologies SA. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA 02110-1301  USA
+ *-------------------------------------------------------------------------------------------------
+ */
 
 /*
 This code implements the procedure described here:
@@ -37,14 +38,16 @@ http://www.biosemi.com/faq/make_own_acquisition_software.htm
 #include <labview_dll.h>
 
 namespace {
-/// Turns on the vendor DLL's own tracing when OV_BIOSEMI_DEBUG is set in the environment.
-///
-/// A failed OPEN_DRIVER() only ever says "No driver found!", which does not distinguish "the
-/// AD-box is off" from "another process holds the WinUSB interface" from "WinUsb.dll could not be
-/// resolved". BSIF's trace does, but the DLL writes its own diagnostics to stderr, which a GUI
-/// process discards -- so route them to bsif_winusb.log, written in the working directory.
-///
-/// Off by default: the log is appended to on every open and the vendor writes it synchronously.
+/**
+ * Turns on the vendor DLL's own tracing when OV_BIOSEMI_DEBUG is set in the environment.
+ *
+ * A failed OPEN_DRIVER() only ever says "No driver found!", which does not distinguish "the
+ * AD-box is off" from "another process holds the WinUSB interface" from "WinUsb.dll could not be
+ * resolved". BSIF's trace does, but the DLL writes its own diagnostics to stderr, which a GUI
+ * process discards -- so route them to bsif_winusb.log, written in the working directory.
+ *
+ * Off by default: the log is appended to on every open and the vendor writes it synchronously.
+ */
 void enableVendorTracingIfRequested()
 {
     static const bool requested = (std::getenv("OV_BIOSEMI_DEBUG") != nullptr);
@@ -56,25 +59,27 @@ void enableVendorTracingIfRequested()
 
     BSIF_SET_DEBUG(TRUE);
     BSIF_SET_LOG(TRUE);
-    std::cout << "[BioSemi] Vendor tracing enabled, see bsif_winusb.log in the working directory.\n";
+    std::cout << "[BioSemi] Vendor tracing enabled, see bsif_winusb.log in the working directory." << std::endl;
 }
 
-/// Tells whether OPEN_DRIVER() handed back a usable device handle, and reports why if it did not.
-///
-/// OPEN_DRIVER returns NULL -- not INVALID_HANDLE_VALUE -- when neither the BioSemi kernel driver
-/// nor the WinUSB backend could be opened, so both values have to be rejected. Testing only
-/// INVALID_HANDLE_VALUE lets a dead handle through, and the failure then surfaces much later as
-/// ERROR_INVALID_HANDLE out of USB_WRITE.
-///
-/// GET_DRIVER_INFO is the only channel that says which backend was found: the vendor DLL writes
-/// its own diagnostic to stderr, which is invisible in the GUI application.
+/**
+ * Tells whether OPEN_DRIVER() handed back a usable device handle, and reports why if it did not.
+ *
+ * OPEN_DRIVER returns NULL -- not INVALID_HANDLE_VALUE -- when neither the BioSemi kernel driver
+ * nor the WinUSB backend could be opened, so both values have to be rejected. Testing only
+ * INVALID_HANDLE_VALUE lets a dead handle through, and the failure then surfaces much later as
+ * ERROR_INVALID_HANDLE out of USB_WRITE.
+ *
+ * GET_DRIVER_INFO is the only channel that says which backend was found: the vendor DLL writes
+ * its own diagnostic to stderr, which is invisible in the GUI application.
+ */
 bool openedDeviceHandleIsValid(void* handle)
 {
     if (handle != nullptr && handle != INVALID_HANDLE_VALUE) { return true; }
 
     char bufferInfo[256] = { 0 };
     GET_DRIVER_INFO(bufferInfo, sizeof(bufferInfo));
-    std::cout << "[BioSemi] Failed to open driver: " << bufferInfo << "\n";
+    std::cout << "[BioSemi] Failed to open driver: " << bufferInfo << std::endl;
     return false;
 }
 }  // namespace
@@ -222,7 +227,7 @@ bool CBridgeBioSemiActiveTwo::isDeviceConnected()
 
     if (!CLOSE_DRIVER(m_hDevice))
     {
-        std::cout << "[BioSemi] Device driver cannot be closed!\n";
+        std::cout << "[BioSemi] Device driver cannot be closed!" << std::endl;
         m_lastError = BioSemiError_OSCloseFailed;
         return false;
     }
@@ -272,7 +277,7 @@ bool CBridgeBioSemiActiveTwo::open()
 
     char bufferInfo[256] = { 0 };
     GET_DRIVER_INFO(bufferInfo, sizeof(bufferInfo));
-    std::cout << "[BioSemi] Driver info: " << bufferInfo << "\n";
+    std::cout << "[BioSemi] Driver info: " << bufferInfo << std::endl;
 
     READ_MULTIPLE_SWEEPS(m_hDevice, &m_buffers[0], BIOSEMI_ACTIVETWO_RINGBUFFERBYTES);
 
@@ -286,7 +291,7 @@ bool CBridgeBioSemiActiveTwo::start()
 
     if (!USB_WRITE(m_hDevice, &m_controlBuffers[0]))
     {
-        std::cout << "[BioSemi] usb_write for enable handshake failed with [" << GetLastError() << "]\n";
+        std::cout << "[BioSemi] usb_write for enable handshake failed with [" << GetLastError() << "]" << std::endl;
         m_lastError = BioSemiError_EnableUSBHandshakeFailed;
         return false;
     }
@@ -298,14 +303,10 @@ bool CBridgeBioSemiActiveTwo::start()
 int CBridgeBioSemiActiveTwo::read()
 {
     int bytesRead;
-#ifdef _WIN64
     long long currentRingBufferByteIdx;
-#else
-    int currentRingBufferByteIdx;
-#endif
     if (READ_POINTER(m_hDevice, &currentRingBufferByteIdx) == FALSE)
     {
-        std::cout << "[BioSemi] READ_POINTER failed!\n";
+        std::cout << "[BioSemi] READ_POINTER failed!" << std::endl;
         m_lastError = BioSemiError_ReadPointerFailed;
         return -1;
     }
@@ -346,7 +347,7 @@ int CBridgeBioSemiActiveTwo::read()
                     std::memcpy(&statusChannelValue, &m_buffers[firstSyncByte + sizeof(int)], sizeof(statusChannelValue)); // status integer just after sync integer
                     if (!this->updateStatusFromValue(statusChannelValue))
                     {
-                        std::cout << "[BioSemi] Something bad in latest status value!\n";
+                        std::cout << "[BioSemi] Something bad in latest status value!" << std::endl;
                         return -1;
                     }
 
@@ -380,7 +381,7 @@ int CBridgeBioSemiActiveTwo::read()
             m_nChannel = m_nChannel < getElectrodeChannelCount() ? m_nChannel : getElectrodeChannelCount();
             std::cout << "[BioSemi] Bridge sync! Initial configuration is: " << m_nInitialChannel << " channels | speedmode "
                       << m_initialSpeedmode << " | Mark2 " << m_initialActiveTwoMarkII << " | sample count " << getSampleCount()
-                      << " | electrode channel count " << getElectrodeChannelCount() << " | EX channel count " << getEXChannelCount() << "\n";
+                      << " | electrode channel count " << getElectrodeChannelCount() << " | EX channel count " << getEXChannelCount() << std::endl;
         }
         return bytesRead;
     }
@@ -421,7 +422,8 @@ bool CBridgeBioSemiActiveTwo::updateStatusFromValue(const int value)
     Bit 23 (MSB)    High if ActiveTwo MK2
     */
     // the status channel has 2 bytes padding (zeros), so we start at 0x100
-    for (uint32_t t = 0; t < 16; ++t) {
+    for (uint32_t t = 0; t < 16; ++t)
+    {
         m_triggers[t] = (value & (0x100 << t)) != 0;
     }
 
@@ -438,20 +440,20 @@ bool CBridgeBioSemiActiveTwo::updateStatusFromValue(const int value)
     // fail cases:
     if (!m_firstRead && m_activeTwoMarkII != m_initialActiveTwoMarkII)
     {
-        std::cout << "[BioSemi] Device type changed during acquisition! Stream may have lost synchronization.\n";
+        std::cout << "[BioSemi] Device type changed during acquisition! Stream may have lost synchronization." << std::endl;
         m_lastError = BioSemiError_DeviceTypeChanged;
         return false;
     }
     if (!m_firstRead && m_speedMode != m_initialSpeedmode)
     {
         std::cout << "[BioSemi] Speedmode changed during acquisition (" << m_initialSpeedmode << " > " << m_speedMode
-                  << "). Stream may have lost synchronization.\n";
+                  << "). Stream may have lost synchronization." << std::endl;
         m_lastError = BioSemiError_SpeedmodeChanged;
         return false;
     }
     if (m_speedMode >= BIOSEMI_ACTIVETWO_SPEEDMODECOUNT)
     {
-        std::cout << "[BioSemi] Invalid speedmode [" << m_speedMode << "].\n";
+        std::cout << "[BioSemi] Invalid speedmode [" << m_speedMode << "]." << std::endl;
         m_lastError = BioSemiError_InvalidSpeedmode;
         return false;
     }
@@ -467,10 +469,11 @@ uint32_t CBridgeBioSemiActiveTwo::getSamplingFrequency() const { return BioSemi:
 bool CBridgeBioSemiActiveTwo::discard()
 {
     const uint32_t count = this->getAvailableSampleCount();
-    for (uint32_t i = 0; i < count; ++i) {
+    for (uint32_t i = 0; i < count; ++i)
+    {
         if (!this->consumeOneSamplePerChannel(nullptr, 0))
         {
-            std::cout << "[BioSemi] The sample " << i << "/" << count << " [" << m_consumptionByteIdx << "] cannot be discarded! Stopping discard.\n";
+            std::cout << "[BioSemi] The sample " << i << "/" << count << " [" << m_consumptionByteIdx << "] cannot be discarded! Stopping discard." << std::endl;
             return false;
         }
     }
@@ -500,7 +503,7 @@ bool CBridgeBioSemiActiveTwo::consumeOneSamplePerChannel(float* pSampleBuffer, c
     // fail case: we can't consume if not yet sync'ed
     if (!m_bridgeSyncedWithDevice)
     {
-        std::cout << "[BioSemi] Bridge is not synced with the device, cannot consume.\n";
+        std::cout << "[BioSemi] Bridge is not synced with the device, cannot consume." << std::endl;
         m_lastError = BioSemiError_NoSync;
         return false;
     }
@@ -526,7 +529,7 @@ bool CBridgeBioSemiActiveTwo::consumeOneSamplePerChannel(float* pSampleBuffer, c
     std::memcpy(&statusValue, &m_buffers[m_consumptionByteIdx], sizeof(statusValue));
     if (!this->updateStatusFromValue(statusValue))
     {
-        std::cout << "[BioSemi] Something bad in latest status value!\n";
+        std::cout << "[BioSemi] Something bad in latest status value!" << std::endl;
         return false;
     }
 
@@ -633,7 +636,7 @@ bool CBridgeBioSemiActiveTwo::stop()
 
     if (!USB_WRITE(m_hDevice, &m_controlBuffers[0]))
     {
-        std::cout << "[BioSemi] usb_write for disabling handshake failed with [" << GetLastError() << "]\n";
+        std::cout << "[BioSemi] usb_write for disabling handshake failed with [" << GetLastError() << "]" << std::endl;
         m_lastError = BioSemiError_DisableUSBHandshakeFailed;
         return false;
     }
@@ -646,7 +649,7 @@ bool CBridgeBioSemiActiveTwo::close()
     const bool closed = (CLOSE_DRIVER(m_hDevice) != FALSE);
     if (!closed)
     {
-        std::cout << "[BioSemi] Device driver cannot be closed!\n";
+        std::cout << "[BioSemi] Device driver cannot be closed!" << std::endl;
         m_lastError = BioSemiError_OSCloseFailed;
     }
 

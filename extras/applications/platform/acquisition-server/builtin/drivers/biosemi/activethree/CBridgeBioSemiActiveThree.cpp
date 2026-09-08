@@ -16,14 +16,16 @@
 #include <labview_dll.h>
 
 namespace {
-/// Turns on the vendor DLL's own tracing when OV_BIOSEMI_DEBUG is set in the environment.
-///
-/// A failed OPEN_DRIVER() only ever says "No driver found!", which does not distinguish "the
-/// AD-box is off" from "another process holds the WinUSB interface" from "WinUsb.dll could not be
-/// resolved". BSIF's trace does, but the DLL writes its own diagnostics to stderr, which a GUI
-/// process discards -- so route them to bsif_winusb.log, written in the working directory.
-///
-/// Off by default: the log is appended to on every open and the vendor writes it synchronously.
+/**
+ * Turns on the vendor DLL's own tracing when OV_BIOSEMI_DEBUG is set in the environment.
+ *
+ * A failed OPEN_DRIVER() only ever says "No driver found!", which does not distinguish "the
+ * AD-box is off" from "another process holds the WinUSB interface" from "WinUsb.dll could not be
+ * resolved". BSIF's trace does, but the DLL writes its own diagnostics to stderr, which a GUI
+ * process discards -- so route them to bsif_winusb.log, written in the working directory.
+ *
+ * Off by default: the log is appended to on every open and the vendor writes it synchronously.
+ */
 void enableVendorTracingIfRequested()
 {
     static const bool requested = (std::getenv("OV_BIOSEMI_DEBUG") != nullptr);
@@ -35,25 +37,27 @@ void enableVendorTracingIfRequested()
 
     BSIF_SET_DEBUG(TRUE);
     BSIF_SET_LOG(TRUE);
-    std::cout << "[BioSemi] Vendor tracing enabled, see bsif_winusb.log in the working directory.\n";
+    std::cout << "[BioSemi] Vendor tracing enabled, see bsif_winusb.log in the working directory." << std::endl;
 }
 
-/// Tells whether OPEN_DRIVER() handed back a usable device handle, and reports why if it did not.
-///
-/// OPEN_DRIVER returns NULL -- not INVALID_HANDLE_VALUE -- when neither the BioSemi kernel driver
-/// nor the WinUSB backend could be opened, so both values have to be rejected. Testing only
-/// INVALID_HANDLE_VALUE lets a dead handle through, and the failure then surfaces much later as
-/// ERROR_INVALID_HANDLE out of USB_WRITE.
-///
-/// GET_DRIVER_INFO is the only channel that says which backend was found: the vendor DLL writes
-/// its own diagnostic to stderr, which is invisible in the GUI application.
+/**
+ * Tells whether OPEN_DRIVER() handed back a usable device handle, and reports why if it did not.
+ *
+ * OPEN_DRIVER returns NULL -- not INVALID_HANDLE_VALUE -- when neither the BioSemi kernel driver
+ * nor the WinUSB backend could be opened, so both values have to be rejected. Testing only
+ * INVALID_HANDLE_VALUE lets a dead handle through, and the failure then surfaces much later as
+ * ERROR_INVALID_HANDLE out of USB_WRITE.
+ *
+ * GET_DRIVER_INFO is the only channel that says which backend was found: the vendor DLL writes
+ * its own diagnostic to stderr, which is invisible in the GUI application.
+ */
 bool openedDeviceHandleIsValid(void* handle)
 {
     if (handle != nullptr && handle != INVALID_HANDLE_VALUE) { return true; }
 
     char bufferInfo[256] = { 0 };
     GET_DRIVER_INFO(bufferInfo, sizeof(bufferInfo));
-    std::cout << "[BioSemi] Failed to open driver: " << bufferInfo << "\n";
+    std::cout << "[BioSemi] Failed to open driver: " << bufferInfo << std::endl;
     return false;
 }
 }  // namespace
@@ -77,7 +81,7 @@ bool CBridgeBioSemiActiveThree::isDeviceConnected()
 
     if (!CLOSE_DRIVER(m_hDevice))
     {
-        std::cout << "[BioSemi] Device driver cannot be closed!\n";
+        std::cout << "[BioSemi] Device driver cannot be closed!" << std::endl;
         m_lastError = BioSemiError_OSCloseFailed;
         return false;
     }
@@ -95,11 +99,11 @@ bool CBridgeBioSemiActiveThree::open()
     m_buffers.assign(RingBufferByteCount, 0);
     m_controlBuffers.assign(ControlBufferByteCount, 0);
 
-    m_lastRingBufferByteIdx = 0;
-    m_consumptionByteIdx    = 0;
-    m_firstRead             = true;
+    m_lastRingBufferByteIdx  = 0;
+    m_consumptionByteIdx     = 0;
+    m_firstRead              = true;
 
-    m_nTotalByteRead = 0;
+    m_nTotalByteRead         = 0;
 
     m_EEGChannelCount        = 0;
     m_EXChannelCount         = 0;
@@ -125,7 +129,7 @@ bool CBridgeBioSemiActiveThree::open()
 
     char bufferInfo[256] = { 0 };
     GET_DRIVER_INFO(bufferInfo, sizeof(bufferInfo));
-    std::cout << "[BioSemi] Driver info: " << bufferInfo << "\n";
+    std::cout << "[BioSemi] Driver info: " << bufferInfo << std::endl;
 
     READ_MULTIPLE_SWEEPS(m_hDevice, &m_buffers[0], RingBufferByteCount);
 
@@ -139,7 +143,7 @@ bool CBridgeBioSemiActiveThree::start()
 
     if (!USB_WRITE(m_hDevice, &m_controlBuffers[0]))
     {
-        std::cout << "[BioSemi] usb_write for enable handshake failed with [" << GetLastError() << "]\n";
+        std::cout << "[BioSemi] usb_write for enable handshake failed with [" << GetLastError() << "]" << std::endl;
         m_lastError = BioSemiError_EnableUSBHandshakeFailed;
         return false;
     }
@@ -151,14 +155,10 @@ bool CBridgeBioSemiActiveThree::start()
 int CBridgeBioSemiActiveThree::read()
 {
     int bytesRead;
-#ifdef _WIN64
     long long currentRingBufferByteIdx;
-#else
-    int currentRingBufferByteIdx;
-#endif
     if (READ_POINTER(m_hDevice, &currentRingBufferByteIdx) == FALSE)
     {
-        std::cout << "[BioSemi] READ_POINTER failed!\n";
+        std::cout << "[BioSemi] READ_POINTER failed!" << std::endl;
         m_lastError = BioSemiError_ReadPointerFailed;
         return -1;
     }
@@ -173,12 +173,12 @@ int CBridgeBioSemiActiveThree::read()
         const uint32_t unconsumedBytes = getAvailableByteCount();
         if (uint32_t(bytesRead) + unconsumedBytes > RingBufferByteCount)
         {
-            std::cout << "[BioSemi] Buffer overflow! Lost " << (uint32_t(bytesRead) + unconsumedBytes - RingBufferByteCount) << " bytes of data\n";
+            std::cout << "[BioSemi] Buffer overflow! Lost " << (uint32_t(bytesRead) + unconsumedBytes - RingBufferByteCount) << " bytes of data" << std::endl;
             m_lastError              = BioSemiError_BufferOverflow;
             m_bridgeSyncedWithDevice = false; // Need to resync.
         }
 
-        m_nTotalByteRead += uint32_t(bytesRead);
+        m_nTotalByteRead += static_cast<uint32_t>(bytesRead);
         m_lastRingBufferByteIdx = currentRingBufferByteIdx;
 
         uint32_t value;
@@ -221,7 +221,7 @@ int CBridgeBioSemiActiveThree::read()
                     std::memcpy(&value, &m_buffers[m_consumptionByteIdx], sizeof(value));
                     if ((value & SyncByteMask) != SyncByte)
                     {
-                        std::cout << "[BioSemi] Lost sync after init!\n";
+                        std::cout << "[BioSemi] Lost sync after init!" << std::endl;
                         m_lastError = BioSemiError_SyncLost;
                         return -1;
                     }
@@ -231,7 +231,7 @@ int CBridgeBioSemiActiveThree::read()
 
         if (!m_bridgeSyncedWithDevice)
         {
-            std::cout << "[BioSemi] Could not synchronize with the device!\n";
+            std::cout << "[BioSemi] Could not synchronize with the device!" << std::endl;
             m_lastError = BioSemiError_NoSync;
             return -1;
         }
@@ -294,7 +294,7 @@ bool CBridgeBioSemiActiveThree::consumeOnePacket(float* pSampleBuffer)
     // fail case: we can't consume if not yet sync'ed
     if (!m_bridgeSyncedWithDevice)
     {
-        std::cout << "[BioSemi] Bridge is not synced with the device, cannot consume.\n";
+        std::cout << "[BioSemi] Bridge is not synced with the device, cannot consume." << std::endl;
         m_lastError = BioSemiError_NoSync;
         return false;
     }
@@ -312,14 +312,14 @@ bool CBridgeBioSemiActiveThree::consumeOnePacket(float* pSampleBuffer)
 
     if ((value & SyncByteMask) != SyncByte)
     {
-        std::cout << "[BioSemi] Lost sync during consume!\n";
+        std::cout << "[BioSemi] Lost sync during consume!" << std::endl;
         m_lastError = BioSemiError_SyncLost;
         return false;
     }
     const uint16_t flags = uint16_t((value & FlagsMask) >> FlagsShift);
     if (!this->updateStatusFromFlags(flags))
     {
-        std::cout << "[BioSemi] Failed to update status during consume!\n";
+        std::cout << "[BioSemi] Failed to update status during consume!" << std::endl;
         return false;
     }
 
@@ -342,7 +342,8 @@ bool CBridgeBioSemiActiveThree::consumeOnePacket(float* pSampleBuffer)
         if (m_useEXChannels)
         {
             // Reading all EX channels
-            for (uint32_t i = 0; i < MaxEXChannelCount; ++i) {
+            for (uint32_t i = 0; i < MaxEXChannelCount; ++i)
+            {
                 std::memcpy(&data, &m_buffers[m_consumptionByteIdx], sizeof(data));
                 pSampleBuffer[m_effectiveEEGChannelCount + i] = data * factor;
 
@@ -356,7 +357,8 @@ bool CBridgeBioSemiActiveThree::consumeOnePacket(float* pSampleBuffer)
         }
 
         // Read requested EEG Channels
-        for (uint32_t i = 0; i < m_effectiveEEGChannelCount; ++i) {
+        for (uint32_t i = 0; i < m_effectiveEEGChannelCount; ++i)
+        {
             std::memcpy(&data, &m_buffers[m_consumptionByteIdx], sizeof(data));
             pSampleBuffer[i] = data * factor;
 
@@ -401,7 +403,7 @@ bool CBridgeBioSemiActiveThree::stop()
 
     if (!USB_WRITE(m_hDevice, &m_controlBuffers[0]))
     {
-        std::cout << "[BioSemi] usb_write for disabling handshake failed with [" << GetLastError() << "]\n";
+        std::cout << "[BioSemi] usb_write for disabling handshake failed with [" << GetLastError() << "]" << std::endl;
         m_lastError = BioSemiError_DisableUSBHandshakeFailed;
         return false;
     }
@@ -414,7 +416,7 @@ bool CBridgeBioSemiActiveThree::close()
     const bool closed = (CLOSE_DRIVER(m_hDevice) != FALSE);
     if (!closed)
     {
-        std::cout << "[BioSemi] Device driver cannot be closed!\n";
+        std::cout << "[BioSemi] Device driver cannot be closed!" << std::endl;
         m_lastError = BioSemiError_OSCloseFailed;
     }
 

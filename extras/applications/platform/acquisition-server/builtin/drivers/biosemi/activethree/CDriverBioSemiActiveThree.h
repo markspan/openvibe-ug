@@ -46,8 +46,10 @@ private:
     OpenViBE::Parameters::ParameterBool m_paramUseEXChannels;
 
     uint32_t m_nSamplePerSentBlock = 0;
-    /// Channel count the user asked for, i.e. EEG channels only. m_channelCount grows by the EX
-    /// channels for the duration of an acquisition and is restored from this in unInit().
+    /**
+     * Channel count the user asked for, i.e. EEG channels only. m_channelCount grows by the EX
+     * channels for the duration of an acquisition and is restored from this in unInit().
+     */
     uint32_t m_eegChannelCount = 0;
 
     std::deque<ovStimulation> m_stimQueue;

@@ -126,8 +126,9 @@ bool CBoxAcquisitionClient::process()
       double* buffer = m_signalMatrix->getBuffer();
       std::copy(chunk.samples.begin(), chunk.samples.end(), buffer);
 
-      for (const auto& stim : chunk.stims)
+      for (const auto& stim : chunk.stims) {
         m_stimEncoder.getInputStimulationSet()->push_back(stim.id, stim.date, stim.duration);
+      }
 
       m_signalEncoder.encodeBuffer();
       m_stimEncoder.encodeBuffer();
@@ -240,8 +241,9 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
 
           for (size_t i = 0; i < payload.stimCount; ++i) {
             size_t idx = 0;
-            while (idx + 1 < payload.count && payload.timestamp[idx + 1] <= payload.stimulations[i].date)
+            while (idx + 1 < payload.count && payload.timestamp[idx + 1] <= payload.stimulations[i].date) {
               idx++;
+            }
             chunk.stims.push_back({payload.stimulations[i].id,
                                    chunkStartTime + CTime(m_sampleRate, idx).time(),
                                    payload.stimulations[i].duration});

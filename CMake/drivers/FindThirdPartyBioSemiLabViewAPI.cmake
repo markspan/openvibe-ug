@@ -10,8 +10,6 @@
 # Windows-only build.
 # ---------------------------------
 
-get_property(OV_PRINTED GLOBAL PROPERTY OV_TRIED_ThirdPartyBioSemiLabViewAPI)
-
 # The INTERFACE target below may only be declared once.
 if(TARGET sdk-biosemi)
 	return()
@@ -21,13 +19,7 @@ add_library(sdk-biosemi INTERFACE)
 set(BIOSEMI_FOUND FALSE)
 
 if(WIN32)
-	# Care must be taken here that a lib of the wrong bitness is not picked: the vendor
-	# installer puts the 32-bit kit under "Program Files (x86)".
-	if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-		set(PATH_BioSemiAPI "C:/Program Files/BioSemi/Developers_kit/C-code")
-	else()
-		set(PATH_BioSemiAPI "C:/Program Files (x86)/BioSemi/Developers_kit/C-code")
-	endif()
+	set(PATH_BioSemiAPI "C:/Program Files/BioSemi/Developers_kit/C-code")
 
 	find_file(LABVIEW_HEADER labview_dll.h
 		PATHS ${PATH_BioSemiAPI}
@@ -35,10 +27,10 @@ if(WIN32)
 		NO_DEFAULT_PATH)
 
 	if(LABVIEW_HEADER)
-		OV_PRINT(OV_PRINTED "  Found BioSemi LabView API...")
+		message(STATUS "  Found BioSemi LabView API...")
 		find_library(LIB_BioSemiAPI Labview_DLL PATHS ${PATH_BioSemiAPI} NO_SYSTEM_ENVIRONMENT_PATH NO_DEFAULT_PATH)
 		if(LIB_BioSemiAPI)
-			OV_PRINT(OV_PRINTED "    [  OK  ] lib ${LIB_BioSemiAPI}")
+			message(STATUS "    [  OK  ] lib ${LIB_BioSemiAPI}")
 
 			target_include_directories(sdk-biosemi INTERFACE ${PATH_BioSemiAPI})
 			target_link_libraries(sdk-biosemi INTERFACE ${LIB_BioSemiAPI})
@@ -50,11 +42,10 @@ if(WIN32)
 			file(COPY "${PATH_BioSemiAPI}/Labview_DLL.dll" DESTINATION ${CMAKE_BINARY_DIR}/bin)
 			install(PROGRAMS "${PATH_BioSemiAPI}/Labview_DLL.dll" DESTINATION ${DIST_BINDIR})
 		else()
-			OV_PRINT(OV_PRINTED "    [FAILED] lib Labview_DLL")
+			message(WARNING "    [FAILED] lib Labview_DLL")
 		endif()
 	else()
-		OV_PRINT(OV_PRINTED "  FAILED to find BioSemi LabView API (optional driver)")
+		message(WARNING "  FAILED to find BioSemi LabView API (optional driver)")
 	endif()
-endif(WIN32)
+endif()
 
-set_property(GLOBAL PROPERTY OV_TRIED_ThirdPartyBioSemiLabViewAPI "Yes")

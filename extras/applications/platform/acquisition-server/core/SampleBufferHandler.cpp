@@ -17,8 +17,7 @@
 
 #include <cstdlib>
 #include <cstdint>
-#include <new>
-#include <stdexcept>
+#include <iostream>
 #include <string.h>
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -93,17 +92,8 @@ samplesBuffer* SampleBufferHandler::createBuffer() const
     buff->maxStimCount   = MAX_STIM_COUNT;
     buff->stimulationsBuff = new ovStimulation[MAX_STIM_COUNT];
 
-    try {
-        allocateSubBuffers(buff->samplesBuff, m_pImpl->sampleBuffSize, buff->timestampsBuff, m_pImpl->timestampsBuffSize);
-        cleanBuffer(buff);
-    }
-    catch (...) {
-        // allocateSubBuffers releases and nulls both sub-buffers before it throws, so only what
-        // was allocated here has to go before the failure travels on to initAcquisition().
-        delete[] buff->stimulationsBuff;
-        delete buff;
-        throw;
-    }
+    allocateSubBuffers(buff->samplesBuff, m_pImpl->sampleBuffSize, buff->timestampsBuff, m_pImpl->timestampsBuffSize);
+    cleanBuffer(buff);
 
     return buff;
 }
@@ -153,7 +143,9 @@ uint32_t SampleBufferHandler::determineSizes()
     // reachable -- and a zero chunk would divide by zero when counting chunks.
     if (m_pImpl->sampleRate == 0 || m_pImpl->sampleChunk == 0)
     {
-        throw std::invalid_argument("SampleBufferHandler: sampling rate and chunk size must be non-zero");
+        std::cerr << "[SampleBufferHandler] Sampling rate and chunk size must be non-zero (rate " << m_pImpl->sampleRate
+                  << " Hz, chunk " << m_pImpl->sampleChunk << " samples)." << std::endl;
+        std::abort();
     }
 
     // ////////////////////////////////////////////////////////////////////////
@@ -214,11 +206,10 @@ void SampleBufferHandler::allocateSubBuffers(sampleType*& samplesBuff, uint64_t 
     // Check allocation succeeded before continuing.
     if (samplesBuff == nullptr || timestampsBuff == nullptr)
     {
-        aligned_free(samplesBuff);
-        aligned_free(timestampsBuff);
-        samplesBuff    = nullptr;
-        timestampsBuff = nullptr;
-        throw std::bad_alloc();
+        std::cerr << "[SampleBufferHandler] Could not allocate the acquisition buffers ("
+                  << alignedSampleBuffSize << " bytes of samples, " << alignedTimestampsBuffSize
+                  << " bytes of timestamps)." << std::endl;
+        std::abort();
     }
 
     sampleBuffSize     = alignedSampleBuffSize;

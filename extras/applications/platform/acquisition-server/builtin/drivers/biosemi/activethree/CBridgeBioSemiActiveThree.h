@@ -129,11 +129,7 @@ protected:
     uint32_t m_samplingFrequency = 16384;
 
     // ring buffer indices
-#ifdef _WIN64
     long long m_lastRingBufferByteIdx = 0;	//Buffer filled up to this point in last read()
-#else
-    uint32_t m_lastRingBufferByteIdx = 0;	//Buffer filled up to this point in last read()]
-#endif
     uint32_t m_consumptionByteIdx = 0;		//Next consume() should start here, it should ALWAYS be a SYNC byte.
 
     // just for stats
