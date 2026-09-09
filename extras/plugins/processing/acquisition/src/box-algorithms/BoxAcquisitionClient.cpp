@@ -13,6 +13,8 @@
 
 #include "BoxAcquisitionClient.h"
 
+#include <algorithm>
+
 namespace OpenViBE {
 namespace Plugins {
 namespace Acquisition {
@@ -112,24 +114,33 @@ bool CBoxAcquisitionClient::process()
   } else if (m_headerSent && !m_chunkQueue.empty()) {
     Kernel::IBoxIO& boxContext = this->getDynamicBoxContext();
 
-    ReceivedChunk& chunk = m_chunkQueue.front();
+    // Drain everything that arrived since the last tick rather than one chunk per tick. The clock
+    // runs at getClockFrequency() (64 Hz), so emitting a single chunk per call capped this box at
+    // 64 * m_sampleChunk samples/s -- only 2048 Hz with the default 32-sample block. Past that the
+    // stream fell behind the wall clock (a 16384 Hz device advanced at an eighth of real time) and
+    // m_chunkQueue grew without bound. Sending several chunks from one process() is the usual
+    // pattern here; see CBoxAlgorithmOVCSVFileReader::process().
+    while (!m_chunkQueue.empty()) {
+      ReceivedChunk& chunk = m_chunkQueue.front();
 
-    double* buffer = m_signalMatrix->getBuffer();
-    std::copy(chunk.samples.begin(), chunk.samples.end(), buffer);
+      double* buffer = m_signalMatrix->getBuffer();
+      std::copy(chunk.samples.begin(), chunk.samples.end(), buffer);
 
-    for (const auto& stim : chunk.stims)
-      m_stimEncoder.getInputStimulationSet()->push_back(stim.id, stim.date, stim.duration);
+      for (const auto& stim : chunk.stims) {
+        m_stimEncoder.getInputStimulationSet()->push_back(stim.id, stim.date, stim.duration);
+      }
 
-    m_signalEncoder.encodeBuffer();
-    m_stimEncoder.encodeBuffer();
-    m_stimEncoder.getInputStimulationSet()->clear();
+      m_signalEncoder.encodeBuffer();
+      m_stimEncoder.encodeBuffer();
+      m_stimEncoder.getInputStimulationSet()->clear();
 
-    m_chunkQueue.pop();
+      m_chunkQueue.pop();
 
-    m_lastEndTime = m_startTime + CTime(m_sampleRate, m_sampleChunk).time();
-    boxContext.markOutputAsReadyToSend(0, m_startTime, m_lastEndTime);
-    boxContext.markOutputAsReadyToSend(1, m_startTime, m_lastEndTime);
-    m_startTime = m_lastEndTime;
+      m_lastEndTime = m_startTime + CTime(m_sampleRate, m_sampleChunk).time();
+      boxContext.markOutputAsReadyToSend(0, m_startTime, m_lastEndTime);
+      boxContext.markOutputAsReadyToSend(1, m_startTime, m_lastEndTime);
+      m_startTime = m_lastEndTime;
+    }
   }
   return true;
 }
@@ -206,11 +217,22 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
           auto& payload = msg.msgData.samplesStruct;
           std::lock_guard<std::mutex> lock(m_signalMutex);
 
+          // Acquisition-server streams interleaved (sample-major) data, so we need to transpose
+          // the received data into the signal matrix.
+          //
+          // The row length is m_sampleChunk, declared by
+          // OV_MSG_ACQUISITION_CONFIG, while payload.count is what this message actually carries.
+          // AbstractWriter only emits full chunks today, so the two normally agree, but a short
+          // chunk would leave stale values in each row's tail and a long one would run past the
+          // resize() below. Both would read as scrambled channel ordering.
           ReceivedChunk chunk;
-          chunk.samples.resize(m_channelCount * m_sampleChunk);
-          for (size_t i = 0; i < payload.count; ++i)
-            for (size_t j = 0; j < m_channelCount; ++j)
+          chunk.samples.assign(m_channelCount * m_sampleChunk, 0.0);
+          const size_t sampleCount = std::min<size_t>(payload.count, m_sampleChunk);
+          for (size_t i = 0; i < sampleCount; ++i) {
+            for (size_t j = 0; j < m_channelCount; ++j) {
               chunk.samples[j * m_sampleChunk + i] = static_cast<double>(payload.samples[i * m_channelCount + j]);
+            }
+          }
 
           // Offset m_startTime by the number of chunks already waiting so each
           // chunk's stims are anchored to the correct future OV time slot.
@@ -219,8 +241,9 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
 
           for (size_t i = 0; i < payload.stimCount; ++i) {
             size_t idx = 0;
-            while (idx + 1 < payload.count && payload.timestamp[idx + 1] <= payload.stimulations[i].date)
+            while (idx + 1 < payload.count && payload.timestamp[idx + 1] <= payload.stimulations[i].date) {
               idx++;
+            }
             chunk.stims.push_back({payload.stimulations[i].id,
                                    chunkStartTime + CTime(m_sampleRate, idx).time(),
                                    payload.stimulations[i].duration});

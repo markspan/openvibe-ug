@@ -26,7 +26,7 @@
 typedef struct samplesBuffer
 {
     timestampType*  timestampsBuff;   ///< Buffer of timestamps for each sample.
-    sampleType*     samplesBuff;      ///< Buffer of sample data.
+    sampleType*     samplesBuff;      ///< Buffer of sample data, sample-major: samplesBuff[sample * channelCount + channel].
     ovStimulation*  stimulationsBuff; ///< Buffer of stimulation data
     uint64_t        count;            ///< Number of valid samples in this buffer.
     uint32_t        stimCount;        ///< Number of valid stimulations in this buffer.

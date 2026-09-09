@@ -96,9 +96,33 @@ public:
      * This is a pure virtual method that must be implemented by derived classes
      * to read data from the associated hardware.
      *
-     * @param data A pointer to the buffer where the read data will be stored.
-     * @param size The number of samples to read.
+     * @par Buffer layout
+     * @parblock
+     * @p data is <b>sample-major (interleaved)</b>: all channels of one sample sit next to each
+     * other, and samples follow one another. With @c n = channelCount():
+     *
+     * @code
+     * data[0]     is sample 0, channel 0
+     * data[1]     is sample 0, channel 1
+     * ...
+     * data[n-1]   is sample 0, channel n-1
+     * data[n]     is sample 1, channel 0
+     * data[n+1]   is sample 1, channel 1
+     * ...
+     * data[i*n+j] is sample i, channel j
+     * @endcode
+     *
+     * So a driver filling @p size samples writes @c data[i * channelCount() + j], and the base of
+     * sample @c i is @c data + i * channelCount().
+     *
+     * This allows acquisition-server to output data without copying or transposing, for best efficiency.
+     * @endparblock
+     *
+     * @param data A pointer to the buffer where the read data will be stored, laid out as above.
+     * @param size The maximum number of samples to write (not the number of floats).
      * @return The number of samples actually read, or an error code (typically negative).
+     * @note getData() assigns this return into an unsigned count, so returning a negative value
+     *       is currently unsafe; report 0 samples on failure instead.
      */
     virtual int read(sampleType* data, uint64_t size) = 0;
 

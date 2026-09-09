@@ -17,6 +17,7 @@
 
 #include <cstdlib>
 #include <cstdint>
+#include <iostream>
 #include <string.h>
 
 #if defined(_WIN32) || defined(_WIN64)
@@ -86,10 +87,11 @@ SampleBufferHandler::~SampleBufferHandler()
  */
 samplesBuffer* SampleBufferHandler::createBuffer() const
 {
-    samplesBuffer* buff = new samplesBuffer;
+    samplesBuffer* buff = new samplesBuffer{};
     buff->maxSampleCount = m_pImpl->maxSampleCount;
     buff->maxStimCount   = MAX_STIM_COUNT;
     buff->stimulationsBuff = new ovStimulation[MAX_STIM_COUNT];
+
     allocateSubBuffers(buff->samplesBuff, m_pImpl->sampleBuffSize, buff->timestampsBuff, m_pImpl->timestampsBuffSize);
     cleanBuffer(buff);
 
@@ -136,6 +138,16 @@ void SampleBufferHandler::cleanBuffer(samplesBuffer* buff) const
  */
 uint32_t SampleBufferHandler::determineSizes()
 {
+    // Both are divisors below. A driver that reports no sampling rate cannot be streamed from at
+    // all -- the LabStreamingLayer driver takes its rate from the remote stream, so zero is
+    // reachable -- and a zero chunk would divide by zero when counting chunks.
+    if (m_pImpl->sampleRate == 0 || m_pImpl->sampleChunk == 0)
+    {
+        std::cerr << "[SampleBufferHandler] Sampling rate and chunk size must be non-zero (rate " << m_pImpl->sampleRate
+                  << " Hz, chunk " << m_pImpl->sampleChunk << " samples)." << std::endl;
+        std::abort();
+    }
+
     // ////////////////////////////////////////////////////////////////////////
     // Determine constants from acquisition parameters
     auto timestampsSize = sizeof(uint64_t); ///< Size of a single timestamp in bytes.
@@ -149,19 +161,11 @@ uint32_t SampleBufferHandler::determineSizes()
     // ////////////////////////////////////////////////////////////////////////
     // Determines the number of chunks we want to be able to samplesBuffer
     constexpr auto eyesRefres_ns = NS_PER_SEC / UINT64_C(50); // Eyes refresh rate x2 in ns (assuming a 50 Hz refresh rate, multiplied by 2 for safety margin or double buffering).
+
     auto chunkCount = eyesRefres_ns / periodeChunk_ns; ///< Calculate the number of chunks needed to cover the desired duration.
-    auto chunkCountRest = eyesRefres_ns % periodeChunk_ns; ///< Calculate the remaining time after dividing by the chunk duration.
-    if (chunkCount < 3) // Ensure a minimum of 3 chunks for buffering.
-    {
-        if (chunkCountRest) // If there's a remainder, add one more chunk to cover the full duration.
-        {
-            chunkCount++;
-        }
-    }
-    else
-    {
-        chunkCount = periodeChunk_ns * 3; // If enough chunks are already calculated, limit it to a duration equivalent to 3 chunks (this line seems incorrect and should likely be `chunkCount = eyesRefres_ns / periodeChunk_ns;` or similar logic to ensure a minimum buffer size).
-    }
+    if (eyesRefres_ns % periodeChunk_ns) {
+        chunkCount++;
+    } ///< Round up so the full period is covered.
 
     // ////////////////////////////////////////////////////////////////////////
     // Determine buffers sizes
@@ -187,8 +191,29 @@ void SampleBufferHandler::allocateSubBuffers(sampleType*& samplesBuff, uint64_t 
 {
     // ////////////////////////////////////////////////////////////////////////
     // Memories allocations with alignments
-    samplesBuff = reinterpret_cast<sampleType*>(aligned_alloc(4096, sampleBuffSize)); // Allocate aligned memory for the sample buffer.
-    timestampsBuff = reinterpret_cast<timestampType*>(aligned_alloc(4096, timestampsBuffSize)); // Allocate aligned memory for the timestamp buffer.
+    //
+    // Round the request up to the alignment: C11 aligned_alloc, used on the Linux build, requires
+    // the size to be a multiple of the alignment, and a chunk is only a multiple of 4096 for some
+    // channel counts (40 channels x 4 B x 32 samples = 5120 B, for instance). The extra bytes are
+    // never addressed -- cleanBuffer() memsets the logical sizes, derived from maxSampleCount.
+    constexpr uint64_t alignment = 4096;
+    const uint64_t alignedSampleBuffSize     = ((sampleBuffSize + alignment - 1) / alignment) * alignment;
+    const uint64_t alignedTimestampsBuffSize = ((timestampsBuffSize + alignment - 1) / alignment) * alignment;
+
+    samplesBuff = reinterpret_cast<sampleType*>(aligned_alloc(alignment, alignedSampleBuffSize)); // Allocate aligned memory for the sample buffer.
+    timestampsBuff = reinterpret_cast<timestampType*>(aligned_alloc(alignment, alignedTimestampsBuffSize)); // Allocate aligned memory for the timestamp buffer.
+
+    // Check allocation succeeded before continuing.
+    if (samplesBuff == nullptr || timestampsBuff == nullptr)
+    {
+        std::cerr << "[SampleBufferHandler] Could not allocate the acquisition buffers ("
+                  << alignedSampleBuffSize << " bytes of samples, " << alignedTimestampsBuffSize
+                  << " bytes of timestamps)." << std::endl;
+        std::abort();
+    }
+
+    sampleBuffSize     = alignedSampleBuffSize;
+    timestampsBuffSize = alignedTimestampsBuffSize;
 
     // ////////////////////////////////////////////////////////////////////////
     // Warm up the cache and memory pages
