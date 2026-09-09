@@ -15,7 +15,6 @@ if(TARGET sdk-biosemi)
 	return()
 endif()
 
-add_library(sdk-biosemi INTERFACE)
 set(BIOSEMI_FOUND FALSE)
 
 if(WIN32)
@@ -32,6 +31,7 @@ if(WIN32)
 		if(LIB_BioSemiAPI)
 			message(STATUS "    [  OK  ] lib ${LIB_BioSemiAPI}")
 
+			add_library(sdk-biosemi INTERFACE)
 			target_include_directories(sdk-biosemi INTERFACE ${PATH_BioSemiAPI})
 			target_link_libraries(sdk-biosemi INTERFACE ${LIB_BioSemiAPI})
 			target_compile_definitions(sdk-biosemi INTERFACE TARGET_HAS_ThirdPartyBioSemiAPI)
