@@ -58,10 +58,9 @@ build_openvibe_macosx:
       - $BUILD_FOLDER/compile_commands.json
     expire_in: 24h
     when: always
-  cache:
-    key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
-    untracked: true
-    policy: push
+  # No cache: test-windows reuses $BUILD_FOLDER and .pixi directly from the
+  # runner's working tree (kept alive by GIT_CLEAN_FLAGS). Adding cache then takes
+  # ages to generate and times out the stage.
 
 build_openvibe_windows:
   <<: *build_script_windows
