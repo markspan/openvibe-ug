@@ -1,459 +1,414 @@
 /**
- *  Software License Agreement (AGPL-3 License)
+ * SPDX-FileCopyrightText: Inria / Gipsa-lab
+ * SPDX-License-Identifier: AGPL-3.0-only
  *
- * \file CDriverGTecUnicorn.cpp
- * \author Anton Andreev, Gipsa-lab, VIBS team
- * \date 21/08/2020
- * \brief Implementation of GTEC Unicorn Black Driver
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License version 3,
- * as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program.
- * If not, see <http://www.gnu.org/licenses/>.
+ * Ported from the Gipsa-lab g.tec Unicorn Hybrid Black driver (originally by Anton Andreev,
+ * VIBS team).
  */
 
-#if defined TARGET_HAS_ThirdPartyGtecUnicron
+#include "CDriverGTecUnicorn.h"
 
-#include "CDriverGTecUnicorn.hpp"
+#include <algorithm>
+#include <iostream>
+#include <memory>
 
-#include <toolkit/ovtk_all.h>
-#include <system/ovCTime.h>
-#include <cmath>
-#include <cstring>
-#include <cstdlib>
-#include <cstdio>
-#include <limits>
-#include <functional>
+// ─────────────────────────────────────────────────────────────────────────────
+// Channel groups
+// ─────────────────────────────────────────────────────────────────────────────
 
-#include <mutex>
-#include <thread>
-
-#include "unicorn.h"
-
-namespace OpenViBE {
-namespace AcquisitionServer {
-
-#if defined(TARGET_OS_Windows)
-#pragma warning(disable: 4800) // disable "forcing value to bool 'true' or 'false' (performance warning)" nag coming from BOOL->bool cast on e.g. VS2010
-#endif
-
-CDriverGTecUnicorn::CDriverGTecUnicorn(IDriverContext& rDriverContext)
-    : IDriver(rDriverContext), m_settings("AcquisitionServer_Driver_GTecGUSBamp", m_driverCtx.getConfigurationManager())
+const std::vector<CDriverGTecUnicorn::SChannelGroup>& CDriverGTecUnicorn::channelGroups()
 {
-    m_header.setSamplingFrequency(UNICORN_SAMPLING_RATE);
-    m_header.setChannelCount(0);
-
-    //m_settings.load();
+    // The vendor names are the exact keys UNICORN_GetChannelIndex() accepts (see unicorn.h);
+    // the output names are the ones the pre-port driver published, kept for compatibility.
+    static const std::vector<SChannelGroup> groups = {
+        { "EEG",
+          { "EEG 1", "EEG 2", "EEG 3", "EEG 4", "EEG 5", "EEG 6", "EEG 7", "EEG 8" },
+          { "EEG1", "EEG2", "EEG3", "EEG4", "EEG5", "EEG6", "EEG7", "EEG8" } },
+        { "Accelerometer",
+          { "Accelerometer X", "Accelerometer Y", "Accelerometer Z" },
+          { "ACCX", "ACCY", "ACCZ" } },
+        { "Gyroscope",
+          { "Gyroscope X", "Gyroscope Y", "Gyroscope Z" },
+          { "GYRX", "GYRY", "GYRZ" } },
+        { "Counter",    { "Counter" },              { "Counter" } },
+        { "Battery",    { "Battery Level" },        { "Battery" } },
+        { "Validation", { "Validation Indicator" }, { "VI" } },
+    };
+    return groups;
 }
-//___________________________________________________________________//
-//                                                                   //
 
-bool CDriverGTecUnicorn::initialize(
-    const uint32_t sampleCountPerSentBlock,
-    IDriverCallback& callback)
+std::vector<std::string> CDriverGTecUnicorn::groupLabels()
 {
-    if (m_driverCtx.isConnected()) { return false; }
+    std::vector<std::string> labels;
+    labels.reserve(channelGroups().size());
+    for (const auto& group : channelGroups())
+    {
+        labels.push_back(group.label);
+    }
+    return labels;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+CDriverGTecUnicorn::CDriverGTecUnicorn()
+    : m_device("Device", "Serial number of the Unicorn to acquire from", {}),
+      m_channels("Channels", "Channel groups to forward to the acquisition server",
+                 groupLabels(), { "EEG" }),
+      m_testSignal("TestSignal", "Replace the EEG signal by the device's internal test signal", false)
+{
+    // The Unicorn digitises at a fixed rate and its channel count follows the Channels
+    // selection, so neither is offered to the user (see CDriverLabStreamingLayer for the
+    // same arrangement).
+    m_samplingRate = UNICORN_SAMPLING_RATE;
+
+    m_parameters.push_back(&m_device);
+    m_parameters.push_back(&m_channels);
+    m_parameters.push_back(&m_testSignal);
 
     detectDevices();
+}
 
-    if (numDevices() == 0) { return false; }
-
-    m_sampleCountPerSentBlock = sampleCountPerSentBlock;
-    m_callback                = &callback;
-
-    // Set number of channels
-    int errorCode = UNICORN_GetNumberOfAcquiredChannels(m_devices[kSelectedDevice].handle, &m_acquiredChannelCount);
-    if (errorCode != UNICORN_ERROR_SUCCESS)
-    {
-        m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "Unable to get channel count.\n";
-        return false;
-    }
-    else { m_driverCtx.getLogManager() << Kernel::LogLevel_Info << "Number of available channels is: " << m_acquiredChannelCount << "\n"; }
-
-    m_header.setChannelCount(m_acquiredChannelCount); //only 8 channels are EEG, but currently we provide everything
-    m_lengthBufferRawUnicornDevice = m_acquiredChannelCount * kFrameLength;
-
-    /*
-     * Set channel names
-     * 17 channels from Unicorn Black on every sample: | EEG1| EEG2| EEG3| EEG4| EEG5| EEG6| EEG7| EEG8| ACCX|ACCY| ACCZ| GYRX|GYRY| GYRZ|CNT|BATLVL|VALID|
-     * Order might be different. This is why we need to use UNICORN_GetChannelIndex(channel name);
-     */
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "EEG 1"), "EEG1");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "EEG 2"), "EEG2");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "EEG 3"), "EEG3");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "EEG 4"), "EEG4");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "EEG 5"), "EEG5");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "EEG 6"), "EEG6");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "EEG 7"), "EEG7");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "EEG 8"), "EEG8");
-
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "Accelerometer X"), "ACCX");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "Accelerometer Y"), "ACCY");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "Accelerometer Z"), "ACCZ");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "Gyroscope X"), "GYRX");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "Gyroscope Y"), "GYRY");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "Gyroscope Z"), "GYRZ");
-    m_channelCounterIndex = getChannelIndex(m_devices[kSelectedDevice].handle, "Counter");
-    m_header.setChannelName(m_channelCounterIndex, "Counter");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "Battery Level"), "Battery");
-    m_header.setChannelName(getChannelIndex(m_devices[kSelectedDevice].handle, "Validation Indicator"), "VI");
-
-    // Initialize buffers
-    m_bufferReceivedDataFromRing = new float[m_lengthBufferRawUnicornDevice];
-    m_bufferForOpenVibe          = new float[m_lengthBufferRawUnicornDevice];
-
-    m_ringBuffer.Initialize(static_cast<uint32_t>(kBufferSizeSeconds * m_header.getSamplingFrequency() * m_lengthBufferRawUnicornDevice));
-
-    // Configure each device
-    for (size_t i = 0; i < numDevices(); i++) { configureDevice(i); }
-
-    return true;
+OpenViBE::Parameters::Parameters CDriverGTecUnicorn::getParameters()
+{
+    detectDevices();
+    return AbstractDriver::getParameters();
 }
 
 void CDriverGTecUnicorn::detectDevices()
 {
-    int errorCode = UNICORN_ERROR_SUCCESS;
+    m_availableSerials.clear();
 
-    // Get number of available devices
-    unsigned int availableDevicesCount = 0;
-    errorCode                          = UNICORN_GetAvailableDevices(NULL, &availableDevicesCount, TRUE);
-
-    // Get serials of available devices
-    UNICORN_DEVICE_SERIAL* availableDevices = new UNICORN_DEVICE_SERIAL[availableDevicesCount];
-    errorCode                               = UNICORN_GetAvailableDevices(availableDevices, &availableDevicesCount, TRUE);
-
-    if (errorCode != UNICORN_ERROR_SUCCESS || availableDevicesCount < 1)
+    uint32_t count = 0;
+    if (UNICORN_GetAvailableDevices(nullptr, &count, TRUE) == UNICORN_ERROR_SUCCESS && count > 0)
     {
-        m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "No device available. Please pair with a Unicorn device first.\n";
+        std::unique_ptr<UNICORN_DEVICE_SERIAL[]> serials(new UNICORN_DEVICE_SERIAL[count]);
+        if (UNICORN_GetAvailableDevices(serials.get(), &count, TRUE) == UNICORN_ERROR_SUCCESS)
+        {
+            for (uint32_t i = 0; i < count; ++i)
+            {
+                m_availableSerials.push_back(serials[i]);
+            }
+        }
+        else { std::cout << "[Unicorn] Could not list paired devices." << std::endl; }
+    }
+
+    // setAvailableValues() keeps the current selection when the device is still paired and
+    // otherwise falls back to the first entry (or to empty), which is exactly what we want.
+    m_device.setAvailableValues(m_availableSerials);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+bool CDriverGTecUnicorn::init()
+{
+    bool success = false;
+
+    detectDevices();
+
+    if (m_device.value().empty())
+    {
+        std::cout << "[Unicorn] No device selected. Pair a Unicorn device first." << std::endl;
+    }
+    else if (m_channels.value().empty())
+    {
+        std::cout << "[Unicorn] No channel group selected." << std::endl;
+    }
+    else if (UNICORN_OpenDevice(m_device.value().c_str(), &m_handle) != UNICORN_ERROR_SUCCESS)
+    {
+        std::cout << "[Unicorn] Unable to connect to device: " << m_device.value() << std::endl;
     }
     else
     {
-        // Create a GDevice list for all devices and print available device serials
-        m_driverCtx.getLogManager() << Kernel::LogLevel_Info << "Available Unicorn devices:\n";
+        m_isOpen = true;
+        enableAllDeviceChannels();
 
-        for (unsigned int i = 0; i < availableDevicesCount; i++)
+        if (UNICORN_GetNumberOfAcquiredChannels(m_handle, &m_scanChannelCount) != UNICORN_ERROR_SUCCESS)
         {
-            m_driverCtx.getLogManager() << Kernel::LogLevel_Info << "#" << i << ": " << availableDevices[i] << "\n";
-
-            GDevice device;
-
-            UNICORN_HANDLE deviceHandle;
-
-            int errorCode = UNICORN_OpenDevice(availableDevices[i], &deviceHandle);
-            if (errorCode != UNICORN_ERROR_SUCCESS)
-            {
-                m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "Unable to connect to device: '" << availableDevices[i] << "'\n";
-            }
-
-            device.handle = deviceHandle;
-
-            device.serial = availableDevices[i];
-
-            m_devices.push_back(device);
+            std::cout << "[Unicorn] Unable to get the number of acquired channels." << std::endl;
         }
+        else if (!buildChannelMap()) { /* buildChannelMap() reported the reason */ }
+        else
+        {
+            m_samplingRate.setValue(UNICORN_SAMPLING_RATE);
+
+            m_rawScan.assign(size_t(m_chunkSize) * m_scanChannelCount, 0.0F);
+            m_ringScratch.assign(size_t(m_chunkSize) * m_scanChannelCount, 0.0F);
+
+            success = m_ringBuffer.Initialize(
+                uint32_t(BUFFER_SIZE_SECONDS * UNICORN_SAMPLING_RATE * m_scanChannelCount));
+            if (!success) { std::cout << "[Unicorn] Could not allocate the ring buffer." << std::endl; }
+        }
+    }
+
+    if (!success) { closeDevice(); }
+    else
+    {
+        std::cout << "[Unicorn] Connected to " << m_device.value() << ": "
+                  << m_selectedIndices.size() << " of " << m_scanChannelCount
+                  << " channels at " << UNICORN_SAMPLING_RATE << " Hz." << std::endl;
+    }
+
+    return success;
+}
+
+void CDriverGTecUnicorn::enableAllDeviceChannels()
+{
+    // The amplifier configuration is persistent device state, so a channel someone disabled in
+    // another application would otherwise drop out of the scan -- UNICORN_GetChannelIndex() would
+    // then fail for a group the user selected here. Acquire all 17 and pick in read() instead.
+    UNICORN_AMPLIFIER_CONFIGURATION configuration;
+    if (UNICORN_GetConfiguration(m_handle, &configuration) != UNICORN_ERROR_SUCCESS)
+    {
+        std::cout << "[Unicorn] Could not read the amplifier configuration; using it as-is." << std::endl;
+        return;
+    }
+
+    bool changed = false;
+    for (int i = 0; i < UNICORN_TOTAL_CHANNELS_COUNT; ++i)
+    {
+        if (!configuration.Channels[i].enabled)
+        {
+            configuration.Channels[i].enabled = TRUE;
+            changed                           = true;
+        }
+    }
+
+    if (changed && UNICORN_SetConfiguration(m_handle, &configuration) != UNICORN_ERROR_SUCCESS)
+    {
+        std::cout << "[Unicorn] Could not enable all device channels; some groups may be unavailable." << std::endl;
     }
 }
 
-bool CDriverGTecUnicorn::configureDevice(size_t deviceNumber)
+bool CDriverGTecUnicorn::buildChannelMap()
 {
-    int errorCode = UNICORN_ERROR_SUCCESS;
+    m_selectedIndices.clear();
+    m_counterIdx = -1;
 
-    UNICORN_HANDLE device           = m_devices[deviceNumber].handle;
-    const std::string currentSerial = m_devices[deviceNumber].serial;
+    const std::vector<std::string>& selection = m_channels.value();
+    std::vector<std::string> names;
 
-    UNICORN_AMPLIFIER_CONFIGURATION configuration;
-    errorCode = UNICORN_GetConfiguration(device, &configuration);
-
-    if (errorCode != UNICORN_ERROR_SUCCESS)
+    // Iterate over the groups rather than over the selection, so the output channel order is
+    // the declaration order and does not depend on how the selection was assembled.
+    for (const auto& group : channelGroups())
     {
-        m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "Unable to get configuration for: '" << currentSerial.c_str() << "'\n";
+        if (std::find(selection.begin(), selection.end(), group.label) == selection.end()) { continue; }
+
+        for (size_t i = 0; i < group.vendorNames.size(); ++i)
+        {
+            uint32_t index = 0;
+            if (UNICORN_GetChannelIndex(m_handle, group.vendorNames[i], &index) != UNICORN_ERROR_SUCCESS)
+            {
+                std::cout << "[Unicorn] Could not resolve channel '" << group.vendorNames[i] << "'." << std::endl;
+                return false;
+            }
+            m_selectedIndices.push_back(index);
+            names.push_back(group.outputNames[i]);
+        }
+    }
+
+    if (m_selectedIndices.empty())
+    {
+        std::cout << "[Unicorn] Channel selection resolved to no channel." << std::endl;
         return false;
     }
 
+    // read() runs its continuity check on the counter whether or not the group is published.
+    uint32_t counterIdx = 0;
+    if (UNICORN_GetChannelIndex(m_handle, "Counter", &counterIdx) == UNICORN_ERROR_SUCCESS)
+    {
+        m_counterIdx = int(counterIdx);
+    }
+
+    m_channelCount.setValue(int(m_selectedIndices.size()));
+    m_channelNames.setValue(names);
+
     return true;
 }
+
+bool CDriverGTecUnicorn::unInit()
+{
+    closeDevice();
+    return true;
+}
+
+void CDriverGTecUnicorn::closeDevice()
+{
+    if (m_isOpen)
+    {
+        if (UNICORN_CloseDevice(&m_handle) != UNICORN_ERROR_SUCCESS)
+        {
+            std::cout << "[Unicorn] Unable to close device: " << m_device.value() << std::endl;
+        }
+        m_isOpen = false;
+        m_handle = 0;
+    }
+
+    m_rawScan.clear();
+    m_ringScratch.clear();
+    m_selectedIndices.clear();
+    m_scanChannelCount = 0;
+    m_counterIdx       = -1;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 bool CDriverGTecUnicorn::start()
 {
-    if (!m_driverCtx.isConnected()) { return false; }
-    if (m_driverCtx.isStarted()) { return false; }
-
-    m_totalHardwareStimulations = 0;
-    m_totalRingBufferOverruns   = 0;
-    m_totalCounterErrors        = 0;
+    m_totalRingBufferOverruns = 0;
+    m_totalCounterErrors      = 0;
+    m_lastCounter             = -1.0F;
 
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        std::lock_guard<std::mutex> lock(m_io_mutex);
         m_ringBuffer.Reset();
     }
 
-    for (size_t i = 0; i < numDevices(); i++)
+    const BOOL testSignal = m_testSignal.value() ? TRUE : FALSE;
+    if (UNICORN_StartAcquisition(m_handle, testSignal) != UNICORN_ERROR_SUCCESS)
     {
-        UNICORN_HANDLE device = m_devices[i].handle;
-        UNICORN_StartAcquisition(device, kTestSignalEnabled);
+        std::cout << "[Unicorn] Could not start acquisition on " << m_device.value() << std::endl;
+        return false;
     }
 
     m_isThreadRunning = true;
-    m_flagIsFirstLoop = true;
     m_bufferOverrun   = false;
 
-    m_thread.reset(new std::thread(std::bind(&CDriverGTecUnicorn::acquire, this)));
+    m_threadPtr.reset(new std::thread([this] { acquire(); }));
 
-    return true;
-}
-
-// This method is called by the AS and it supplies the acquired data to the AS
-bool CDriverGTecUnicorn::loop()
-{
-    if (m_driverCtx.isStarted())
-    {
-        {
-            std::unique_lock<std::mutex> lock(m_mutex);
-
-            while (m_ringBuffer.GetSize() < static_cast<int>(m_lengthBufferRawUnicornDevice)) { m_itemAvailable.wait(lock); }
-
-            try
-            {
-                if (m_bufferOverrun)
-                {
-                    m_ringBuffer.Reset();
-                    m_bufferOverrun = false;
-                    m_totalRingBufferOverruns++;
-                    return true;
-                }
-
-                m_ringBuffer.Read(m_bufferReceivedDataFromRing, m_lengthBufferRawUnicornDevice);
-            }
-            catch (std::exception& e)
-            {
-                m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "Error reading GTEC ring buffer! Error is:" << e.what() << "\n";
-            }
-
-            m_itemAvailable.notify_one();
-        }
-
-        // covert to openvibe format ch1,ch1,ch1,ch2,ch2,ch2 ...
-        for (size_t i = 0; i < m_acquiredChannelCount; i++)
-        {
-            for (size_t j = 0; j < kFrameLength; j++)
-            {
-                m_bufferForOpenVibe[kFrameLength * i + j] = m_bufferReceivedDataFromRing[j * m_acquiredChannelCount + i];
-            }
-        }
-
-        // verify counter
-        const size_t counterPos = kFrameLength * m_channelCounterIndex;
-        for (size_t i = counterPos; i < kFrameLength; i++) { if (!(m_bufferForOpenVibe[i] < m_bufferForOpenVibe[i + 1])) { m_totalCounterErrors++; } }
-
-        // forward data
-        m_callback->setSamples(m_bufferForOpenVibe, kFrameLength);
-        CStimulationSet stimulationSet;
-        m_callback->setStimulationSet(stimulationSet);
-        m_driverCtx.correctDriftSampleCount(m_driverCtx.getSuggestedDriftCorrectionSampleCount());
-    }
-    else { System::Time::sleep(20); }
-
-    return true;
-}
-
-// This function used by the thread
-bool CDriverGTecUnicorn::acquire()
-{
-    if (m_flagIsFirstLoop) //First time do some memory initialization, etc
-    {
-        m_bufferRawUnicornDevice = new float[m_lengthBufferRawUnicornDevice];
-
-        m_flagIsFirstLoop = false;
-    }
-
-    while (m_isThreadRunning == true)
-    {
-        try
-        {
-            bool flagChunkLostDetected    = false;
-            bool flagChunkTimeOutDetected = false;
-
-            UNICORN_HANDLE device = m_devices[kSelectedDevice].handle;
-
-            // Get kFrameLength number of samples
-            if (UNICORN_GetData(device, kFrameLength, m_bufferRawUnicornDevice, m_lengthBufferRawUnicornDevice * sizeof(float)) != UNICORN_ERROR_SUCCESS)
-            {
-                m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "Error on GT_GetData\n";
-                return false;
-            }
-
-            // store to ring buffer, lock it during insertion
-            {
-                std::lock_guard<std::mutex> lock(m_mutex);
-                try
-                {
-                    // if we are going to overrun on writing the received data into the buffer, set the appropriate flag; the reading thread will handle the overrun
-                    m_bufferOverrun = (m_ringBuffer.GetFreeSize() < static_cast<int>(m_lengthBufferRawUnicornDevice));
-
-                    m_ringBuffer.Write(m_bufferRawUnicornDevice, m_lengthBufferRawUnicornDevice);
-                }
-                catch (std::exception& e)
-                {
-                    // buffer should be unclocked automatically once the scope is left
-                    m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "Error writing to GTEC ring buffer! Error is: " << e.what() << "\n";
-                }
-                // buffer should be unclocked automatically once the scope is left
-
-                m_itemAvailable.notify_one();
-            }
-        }
-        catch (std::exception& e)
-        {
-            m_driverCtx.getLogManager() << Kernel::LogLevel_Error <<
-                    "General error in the thread function acquiring data from GTEC! Acquisition interrupted. Error is: " << e.what() << "\n";
-            m_isThreadRunning = false;
-            return false;
-        }
-    }
-
-    // This code stops the amplifiers in the same thread:
-    {
-        m_driverCtx.getLogManager() << Kernel::LogLevel_Info << "Stopping devices and cleaning up...\n";
-
-        // clean up allocated resources for each device
-        for (size_t i = 0; i < numDevices(); i++)
-        {
-            UNICORN_HANDLE device = m_devices[i].handle;
-
-            // stop device
-            m_driverCtx.getLogManager() << Kernel::LogLevel_Debug << "Sending stop command ...\n";
-            if (UNICORN_StopAcquisition(device) != UNICORN_ERROR_SUCCESS)
-            {
-                m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "Stopping device failed! Serial = " << m_devices[numDevices() - 1].serial.c_str() << "\n";
-            }
-
-            // clear memory
-            delete[] m_bufferRawUnicornDevice;
-        }
-
-        m_flagIsFirstLoop = true;
-        m_isThreadRunning = false;
-    }
     return true;
 }
 
 bool CDriverGTecUnicorn::stop()
 {
-    if (!m_driverCtx.isConnected()) { return false; }
-    if (!m_driverCtx.isStarted()) { return false; }
-
-    // stop thread
     m_isThreadRunning = false;
-    m_thread->join(); //wait until the thread has stopped data acquisition
+    m_itemAvailable.notify_all(); // unblock read() if it is waiting
 
-    m_driverCtx.getLogManager() << Kernel::LogLevel_Info << "Data acquisition completed.\n";
+    if (m_threadPtr && m_threadPtr->joinable()) { m_threadPtr->join(); }
+    m_threadPtr.reset();
 
-    if (m_totalRingBufferOverruns > 0)
-    {
-        m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "Total internal ring buffer overruns: " << m_totalRingBufferOverruns << "\n";
-    }
-    if (m_totalCounterErrors > 0) { m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "Total Unicorn counter errors: " << m_totalCounterErrors << "\n"; }
-    else { m_driverCtx.getLogManager() << Kernel::LogLevel_Info << "Total Unicorn counter errors: " << m_totalCounterErrors << "\n"; }
+    std::cout << "[Unicorn] Acquisition complete."
+              << " Ring buffer overruns: " << m_totalRingBufferOverruns
+              << ", counter errors: "      << m_totalCounterErrors << std::endl;
 
     return true;
 }
 
-bool CDriverGTecUnicorn::uninitialize()
+// ─────────────────────────────────────────────────────────────────────────────
+
+int CDriverGTecUnicorn::read(sampleType* data, uint64_t /*size*/)
 {
-    if (!m_driverCtx.isConnected()) { return false; }
-    if (m_driverCtx.isStarted()) { return false; }
+    const uint32_t scanFloats  = uint32_t(m_chunkSize) * m_scanChannelCount;
+    const size_t   outChannels = m_selectedIndices.size();
 
-    const size_t totalDevices = numDevices();
-    size_t deviceClosed       = 0;
+    if (outChannels == 0) { return 0; } // never initialised, or already torn down
 
-    for (std::vector<GDevice>::iterator it = m_devices.begin(); it != m_devices.end();)
     {
-        if (UNICORN_CloseDevice(&it->handle) != UNICORN_ERROR_SUCCESS)
+        std::unique_lock<std::mutex> lock(m_io_mutex);
+        m_itemAvailable.wait(lock, [this, scanFloats]
         {
-            m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "Unable to close device: " << it->serial.c_str() << "\n";
+            return m_ringBuffer.GetSize() >= int(scanFloats) || !m_isThreadRunning;
+        });
+
+        if (!m_isThreadRunning && m_ringBuffer.GetSize() < int(scanFloats)) { return 0; }
+
+        if (m_bufferOverrun)
+        {
+            m_ringBuffer.Reset();
+            m_bufferOverrun = false;
+            m_totalRingBufferOverruns++;
+            m_lastCounter = -1.0F; // scans were dropped, so the next gap is expected
+            m_itemAvailable.notify_one();
+            return 0;
         }
-        else { deviceClosed++; }
 
-        it = m_devices.erase(it);
+        m_ringBuffer.Read(m_ringScratch.data(), scanFloats);
+        m_itemAvailable.notify_one();
     }
 
-    m_driverCtx.getLogManager() << Kernel::LogLevel_Info << "Total devices closed: " << deviceClosed << " / " << totalDevices << "\n";
-
-    if (!m_devices.empty() || deviceClosed != totalDevices)
+    // Both layouts are sample-major: the device delivers scan-contiguous floats, and the
+    // acquisition server expects data[sample * channelCount + channel]. So this is a gather
+    // over the selected offsets, not a transpose.
+    for (uint32_t scan = 0; scan < m_chunkSize; ++scan)
     {
-        m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "Some devices were not closed properly!\n";
+        const float* src = &m_ringScratch[size_t(scan) * m_scanChannelCount];
+        sampleType*  dst = &data[size_t(scan) * outChannels];
+        for (size_t channel = 0; channel < outChannels; ++channel)
+        {
+            dst[channel] = src[m_selectedIndices[channel]];
+        }
+
+        // The device counter increments once per scan; any other step means scans were lost
+        // between the amplifier and us.
+        if (m_counterIdx >= 0)
+        {
+            const float counter = src[m_counterIdx];
+            if (m_lastCounter >= 0.0F && counter != m_lastCounter + 1.0F) { m_totalCounterErrors++; }
+            m_lastCounter = counter;
+        }
     }
 
-    m_devices.clear();
+    return int(m_chunkSize);
+}
 
-    // clear memory
-    if (m_bufferReceivedDataFromRing != nullptr)
+void CDriverGTecUnicorn::setChunkSize(const uint32_t chunkSize)
+{
+    m_chunkSize = chunkSize;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// acquire() — runs in m_threadPtr
+// ─────────────────────────────────────────────────────────────────────────────
+
+bool CDriverGTecUnicorn::acquire()
+{
+    const uint32_t scanFloats = uint32_t(m_chunkSize) * m_scanChannelCount;
+
+    while (m_isThreadRunning)
     {
-        delete[] m_bufferReceivedDataFromRing;
-        m_bufferReceivedDataFromRing = nullptr;
+        try
+        {
+            // The last argument counts floats, not bytes -- the pre-port driver passed a byte
+            // count here, overstating the buffer fourfold and defeating the SDK's size check.
+            if (UNICORN_GetData(m_handle, m_chunkSize, m_rawScan.data(), scanFloats) != UNICORN_ERROR_SUCCESS)
+            {
+                std::cout << "[Unicorn] UNICORN_GetData failed." << std::endl;
+                m_isThreadRunning = false;
+                break;
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(m_io_mutex);
+                try
+                {
+                    // If this write would overrun, flag it; the reader handles the recovery.
+                    m_bufferOverrun = (m_ringBuffer.GetFreeSize() < int(scanFloats));
+                    m_ringBuffer.Write(m_rawScan.data(), scanFloats);
+                }
+                catch (std::exception& e)
+                {
+                    std::cout << "[Unicorn] Error writing to ring buffer: " << e.what() << std::endl;
+                }
+                m_itemAvailable.notify_one();
+            }
+        }
+        catch (std::exception& e)
+        {
+            std::cout << "[Unicorn] Error in acquire thread: " << e.what() << std::endl;
+            m_isThreadRunning = false;
+        }
     }
 
-    if (m_bufferForOpenVibe != nullptr)
+    std::cout << "[Unicorn] Stopping device..." << std::endl;
+    if (UNICORN_StopAcquisition(m_handle) != UNICORN_ERROR_SUCCESS)
     {
-        delete[] m_bufferForOpenVibe;
-        m_bufferForOpenVibe = nullptr;
+        std::cout << "[Unicorn] Stopping device failed: " << m_device.value() << std::endl;
     }
-    m_callback = nullptr;
+
+    // read() may be parked on the condition variable: Acquisition::stop() calls the driver's
+    // stop() before joining its reader thread, so wake it once more on the way out.
+    m_itemAvailable.notify_all();
 
     return true;
 }
 
-//___________________________________________________________________//
-//                                                                   //
-inline size_t CDriverGTecUnicorn::getChannelIndex(UNICORN_HANDLE device, const char* name)
-{
-    uint32_t* result = new uint32_t[1];
-    if (UNICORN_GetChannelIndex(device, name, result) != UNICORN_ERROR_SUCCESS)
-    {
-        m_driverCtx.getLogManager() << Kernel::LogLevel_Error << "Error getting channel index for channel: '" << name << "'\n";
-    }
-    return static_cast<size_t>(*result);
-}
-
-inline std::ostream& operator<<(std::ostream& out, const std::vector<std::string>& var)
-{
-    for (size_t i = 0; i < var.size(); i++) { out << var[i] << " "; }
-
-    return out;
-}
-
-inline std::istream& operator>>(std::istream& in, std::vector<std::string>& var)
-{
-    var.clear();
-    std::string tmp;
-    while (in >> tmp) { var.push_back(tmp); }
-
-    return in;
-}
-
-inline std::ostream& operator<<(std::ostream& out, const std::vector<GDevice>& var)
-{
-    for (size_t i = 0; i < var.size(); i++) { out << var[i].serial << " "; }
-
-    return out;
-}
-
-inline std::istream& operator>>(std::istream& in, std::vector<GDevice>& var)
-{
-    // "Error not implemented operator >>!";
-
-    return in;
-}
-
-}  // namespace AcquisitionServer
-}  // namespace OpenViBE
-
-#endif // TARGET_HAS_ThirdPartyGUSBampCAPI
+REGISTER_DRIVER(CDriverGTecUnicorn, "g.tec Unicorn Gipsa-lab", false);

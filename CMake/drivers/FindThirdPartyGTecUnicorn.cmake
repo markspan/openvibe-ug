@@ -21,29 +21,26 @@
 # If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
-get_property(OV_PRINTED GLOBAL PROPERTY OV_TRIED_ThirdPartyGtecUnicornCAPI)
+set(UNICORN_FOUND FALSE)
 
-add_library(sdk-gtec-unicorn INTERFACE)
 if(WIN32)
 
-    find_library(UNICORN_LIB Unicorn)
+	find_library(UNICORN_LIB Unicorn)
 	find_path(UNICORN_INCLUDE_DIR unicorn.h PATH_SUFFIXES sdk-gtec-unicorn)
 
 	if(UNICORN_LIB AND UNICORN_INCLUDE_DIR)
-		OV_PRINT(OV_PRINTED "  Found Gtec Unicorn device API...")
+		message(STATUS "Found g.tec Unicorn device API")
 
-        target_include_directories(sdk-gtec-unicorn INTERFACE ${UNICORN_INCLUDE_DIR})
-        target_link_libraries(sdk-gtec-unicorn INTERFACE ${UNICORN_LIB})
-        target_compile_definitions(sdk-gtec-unicorn INTERFACE TARGET_HAS_ThirdPartyGtecUnicron)
+		add_library(sdk-gtec-unicorn INTERFACE)
+		target_include_directories(sdk-gtec-unicorn INTERFACE ${UNICORN_INCLUDE_DIR})
+		target_link_libraries(sdk-gtec-unicorn INTERFACE ${UNICORN_LIB})
+		set(UNICORN_FOUND TRUE)
 
-	else(UNICORN_LIB AND UNICORN_INCLUDE_DIR)
-		OV_PRINT(OV_PRINTED "  FAILED to find Gtec Unicorn device API (optional driver)")
-	endif(UNICORN_LIB AND UNICORN_INCLUDE_DIR)
-
-endif(WIN32)
+	else()
+		message(STATUS "g.tec Unicorn device API not found (optional driver)")
+	endif()
+endif()
 
 if(UNIX)
-		OV_PRINT(OV_PRINTED "  Gtec Unicorn device API (optional driver): No Linux or Apple support")
-endif(UNIX)
-
-set_property(GLOBAL PROPERTY OV_TRIED_ThirdPartyGtecUnicornCAPI "Yes")
+	message(STATUS "g.tec Unicorn device API (optional driver): no Linux or Apple support")
+endif()
