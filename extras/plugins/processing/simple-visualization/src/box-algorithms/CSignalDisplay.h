@@ -1,25 +1,24 @@
-///-------------------------------------------------------------------------------------------------
-/// 
-/// \file CSignalDisplay.hpp
-/// \brief Classes for the Box Signal display.
-/// \author Bruno Renier, Yann Renard, Alison Cellard, Jussi T. Lindgren (INRIA/IRISA).
-/// \version 0.3.
-/// \copyright Copyright (C) 2022 Inria
-///
-/// This program is free software: you can redistribute it and/or modify
-/// it under the terms of the GNU Affero General Public License as published
-/// by the Free Software Foundation, either version 3 of the License, or
-/// (at your option) any later version.
-///
-/// This program is distributed in the hope that it will be useful,
-/// but WITHOUT ANY WARRANTY; without even the implied warranty of
-/// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-/// GNU Affero General Public License for more details.
-///
-/// You should have received a copy of the GNU Affero General Public License
-/// along with this program.  If not, see <https://www.gnu.org/licenses/>.
-/// 
-///-------------------------------------------------------------------------------------------------
+/**-------------------------------------------------------------------------------------------------
+ * \file CSignalDisplay.h
+ * \brief Classes for the Box Signal display.
+ * \author Bruno Renier, Yann Renard, Alison Cellard, Jussi T. Lindgren (INRIA/IRISA).
+ * \version 0.3.
+ * \copyright Copyright (C) 2022 Inria
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *-------------------------------------------------------------------------------------------------
+ */
 
 #pragma once
 
@@ -27,17 +26,24 @@
 
 #include <openvibe/ov_all.h>
 #include <toolkit/ovtk_all.h>
-//#include <visualization-toolkit/ovviz_all.h>
 
-#include "../CBufferDatabase.h"
-#include "../ChartViewObject.h"
+#include "../SDisplaySettings.h"
 
 namespace OpenViBE {
+
+namespace VisualizationToolkit {
+class IVisualizationContext;
+}  // namespace VisualizationToolkit
+
 namespace Plugins {
 namespace SimpleVisualization {
+
+class CSignalDisplayController;
+
 /**
-* This plugin opens a new qml QQuickView and displays the incoming signals. The user may change the zoom level,
-* the width of the time window displayed, ...
+* Decodes the incoming streams and forwards them to a QML view that stacks every channel as one
+* trace of a single graph. The view is built on the designer's QML engine and handed to the window
+* manager as a QQuickItem.
 */
 class CSignalDisplay final : public Toolkit::TBoxAlgorithm<IBoxAlgorithm>
 {
@@ -57,17 +63,15 @@ public:
     Toolkit::TStimulationDecoder<CSignalDisplay> m_StimulationDecoder;
     Toolkit::TChannelUnitsDecoder<CSignalDisplay> m_UnitDecoder;
 
-    //The main object used for the display (contains all the GUI code)
-    ChartViewObject* m_signalDisplayView = nullptr;
-
-    //Contains all the data about the incoming signal
-    CBufferDatabase* m_bufferDatabase = nullptr;
-
     CIdentifier m_InputTypeID = CIdentifier::undefined();
 
 protected:
-    uint64_t m_lastScaleRefreshTime = 0;
-    double m_refreshInterval        = 0;
+    /** Parsed once in initialize(), then owned and mutated by the controller. */
+    SDisplaySettings m_settings;
+
+    CSignalDisplayController* m_controller = nullptr;
+    /** Held for the box's lifetime so that uninitialize() does not have to create a second one. */
+    VisualizationToolkit::IVisualizationContext* m_visualizationCtx = nullptr;
 };
 
 
@@ -76,18 +80,22 @@ class CSignalDisplayListener final : public Toolkit::TBoxListener<IBoxListener>
 public:
     bool onInputTypeChanged(Kernel::IBox& box, const size_t index) override
     {
-        if (index == 1) {
-            CIdentifier settingType = CIdentifier::undefined();
-            box.getSettingType(index, settingType);
-            if (settingType != OV_TypeId_Stimulations) {
+        if (index == 1)
+        {
+            CIdentifier inputType = CIdentifier::undefined();
+            box.getInputType(index, inputType);
+            if (inputType != OV_TypeId_Stimulations)
+            {
                 this->getLogManager() << Kernel::LogLevel_Error << "Error: Only stimulation type supported for input 2\n";
                 box.setInputType(index, OV_TypeId_Stimulations);
             }
         }
-        else if (index == 2) {
-            CIdentifier settingType = CIdentifier::undefined();
-            box.getSettingType(index, settingType);
-            if (settingType != OV_TypeId_ChannelUnits) {
+        else if (index == 2)
+        {
+            CIdentifier inputType = CIdentifier::undefined();
+            box.getInputType(index, inputType);
+            if (inputType != OV_TypeId_ChannelUnits)
+            {
                 this->getLogManager() << Kernel::LogLevel_Error << "Error: Only ChannelUnits type supported for input 3\n";
                 box.setInputType(index, OV_TypeId_ChannelUnits);
             }
@@ -99,7 +107,9 @@ public:
     _IsDerivedFromClass_Final_(Toolkit::TBoxListener<IBoxListener>, CIdentifier::undefined())
 };
 
-/// <summary> Signal Display plugin descriptor. </summary>
+/**
+ * \brief Signal Display plugin descriptor.
+ */
 class CSignalDisplayDesc final : public IBoxAlgorithmDesc
 {
 public:

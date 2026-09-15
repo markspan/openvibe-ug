@@ -29,7 +29,9 @@
 
 #include "CImageDisplayObject.h"
 
+#include <atomic>
 #include <iomanip>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -80,6 +82,14 @@ protected:
     bool m_imageDrawn  = false;            //when true: the new image has been drawn
     int m_drawnImageId = -1;                //ID of the drawn image. -1 => clear the screen
 
+    // Round trip of a request through the GUI. Redraw() hands m_requestedImageId to the view, which
+    // raises m_cueDisplayed once the frame carrying it has been swapped; processClock() picks that up
+    // on the player thread. The flag is shared rather than a member so a frame swapped after the box
+    // is gone cannot write into freed memory.
+    bool m_displayPending     = false;  ///< A request is with the GUI and not yet confirmed on screen.
+    int  m_displayRequestedId = -1;     ///< Slot that request was for. -1 => clear the screen.
+    std::shared_ptr<std::atomic<bool>> m_cueDisplayed = std::make_shared<std::atomic<bool>>(false);
+
     // Data corresponding to each cue image. Could be refactored to a vector of structs.
     std::vector<uint64_t> m_stimulationsIds;
     std::vector<std::string> m_imageNames;
@@ -104,7 +114,6 @@ protected:
 
     // For queuing stimulations to the TCP Tagging
     std::vector<uint64_t> m_stimuliQueue;
-    int m_idleFuncTag = 0;
     TCPTagging::IStimulusSender* m_stimulusSender = nullptr;
 
 private:
