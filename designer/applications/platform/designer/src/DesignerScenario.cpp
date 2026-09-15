@@ -83,15 +83,17 @@ void DesignerScenarioPrivate::fillBoxes()
 {
     // 1 add the boxes
     CIdentifier boxId = m_scenario.getNextBoxIdentifier(CIdentifier::undefined());
-    while(boxId != CIdentifier::undefined()) {
+    while(boxId != CIdentifier::undefined())
+    {
         // check isBox(boxId);
         Kernel::IBox *boxDetails = m_scenario.getBoxDetails(boxId);
         BoxObject *box = new BoxObject(kernelCtx, boxDetails);
         boxesMap.insert(boxId, box);
         boxes.append(box);
         // Check if box is a display box
-        auto pod = kernelCtx->getPluginManager().getPluginObjectDesc(boxDetails->getAlgorithmClassIdentifier());
-        if (pod && pod->hasFunctionality(Plugins::EPluginFunctionality::Visualization)) {
+        auto pod = kernelCtx->getPluginManager().getPluginObjectDescCreating(boxDetails->getAlgorithmClassIdentifier());
+        if (pod && pod->hasFunctionality(Plugins::EPluginFunctionality::Visualization))
+        {
             getWindowManager()->addVisualizationBox(box);
         }
 
@@ -101,12 +103,14 @@ void DesignerScenarioPrivate::fillBoxes()
 
 void DesignerScenarioPrivate::fillLinks()
 {
-    if(this->boxes.isEmpty()) {
+    if(this->boxes.isEmpty())
+    {
         this->fillBoxes();
     }
 
     CIdentifier linkId = m_scenario.getNextLinkIdentifier(CIdentifier::undefined());
-    while(linkId != CIdentifier::undefined()) {
+    while(linkId != CIdentifier::undefined())
+    {
         // check isBox(boxId);
 
         Kernel::ILink *linkDetails = m_scenario.getLinkDetails(linkId);
@@ -143,10 +147,12 @@ DesignerScenario::DesignerScenario(Kernel::IKernelContext* context, Kernel::ISce
     d->m_cpuUsageTimer.setInterval(1000);
     connect(&d->m_cpuUsageTimer, &QTimer::timeout, this, &DesignerScenario::cpuUsageChanged);
     // fill input/output lists
-    for(size_t i=0; i < scenario.getInputCount(); i++) {
+    for(size_t i=0; i < scenario.getInputCount(); i++)
+    {
         d->m_inputPorts.push_back(new IOPort(context, &scenario, IOPort::PortType::Input, i));
     }
-    for(size_t i=0; i < scenario.getOutputCount(); i++) {
+    for(size_t i=0; i < scenario.getOutputCount(); i++)
+    {
         d->m_outputPorts.push_back(new IOPort(context, &scenario, IOPort::PortType::Output, i));
     }
 
@@ -170,16 +176,20 @@ void DesignerScenario::addBox(const QString& boxPluginIDStr, const QPoint& posit
     Kernel::IBox *boxDetails = nullptr;
     const Plugins::IPluginObjectDesc* pluginDesc;
 
-    if (boxAlgorithmClassID == CIdentifier::undefined()) {
+    if (boxAlgorithmClassID == CIdentifier::undefined())
+    {
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to find the box algorithm class identifier for " << boxPluginIDStr.toStdString() << "\n";
         return;
     }
 
-    if (boxAlgorithmClassID == OVP_ClassId_BoxAlgorithm_Metabox) {
+    if (boxAlgorithmClassID == OVP_ClassId_BoxAlgorithm_Metabox)
+    {
         // Todo: handle metaboxes!
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Metaboxes are not yet supported\n";
         return;
-    } else {
+    }
+    else
+    {
         d->m_scenario.addBox(boxID, boxAlgorithmClassID, CIdentifier::undefined());
         boxDetails = d->m_scenario.getBoxDetails(boxID);
         CIdentifier id = boxDetails->getAlgorithmClassIdentifier();
@@ -193,7 +203,8 @@ void DesignerScenario::addBox(const QString& boxPluginIDStr, const QPoint& posit
     d->boxes.append(box);
 
     // 3 Check if box is a display box
-    if (pluginDesc->hasFunctionality(Plugins::EPluginFunctionality::Visualization)) {
+    if (pluginDesc->hasFunctionality(Plugins::EPluginFunctionality::Visualization))
+    {
         d->getWindowManager()->addVisualizationBox(box);
         //emit displayBoxesChanged();
     }
@@ -226,15 +237,18 @@ bool DesignerScenario::isEmpty()
 
 PlayerBridge& DesignerScenario::createOrGetPlayer()
 {
-    if (d->player.isNull()) {
+    if (d->player.isNull())
+    {
         // create a snapshot so settings override does not modify the scenario !
         //d->m_scenario.SnapshotCB(false);
 
         // set filename attribute to scenario so delayed configuration can be used
-        if (d->m_scenario.hasAttribute(OV_AttributeId_ScenarioFilename)) {
+        if (d->m_scenario.hasAttribute(OV_AttributeId_ScenarioFilename))
+        {
             d->m_scenario.setAttributeValue(OV_AttributeId_ScenarioFilename, d->filePath.toLocalFile().toStdString().c_str());
         }
-        else {
+        else
+        {
             d->m_scenario.addAttribute(OV_AttributeId_ScenarioFilename, d->filePath.toLocalFile().toStdString().c_str());
         }
 
@@ -246,12 +260,22 @@ PlayerBridge& DesignerScenario::createOrGetPlayer()
             d->playerID = CIdentifier::undefined();
             d->player.clear();
             d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "The scenario could not be set to the player.\n";
-        } else {
+        }
+        else
+        {
             // Sets window manager ID to runtime config. This way, visualization boxes can access it.
             // Needs to be set between setScenario() and initialize().
-            d->player.setWindowManager(d->m_windowManagerID); 
+            d->player.setWindowManager(d->m_windowManagerID);
 
-            if (d->player.initialize() != Kernel::EPlayerReturnCodes::Success) {
+            // fillBoxes() is lazy: it normally runs the first time QML asks for boxes(), and it is
+            // what registers visualization boxes with the window manager. Playing a scenario whose
+            // canvas has not been shown yet -- a session restored at startup, for instance -- would
+            // otherwise reach initialize() with no window manager node, and setVisualizationItem()
+            // would silently find nothing and display no visualization at all.
+            if (d->boxes.isEmpty()) { d->fillBoxes(); }
+
+            if (d->player.initialize() != Kernel::EPlayerReturnCodes::Success)
+            {
                 d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "The player could not be initialized.\n";
                 d->kernelCtx->getPlayerManager().releasePlayer(d->playerID);
                 d->player.setPlayer(nullptr);
@@ -261,7 +285,8 @@ PlayerBridge& DesignerScenario::createOrGetPlayer()
         }
     }
 
-    if (!d->player.isNull()) {
+    if (!d->player.isNull())
+    {
         // Start cpu usage timer
         d->m_cpuUsageTimer.start();
     }
@@ -273,19 +298,22 @@ void DesignerScenario::releasePlayer()
 {
     d->m_cpuUsageTimer.stop();
 
-    if(d->player.isNull()) {
+    if(d->player.isNull())
+    {
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Warning << "Trying to release non-initialized player\n";
         return;
     }
 
     d->kernelCtx->getErrorManager().releaseErrors();
 
-    if (!d->player.uninitialize()) {
+    if (!d->player.uninitialize())
+    {
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to uninitialize the player" << "\n"; 
     }
     d->player.setPlayer(nullptr);
 
-    if(!d->kernelCtx->getPlayerManager().releasePlayer(d->playerID)) {
+    if(!d->kernelCtx->getPlayerManager().releasePlayer(d->playerID))
+    {
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to release the player" << "\n";
     }
     d->playerID = CIdentifier::undefined();
@@ -306,7 +334,8 @@ QUrl DesignerScenario::filePath() const
 void DesignerScenario::setName(const QString &name)
 {
     QString currentName = d->m_scenario.getName().toASCIIString();
-    if (currentName != name) {
+    if (currentName != name)
+    {
         d->m_scenario.setName(name.toStdString().c_str());
         emit nameChanged(name);
     }
@@ -315,7 +344,8 @@ void DesignerScenario::setName(const QString &name)
 void DesignerScenario::setFilePath(const QUrl& filePath)
 {
     QUrl currentPath = d->filePath;
-    if (currentPath != filePath) {
+    if (currentPath != filePath)
+    {
         d->filePath = filePath;
 
         //set the name of the scenario to the file name
@@ -329,7 +359,8 @@ void DesignerScenario::setFilePath(const QUrl& filePath)
 QQmlListProperty<BoxObject> DesignerScenario::boxes()
 {
     //first time we need the boxes, we fill the list
-    if(d->boxes.isEmpty()) {
+    if(d->boxes.isEmpty())
+    {
         d->fillBoxes();
     }
     d->kernelCtx->getLogManager() << Kernel::LogLevel_Info << "there are " << int(d->boxes.size()) << " boxes in the scenario \n";
@@ -339,7 +370,8 @@ QQmlListProperty<BoxObject> DesignerScenario::boxes()
 
 QQmlListProperty<LinkObject> DesignerScenario::links()
 {
-    if(d->links.isEmpty()) {
+    if(d->links.isEmpty())
+    {
         d->fillLinks();
     }
     d->kernelCtx->getLogManager() << Kernel::LogLevel_Info << "there are " << int(d->links.size()) << " links in the scenario \n";
@@ -349,10 +381,13 @@ QQmlListProperty<LinkObject> DesignerScenario::links()
 
 void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qreal y, bool isOutput)
 {
-    if(d->linkCreationStarted) {
-        for(auto *box : d->boxes) {
+    if(d->linkCreationStarted)
+    {
+        for(auto *box : d->boxes)
+        {
             QString current_id = box->id().toString().toASCIIString();
-            if(current_id == boxId) {
+            if(current_id == boxId)
+            {
                 //create the OpenVibe Link
                 //first check if the connection is allowed
                 CIdentifier newLinkId;
@@ -361,14 +396,17 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                 int boxSrcPort, boxDstPort;
                 Kernel::IBox* srcBox = nullptr;
                 Kernel::IBox* dstBox = nullptr;
-                if(d->linkCreationSourceIsOutput) {
+                if(d->linkCreationSourceIsOutput)
+                {
                     srcBox = d->m_scenario.getBoxDetails(d->linkCreationSource->id());
                     dstBox = d->m_scenario.getBoxDetails(box->id());
                     boxSrcTypeID = d->linkCreationSource->id();
                     boxDstTypeID = box->id();
                     boxSrcPort = d->linkCreationSourcePort;
                     boxDstPort = portIdx;
-                } else {
+                }
+                else
+                {
                     srcBox = d->m_scenario.getBoxDetails(box->id());
                     dstBox = d->m_scenario.getBoxDetails(d->linkCreationSource->id());
                     boxSrcTypeID = box->id();
@@ -377,11 +415,13 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                     boxDstPort = d->linkCreationSourcePort;
                 }
                 
-                if(!srcBox) {
+                if(!srcBox)
+                {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to find the box details for " << boxSrcTypeID.toString() << " as a Source \n";
                     return;
                 }
-                if(!dstBox) {
+                if(!dstBox)
+                {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to find the box details for " << boxDstTypeID.toString() << " as a Target \n";
                     return;
                 }
@@ -394,26 +434,31 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                 //no deprecated input or output
                 bool hasDeprecatedIO = false;
                 srcBox->getInterfacorDeprecatedStatus(Kernel::Output, boxSrcPort, hasDeprecatedIO);
-                if(hasDeprecatedIO) {
+                if(hasDeprecatedIO)
+                {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Warning << "Cannot connect from deprecated Output :" << boxSrcTypeID.toString() << " \n";
                     return;
                 }
                 dstBox->getInterfacorDeprecatedStatus(Kernel::Input, boxDstPort, hasDeprecatedIO);
-                if(hasDeprecatedIO) {
+                if(hasDeprecatedIO)
+                {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Warning << "Cannot connect to deprecated Input : " << boxDstTypeID.toString()  << " \n";
                     return;
                 }
 
                 //Do the connection
                 if ((d->kernelCtx->getTypeManager().isDerivedFromStream(srcTypeID, dstTypeID)
-                         || d->kernelCtx->getConfigurationManager().expandAsBoolean("${Designer_AllowUpCastConnection}", false))) {
-                    if(!d->m_scenario.connect(newLinkId, boxSrcTypeID, boxSrcPort, boxDstTypeID, boxDstPort, CIdentifier::undefined())) {
+                         || d->kernelCtx->getConfigurationManager().expandAsBoolean("${Designer_AllowUpCastConnection}", false)))
+                {
+                    if(!d->m_scenario.connect(newLinkId, boxSrcTypeID, boxSrcPort, boxDstTypeID, boxDstPort, CIdentifier::undefined()))
+                    {
                         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to create link between " << d->linkCreationSource->name().toStdString()
                                                       << " and " << boxId.toStdString() << "\n";
                         return;
                     }
                 }
-                else {
+                else
+                {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to create link between " << d->linkCreationSource->name().toStdString()
                                                       << " and " << boxId.toStdString() << "\n";
                     return;
@@ -423,23 +468,30 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                 //we should update all our links if the number of links in the scenario has changed
                 int nbLinks = 0;
                 CIdentifier linkId = d->m_scenario.getNextLinkIdentifier(CIdentifier::undefined());
-                while(linkId != CIdentifier::undefined()) {
+                while(linkId != CIdentifier::undefined())
+                {
                     nbLinks++;
                     linkId = d->m_scenario.getNextLinkIdentifier(linkId);
                 }
 
-                if((d->links.size() + 1) != nbLinks) {
+                if((d->links.size() + 1) != nbLinks)
+                {
                     qDeleteAll(d->links);
                     d->links.clear();
                     d->fillLinks();
-                } else {
+                }
+                else
+                {
                     Kernel::ILink *iLink = d->m_scenario.getLinkDetails(newLinkId);
 
                     //create the link object
                     LinkObject *link = nullptr;
-                    if(d->linkCreationSourceIsOutput) {
+                    if(d->linkCreationSourceIsOutput)
+                    {
                         link = new LinkObject(d->kernelCtx, iLink, d->linkCreationSource, box);
-                    } else {
+                    }
+                    else
+                    {
                         link = new LinkObject(d->kernelCtx, iLink, box, d->linkCreationSource);
                     }
                     d->links.append(link);
@@ -458,9 +510,11 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
         return;
     }
 
-    for(auto *box : d->boxes) {
+    for(auto *box : d->boxes)
+    {
         QString current_id = box->id().toString().toASCIIString();
-        if(current_id == boxId) {
+        if(current_id == boxId)
+        {
             d->linkCreationStarted = true;
             d->linkCreationSource = box;
             d->linkCreationSourcePort = portIdx;
@@ -475,20 +529,25 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
 
 void DesignerScenario::removeLinkOnPort(int portIdx, QString boxId, bool isOutput)
 {
-    for(int i=0; i < d->links.length(); ++i) {
+    for(int i=0; i < d->links.length(); ++i)
+    {
         auto *link = d->links.at(i);
         BoxObject *box = nullptr;
         int port = -1;
-        if(isOutput) {
+        if(isOutput)
+        {
             box = link->m_sourceBox;
             port = link->m_link->getSourceBoxOutputIndex();
-        } else {
+        }
+        else
+        {
             box = link->m_targetBox;
             port = link->m_link->getTargetBoxInputIndex();
         }
         QString current_id = box->id().toString().toASCIIString();
 
-        if((current_id == boxId) && (port == portIdx)) {
+        if((current_id == boxId) && (port == portIdx))
+        {
             //remove the link from the scenario
             this->removeLink(i);
             return;
@@ -501,7 +560,8 @@ void DesignerScenario::removeLinkOnPort(int portIdx, QString boxId, bool isOutpu
 void DesignerScenario::removeLink(int linkIdx)
 {
     LinkObject *link = d->links.takeAt(linkIdx);
-    if(!d->m_scenario.disconnect(link->m_link->getIdentifier())) {
+    if(!d->m_scenario.disconnect(link->m_link->getIdentifier()))
+    {
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to remove link between " << link->m_sourceBox->name().toStdString()
                                       << " and " << link->m_targetBox->name().toStdString() << "\n";
     }
@@ -528,13 +588,15 @@ void DesignerScenario::removeBox(QString identifier)
 {
     BoxObject *box = nullptr;
     for(auto* b : d->boxes) {
-        if(b->id().toString() == identifier) {
+        if(b->id().toString() == identifier)
+        {
             box = b;
             break;
         }
     }
 
-    if(!box) {
+    if(!box)
+    {
         return;
     }
 
@@ -543,29 +605,38 @@ void DesignerScenario::removeBox(QString identifier)
     d->getWindowManager()->removeVisualizationBox(box);
 
     // Remove the box
-    if(!d->m_scenario.removeBox(box->id())) {
+    if(!d->m_scenario.removeBox(box->id()))
+    {
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to remove box " << box->name().toStdString() << "\n";
     }
 
     //remove all linkObjects connected to this box
     auto it = d->links.begin();
-    while(it != d->links.end()) {
+    while(it != d->links.end())
+    {
         LinkObject *link = *it;
-        if((link->m_sourceBox == box) || (link->m_targetBox == box)) {
+        if((link->m_sourceBox == box) || (link->m_targetBox == box))
+        {
             it = d->links.erase(it);
             delete link;
-        } else {
+        }
+        else
+        {
             ++it;
         }
     }
 
     auto it2 = d->m_scenarioIOConnections.begin();
-    while (it2 != d->m_scenarioIOConnections.end()) {
+    while (it2 != d->m_scenarioIOConnections.end())
+    {
         ScenarioIOConnection *connection = *it2;
-        if (connection->m_targetBox == box) {
+        if (connection->m_targetBox == box)
+        {
             it2 = d->m_scenarioIOConnections.erase(it2);
             delete connection;
-        } else {
+        }
+        else
+        {
             ++it2;
         }
     }
@@ -583,14 +654,16 @@ void DesignerScenario::removeBox(QString identifier)
 QJSValue DesignerScenario::parameters() const
 {
     QQmlEngine *jsEngine = QmlEngineSingleton::getInstance().engine();
-    if(!jsEngine) {
+    if(!jsEngine)
+    {
         qWarning() << Q_FUNC_INFO << "Could not obtain QQmlEngine for object.\n";
         return QJSValue();
     }
 
     int nbParams = d->m_parameters.size();
     QJSValue jsParams = jsEngine->newArray(nbParams);
-    for (int i = 0; i < nbParams; ++i) {
+    for (int i = 0; i < nbParams; ++i)
+    {
         jsParams.setProperty(i, jsEngine->newQObject(d->m_parameters[i]));
     }
 
@@ -601,7 +674,8 @@ QStringList DesignerScenario::getAvailableParameterTypes() const {
     QStringList types;
     std::vector<std::string> availableTypes;
     d->m_scenario.getAvailableParameterTypes(availableTypes);
-    for (const auto& type : availableTypes) {
+    for (const auto& type : availableTypes)
+    {
         types << QString::fromStdString(type);
     }
     return types;
@@ -635,12 +709,14 @@ QQmlListProperty<ScenarioParameterConnectionObject> DesignerScenario::getParamet
     std::vector<Kernel::CScenarioParameterConnection*> parameterConnections;
     d->m_scenario.getParameterConnections(scenarioParameterName.toStdString(), parameterConnections);
 
-    for (auto& parameterConnection : d->m_parameterConnections) {
+    for (auto& parameterConnection : d->m_parameterConnections)
+    {
         delete parameterConnection;
     }
     d->m_parameterConnections.clear();
 
-    for (auto& parameterConnection : parameterConnections) {
+    for (auto& parameterConnection : parameterConnections)
+    {
         d->m_parameterConnections.append(new ScenarioParameterConnectionObject(d->kernelCtx,
                                                                                parameterConnection->getScenarioParameterName().c_str(),
                                                                                parameterConnection->getBoxID().str().c_str(),
@@ -650,7 +726,8 @@ QQmlListProperty<ScenarioParameterConnectionObject> DesignerScenario::getParamet
 
     std::vector<Kernel::CScenarioParameterConnection> parameterConnectionCandidates;
     d->m_scenario.getParameterConnectionCandidates(scenarioParameterName.toStdString(), parameterConnectionCandidates);
-    for (auto& parameterConnection : parameterConnectionCandidates) {
+    for (auto& parameterConnection : parameterConnectionCandidates)
+    {
         d->m_parameterConnections.append(new ScenarioParameterConnectionObject(d->kernelCtx,
                                                                                parameterConnection.getScenarioParameterName().c_str(),
                                                                                parameterConnection.getBoxID().str().c_str(),
@@ -664,18 +741,23 @@ QQmlListProperty<ScenarioParameterConnectionObject> DesignerScenario::getParamet
 void DesignerScenario::updateParameterConnection(const QString& scenarioParameterName, const QString& boxIdentifier, const QString& boxParameterName, bool connect)
 {
     CIdentifier boxID = CIdentifier(boxIdentifier.toStdString());
-    if (connect) {
+    if (connect)
+    {
         d->m_scenario.addParameterConnection(scenarioParameterName.toStdString(), boxID, boxParameterName.toStdString().c_str());
-    } else {
+    }
+    else
+    {
         d->m_scenario.removeParameterConnection(scenarioParameterName.toStdString(), boxID, boxParameterName.toStdString().c_str());
     }
 }
 
 QQmlListProperty<CommentObject> DesignerScenario::comments()
 {
-    if(d->comments.isEmpty()) {
+    if(d->comments.isEmpty())
+    {
         CIdentifier commentId = d->m_scenario.getNextCommentIdentifier(CIdentifier::undefined());
-        while(commentId != CIdentifier::undefined()) {
+        while(commentId != CIdentifier::undefined())
+        {
             Kernel::IComment *comment = d->m_scenario.getCommentDetails(commentId);
 
             d->comments.append(new CommentObject(d->kernelCtx, comment));//  comment->getText().toASCIIString());
@@ -691,7 +773,8 @@ void DesignerScenario::addComment(const QString& text, const QPoint& origin)
 {
     // 1 create OpenViBE comment
     CIdentifier commentID;
-    if(!d->m_scenario.addComment(commentID, CIdentifier::undefined())) {
+    if(!d->m_scenario.addComment(commentID, CIdentifier::undefined()))
+    {
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to add comment " << text.toStdString() << "\n";
         return;
     }
@@ -710,7 +793,8 @@ void DesignerScenario::addComment(const QString& text, const QPoint& origin)
 void DesignerScenario::removeComment(int commentIdx)
 {
     CommentObject *comment = d->comments.takeAt(commentIdx);
-    if(!d->m_scenario.removeComment(comment->id())) {
+    if(!d->m_scenario.removeComment(comment->id()))
+    {
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to remove comment " << comment->text().toStdString() << "\n";
     }
 
@@ -739,8 +823,10 @@ QList<QString> DesignerScenario::getSupportedInputTypes() const
 {
     QList<QString> supportedTypes;
     std::vector<std::pair<CIdentifier, CString>> sortedTypes = d->kernelCtx->getTypeManager().getSortedTypes();
-    for (const auto& type : sortedTypes) {
-        if (d->kernelCtx->getTypeManager().isStream(type.first) && d->m_scenario.hasInputSupport(type.first)) {
+    for (const auto& type : sortedTypes)
+    {
+        if (d->kernelCtx->getTypeManager().isStream(type.first) && d->m_scenario.hasInputSupport(type.first))
+        {
             supportedTypes.push_back(QString::fromStdString(type.second.toASCIIString()));
         }
     }
@@ -752,13 +838,15 @@ void DesignerScenario::addInput(const QString& name, const QString& typeId)
 {
     CIdentifier cidTypeId = d->kernelCtx->getTypeManager().getTypeFromName(typeId.toStdString().c_str());
     CIdentifier inputId = d->m_scenario.getUnusedInputIdentifier();
-    if(!d->m_scenario.addInput(name.toStdString().c_str(), cidTypeId, inputId, true)) {
+    if(!d->m_scenario.addInput(name.toStdString().c_str(), cidTypeId, inputId, true))
+    {
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Warning << "Could not add input port to box " << d->m_scenario.getName() << "\n";
         return;
     }
 
     //A Listener may have been called in which case, the input port list has been updated
-    if(d->m_inputPorts.size() == d->m_scenario.getInputCount()) {
+    if(d->m_inputPorts.size() == d->m_scenario.getInputCount())
+    {
         return;
     }
 
@@ -772,12 +860,14 @@ void DesignerScenario::removeInput(int portIndex)
 
     //calling IBox::removeInput deletes all the links and recreate them..
     //so we need to update all links
-    for(auto* port: d->m_inputPorts) {
+    for(auto* port: d->m_inputPorts)
+    {
         delete port;
     }
     d->m_inputPorts.clear();
 
-    for(size_t i=0; i < d->m_scenario.getInputCount(); i++) {
+    for(size_t i=0; i < d->m_scenario.getInputCount(); i++)
+    {
         d->m_inputPorts.push_back(new IOPort(d->kernelCtx, &d->m_scenario, IOPort::PortType::Input, i));
     }
     emit inputPortsChanged();
@@ -787,8 +877,10 @@ QList<QString> DesignerScenario::getSupportedOutputTypes() const
 {
     QList<QString> supportedTypes;
     std::vector<std::pair<CIdentifier, CString>> sortedTypes = d->kernelCtx->getTypeManager().getSortedTypes();
-    for (const auto& type : sortedTypes) {
-        if (d->kernelCtx->getTypeManager().isStream(type.first) && d->m_scenario.hasOutputSupport(type.first)) {
+    for (const auto& type : sortedTypes)
+    {
+        if (d->kernelCtx->getTypeManager().isStream(type.first) && d->m_scenario.hasOutputSupport(type.first))
+        {
             supportedTypes.push_back(QString::fromStdString(type.second.toASCIIString()));
         }
     }
@@ -800,13 +892,15 @@ void DesignerScenario::addOutput(const QString& name, const QString& typeId)
 {
     CIdentifier cidTypeId = d->kernelCtx->getTypeManager().getTypeFromName(typeId.toStdString().c_str());
     CIdentifier outputId = d->m_scenario.getUnusedOutputIdentifier();
-    if(!d->m_scenario.addOutput(name.toStdString().c_str(), cidTypeId, outputId, true)) {
+    if(!d->m_scenario.addOutput(name.toStdString().c_str(), cidTypeId, outputId, true))
+    {
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Warning << "Could not add output port to box " << d->m_scenario.getName() << "\n";
         return;
     }
 
     //A Listener may have been called in which case, the output port list has been updated
-    if(d->m_outputPorts.size() == d->m_scenario.getOutputCount()) {
+    if(d->m_outputPorts.size() == d->m_scenario.getOutputCount())
+    {
         return;
     }
 
@@ -820,12 +914,14 @@ void DesignerScenario::removeOutput(int portIndex)
 
     //calling IBox::removeOutput deletes all the links and recreate them..
     //so we need to update all links
-    for(auto* port: d->m_outputPorts) {
+    for(auto* port: d->m_outputPorts)
+    {
         delete port;
     }
     d->m_outputPorts.clear();
 
-    for(size_t i=0; i < d->m_scenario.getOutputCount(); i++) {
+    for(size_t i=0; i < d->m_scenario.getOutputCount(); i++)
+    {
         d->m_outputPorts.push_back(new IOPort(d->kernelCtx, &d->m_scenario, IOPort::PortType::Output, i));
     }
     emit outputPortsChanged();
@@ -841,19 +937,24 @@ double DesignerScenario::cpuUsage() const {
 
 void DesignerScenario::setScenarioInputLink(int portIndex, const QString& boxId, int boxInputIndex) {
     CIdentifier cidBoxId = CIdentifier(boxId.toStdString().c_str());
-    if (d->m_scenario.setScenarioInputLink(portIndex, cidBoxId, boxInputIndex)) {
+    if (d->m_scenario.setScenarioInputLink(portIndex, cidBoxId, boxInputIndex))
+    {
         // Check and clear any conflicting existing connections
         auto it = d->m_scenarioIOConnections.begin();
-        while (it != d->m_scenarioIOConnections.end()) {
+        while (it != d->m_scenarioIOConnections.end())
+        {
             ScenarioIOConnection *connection = *it;
             if (connection->isOutput() == false // only check inputs
                 && (connection->scenarioPortIdx() == portIndex  // scenario port index already used
                     || (connection->targetBoxId() == boxId  // or box port already connected
                         && connection->targetPortIdx() == boxInputIndex)
-                )) {
+                ))
+            {
                 it = d->m_scenarioIOConnections.erase(it);
                 delete connection;
-            } else {
+            }
+            else
+            {
                 ++it;
             }
         }
@@ -866,20 +967,25 @@ void DesignerScenario::setScenarioInputLink(int portIndex, const QString& boxId,
 
 void DesignerScenario::setScenarioOutputLink(int portIndex, const QString& boxId, int boxOutputIndex) {
     CIdentifier cidBoxId = CIdentifier(boxId.toStdString().c_str());
-    if (d->m_scenario.setScenarioOutputLink(portIndex, cidBoxId, boxOutputIndex)) {
+    if (d->m_scenario.setScenarioOutputLink(portIndex, cidBoxId, boxOutputIndex))
+    {
 
         // Check and clear any conflicting existing connection
         auto it = d->m_scenarioIOConnections.begin();
-        while (it != d->m_scenarioIOConnections.end()) {
+        while (it != d->m_scenarioIOConnections.end())
+        {
             ScenarioIOConnection *connection = *it;
             if (connection->isOutput() == true // only check outputs
                 && (connection->scenarioPortIdx() == portIndex  // scenario port index already used
                     || (connection->targetBoxId() == boxId  // or box port already connected
                         && connection->targetPortIdx() == boxOutputIndex)
-                )) {
+                ))
+            {
                 it = d->m_scenarioIOConnections.erase(it);
                 delete connection;
-            } else {
+            }
+            else
+            {
                 ++it;
             }
         }
@@ -893,24 +999,31 @@ void DesignerScenario::setScenarioOutputLink(int portIndex, const QString& boxId
 void DesignerScenario::removeScenarioIOConnection(int portIndex, const QString& boxId, int boxPortIndex, bool isOutput) {
     bool res = false;
     CIdentifier cidBoxId = CIdentifier(boxId.toStdString().c_str());
-    if (isOutput) {
+    if (isOutput)
+    {
         res = d->m_scenario.removeScenarioOutputLink(portIndex, cidBoxId, boxPortIndex);
-    } else {
+    }
+    else
+    {
         res = d->m_scenario.removeScenarioInputLink(portIndex, cidBoxId, boxPortIndex);
     }
-    if (res) {
+    if (res)
+    {
         auto it = std::find_if(d->m_scenarioIOConnections.begin(), d->m_scenarioIOConnections.end(), [portIndex, boxId, boxPortIndex, isOutput](const auto& c) {
             return c->scenarioPortIdx() == portIndex
                 && c->targetPortIdx() == boxPortIndex 
                 && c->targetBoxId() == boxId
                 && c->isOutput() == isOutput;
         });
-        if (it != d->m_scenarioIOConnections.end()) {
+        if (it != d->m_scenarioIOConnections.end())
+        {
             delete *it;
             d->m_scenarioIOConnections.erase(it);
         }
         emit scenarioIOConnectionsChanged();
-    } else {
+    }
+    else
+    {
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to remove scenario IO connection " << portIndex << " of box " << boxId.toStdString() << "\n";
     }
 }

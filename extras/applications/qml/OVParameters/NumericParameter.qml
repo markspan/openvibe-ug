@@ -12,12 +12,11 @@ Control {
     property bool displayName: true
     readonly property var paramType: _control.param ? _control.param.type : undefined
 
-    property var value: _control.param ? _control.param.value : 0
     property var min: _control.param ? _control.param.min : 0
     property var max: _control.param ? _control.param.max : 0
     property var name: _control.displayName ? (_control.param ? _control.param.name : "") : "value"
     property var doc: _control.param ? _control.param.description : ""
-    property var decimals: _control.param && _control.param.decimals ? _control.param.decimals : 2
+    property var decimals: (_control.param && _control.param.decimals !== undefined) ? _control.param.decimals : 2
 
     implicitWidth: DS.Theme.labelWidthMd
     implicitHeight: DS.Theme.labelHeight2xl
@@ -33,7 +32,7 @@ Control {
         Label {
             id: _label
 
-            Layout.maximumWidth: _control.width - _spinButton.width - DS.Theme.spacingXs
+            Layout.fillWidth: true
             text: _control.name
             font: DS.Theme.textSmallLight
             color: DS.Theme.textPrimary
@@ -51,12 +50,10 @@ Control {
             }
         }
 
-        Item {
-            Layout.fillWidth: true
-        }
-
         DS.SpinButton {
             id: _spinButton
+
+            Layout.alignment: Qt.AlignRight
 
             type: _control.paramType === "double" ? DS.SpinButton.Type.Double : DS.SpinButton.Type.Integer
             decimals: _control.decimals

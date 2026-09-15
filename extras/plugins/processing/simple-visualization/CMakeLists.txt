@@ -6,11 +6,11 @@ set(CMAKE_AUTORCC ON)
 set(SRC_FILES
     src/main.cpp
 	src/defines.hpp
-    src/CBufferDatabase.cpp
-    src/CBufferDatabase.h
-    src/ChartViewObject.cpp
-    src/ChartViewObject.h
-    src/PlotData.h
+    src/SDisplaySettings.h
+    src/CTraceBuffer.cpp
+    src/CTraceBuffer.h
+    src/CSignalDisplayController.cpp
+    src/CSignalDisplayController.h
     src/box-algorithms/CBoxAlgorithmErpPlot.cpp
     src/box-algorithms/CBoxAlgorithmErpPlot.h
     src/box-algorithms/CBoxAlgorithmLevelMeasure.cpp
@@ -36,9 +36,26 @@ set(SRC_FILES
 )
 
 add_library(${PROJECT_NAME} SHARED ${SRC_FILES})
+
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+qt_add_qml_module(${PROJECT_NAME}
+    URI OpenViBE.SignalDisplay
+    VERSION 1.0
+    NO_PLUGIN
+    SOURCES
+      src/CSignalTraceItem.cpp
+      src/CSignalTraceItem.h
+    QML_FILES
+      qml/SignalDisplay.qml
+      qml/ChannelGutter.qml
+      qml/AmplitudeScaleBar.qml
+      qml/TimeRuler.qml
+      qml/StimulationOverlay.qml
+)
+
 qt_add_resources(${PROJECT_NAME} "resourcesSimpleVisualization"
     FILES
-      qml/OVChart.qml
       qml/OVDisplayCueImage.qml
       qml/CGraphWindow.qml
       qml/CGrazVisuWindow.qml
@@ -47,8 +64,9 @@ qt_add_resources(${PROJECT_NAME} "resourcesSimpleVisualization"
 )
 
 target_link_libraries(${PROJECT_NAME}
+                      PUBLIC
                       Qt6::Core
-                      Qt6::Charts
+                      Qt6::Charts # still used by the ERP plot and the Graz visualizations
                       Qt6::Gui
                       Qt6::Quick
                       openvibe
@@ -57,7 +75,6 @@ target_link_libraries(${PROJECT_NAME}
                       openvibe-module-system
                       openvibe-parameters-object
                       openvibe-visualization-toolkit
-                      # Boost::boost
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES

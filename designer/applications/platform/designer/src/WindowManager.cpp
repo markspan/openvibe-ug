@@ -147,6 +147,11 @@ void WindowManager::setVisualizationItem(CIdentifier& boxID, QQuickItem* item) {
   if (it != m_boxNodes.end()) {
     (*it)->setVisual(item);
   }
+  else {
+    // Not fatal, but the box then displays nothing at all, so say so rather than failing silently.
+    m_kernelCtx.getLogManager() << Kernel::LogLevel_Warning << "No window manager node for box " << boxID.str()
+                                << ", its visualization will not be displayed\n";
+  }
 }
 
 void WindowManager::clearVisualizationItem(CIdentifier& boxID) {
