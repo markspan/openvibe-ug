@@ -1,6 +1,7 @@
 ---
       
 test-macosx:
+  extends: .unix_base
   stage: test
   needs: [build_openvibe_macosx]
   tags:
@@ -12,9 +13,9 @@ test-macosx:
     when: always
     reports:
       junit: $BUILD_FOLDER/test.xml
-  allow_failure: true # To be removed when Qt6 porting is done
         
 test-linux:
+  extends: .unix_base
   stage: test
   needs: [build_openvibe_linux]
   rules: !reference [.mr_or_web_rules, rules]
@@ -30,9 +31,9 @@ test-linux:
     when: always
     reports:
       junit: $BUILD_FOLDER/test.xml
-  allow_failure: true # To be removed when Qt6 porting is done
         
 test-windows:
+  extends: .windows_base
   stage: test
   needs: [build_openvibe_windows]
   tags:
@@ -44,5 +45,3 @@ test-windows:
     when: always
     reports:
       junit: $BUILD_FOLDER/test.xml
-  allow_failure: true # To be removed when Qt6 porting is done
-

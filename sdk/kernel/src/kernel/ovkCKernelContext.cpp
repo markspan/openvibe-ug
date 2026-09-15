@@ -97,7 +97,7 @@ bool CKernelContext::initialize(const char* const* tokenList, size_t nToken)
     // Add this two tokens to be used to know what documentation should be loaded
     m_configManager->createConfigurationToken("Brand_Name", BRAND_NAME);
     m_configManager->createConfigurationToken("Application_Name", OV_PROJECT_NAME);
-    m_configManager->createConfigurationToken("Application_Version", OV_VERSION_MAJOR "." OV_VERSION_MINOR "." OV_VERSION_PATCH);
+    m_configManager->createConfigurationToken("Application_Version", OV_VERSION_FULL);
 
     for (auto& token : initializationTokens) { m_configManager->addOrReplaceConfigurationToken(token.first.c_str(), token.second.c_str()); }
 

@@ -244,6 +244,6 @@ ApplicationWindow {
   function zoomOutHandle() { console.log("zoomOutHandle") }
   function zoomResetHandle() { console.log("zoomResetHandle") }
   function documentationHandle() { console.log("documentationHandle") }
-  function reportIssueHandle() { console.log("reportIssueHandle") }
+  function reportIssueHandle() { Qt.openUrlExternally("https://gitlab.inria.fr/openvibe/openvibe/-/issues/new?description_template=bug_report") }
   function keyboardShortcutsHandle() { console.log("keyboardShortcutsHandle") }
 }

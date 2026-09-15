@@ -43,7 +43,7 @@ cleanup_windows:
   tags:
     - windows
   variables:
-    BUILD_ROOT: "D:/work/build/$CI_PROJECT_NAME"
+    BUILD_ROOT: "D:/"
     BUILD_FOLDER: "$BUILD_ROOT/build-$CI_PIPELINE_ID"
     CACHE_DIR: "D:/work/cache"
   script:

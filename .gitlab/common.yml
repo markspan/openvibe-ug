@@ -9,7 +9,14 @@ variables:
   # working directory itself. Jobs should not set GIT_STRATEGY; the one
   # deliberate exception is gito-ai-review, which needs full history.
   GIT_STRATEGY: fetch
-  GIT_DEPTH: "1"
+
+  # Full history by default, because the build version comes from `git describe`
+  # (CMake/OvVersion.cmake) and a shallow clone cannot reach a release tag -- the
+  # configure step would hard-error. The tag rule below overrides this back to 1:
+  # a release resolves from CI_COMMIT_TAG and needs no history at all.
+  # Cost is a one-off ~300 MiB fetch per runner; GIT_STRATEGY: fetch and the
+  # GIT_CLEAN_FLAGS below keep .git between jobs, so it is not paid per job.
+  GIT_DEPTH: "0"
 
   # `fetch` runs `git clean` before each job. `-e` is still honoured under `-x`,
   # so ignored files are cleaned except for these two, which must survive:
@@ -27,27 +34,38 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       variables:
         PULL_REQUEST_BRANCH_NAME: "$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME"
-        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_MERGE_REQUEST_ID-mr"
+        BUILD_SUFFIX: "b-$CI_MERGE_REQUEST_ID-mr"
       when: always
 
     # Pipeline after merge
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_MERGE_REQUEST_IID == null && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       variables:
         PULL_REQUEST_BRANCH_NAME: "$CI_COMMIT_BRANCH"
-        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_COMMIT_SHORT_SHA-push"
+        BUILD_SUFFIX: "b-$CI_COMMIT_SHORT_SHA-psh"
       when: always
 
     # Pipeline manually triggered from the GitLab UI ("Run pipeline")
     - if: '$CI_PIPELINE_SOURCE == "web"'
       variables:
         PULL_REQUEST_BRANCH_NAME: "$CI_COMMIT_BRANCH"
-        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_COMMIT_SHORT_SHA-web"
+        BUILD_SUFFIX: "b-$CI_COMMIT_SHORT_SHA-web"
       when: always
 
     - if: '$CI_PIPELINE_SOURCE == "trigger"'
       variables:
         PULL_REQUEST_BRANCH_NAME: "$CI_COMMIT_BRANCH"
-        BUILD_FOLDER: "$CI_PROJECT_DIR/build-$CI_COMMIT_SHORT_SHA-trigger"
+        BUILD_SUFFIX: "b-$CI_COMMIT_SHORT_SHA-tr"
+      when: always
+
+    # Release pipeline.
+    - if: '$CI_COMMIT_TAG'
+      variables:
+        PULL_REQUEST_BRANCH_NAME: ""
+        BUILD_SUFFIX: "b-$CI_COMMIT_TAG"
+        PACKAGE_SUFFIX: "p-$CI_COMMIT_TAG"
+        # Overrides the full-history default above: a release build resolves its
+        # version from CI_COMMIT_TAG, which needs no history, so don't pay for it.
+        GIT_DEPTH: "1"
       when: always
 
     - when: never
@@ -63,8 +81,40 @@ workflow:
       when: always
     - when: never
 
+# As .mr_or_web_rules, plus tag pipelines.
+.mr_web_or_tag_rules:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+      when: always
+    - if: '$CI_COMMIT_TAG'
+      when: always
+    - when: never
+
+# Tag pipelines only, for jobs that should never run on an ordinary MR.
+.tag_rules:
+  rules:
+    - if: '$CI_COMMIT_TAG'
+      when: always
+    - when: never
+
 # Used to temporarily disable a job/stage (e.g. macOS while it's unavailable),
 # without deleting its definition. Reference from a job's `rules:` to switch it off.
 .never_rules:
   rules:
     - when: never
+
+
+.windows_base:
+  tags: ['windows']
+  before_script:
+    - $DRIVE = $env:CI_PROJECT_DIR.substring(0,2)
+    - $env:BUILD_FOLDER = "$DRIVE\$env:BUILD_SUFFIX"
+    - $env:PACKAGE_FOLDER = "$DRIVE\$env:PACKAGE_SUFFIX"
+
+.unix_base:
+  tags: ['linux', 'macos']
+  before_script:
+    - export BUILD_FOLDER="$CI_PROJECT_DIR/$BUILD_SUFFIX"
+    - export PACKAGE_FOLDER="$CI_PROJECT_DIR/$PACKAGE_SUFFIX"

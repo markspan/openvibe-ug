@@ -21,6 +21,7 @@
 
 build_openvibe_linux:
   <<: *build_script_linux
+  extends: .unix_base # Similar to <<:, but this template lives in another file, and <<: don't support this.
   variables:
     SYSTEM: linux
     LOGNAME: "${CI_PROJECT_NAME}-build-${SYSTEM}"
@@ -41,6 +42,7 @@ build_openvibe_linux:
 
 build_openvibe_macosx:
   <<: *build_script_macosx
+  extends: .unix_base # Similar to <<:, but this template lives in another file, and <<: don't support this.
   rules: !reference [.never_rules, rules]
   variables:
     SYSTEM: macosx
@@ -64,7 +66,9 @@ build_openvibe_macosx:
 
 build_openvibe_windows:
   <<: *build_script_windows
-  rules: !reference [.mr_or_web_rules, rules]
+  extends: .windows_base # Similar to <<:, but this template lives in another file, and <<: don't support this.
+  # Also on tags: the package stage consumes this job's build tree.
+  rules: !reference [.mr_web_or_tag_rules, rules]
   variables:
     SYSTEM: windows
     CHERE_INVOKING: "yes"

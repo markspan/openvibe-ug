@@ -7,6 +7,8 @@ include("FindSourceRCProperties")
 
 add_library(${PROJECT_NAME} SHARED ${SRC_FILES})
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE OV_VERSION_FULL="${OPENVIBE_VERSION_FULL}")
+
 target_link_libraries(${PROJECT_NAME}
 					  openvibe
 					  openvibe-common

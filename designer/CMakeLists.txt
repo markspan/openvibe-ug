@@ -19,13 +19,6 @@ if(NOT(${Flag_VerboseOutput}))
 	set(CMAKE_INSTALL_MESSAGE LAZY)
 endif()
 
-# ----------------------
-# Set build version
-# ----------------------
-# These versions are used by the subprojects by default.
-set_version()
-MESSAGE(STATUS "BUILDING VERSION Designer: ${PROJECT_VERSION}")
-
 # OpenViBE SDK modules list
 SET(INCLUDED_OV_SDK_COMPONENTS BASE ALLPLUGINS EBML SYSTEM FS XML TOOLKIT)
 
