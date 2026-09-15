@@ -16,6 +16,8 @@ include("outputPath")
 include("CreateFilters")
 
 add_definitions("-DOV_PROJECT_NAME=\"${PROJECT_NAME}\"")
+# Read by applications/platform/tracker and applications/platform/acquisition-server-legacy-2023.
+# Both currently return() early and so do not compile, but they are disabled rather than deleted.
 add_definitions("-DOV_VERSION_MAJOR=\"${PROJECT_VERSION_MAJOR}\"")
 add_definitions("-DOV_VERSION_MINOR=\"${PROJECT_VERSION_MINOR}\"")
 add_definitions("-DOV_VERSION_PATCH=\"${PROJECT_VERSION_PATCH}\"")
@@ -23,16 +25,12 @@ add_definitions("-DOV_VERSION_PATCH=\"${PROJECT_VERSION_PATCH}\"")
 add_definitions("-DOV_CONFIG_SUBDIR=\"${OV_CONFIG_SUBDIR}\"")
 
 if(WIN32)
-	# Switch /arch:SSE2 enables vectorization. Remove if your CPU/compiler doesn't support it.
-	if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
-	elseif("${CMAKE_SIZEOF_VOID_P}" EQUAL "4")
-		set(OV_EIGEN_FLAGS "/arch:SSE2")
-	endif()	
+	# /arch:SSE2 is not passed: SSE2 is unconditional on x64 and MSVC rejects the switch there.
 	# The following is needed to keep OpenMP from hogging all the cores. Note that this env var works only for VS2013+.
 	# On VS2010, it may be better to disable OpenMP.
 	set(OV_OMP_WAIT_POLICY "PASSIVE")
 	# Disable /MP if you don't like VS using all the cores for compilation
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4355 /MP ${OV_EIGEN_FLAGS}")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4355 /MP")
 	add_definitions("-DNOMINMAX -DBOOST_ALL_NO_LIB")
 	# At least Windows Vista target - if you target Windows XP (0x0501), some components may not compile
 	add_definitions("-D_WIN32_WINNT=0x0600")
@@ -74,12 +72,6 @@ elseif(UNIX)
        endif()
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 
-	if (${CMAKE_SYSTEM_PROCESSOR} MATCHES i386|i586|i686)
-		set ( BIT_MODE "32")
-	else ()
-		set ( BIT_MODE "64")
-	endif ()
-
 	if(EXISTS "/etc/debian_version")
 		set (PLATFORM "Debian")
 		add_definitions("-DTARGET_OS_Linux_Debian")
@@ -95,16 +87,10 @@ else()
 endif()
 
 function(SET_BUILD_PLATFORM)
-	if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
-		add_definitions(-DTARGET_ARCHITECTURE_x64)
-		set(PLATFORM_TARGET "x64" PARENT_SCOPE)
-	elseif("${CMAKE_SIZEOF_VOID_P}" EQUAL "4")
-		add_definitions(-DTARGET_ARCHITECTURE_i386)
-		set(PLATFORM_TARGET "x86" PARENT_SCOPE)
-	else()
-		add_definitions(-DTARGET_ARCHITECTURE_Unknown)
-		set(PLATFORM_TARGET "unknown" PARENT_SCOPE)		
-	endif()
+	# x64 is the only supported architecture. PLATFORM_TARGET is still exported: several
+	# Find modules and contribAcquisitionServer.cmake test it against "x64".
+	add_definitions(-DTARGET_ARCHITECTURE_x64)
+	set(PLATFORM_TARGET "x64" PARENT_SCOPE)
 
 	if(WIN32)
 		add_definitions(-D_CRT_SECURE_NO_DEPRECATE)

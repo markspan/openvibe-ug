@@ -1,0 +1,26 @@
+#
+# Packaging. Runs only on tag pipelines -- pushing a tag is what cuts a release.
+#
+---
+
+# Windows only so far.
+package_windows:
+  extends: .windows_base
+  stage: package
+  tags: ['windows']
+  needs: ['build_openvibe_windows']
+  rules: !reference [.tag_rules, rules]
+  variables:
+    SYSTEM: windows
+    CHERE_INVOKING: "yes"
+    MSYSTEM: UCRT64
+  script:
+    - pixi run ci-package
+    # Construct the API endpoint for this specific project and tag
+    - $REGISTRY_URL = "$env:CI_API_V4_URL/projects/$env:CI_PROJECT_ID/packages/generic/openvibe/$env:CI_COMMIT_TAG"
+    # Upload the .exe
+    - $EXE_FILE = Get-ChildItem -Path "$env:PACKAGE_FOLDER\*.exe" | Select-Object -First 1
+    - Invoke-RestMethod -Uri "$REGISTRY_URL/$($EXE_FILE.Name)" -Method Put -Headers @{ "JOB-TOKEN" = $env:CI_JOB_TOKEN } -InFile "$EXE_FILE"
+    # Upload the .zip
+    - $ZIP_FILE = Get-ChildItem -Path "$env:PACKAGE_FOLDER\*.zip" | Select-Object -First 1
+    - Invoke-RestMethod -Uri "$REGISTRY_URL/$($ZIP_FILE.Name)" -Method Put -Headers @{ "JOB-TOKEN" = $env:CI_JOB_TOKEN } -InFile "$ZIP_FILE"

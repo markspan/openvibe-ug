@@ -70,5 +70,7 @@ Kernel_ConsoleLogLevel=Trace
 Designer_CustomConfigurationFile = ${Path_UserData}/openvibe-designer.conf
 
 Application_Name = OpenViBE Designer
-Application_Version = @PROJECT_VERSION@
+# Overrides the kernel default. Carries the pre-release suffix, unlike the numeric
+# ProjectVersion_* tokens above, which several consumers parse as plain integers.
+Application_Version = @OPENVIBE_VERSION_FULL@
 AcquisitionServer_HostName = localhost

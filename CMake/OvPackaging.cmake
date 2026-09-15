@@ -10,14 +10,18 @@
 
 set(CPACK_PACKAGE_NAME "OpenViBE")
 set(CPACK_PACKAGE_VENDOR "Inria")
-set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
+set(CPACK_PACKAGE_VERSION ${OPENVIBE_VERSION_FULL})
 set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Software platform for brain-computer interfaces and real-time neurosciences")
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://openvibe.inria.fr")
-set(CPACK_PACKAGE_FILE_NAME "openvibe-${PROJECT_VERSION}-${BUILD_ARCH}")
-set(CPACK_PACKAGE_INSTALL_DIRECTORY "openvibe-${PROJECT_VERSION}")
+set(CPACK_PACKAGE_FILE_NAME "openvibe-${OPENVIBE_VERSION_FULL}")
+
+# The install location keys on the MAJOR.MINOR series
+# For example, on the series, 4.0.0-beta.1 -> 4.0.0 -> 4.0.1, upgrade in place and keep the
+# user's settings, while 3.7 and 4.0 still install side by side.
+set(CPACK_PACKAGE_INSTALL_DIRECTORY "openvibe-${OPENVIBE_VERSION_SERIES}")
 
 # One package containing the whole install tree. The build defines no install components, so this is
 # also what CPack would do by default; stated explicitly so that adding a COMPONENT somewhere cannot
@@ -45,14 +49,11 @@ endif()
 # #############################################################################
 
 if(WIN32)
-	set(CPACK_NSIS_PACKAGE_NAME "OpenViBE ${PROJECT_VERSION}")
-	set(CPACK_NSIS_DISPLAY_NAME "OpenViBE ${PROJECT_VERSION}")
+	set(CPACK_NSIS_PACKAGE_NAME "OpenViBE ${OPENVIBE_VERSION_FULL}")
+	set(CPACK_NSIS_DISPLAY_NAME "OpenViBE ${OPENVIBE_VERSION_FULL}")
 
-	if(BUILD_ARCH STREQUAL "x64")
-		set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
-	else()
-		set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES")
-	endif()
+	# x64 only, so always the 64-bit Program Files.
+	set(CPACK_NSIS_INSTALL_ROOT "$PROGRAMFILES64")
 
 	# The old script hand-rolled this via a HKLM InstallDir probe in .onInit followed by RMDir /r.
 	set(CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
@@ -72,7 +73,7 @@ if(WIN32)
 	endif()
 	set(CPACK_NSIS_MUI_ICON "${OV_INSTALLER_ICON}")
 	set(CPACK_NSIS_MUI_UNIICON "${OV_INSTALLER_ICON}")
-	set(CPACK_NSIS_BRANDING_TEXT "OpenViBE ${PROJECT_VERSION} - Inria")
+	set(CPACK_NSIS_BRANDING_TEXT "OpenViBE ${OPENVIBE_VERSION_FULL} - Inria")
 	set(CPACK_NSIS_MANIFEST_DPI_AWARE ON)
 
 	# Wizard header bitmap (MUI_HEADERIMAGE_BITMAP). Must be a BMP at the MUI-standard 150x57, and must

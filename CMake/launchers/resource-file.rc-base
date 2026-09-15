@@ -12,6 +12,9 @@ LANGUAGE LANG_ENGLISH, SUBLANG_DEFAULT
 #endif
 
 // Add version information
+// FILEVERSION and PRODUCTVERSION are comma-separated integers and rc.exe rejects anything else,
+// so they stay on the numeric components. The string fields below are free-form and carry the
+// full version, pre-release included -- that is what Explorer's Details tab shows.
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION @OPENVIBE_MAJOR_VERSION@,@OPENVIBE_MINOR_VERSION@,@OPENVIBE_PATCH_VERSION@
  PRODUCTVERSION @OPENVIBE_MAJOR_VERSION@,@OPENVIBE_MINOR_VERSION@,@OPENVIBE_PATCH_VERSION@
@@ -23,12 +26,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "@COMPANY_NAME@"
             VALUE "FileDescription", "@FILE_DESCRIPTION@"
-            VALUE "FileVersion", "@PROJECT_VERSION@"
+            VALUE "FileVersion", "@OPENVIBE_VERSION_FULL@"
             VALUE "InternalName", "@PROJECT_NAME@"
             VALUE "LegalCopyright", "Copyright - @COMPANY_NAME@ @COPYRIGHT_DATE@"
             VALUE "OriginalFilename", "@PROJECT_NAME@"
             VALUE "ProductName", "@PROJECT_PRODUCT_NAME@"
-            VALUE "ProductVersion", "@PROJECT_VERSION@"
+            VALUE "ProductVersion", "@OPENVIBE_VERSION_FULL@"
         END
     END
     BLOCK "VarFileInfo"

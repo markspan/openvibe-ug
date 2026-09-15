@@ -11,3 +11,9 @@
 
 # SCM syntax highlighting & preventing 3-way merges
 pixi.lock merge=binary linguist-language=YAML linguist-generated=true -diff
+
+# Lets a source archive carry its own version. git-archive expands the $Format:...$ placeholder
+# in VERSION.txt at archive time, so a build from a downloaded tarball resolves the right version
+# without anyone having to know it. See CMake/OvVersion.cmake. In a checkout the file keeps the
+# literal placeholder and 'git describe' answers instead.
+VERSION.txt export-subst

@@ -1,6 +1,7 @@
 ---
 
 sonarqube:
+  extends: .unix_base
   stage: analyze
   tags: ['linux']
   needs:
