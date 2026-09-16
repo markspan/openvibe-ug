@@ -88,12 +88,14 @@ configure = "cmake -G Ninja -S . -B build"
 build = { cmd = "ninja -C build", depends-on = ["configure"] }
 test = { cmd = "ctest -T Test", cwd = "build", depends-on = ["build"] }
 install = { cmd = "cmake --install build", depends-on = ["build"] }
-package = { cmd = "cpack -V --config build/CPackConfig.cmake -B build/package", depends-on = ["build"] }
+doc = { cmd = "ninja -C build doc", depends-on = ["build"] }
+package = { cmd = "cpack -V --config build/CPackConfig.cmake -B build/package", depends-on = ["doc"] }
 
 ci-configure = "cmake -G Ninja -S . -B $BUILD_FOLDER"
 ci-build = { cmd = "ninja -C $BUILD_FOLDER", depends-on = ["ci-configure"] }
 ci-test = { cmd = "cd \"$BUILD_FOLDER\" && ctest -T Test"  } # depends-on = ["ci-build"] but intentionally removed to avoid rerunning configure & build chain.
-ci-package = { cmd = "cpack --config \"$BUILD_FOLDER/CPackConfig.cmake\" -B \"$PACKAGE_FOLDER\"" } # depends-on = ["ci-build"] intentionally omitted, as for ci-test.
+ci-doc = { cmd = "ninja -C \"$BUILD_FOLDER\" doc" } # depends-on = ["ci-build"] intentionally omitted, as for ci-test.
+ci-package = { cmd = "cpack --config \"$BUILD_FOLDER/CPackConfig.cmake\" -B \"$PACKAGE_FOLDER\"", depends-on = ["ci-doc"] } # documentation is only built when packaging.
 
 [target.linux-64.tasks]
 ci-configure = 'cmake -G Ninja -S . -B $BUILD_FOLDER -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS_DEBUG=-O0\ -g\ -Wall\ -fPIC\ -fno-inline\ --coverage -DCMAKE_CXX_FLAGS_DEBUG=-O0\ -g\ -Wall\ -fPIC\ -fno-inline\ --coverage -Wno-dev'

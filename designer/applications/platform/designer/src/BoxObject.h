@@ -96,6 +96,14 @@ public:
     //Q_INVOKABLE void modifySetting(const QString& name, const QString& typeId, const QString& value, int settingIndex);
     Q_INVOKABLE void removeSetting(int settingIndex);
     Q_INVOKABLE void saveSettings(QUrl filePath);
+    /**
+     * @brief URL of the documentation page of this box algorithm (F1 help).
+     *
+     * The page is ${Designer_HelpBrowserURLBase}/Doc_BoxAlgorithm_<slug>.html, unless the box carries the
+     * OV_AttributeId_Box_DocumentationURL or OV_AttributeId_Box_DocumentationURLBase override attributes.
+     * @return The URL to open in a browser, or an empty string when no page exists for this box.
+     */
+    Q_INVOKABLE QString documentationUrl() const;
 
     /**
      * @brief Path of the scenario file backing this metabox, resolved through the metabox manager.

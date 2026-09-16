@@ -115,6 +115,9 @@ if(WIN32)
 	else()
 		message(STATUS "Packaging: no Start-Menu shortcut for 'openvibe-acquisition-server', target not built")
 	endif()
+	# Documentation shortcut, relative to the install directory.
+	# !!! Documentation is not generated as part of the build, and needs to be built separately. before packaging.
+	set(CPACK_NSIS_MENU_LINKS "documentation/html/index.html" "OpenViBE Documentation")
 endif()
 
 include(CPack)

@@ -148,6 +148,7 @@ QtObject {
             id: "documentation",
             icon: "univ-hat",
             text: "Documentation",
+            shortcut: ShortcutManager.getShortcutSequence("help"),
             action: function() { documentationRequested() }
         },
         {

@@ -6,12 +6,11 @@
 
 Welcome to the Doxygen Documentation for OpenViBE @OPENVIBE_MAJOR_VERSION@.@OPENVIBE_MINOR_VERSION@.@OPENVIBE_PATCH_VERSION@.
   
-This document has been automatically generated on Linux. Please note
+This document has been automatically generated. Please note
 
-- The documentation lacks components and classes that are not compiled on Linux.
 - Some source files do not have doxygen information and may not be represented here.
 - Plugins such as boxes and drivers are not included in the class lists to better illustrate the core part of OpenViBE.  
-However, you can see the boxes on the [Box Descriptions](_doc__box_algorithms.html) page.
+However, you can see the boxes on the [Box Descriptions](@ref Doc_BoxAlgorithms) page.
 
 The tutorials and user manual, as well as build instructions for OpenViBE are located on the [website](http://openvibe.inria.fr/documentation-index)
 

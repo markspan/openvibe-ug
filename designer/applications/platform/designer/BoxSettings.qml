@@ -20,6 +20,8 @@ Control {
 
   property var box: null
 
+  signal documentationRequested()
+
   property bool _addingInput: false
   property bool _addingOutput: false
 
@@ -127,6 +129,16 @@ Control {
             iconColor: box?.overwriteSettings ? DS.Theme.iconHoverPrimary : DS.Theme.iconPrimary
             onClicked: {
               _loadSettingsPopup.open()
+            }
+          }
+
+          DS.IconButton {
+            iconName: "info"
+            iconSize: DS.Theme.icon2xl
+            tooltip: "Documentation (" + ShortcutManager.getShortcutSequence("help") + ")"
+
+            onClicked: {
+              _control.documentationRequested()
             }
           }
         }

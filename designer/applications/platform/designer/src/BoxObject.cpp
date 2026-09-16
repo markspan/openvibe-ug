@@ -6,6 +6,7 @@
 #include "tinyxml2.h"
 
 #include "BoxObject.h"
+#include "DocumentationUrl.h"
 #include "ParameterHelper.h"
 #include "QmlEngineSingleton.h"
 
@@ -602,6 +603,46 @@ void BoxObject::removeSetting(int settingIndex)
     {
         emit edited(tr("Remove box setting"), 0);
     }
+}
+
+QString BoxObject::documentationUrl() const
+{
+    QString url;
+    Kernel::IConfigurationManager& config = m_context->getConfigurationManager();
+    const CIdentifier algorithmClassId = m_box->getAlgorithmClassIdentifier();
+
+    // The page is named after the algorithm (descriptor) name, not the user-editable box name
+    const Plugins::IPluginObjectDesc* desc = nullptr;
+    if (algorithmClassId == OVP_ClassId_BoxAlgorithm_Metabox)
+    {
+        CIdentifier metaboxId;
+        metaboxId.fromString(m_box->getAttributeValue(OVP_AttributeId_Metabox_ID));
+        desc = m_context->getMetaboxManager().getMetaboxObjectDesc(metaboxId);
+    }
+    else
+    {
+        desc = m_context->getPluginManager().getPluginObjectDescCreating(algorithmClassId);
+    }
+
+    if (desc != nullptr)
+    {
+        if (m_box->hasAttribute(OV_AttributeId_Box_DocumentationURL))
+        {
+            url = config.expand(m_box->getAttributeValue(OV_AttributeId_Box_DocumentationURL)).toASCIIString();
+        }
+        else
+        {
+            CString urlBase = config.expand("${Designer_HelpBrowserURLBase}");
+            if (m_box->hasAttribute(OV_AttributeId_Box_DocumentationURLBase))
+            {
+                urlBase = config.expand(m_box->getAttributeValue(OV_AttributeId_Box_DocumentationURLBase));
+            }
+            const std::string page = "Doc_BoxAlgorithm_" + DocumentationUrl::boxAlgorithmSlug(desc->getName().toASCIIString()) + ".html";
+            url = QString::fromStdString(std::string(urlBase.toASCIIString()) + "/" + page);
+        }
+        url = DocumentationUrl::toBrowsableUrl(url);
+    }
+    return url;
 }
 
 void BoxObject::saveSettings(QUrl filePath)
