@@ -87,7 +87,7 @@ QtObject {
                 {
                     id: "editUndo",
                     icon: "undo",
-                    text: "Undo",
+                    text: undoText ? "Undo " + undoText : "Undo",
                     shortcut: ShortcutManager.getShortcutSequence("editUndo"),
                     enabled: canUndo,
                     action: function() { editUndoRequested() }
@@ -95,7 +95,7 @@ QtObject {
                 {
                     id: "editRedo",
                     icon: "redo",
-                    text: "Redo",
+                    text: redoText ? "Redo " + redoText : "Redo",
                     shortcut: ShortcutManager.getShortcutSequence("editRedo"),
                     enabled: canRedo,
                     action: function() { editRedoRequested() }
@@ -105,6 +105,7 @@ QtObject {
                     icon: "cut",
                     text: "Cut",
                     shortcut: ShortcutManager.getShortcutSequence("editCut"),
+                    enabled: canCut,
                     action: function() { editCutRequested() }
                 },
                 {
@@ -112,6 +113,7 @@ QtObject {
                     icon: "copy",
                     text: "Copy",
                     shortcut: ShortcutManager.getShortcutSequence("editCopy"),
+                    enabled: canCopy,
                     action: function() { editCopyRequested() }
                 },
                 {
@@ -119,6 +121,7 @@ QtObject {
                     icon: "paste",
                     text: "Paste",
                     shortcut: ShortcutManager.getShortcutSequence("editPaste"),
+                    enabled: canPaste,
                     action: function() { editPasteRequested() }
                 }
             ]
@@ -203,10 +206,17 @@ QtObject {
         }
     ]
     
-    // State properties
-    property bool canUndo: false
-    property bool canRedo: false
-    property bool hasUnsavedChanges: false
+    // State properties. `mainMenu` is a binding, so it is re-evaluated whenever these change.
+    readonly property var currentScenario: OVDesigner.currentScenario
+    property bool canUndo: currentScenario?.canUndo ?? false
+    property bool canRedo: currentScenario?.canRedo ?? false
+    readonly property string undoText: currentScenario?.undoText ?? ""
+    readonly property string redoText: currentScenario?.redoText ?? ""
+    property bool hasUnsavedChanges: currentScenario?.modified ?? false
+    // Selection lives in the canvas: Main.qml drives these from the current one.
+    property bool canCut: false
+    property bool canCopy: false
+    property bool canPaste: false
     
     // Helper function to check if item has submenu
     function hasSubmenu(item) {

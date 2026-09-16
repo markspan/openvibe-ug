@@ -40,8 +40,14 @@ qt_add_executable(${PROJECT_NAME}
   src/PlayerBridge.h
   src/PlayerBridge.cpp
   src/QmlEngineSingleton.h
+  src/ScenarioClipboard.h
+  src/ScenarioClipboard.cpp
+  src/ScenarioHistory.h
+  src/ScenarioHistory.cpp
   src/ScenarioIOConnection.h
   src/ScenarioIOConnection.cpp
+  src/ScenarioSerializer.h
+  src/ScenarioSerializer.cpp
   src/ScenarioParameterConnectionObject.h
   src/ScenarioParameterConnectionObject.cpp
   src/SessionManager.h

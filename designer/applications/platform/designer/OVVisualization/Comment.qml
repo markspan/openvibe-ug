@@ -17,6 +17,11 @@ FocusScope {
   required property point center
 
   signal removed(boxIdx: int)
+  /// Emitted once at the end of a drag (the position itself is pushed to C++ continuously)
+  signal moved()
+
+  // Set while the comment is being dragged, so the move is recorded once, on release
+  property bool _dragged: false
 
   x: _control.x
   y: _control.y
@@ -47,18 +52,22 @@ FocusScope {
     id: _commentEditDialog
     visible: false
     onAccepted: {
+      // Write through to the kernel comment (persisted and undoable), not only the delegate
+      _scope.model.modelData.text = _commentEditDialog.text
       _scope.text = _commentEditDialog.text
     }
   }
 
   onXChanged: {
     if(_dragArea.drag.active) {
+      _scope._dragged = true
       _scope.model.modelData.notifyCenterChanged(x + width/2 ,y + height/2)
     }
   }
 
   onYChanged: {
     if(_dragArea.drag.active) {
+      _scope._dragged = true
       _scope.model.modelData.notifyCenterChanged(x + width/2, y + height/2)
     }
   }
@@ -75,6 +84,12 @@ FocusScope {
 
     onClicked: {
       _scope.focus = true
+    }
+    onReleased: {
+      if (_scope._dragged) {
+        _scope._dragged = false
+        _scope.moved()
+      }
     }
     onDoubleClicked: {
       _commentEditDialog.text = _scope.text

@@ -35,6 +35,30 @@ ApplicationWindow {
     id: _shortcuts
   }
 
+  // The wrappers of the current scenario are rebuilt on undo/redo/paste: drop the BoxSettings
+  // reference before they die.
+  Connections {
+    target: OVDesigner.currentScenario
+    function onAboutToReset() { deselectBox() }
+  }
+
+  // Cut/Copy availability follows the selection of the current canvas
+  Binding {
+    target: MenuModel
+    property: "canCopy"
+    value: _currentCanvas()?.hasSelection ?? false
+  }
+  Binding {
+    target: MenuModel
+    property: "canCut"
+    value: (_currentCanvas()?.hasSelection ?? false) && OVDesigner.playerStatus === "Stop"
+  }
+  Binding {
+    target: MenuModel
+    property: "canPaste"
+    value: OVDesigner.canPaste && OVDesigner.playerStatus === "Stop"
+  }
+
   Connections {
     target: ShortcutManager
     function onFileNewRequested() { fileNewHandle() }
@@ -224,6 +248,18 @@ ApplicationWindow {
     _boxSettings.visible = true
   }
 
+  function _currentCanvas() {
+    // Reading `count` makes bindings that call this re-evaluate once the canvases exist
+    const index = OVDesigner.currentScenarioIndex
+    return index < _configRepeater.count ? _configRepeater.itemAt(index) : null
+  }
+
+  // Edit shortcuts inside a text editor keep their native meaning (mirrors the legacy designer).
+  function _textEditorFocused() {
+    const item = window.activeFocusItem
+    return item && (item instanceof TextInput || item instanceof TextEdit)
+  }
+
   function fileNewHandle() { OVDesigner.createScenario() }
   function fileOpenHandle() { _openDialog.open() }
   function fileSaveHandle() {
@@ -235,11 +271,11 @@ ApplicationWindow {
     }
   }
   function fileSaveAsHandle() { _saveDialog.open() }
-  function editUndoHandle() { console.log("editUndoHandle") }
-  function editRedoHandle() { console.log("editRedoHandle") }
-  function editCutHandle() { console.log("editCutHandle") }
-  function editCopyHandle() { console.log("editCopyHandle") }
-  function editPasteHandle() { console.log("editPasteHandle") }
+  function editUndoHandle() { if (!_textEditorFocused()) OVDesigner.currentScenario?.undo() }
+  function editRedoHandle() { if (!_textEditorFocused()) OVDesigner.currentScenario?.redo() }
+  function editCutHandle() { if (!_textEditorFocused()) _currentCanvas()?.cutSelection() }
+  function editCopyHandle() { if (!_textEditorFocused()) _currentCanvas()?.copySelection() }
+  function editPasteHandle() { if (!_textEditorFocused()) _currentCanvas()?.pasteClipboard() }
   function zoomInHandle() { console.log("zoomInHandle") }
   function zoomOutHandle() { console.log("zoomOutHandle") }
   function zoomResetHandle() { console.log("zoomResetHandle") }

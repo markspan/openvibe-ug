@@ -60,7 +60,7 @@ Rectangle {
             Layout.fillWidth: true
             Layout.leftMargin: DS.Theme.spacingMd
 
-            text: _scenarioTab.modelData.name
+            text: _scenarioTab.modelData.name + (_scenarioTab.modelData.modified ? " *" : "")
             font: DS.Theme.textSmallRegular
             // Weight stays fixed on purpose: bolding the selected tab would change implicitWidth,
             // and so the tab's own width, making the whole strip reflow on every click.

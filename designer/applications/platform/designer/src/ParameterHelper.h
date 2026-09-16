@@ -4,7 +4,12 @@
  * SPDX-License-Identifier: AGPL-3.0-only
 */
 
+#pragma once
+
 #include <openvibe/ov_all.h>
+
+#include <QMetaMethod>
+#include <QObject>
 
 #include <parametersObject.h>
 
@@ -20,6 +25,14 @@ namespace Designer {
  * @return true if the parameters were updated, false otherwise
  */
 bool setUIParameters(const Kernel::IKernelContext* context, Kernel::IBox *box, Parameters::ParameterObjects& parameters);
+
+/**
+ * @brief Connects the `valueChanged` signal of every parameter object to `slot` on `receiver`.
+ *
+ * Each ParameterObject subclass declares its own typed `valueChanged(T)`, so the connection is
+ * made through the meta-object; `slot` must take no argument. Already connected pairs are skipped.
+ */
+void connectParameterValueChanged(const Parameters::ParameterObjects& parameters, QObject* receiver, const QMetaMethod& slot);
 
 }
 }
