@@ -73,6 +73,7 @@ ApplicationWindow {
     function onZoomInRequested() { zoomInHandle() }
     function onZoomOutRequested() { zoomOutHandle() }
     function onZoomResetRequested() { zoomResetHandle() }
+    function onHelpRequested() { helpHandle() }
   }
 
   Connections {
@@ -136,6 +137,7 @@ ApplicationWindow {
     OV.BoxSettings {
       id: _boxSettings
       anchors.top: parent.top
+      onDocumentationRequested: helpHandle()
       anchors.bottom: _logger.top
       anchors.left: parent.left
       z: _scenariosStack.z + 1
@@ -296,7 +298,25 @@ ApplicationWindow {
   function zoomInHandle() { console.log("zoomInHandle") }
   function zoomOutHandle() { console.log("zoomOutHandle") }
   function zoomResetHandle() { console.log("zoomResetHandle") }
-  function documentationHandle() { console.log("documentationHandle") }
+  function documentationHandle() { openDocumentationUrl(OVDesigner.documentationIndexUrl(), "the documentation index") }
+  // F1: documentation of the selected box, or the documentation index when no box is selected
+  function helpHandle() {
+    if (_boxSettings.box) {
+      openDocumentationUrl(_boxSettings.box.documentationUrl(), "box \"" + _boxSettings.box.name + "\"")
+    } else {
+      documentationHandle()
+    }
+  }
+  function openDocumentationUrl(url, subject) {
+    if (url === "") {
+      _toast.type = OV.Style.ButtonType.Warning
+      _toast.header = "Documentation"
+      _toast.message = "No documentation page found for " + subject + "."
+      _toast.open()
+    } else if (!Qt.openUrlExternally(url)) {
+      console.warn("Could not open", url)
+    }
+  }
   function reportIssueHandle() { Qt.openUrlExternally("https://gitlab.inria.fr/openvibe/openvibe/-/issues/new?description_template=bug_report") }
   function keyboardShortcutsHandle() { console.log("keyboardShortcutsHandle") }
 }

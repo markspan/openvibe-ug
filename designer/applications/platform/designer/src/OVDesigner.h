@@ -65,6 +65,11 @@ public:
     Q_INVOKABLE void createScenario(const QString &scenarioName = "Unnamed", const QString& file_path = "");
     Q_INVOKABLE void saveScenario(int index, QUrl filePath);
     Q_INVOKABLE void removeScenario(int index);
+    /**
+     * @brief URL of the documentation index (${Designer_HelpBrowserDocumentationIndex}).
+     * @return The URL to open in a browser, or an empty string when the local documentation is not available.
+     */
+    Q_INVOKABLE QString documentationIndexUrl() const;
 
     //metaboxes
     /**

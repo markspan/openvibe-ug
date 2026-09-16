@@ -32,6 +32,7 @@
 #include "BoxTreeModelFilter.h"
 #include "ScenarioClipboard.h"
 #include "defines.hpp"
+#include "DocumentationUrl.h"
 #include "PlayerBridge.h"
 #include "QmlEngineSingleton.h"
 #include "SessionManager.h"
@@ -945,6 +946,12 @@ void OVDesigner::removeScenario(int index)
         emit currentScenarioIndexChanged();
         this->saveSession();
     }
+}
+
+QString OVDesigner::documentationIndexUrl() const
+{
+    const CString index = d->m_context->getConfigurationManager().expand("${Designer_HelpBrowserDocumentationIndex}");
+    return DocumentationUrl::toBrowsableUrl(index.toASCIIString());
 }
 
 int OVDesigner::currentScenarioIndex() const

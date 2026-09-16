@@ -304,9 +304,18 @@ function(ov_collect_targets_recursive out_var dir)
 	set(${out_var} "${targets}" PARENT_SCOPE)
 endfunction()
 
+# Keep only the plugin libraries themselves: the name prefix also matches the Qt/AUTOMOC helper targets
+# (<plugin>_autogen, and for QML-module plugins <plugin>_qmllint*, _qmltyperegistration, _resources_N...).
 ov_collect_targets_recursive(OV_ALL_TARGETS "${CMAKE_SOURCE_DIR}")
-set(OV_PLUGIN_TARGETS ${OV_ALL_TARGETS})
-list(FILTER OV_PLUGIN_TARGETS INCLUDE REGEX "^openvibe-plugins-")
+set(OV_PLUGIN_TARGETS "")
+foreach(target IN LISTS OV_ALL_TARGETS)
+	if(target MATCHES "^openvibe-plugins-")
+		get_target_property(target_type ${target} TYPE)
+		if(target_type STREQUAL "SHARED_LIBRARY" OR target_type STREQUAL "MODULE_LIBRARY")
+			list(APPEND OV_PLUGIN_TARGETS ${target})
+		endif()
+	endif()
+endforeach()
 
 # Add Documentation to Build. This only defines the (ALL-excluded) "doc" target, so it is cheap
 # enough to configure unconditionally: build the documentation with "ninja doc".

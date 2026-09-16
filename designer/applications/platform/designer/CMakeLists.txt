@@ -28,6 +28,8 @@ qt_add_executable(${PROJECT_NAME}
   src/CommentObject.cpp
   src/DesignerScenario.h
   src/DesignerScenario.cpp
+  src/DocumentationUrl.h
+  src/DocumentationUrl.cpp
   src/IOPort.h
   src/IOPort.cpp
   src/LinkObject.h
