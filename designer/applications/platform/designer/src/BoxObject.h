@@ -12,7 +12,7 @@
 #include "IOPort.h"
 
 
-namespace OpenViBE {  
+namespace OpenViBE {
 namespace Designer {
 
 class BoxObject : public QObject
@@ -21,7 +21,8 @@ class BoxObject : public QObject
     QML_UNCREATABLE("BoxObject is not instantiable from QML")
     QML_ELEMENT
 public:
-    enum Flag {
+    enum Flag
+    {
         CanAddInput       = 1,
         CanModifyInput    = 2,
         CanAddOutput      = 4,
@@ -65,6 +66,11 @@ signals:
     void portOffsetsChanged();
     void overwriteSettingsChanged();
     void settingsFilePathChanged();
+    /**
+     * A user-level edit of the box reached the kernel. `delayMs` lets continuous edits (setting
+     * sliders, typing) be coalesced by the owner before it records an undo step.
+     */
+    void edited(const QString& label, int delayMs);
 
 public:
     BoxObject(Kernel::IKernelContext* context, Kernel::IBox *box);
@@ -116,8 +122,14 @@ public:
     void setCenter(const QPoint &center);
     void setBoxSize(const QSize &boxSize);
 
+    /** Stops listening to the kernel box. Call before the wrapper outlives (or is deleted before) its kernel box. */
+    void detachFromKernelBox();
+
 protected:
     Parameters::ParameterObject* parameter(const QString& name) const;
+    void createPort(IOPort::PortType type, int index);
+    void watchParameterEdits();
+    Q_SLOT void onSettingEdited();
 
 protected:
     friend class DesignerScenario;

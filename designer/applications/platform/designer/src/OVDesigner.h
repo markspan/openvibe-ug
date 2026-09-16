@@ -14,6 +14,8 @@
 namespace OpenViBE {
 namespace Designer {
 
+class OVDesignerPrivate;
+
 /**
  * @brief The OVDesigner class is the main interface between the GUI and OpenViBE internals.
  * it holds a list of scenarios and a player to run them.
@@ -31,6 +33,8 @@ class OVDesigner : public QObject
     Q_PROPERTY(QString simulatedTimeMs READ simulatedTimeMs NOTIFY simulatedTimeChanged)
     //TODO add signal toast to show messages to the user and ask for confirmation
     Q_PROPERTY(int currentScenarioIndex READ currentScenarioIndex WRITE setCurrentScenarioIndex NOTIFY currentScenarioIndexChanged)
+    Q_PROPERTY(DesignerScenario* currentScenario READ currentScenario NOTIFY currentScenarioIndexChanged)
+    Q_PROPERTY(bool canPaste READ canPaste NOTIFY canPasteChanged)
     Q_PROPERTY(QQmlListProperty<DesignerScenario> scenarios READ scenarios NOTIFY scenariosChanged)
     Q_PROPERTY(QObject *boxesTreeModel READ boxesTreeModel NOTIFY boxesTreeModelChanged)
 
@@ -70,6 +74,10 @@ public:
     QString simulatedTimeMs() const;
     bool threadFinished() const;
     int currentScenarioIndex() const;
+    /** The scenario shown in the current tab, or nullptr when there is none. */
+    DesignerScenario* currentScenario() const;
+    /** True when the system clipboard holds a scenario selection. */
+    bool canPaste() const;
     QQmlListProperty<DesignerScenario> scenarios();
     QObject *boxesTreeModel();
 
@@ -79,6 +87,7 @@ signals:
     void playerStatusChanged();
     void simulatedTimeChanged();
     void currentScenarioIndexChanged();
+    void canPasteChanged();
     void scenariosChanged();
     void boxesTreeModelChanged();
 
@@ -86,7 +95,7 @@ signals:
     void toastMessage(const QString &message, const QString &type = "info");
 
 protected:
-    class OVDesignerPrivate *d;
+    std::unique_ptr<OVDesignerPrivate> d;
 
 private:
     OVDesigner();

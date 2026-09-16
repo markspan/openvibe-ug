@@ -44,7 +44,12 @@ FocusScope {
 
   // ------ Multi-select state ------
   property var selectedBoxIds: ({})
+  // Comments are "selected" by focus, one at a time (see Comment.qml)
+  property string focusedCommentId: ""
+  readonly property bool hasSelection: Object.keys(selectedBoxIds).length > 0 || focusedCommentId !== ""
   property bool ctrlKeyActive: false
+  // Selection stashed while the scenario wrappers are rebuilt (undo/redo/paste), see onAboutToReset
+  property var _pendingSelection: []
 
   property bool _rubberBanding: false
   property point _rubberBandStart: Qt.point(0, 0)
@@ -56,12 +61,88 @@ FocusScope {
 
   onRequestDeselectAll: {
     _deselectBoxes()
+    focusedCommentId = ""
   }
 
   function _deselectBoxes() {
     selectedBoxIds = {}
     window.deselectBox()
   }
+
+  function selectedBoxIdList() {
+    return Object.keys(selectedBoxIds)
+  }
+
+  function selectedCommentIdList() {
+    return focusedCommentId !== "" ? [focusedCommentId] : []
+  }
+
+  // Selects the boxes with these identifiers (ids that no longer exist are ignored) and opens the
+  // settings panel when exactly one is selected.
+  function selectBoxes(ids) {
+    var sel = {}
+    var single = null
+    for (var i = 0; i < boxesRepeater.count; i++) {
+      var b = boxesRepeater.itemAt(i)
+      if (b && ids.indexOf(b.identifier) !== -1) {
+        sel[b.identifier] = true
+        single = b.model.modelData
+      }
+    }
+    selectedBoxIds = sel
+    if (Object.keys(sel).length === 1) {
+      window.selectedBox(single)
+    } else {
+      window.deselectBox()
+    }
+  }
+
+  // ------ Edit actions (Main.qml routes the Edit menu and shortcuts here) ------
+  function deleteSelection() {
+    if (!hasSelection) return
+    canvas.model.modelData.removeSelection(selectedBoxIdList(), selectedCommentIdList())
+    canvas.requestDeselectAll()
+  }
+
+  function copySelection() {
+    if (!hasSelection) return
+    canvas.model.modelData.copySelection(selectedBoxIdList(), selectedCommentIdList())
+  }
+
+  function cutSelection() {
+    if (!hasSelection) return
+    canvas.model.modelData.cutSelection(selectedBoxIdList(), selectedCommentIdList())
+    canvas.requestDeselectAll()
+  }
+
+  // Pasted items land under the pointer when it is over the canvas, else at the viewport centre
+  function pasteClipboard() {
+    var anchor = panArea.containsMouse
+        ? Qt.point((panArea.mouseX - panOffset.x) / zoomLevel, (panArea.mouseY - panOffset.y) / zoomLevel)
+        : Qt.point((width / 2 - panOffset.x) / zoomLevel, (height / 2 - panOffset.y) / zoomLevel)
+    var pastedIds = canvas.model.modelData.pasteFromClipboard(anchor)
+    if (pastedIds.length > 0) {
+      selectBoxes(pastedIds)
+      canvas.forceActiveFocus()
+    }
+  }
+
+  Connections {
+    target: canvas.model.modelData
+    function onAboutToReset() {
+      canvas._pendingSelection = canvas.selectedBoxIdList()
+      canvas._deselectBoxes()
+      canvas.focusedCommentId = ""
+    }
+    // Identifiers survive undo/redo, so the selection can be put back
+    function onModelReset() {
+      if (canvas._pendingSelection.length > 0) {
+        canvas.selectBoxes(canvas._pendingSelection)
+        canvas._pendingSelection = []
+      }
+    }
+  }
+  // ------ End edit actions ------
 
   function _selectBoxesInRect(rect) {
     var sel = {}
@@ -101,7 +182,17 @@ FocusScope {
   }
 
   function _endBoxDrag() {
+    // Positions were pushed to C++ continuously while dragging; one undo step for the whole move
+    var moved = false
+    for (var i = 0; i < boxesRepeater.count && !moved; i++) {
+      var b = boxesRepeater.itemAt(i)
+      var start = b ? _dragStartPositions[b.identifier] : undefined
+      moved = !!start && (b.x !== start.x || b.y !== start.y)
+    }
     _dragStartPositions = {}
+    if (moved) {
+      canvas.model.modelData.commitChange(qsTr("Move"))
+    }
     canvas.forceActiveFocus()
   }
   // ------ End multi-select state ------
@@ -187,16 +278,7 @@ FocusScope {
       canvas.requestDeselectAll()
       event.accepted = true
     } else if (event.key === Qt.Key_Delete) {
-      var idsToRemove = []
-      for (const box of boxesRepeater.model) {
-        if (canvas.selectedBoxIds[box.identifier]) {
-          idsToRemove.push(box.identifier)
-        }
-      }
-      for (const i of idsToRemove) {
-        canvas.model.modelData.removeBox(i)
-      }
-      canvas.requestDeselectAll()
+      deleteSelection()
       event.accepted = true
     }
   }
@@ -494,6 +576,19 @@ FocusScope {
       delegate: OV.Comment {
         onRemoved : {
           canvas.model.modelData.removeComment(index)
+        }
+        onMoved: canvas.model.modelData.commitChange(qsTr("Move comment"))
+        onActiveFocusChanged: (focus) => {
+          if (focus) {
+            canvas._deselectBoxes()
+            canvas.focusedCommentId = identifier
+          } else if (canvas.focusedCommentId === identifier) {
+            canvas.focusedCommentId = ""
+          }
+        }
+        Connections {
+          target: canvas
+          function onRequestDeselectAll() { focus = false }
         }
       }
     }

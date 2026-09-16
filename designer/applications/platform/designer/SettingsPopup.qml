@@ -48,6 +48,8 @@ Popup {
           color: "transparent"
 
           required property var modelData
+          // Entries without an explicit flag are enabled
+          readonly property bool itemEnabled: _menuItem.modelData.enabled !== false
           
           property var activeSubmenu: null
           property var hoverCanceled: false  // allows removing hover effect when moving to another item until the menu gets closed
@@ -63,12 +65,13 @@ Popup {
 
             radius: DS.Theme.radiusSm
 
-            color: _menuItemMouseArea.containsMouse || (_menuItem.activeSubmenu && !_menuItem.hoverCanceled ) ? DS.Theme.iconHoverSecondary : "transparent"
+            color: _menuItem.itemEnabled && (_menuItemMouseArea.containsMouse || (_menuItem.activeSubmenu && !_menuItem.hoverCanceled )) ? DS.Theme.iconHoverSecondary : "transparent"
 
             MouseArea {
               id: _menuItemMouseArea
               anchors.fill: parent
               hoverEnabled: true
+              enabled: _menuItem.itemEnabled
               onEntered: {
                 if (root.menuWithActiveSubmenu && root.menuWithActiveSubmenu !== _menuItem) {
                   root.menuWithActiveSubmenu.hoverCanceled = true
@@ -123,7 +126,7 @@ Popup {
               DS.Icon {
                 name: _menuItem.modelData.icon ?? ""
                 size: DS.Theme.iconLg
-                color: DS.Theme.iconPrimary
+                color: _menuItem.itemEnabled ? DS.Theme.iconPrimary : DS.Theme.iconDisabled
                 visible: _menuItem.modelData.icon ? true : false
               }
 
@@ -132,7 +135,7 @@ Popup {
                 Layout.alignment: Qt.AlignVCenter
                 text: _menuItem.modelData.text
                 font: DS.Theme.textSmallRegular
-                color: DS.Theme.textPrimary
+                color: _menuItem.itemEnabled ? DS.Theme.textPrimary : DS.Theme.textDisabled
               }
 
               Text {
