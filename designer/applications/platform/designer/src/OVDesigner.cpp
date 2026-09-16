@@ -55,6 +55,8 @@ struct OVDesignerPrivate
 
     bool openScenario(const std::string &filename);
     void launchScenario(Kernel::EPlayerStatus status, std::function<void()> statusChangedCallback); // can do play, play-fast or step
+    void populateBoxTree(); // fills m_boxTreeModel with the box algorithms and the metaboxes
+    void registerMetaboxFile(const QString &filePath); // (re)loads one metabox file into the metabox manager
 
     OVDesigner *m_parent;
     CKernelLoader m_loader;
@@ -239,7 +241,50 @@ void OVDesignerPrivate::launchScenario(Kernel::EPlayerStatus status, std::functi
     }
 }
 
-OVDesigner *OVDesigner::instance() 
+void OVDesignerPrivate::populateBoxTree()
+{
+    CIdentifier id;
+
+    //equivalent to old m_BoxAlgorithmTreeModel (openvibe-box_algorithm_tree)
+    // 1 box algorithms
+    while ((id = m_context->getPluginManager().getNextPluginObjectDescIdentifier(id, OV_ClassId_Plugins_BoxAlgorithmDesc)) != CIdentifier::undefined())
+    {
+        const Plugins::IPluginObjectDesc* pluginDesc = m_context->getPluginManager().getPluginObjectDesc(id);
+        QString name = QString::fromStdString(pluginDesc->getName().toASCIIString());
+        QString author = QString::fromStdString(pluginDesc->getAuthorName().toASCIIString());
+        QString description = QString::fromStdString(pluginDesc->getShortDescription().toASCIIString());
+        QString category = QString::fromStdString(pluginDesc->getCategory().toASCIIString());
+        if(category.isEmpty()) { category = "Uncategorized"; }
+
+        m_boxTreeModel->addData(name, author, category, description, pluginDesc->getCreatedClass().str().c_str());
+    }
+
+    // 2 metaboxes: they all share the metabox algorithm class, so the drag payload carries the metabox identifier instead
+    id = CIdentifier::undefined();
+    while ((id = m_context->getMetaboxManager().getNextMetaboxObjectDescIdentifier(id)) != CIdentifier::undefined())
+    {
+        const Plugins::IPluginObjectDesc* pluginDesc = m_context->getMetaboxManager().getMetaboxObjectDesc(id);
+        QString name = QString::fromStdString(pluginDesc->getName().toASCIIString());
+        QString author = QString::fromStdString(pluginDesc->getAuthorName().toASCIIString());
+        QString description = QString::fromStdString(pluginDesc->getShortDescription().toASCIIString());
+        QString category = QString::fromStdString(pluginDesc->getCategory().toASCIIString());
+        if(category.isEmpty()) { category = "Uncategorized"; }
+
+        m_boxTreeModel->addData(name, author, category, description, QString(METABOX_DRAG_PREFIX) + id.str().c_str());
+    }
+}
+
+void OVDesignerPrivate::registerMetaboxFile(const QString &filePath)
+{
+    // The metabox manager appends "*<extension>" to the given path for every registered metabox extension, so
+    // "<directory>/<base name>" targets this file only. Giving the directory would re-import every scenario in it
+    // and warn for each one that is not a metabox.
+    const QFileInfo fileInfo(filePath);
+    const QString wildcard = fileInfo.absolutePath() + "/" + fileInfo.completeBaseName();
+    m_context->getMetaboxManager().addMetaboxesFromFiles(wildcard.toStdString().c_str());
+}
+
+OVDesigner *OVDesigner::instance()
 {
     if (!s_instance)
     {
@@ -600,34 +645,7 @@ void OVDesigner::initialize()
 
         CIdentifier id;
         d->m_boxTreeModel = new BoxTreeModel();
-
-        //equivalent to old m_BoxAlgorithmTreeModel (openvibe-box_algorithm_tree)
-        // 169 entries with box algorithm.
-        while ((id = d->m_context->getPluginManager().getNextPluginObjectDescIdentifier(id, OV_ClassId_Plugins_BoxAlgorithmDesc)) != CIdentifier::undefined())
-        {
-            const Plugins::IPluginObjectDesc* pluginDesc = d->m_context->getPluginManager().getPluginObjectDesc(id);
-            QString name = QString::fromStdString(pluginDesc->getName().toASCIIString());
-            QString author = QString::fromStdString(pluginDesc->getAuthorName().toASCIIString());
-            QString description = QString::fromStdString(pluginDesc->getShortDescription().toASCIIString());
-            QString category = QString::fromStdString(pluginDesc->getCategory().toASCIIString());
-            if(category.isEmpty()) { category = "Uncategorized"; }
-
-            d->m_boxTreeModel->addData(name, author, category, description, pluginDesc->getCreatedClass().str().c_str());
-        }
-
-        // 2 metaboxes
-        while ((id = d->m_context->getMetaboxManager().getNextMetaboxObjectDescIdentifier(id)) != CIdentifier::undefined())
-        {
-            const Plugins::IPluginObjectDesc* pluginDesc = d->m_context->getMetaboxManager().getMetaboxObjectDesc(id);
-            QString name = QString::fromStdString(pluginDesc->getName().toASCIIString());
-            QString author = QString::fromStdString(pluginDesc->getAuthorName().toASCIIString());
-            QString description = QString::fromStdString(pluginDesc->getShortDescription().toASCIIString());
-            QString category = QString::fromStdString(pluginDesc->getCategory().toASCIIString());
-            if(category.isEmpty()) { category = "Uncategorized"; }
-
-            d->m_boxTreeModel->addData(name, author, category, description, pluginDesc->getCreatedClass().str().c_str());
-        }
-
+        d->populateBoxTree();
 
         // equivalent to old m_AlgorithmTreeModel (openvibe-algorithm_tree in the .ui file)
         // 65 entries with algorithm . It's not clear where they were previously displayed in the GTK interface.
@@ -766,30 +784,44 @@ void OVDesigner::saveScenario(int index, QUrl filePath)
             fileString = filePath.toString();
         }
         QFileInfo fileInfo(fileString);
+        DesignerScenario *scenario = d->m_scenarios[index];
 
+        //a scenario exposing inputs or outputs is a metabox whatever its extension (QFileInfo::suffix() has no leading dot)
+        const bool asMetabox = fileInfo.suffix().compare("mxb", Qt::CaseInsensitive) == 0 || scenario->isMetabox();
         CIdentifier exportContext;
-        if(fileInfo.suffix() ==".mxb")
+        if(asMetabox)
         {
             exportContext = ScenarioExportContext_SaveMetabox;
         }
         else
         {
             exportContext = ScenarioExportContext_SaveScenario;
-            //add the extension if not present
-            if(fileInfo.suffix().isEmpty())
-            {
-                fileString += ".xml";
-            }
+        }
+        //add the extension if not present
+        if(fileInfo.suffix().isEmpty())
+        {
+            fileString += ".xml";
         }
         //the extension may have just been added, so the scenario must be told about the file that is
         //really written, otherwise its tab label and the saved session point to a nonexistent file
-        d->m_scenarios[index]->setFilePath(filePath.isLocalFile() ? QUrl::fromLocalFile(fileString) : QUrl(fileString));
-        d->m_scenarios[index]->flushPendingCommit();
+        scenario->setFilePath(filePath.isLocalFile() ? QUrl::fromLocalFile(fileString) : QUrl(fileString));
+        if(asMetabox)
+        {
+            //the metabox manager ignores files without an identifier and a name; the kernel exporter adds the prototype hash
+            scenario->ensureMetaboxAttributes();
+        }
+        scenario->flushPendingCommit();
         if (d->m_context->getScenarioManager().exportScenarioToFile(exportContext,
                                                                     fileString.toStdString().c_str(),
-                                                                    d->m_scenarios[index]->id()))
+                                                                    scenario->id()))
         {
-            d->m_scenarios[index]->markSaved();
+            scenario->markSaved();
+            if(asMetabox)
+            {
+                //make the metabox available in the palette right away
+                d->registerMetaboxFile(fileString);
+                this->refreshBoxTree();
+            }
         }
         else
         {
@@ -798,6 +830,65 @@ void OVDesigner::saveScenario(int index, QUrl filePath)
 
         this->saveSession();
     }
+}
+
+void OVDesigner::openMetabox(const QString& metaboxId)
+{
+    const CIdentifier id(metaboxId.toStdString());
+    QString filePath;
+    if(id != CIdentifier::undefined())
+    {
+        filePath = d->m_context->getMetaboxManager().getMetaboxFilePath(id).toASCIIString();
+    }
+    if(filePath.isEmpty() || !FS::Files::fileExists(filePath.toStdString().c_str()))
+    {
+        d->m_context->getLogManager() << Kernel::LogLevel_Warning << "The scenario file of the metabox " << metaboxId.toStdString()
+            << " could not be found in [" << d->m_context->getConfigurationManager().expand("${Kernel_Metabox}") << "]\n";
+    }
+    else
+    {
+        filePath.replace("\\", "/");
+
+        //reuse the tab when the metabox is already opened
+        const QString canonicalPath = QFileInfo(filePath).canonicalFilePath();
+        int openedIndex = -1;
+        for(int i = 0; i < d->m_scenarios.size() && openedIndex < 0; ++i)
+        {
+            const QUrl scenarioUrl = d->m_scenarios[i]->filePath();
+            if(scenarioUrl.isLocalFile() && QFileInfo(scenarioUrl.toLocalFile()).canonicalFilePath() == canonicalPath)
+            {
+                openedIndex = i;
+            }
+        }
+
+        if(openedIndex >= 0)
+        {
+            this->setCurrentScenarioIndex(openedIndex);
+        }
+        else
+        {
+            this->createScenario("", filePath);
+        }
+    }
+}
+
+void OVDesigner::refreshBoxTree()
+{
+    if(d->m_boxTreeModel) //initialize() may not have run yet
+    {
+        d->m_boxTreeModel->rebuild([this]() { d->populateBoxTree(); });
+        emit boxesTreeModelChanged();
+    }
+}
+
+QUrl OVDesigner::userMetaboxDirectory()
+{
+    const CString directory = d->m_context->getConfigurationManager().expand("${Path_UserData}/metaboxes");
+    if(!FS::Files::directoryExists(directory) && !FS::Files::createPath(directory))
+    {
+        d->m_context->getLogManager() << Kernel::LogLevel_Warning << "Could not create the user metabox directory [" << directory << "]\n";
+    }
+    return QUrl::fromLocalFile(QString(directory.toASCIIString()));
 }
 
 void OVDesigner::removeScenario(int index)

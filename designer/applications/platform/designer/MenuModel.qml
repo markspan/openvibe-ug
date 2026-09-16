@@ -13,6 +13,7 @@ QtObject {
     signal fileOpenRequested()
     signal fileSaveRequested()
     signal fileSaveAsRequested()
+    signal fileSaveAsMetaboxRequested()
     signal editUndoRequested()
     signal editRedoRequested()
     signal editCutRequested()
@@ -70,6 +71,13 @@ QtObject {
                     text: "Save As...",
                     shortcut: ShortcutManager.getShortcutSequence("fileSaveAs"),
                     action: function() { fileSaveAsRequested() }
+                },
+                {
+                    id: "fileSaveAsMetabox",
+                    icon: "save",
+                    text: "Save as Metabox...",
+                    shortcut: ShortcutManager.getShortcutSequence("fileSaveAsMetabox"),
+                    action: function() { fileSaveAsMetaboxRequested() }
                 },
                 {
                     id: "fileRecent",

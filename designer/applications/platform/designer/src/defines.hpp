@@ -33,6 +33,13 @@
 namespace OpenViBE {
 namespace Designer {
 
+/**
+ * @brief Prefix of the drag payload used by metabox entries of the box palette.
+ * Every metabox shares the same algorithm class identifier (OVP_ClassId_BoxAlgorithm_Metabox), so the palette
+ * carries "metabox:<metabox identifier>" instead of the class identifier to tell which metabox to instantiate.
+ */
+constexpr const char* METABOX_DRAG_PREFIX = "metabox:";
+
 enum class EContextMenu
 {
     SelectionCopy, SelectionCut, SelectionPaste, SelectionDelete,

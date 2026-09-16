@@ -38,6 +38,8 @@ public:
     Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged) // name of the box. can be modified by the user with a right click on the box
     Q_PROPERTY(QString originalBoxName READ originalBoxName NOTIFY originalBoxNameChanged) // original name of the box. This is the name of the algorithm
     Q_PROPERTY(QString identifier READ identifier CONSTANT)
+    Q_PROPERTY(bool isMetabox READ isMetabox CONSTANT) // true when the box is an instance of a metabox (a scenario used as a box)
+    Q_PROPERTY(QString metaboxId READ metaboxId CONSTANT) // identifier of the metabox in the metabox manager, empty for regular boxes
     Q_PROPERTY(QString description READ description WRITE setDescription NOTIFY descriptionChanged)
     Q_PROPERTY(QJSValue parameters READ parameters NOTIFY parametersChanged)
     Q_PROPERTY(QPoint center READ center WRITE setCenter NOTIFY centerChanged)
@@ -95,8 +97,16 @@ public:
     Q_INVOKABLE void removeSetting(int settingIndex);
     Q_INVOKABLE void saveSettings(QUrl filePath);
 
+    /**
+     * @brief Path of the scenario file backing this metabox, resolved through the metabox manager.
+     * @return The file path, or an empty string when the box is not a metabox or the metabox is unknown.
+     */
+    Q_INVOKABLE QString metaboxFilePath() const;
+
     QString name() const;
     QString originalBoxName() const;
+    bool isMetabox() const;
+    QString metaboxId() const;
     QString description() const;
     QJSValue parameters() const;
     QPoint center() const;

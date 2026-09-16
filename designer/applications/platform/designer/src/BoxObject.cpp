@@ -42,13 +42,24 @@ BoxObject::BoxObject(Kernel::IKernelContext* context, Kernel::IBox *box) : m_con
 
     if(showOriginalName)
     {
-        CIdentifier algorithmClassId = box->getAlgorithmClassIdentifier();
-        const Plugins::IPluginObjectDesc* pluginDesc = m_context->getPluginManager().getPluginObjectDescCreating(algorithmClassId);
+        const Plugins::IPluginObjectDesc* pluginDesc = nullptr;
+        if(isMetabox())
+        {
+            // metaboxes have no plugin descriptor: their descriptor lives in the metabox manager
+            CIdentifier metaboxIdentifier;
+            if(metaboxIdentifier.fromString(box->getAttributeValue(OVP_AttributeId_Metabox_ID)))
+            {
+                pluginDesc = m_context->getMetaboxManager().getMetaboxObjectDesc(metaboxIdentifier);
+            }
+        } else
+        {
+            pluginDesc = m_context->getPluginManager().getPluginObjectDescCreating(box->getAlgorithmClassIdentifier());
+        }
         if(pluginDesc)
         {
             m_originalBoxName = pluginDesc->getName().toASCIIString();
-        } 
-    } 
+        }
+    }
 
     setUIParameters(m_context, m_box, m_parameters);
     watchParameterEdits();
@@ -109,7 +120,7 @@ BoxObject::BoxObject(Kernel::IKernelContext* context, Kernel::IBox *box) : m_con
 
     //connect the callback to boxListener
     // the listener may change stuff in the box, so we need to reset the UI
-    m_box->setListenerCallback([this](Kernel::EBoxInterfacorType type, int index){
+    m_box->setListenerCallback([this](Kernel::EBoxInterfacorType type, int index) {
         // 1 checks all input of OV models and compare them to the qml model
         for(size_t i=0; i < m_box->getInputCount(); i++)
         {
@@ -232,6 +243,32 @@ QString BoxObject::name() const
 QString BoxObject::originalBoxName() const
 {
     return m_originalBoxName;
+}
+
+bool BoxObject::isMetabox() const
+{
+    return m_box->getAlgorithmClassIdentifier() == OVP_ClassId_BoxAlgorithm_Metabox;
+}
+
+QString BoxObject::metaboxId() const
+{
+    QString metaboxIdentifier;
+    if(isMetabox() && m_box->hasAttribute(OVP_AttributeId_Metabox_ID))
+    {
+        metaboxIdentifier = m_box->getAttributeValue(OVP_AttributeId_Metabox_ID).toASCIIString();
+    }
+    return metaboxIdentifier;
+}
+
+QString BoxObject::metaboxFilePath() const
+{
+    QString filePath;
+    CIdentifier metaboxIdentifier;
+    if(metaboxIdentifier.fromString(metaboxId().toStdString()))
+    {
+        filePath = m_context->getMetaboxManager().getMetaboxFilePath(metaboxIdentifier).toASCIIString();
+    }
+    return filePath;
 }
 
 QString BoxObject::identifier() const

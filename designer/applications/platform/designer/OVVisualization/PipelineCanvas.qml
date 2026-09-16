@@ -519,6 +519,9 @@ FocusScope {
             window.deselectBox()
           }
         }
+        onOpenMetaboxRequested: (modelData) => {
+          window.openMetabox(modelData)
+        }
         onClickPortCallback : (portIdx, boxId, x, y, isOutput)=> {
           canvas.model.modelData.clickPort(portIdx, boxId, x, y, isOutput)
         }

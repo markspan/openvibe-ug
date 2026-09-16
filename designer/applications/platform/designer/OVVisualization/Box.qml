@@ -27,6 +27,8 @@ Rectangle {
   required property var flags
   required property int initialInputCount
   required property int initialOutputCount
+  required property bool isMetabox
+  required property string metaboxId
 
   //flags
   property bool canAddInput: flags & 1
@@ -38,6 +40,8 @@ Rectangle {
   signal clickPortCallback(portIdx: int, boxName: string, x: real, y: real, isOutput: bool)
   signal contextMenuRequested(portIdx: int, boxName: string, dataType: string, x: real, y: real, isOutput: bool)
   signal boxSelected(var modelData)
+  // emitted on double-click of a metabox box to edit its scenario
+  signal openMetaboxRequested(var modelData)
 
   // set by PipelineCanvas to show selection highlight
   property bool isMultiSelected: false
@@ -55,7 +59,8 @@ Rectangle {
 
   border.color: _root.isMultiSelected ? DS.Theme.primary : "transparent"
   border.width: 2
-  color: DS.Theme.white
+  // metaboxes stand out from regular boxes by their pastel green background
+  color: _root.isMetabox ? DS.Theme.metaboxBackground : DS.Theme.white
 
   Rectangle {
     id: _shadow
@@ -229,6 +234,12 @@ Rectangle {
       _root.focus = true
       if(mouse.button == Qt.LeftButton) {
         _root.boxSelected(_root.model.modelData)
+      }
+    }
+
+    onDoubleClicked: (mouse)=> {
+      if(mouse.button == Qt.LeftButton && _root.isMetabox) {
+        _root.openMetaboxRequested(_root.model.modelData)
       }
     }
   }

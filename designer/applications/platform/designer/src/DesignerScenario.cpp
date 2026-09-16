@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-only
 */
 
+#include <cstring>
+
 #include <visualization-toolkit/ovviz_all.h>
 
 #include "DesignerScenario.h"
@@ -11,6 +13,7 @@
 #include "ScenarioClipboard.h"
 #include "ScenarioHistory.h"
 #include "ScenarioSerializer.h"
+#include "defines.hpp"
 
 #include "QmlEngineSingleton.h"
 #include "WindowManager.h"
@@ -42,6 +45,10 @@ public:
     void clearParameterConnections();
     void updateParameters();
     WindowManager* getWindowManager();
+    QString attribute(const CIdentifier& attributeID) const;
+    void setAttribute(const CIdentifier& attributeID, const QString& value);
+    /** Sets a metabox metadata attribute from the UI: notifies QML and records the edit in the undo history. */
+    void setMetadata(const CIdentifier& attributeID, const QString& value);
 
     DesignerScenario* q = nullptr;
     Kernel::IKernelContext* kernelCtx = nullptr;
@@ -281,6 +288,39 @@ void DesignerScenarioPrivate::updateParameters()
     connectParameterValueChanged(m_parameters, q, slot);
 }
 
+QString DesignerScenarioPrivate::attribute(const CIdentifier& attributeID) const
+{
+    QString value;
+    if(m_scenario.hasAttribute(attributeID))
+    {
+        value = m_scenario.getAttributeValue(attributeID).toASCIIString();
+    }
+    return value;
+}
+
+void DesignerScenarioPrivate::setAttribute(const CIdentifier& attributeID, const QString& value)
+{
+    const CString cValue = value.toStdString().c_str();
+    if(m_scenario.hasAttribute(attributeID))
+    {
+        m_scenario.setAttributeValue(attributeID, cValue);
+    }
+    else
+    {
+        m_scenario.addAttribute(attributeID, cValue);
+    }
+}
+
+void DesignerScenarioPrivate::setMetadata(const CIdentifier& attributeID, const QString& value)
+{
+    if(attribute(attributeID) != value)
+    {
+        setAttribute(attributeID, value);
+        emit q->metaboxMetadataChanged();
+        q->requestCommit(DesignerScenario::tr("Edit metabox metadata"));
+    }
+}
+
 WindowManager* DesignerScenarioPrivate::getWindowManager()
 {
     return dynamic_cast<WindowManager*>(m_visualizationCtx->getWindowManager(m_windowManagerID));
@@ -296,6 +336,9 @@ DesignerScenario::DesignerScenario(Kernel::IKernelContext* context, Kernel::ISce
     // Setup cpu usage timer
     d->m_cpuUsageTimer.setInterval(1000);
     connect(&d->m_cpuUsageTimer, &QTimer::timeout, this, &DesignerScenario::cpuUsageChanged);
+    // a scenario is a metabox as soon as it exposes an input or an output
+    connect(this, &DesignerScenario::inputPortsChanged, this, &DesignerScenario::isMetaboxChanged);
+    connect(this, &DesignerScenario::outputPortsChanged, this, &DesignerScenario::isMetaboxChanged);
 
     d->fillModel();
 
@@ -324,32 +367,54 @@ void DesignerScenario::addBox(const QString& boxPluginIDStr, const QPoint& posit
 {
     // 1 Add box
     CIdentifier boxID;
-    CIdentifier boxAlgorithmClassID(boxPluginIDStr.toStdString());
     Kernel::IBox *boxDetails = nullptr;
 
-    if (boxAlgorithmClassID == CIdentifier::undefined())
+    if (boxPluginIDStr.startsWith(METABOX_DRAG_PREFIX))
     {
-        d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to find the box algorithm class identifier for " << boxPluginIDStr.toStdString() << "\n";
-    }
-    else
-    {
-        if (boxAlgorithmClassID == OVP_ClassId_BoxAlgorithm_Metabox)
+        // Metaboxes share the same algorithm class identifier: the palette gives the metabox identifier instead,
+        // and the box prototype comes from the descriptor built by the metabox manager from the metabox scenario
+        const CIdentifier metaboxID(boxPluginIDStr.mid(int(strlen(METABOX_DRAG_PREFIX))).toStdString());
+        const auto* boxAlgorithmDesc = dynamic_cast<const Plugins::IBoxAlgorithmDesc*>(d->kernelCtx->getMetaboxManager().getMetaboxObjectDesc(metaboxID));
+        if (boxAlgorithmDesc == nullptr)
         {
-            // Todo: handle metaboxes!
-            d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Metaboxes are not yet supported\n";
+            d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to find the metabox " << metaboxID << "\n";
+        }
+        else if (!d->m_scenario.addBox(boxID, *boxAlgorithmDesc, CIdentifier::undefined()))
+        {
+            d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to add the metabox " << metaboxID << " to the scenario\n";
         }
         else
         {
-            d->m_scenario.addBox(boxID, boxAlgorithmClassID, CIdentifier::undefined());
             boxDetails = d->m_scenario.getBoxDetails(boxID);
-
-            // 2 create BoxObject (registers it in the window manager if it is a display box)
-            BoxObject *box = d->createBoxObject(boxDetails);
-            box->setCenter(position);
-
-            emit boxesChanged();
-            requestCommit(tr("Add box"));
+            // the scheduler expands the metabox at play time from this attribute
+            boxDetails->addAttribute(OVP_AttributeId_Metabox_ID, metaboxID.toString());
         }
+    }
+    else
+    {
+        const CIdentifier boxAlgorithmClassID(boxPluginIDStr.toStdString());
+        if (boxAlgorithmClassID == CIdentifier::undefined())
+        {
+            d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to find the box algorithm class identifier for " << boxPluginIDStr.toStdString() << "\n";
+        }
+        else if (!d->m_scenario.addBox(boxID, boxAlgorithmClassID, CIdentifier::undefined()))
+        {
+            d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to add the box " << boxAlgorithmClassID << " to the scenario\n";
+        }
+        else
+        {
+            boxDetails = d->m_scenario.getBoxDetails(boxID);
+        }
+    }
+
+    if (boxDetails)
+    {
+        // 2 create BoxObject (registers it in the window manager if it is a display box)
+        BoxObject *box = d->createBoxObject(boxDetails);
+        box->setCenter(position);
+
+        emit boxesChanged();
+        requestCommit(tr("Add box"));
     }
 }
 
@@ -1071,6 +1136,56 @@ WindowManager* DesignerScenario::windowManager()
 double DesignerScenario::cpuUsage() const
 {
     return d->player.getCPUUsage();
+}
+
+bool DesignerScenario::isMetabox() const
+{
+    return d->m_scenario.isMetabox();
+}
+
+QString DesignerScenario::metaboxId() const { return d->attribute(OVP_AttributeId_Metabox_ID); }
+QString DesignerScenario::metaboxName() const { return d->attribute(OV_AttributeId_Scenario_Name); }
+QString DesignerScenario::author() const { return d->attribute(OV_AttributeId_Scenario_Author); }
+QString DesignerScenario::company() const { return d->attribute(OV_AttributeId_Scenario_Company); }
+QString DesignerScenario::category() const { return d->attribute(OV_AttributeId_Scenario_Category); }
+QString DesignerScenario::version() const { return d->attribute(OV_AttributeId_Scenario_Version); }
+QString DesignerScenario::shortDescription() const { return d->attribute(OV_AttributeId_Scenario_ShortDescription); }
+QString DesignerScenario::detailedDescription() const { return d->attribute(OV_AttributeId_Scenario_DetailedDescription); }
+
+void DesignerScenario::setMetaboxName(const QString& value) { d->setMetadata(OV_AttributeId_Scenario_Name, value); }
+void DesignerScenario::setAuthor(const QString& value) { d->setMetadata(OV_AttributeId_Scenario_Author, value); }
+void DesignerScenario::setCompany(const QString& value) { d->setMetadata(OV_AttributeId_Scenario_Company, value); }
+void DesignerScenario::setCategory(const QString& value) { d->setMetadata(OV_AttributeId_Scenario_Category, value); }
+void DesignerScenario::setVersion(const QString& value) { d->setMetadata(OV_AttributeId_Scenario_Version, value); }
+void DesignerScenario::setShortDescription(const QString& value) { d->setMetadata(OV_AttributeId_Scenario_ShortDescription, value); }
+void DesignerScenario::setDetailedDescription(const QString& value) { d->setMetadata(OV_AttributeId_Scenario_DetailedDescription, value); }
+
+void DesignerScenario::regenerateMetaboxId()
+{
+    d->setMetadata(OVP_AttributeId_Metabox_ID, CIdentifier::random().str().c_str());
+}
+
+void DesignerScenario::ensureMetaboxAttributes()
+{
+    bool changed = false;
+
+    CIdentifier currentMetaboxId;
+    if(!currentMetaboxId.fromString(metaboxId().toStdString()) || currentMetaboxId == CIdentifier::undefined())
+    {
+        d->setAttribute(OVP_AttributeId_Metabox_ID, CIdentifier::random().str().c_str());
+        changed = true;
+    }
+
+    if(metaboxName().isEmpty())
+    {
+        d->setAttribute(OV_AttributeId_Scenario_Name, name());
+        changed = true;
+    }
+
+    if(changed)
+    {
+        emit metaboxMetadataChanged();
+    }
 }
 
 void DesignerScenario::setScenarioInputLink(int portIndex, const QString& boxId, int boxInputIndex)

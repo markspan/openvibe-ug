@@ -66,6 +66,22 @@ public:
     Q_INVOKABLE void saveScenario(int index, QUrl filePath);
     Q_INVOKABLE void removeScenario(int index);
 
+    //metaboxes
+    /**
+     * @brief Opens the scenario file of a metabox in a tab (the existing one if already opened) so it can be edited.
+     * @param metaboxId Identifier of the metabox as known by the metabox manager.
+     */
+    Q_INVOKABLE void openMetabox(const QString& metaboxId);
+    /**
+     * @brief Rebuilds the box palette from the plugin and metabox managers, e.g. after a new metabox was saved.
+     */
+    Q_INVOKABLE void refreshBoxTree();
+    /**
+     * @brief Directory where the user's own metaboxes are stored (created if missing). It is part of ${Kernel_Metabox}.
+     * @return The directory as a file url, ready for a file dialog.
+     */
+    Q_INVOKABLE QUrl userMetaboxDirectory();
+
     //save the scenarios currently opened so that they are reopened on the next run
     void saveSession();
 
