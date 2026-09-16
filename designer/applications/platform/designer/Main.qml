@@ -81,6 +81,7 @@ ApplicationWindow {
     function onFileOpenRequested() { fileOpenHandle() }
     function onFileSaveRequested() { fileSaveHandle() }
     function onFileSaveAsRequested() { fileSaveAsHandle() }
+    function onFileSaveAsMetaboxRequested() { fileSaveAsMetaboxHandle() }
     function onEditUndoRequested() { editUndoHandle() }
     function onEditRedoRequested() { editRedoHandle() }
     function onEditCutRequested() { editCutHandle() }
@@ -204,7 +205,7 @@ ApplicationWindow {
     id: _openDialog
     title: "Open a scenario"
     fileMode: P.FileDialog.OpenFiles
-    nameFilters: ["Scenario files (*.xml)"]
+    nameFilters: ["Scenario files (*.xml *.mxs)", "Metabox files (*.mxb)", "All supported files (*.xml *.mxs *.mxb)"]
     onAccepted: {
       for(var i = 0; i < _openDialog.files.length; i++) {
         //decode the url
@@ -228,8 +229,17 @@ ApplicationWindow {
     id: _saveDialog
     title: "Save scenario " + OVDesigner.scenarios[OVDesigner.currentScenarioIndex].name
     fileMode: P.FileDialog.SaveFile
-    folder: StandardPaths.writableLocation(StandardPaths.DesktopLocation)
     nameFilters: ["Scenario files (*.xml)", "Metabox files (*.mxb)"]
+
+    // Metaboxes go to the user metabox directory (part of ${Kernel_Metabox}) with the .mxb filter preselected
+    function openFor(asMetabox) {
+      let scenario = OVDesigner.scenarios[OVDesigner.currentScenarioIndex]
+      let metabox = asMetabox || scenario.isMetabox
+      _saveDialog.folder = metabox ? OVDesigner.userMetaboxDirectory()
+                                   : StandardPaths.writableLocation(StandardPaths.DesktopLocation)
+      _saveDialog.selectedNameFilter.index = metabox ? 1 : 0
+      _saveDialog.open()
+    }
 
     onAccepted: {
       OVDesigner.saveScenario(OVDesigner.currentScenarioIndex ,decodeURIComponent(_saveDialog.file))
@@ -259,18 +269,25 @@ ApplicationWindow {
     const item = window.activeFocusItem
     return item && (item instanceof TextInput || item instanceof TextEdit)
   }
+  
+  // opens the scenario of a metabox box in its own tab
+  function openMetabox(box) {
+    OVDesigner.openMetabox(box.metaboxId)
+  }
 
   function fileNewHandle() { OVDesigner.createScenario() }
   function fileOpenHandle() { _openDialog.open() }
   function fileSaveHandle() {
     let path = OVDesigner.scenarios[OVDesigner.currentScenarioIndex].filePath
     if(path == "") {
-      _saveDialog.open()
+      _saveDialog.openFor(false)
     } else {
       OVDesigner.saveScenario(OVDesigner.currentScenarioIndex ,path)
     }
   }
-  function fileSaveAsHandle() { _saveDialog.open() }
+  
+  function fileSaveAsHandle() { _saveDialog.openFor(false) }
+  function fileSaveAsMetaboxHandle() { _saveDialog.openFor(true) }
   function editUndoHandle() { if (!_textEditorFocused()) OVDesigner.currentScenario?.undo() }
   function editRedoHandle() { if (!_textEditorFocused()) OVDesigner.currentScenario?.redo() }
   function editCutHandle() { if (!_textEditorFocused()) _currentCanvas()?.cutSelection() }

@@ -99,6 +99,17 @@ Control {
           }
 
           DS.IconButton {
+            iconName: "folder-open"
+            iconSize: DS.Theme.icon2xl
+            tooltip: "Open metabox"
+            visible: box?.isMetabox ?? false
+
+            onClicked: {
+              OVDesigner.openMetabox(box.metaboxId)
+            }
+          }
+
+          DS.IconButton {
             iconName: "save"
             iconSize: DS.Theme.icon2xl
             tooltip: "Save settings"

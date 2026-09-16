@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: AGPL-3.0-only
 */
 
+#include <functional>
+
 #include <QtCore>
 
 #pragma once
@@ -24,10 +26,17 @@ class BoxTreeModel : public QAbstractItemModel
 {
     Q_OBJECT
     friend class OVDesigner;
+    friend struct OVDesignerPrivate;
 
 public:
     BoxTreeModel(QObject *parent = nullptr);
     ~BoxTreeModel();
+
+    /**
+     * @brief Empties the tree and fills it again, notifying the views (and proxies) bound to the model.
+     * @param populate Callback adding the entries through addData().
+     */
+    void rebuild(const std::function<void()>& populate);
 
     enum MyRoles {
         DragRole = Qt::UserRole + 1,
@@ -48,7 +57,10 @@ public:
     int entryCount( const QModelIndex & index = QModelIndex()) const;
 
 private:
-    void addData(const QString& name, const QString& author, const QString& category, const QString& description, const QString &boxAlgorithmClassID); 
+    void addData(const QString& name, const QString& author, const QString& category, const QString& description, const QString &boxAlgorithmClassID);
+
+    // columns of every item: name, author, description, boxAlgorithmClassID (drag payload)
+    inline static const QList<QVariant> kHeaderData = {"Name", "Author", "Description", "boxAlgorithmClassID"};
     BoxTreeItem *rootItem = nullptr;
     QList<QString> m_categories;
 };

@@ -13,8 +13,17 @@ namespace Designer {
 BoxTreeModel::BoxTreeModel(QObject *parent)
     : QAbstractItemModel(parent)
 {
-    QList<QVariant> headerData = {"Name", "Author", "Description", "boxAlgorithmClassID"};
-    rootItem = new BoxTreeItem(headerData);
+    rootItem = new BoxTreeItem(kHeaderData);
+}
+
+void BoxTreeModel::rebuild(const std::function<void()>& populate)
+{
+    beginResetModel();
+    delete rootItem; //deletes the children too
+    rootItem = new BoxTreeItem(kHeaderData);
+    m_categories.clear();
+    populate();
+    endResetModel();
 }
 
 void BoxTreeModel::addData( const QString& name, const QString& author, const QString& category, const QString& description, const QString &boxAlgorithmClassID)

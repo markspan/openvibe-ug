@@ -19,6 +19,35 @@ Item {
     Layout.fillWidth: true
     Layout.fillHeight: true
 
+    // Labeled text field of the metabox metadata section
+    component MetaboxField : ColumnLayout {
+        id: _field
+        property string label
+        property string value
+        property string placeholder: ""
+        signal edited(string text)
+
+        Layout.fillWidth: true
+        spacing: DS.Theme.spacingXs
+
+        Label {
+            text: _field.label
+            font: DS.Theme.textSmallLight
+            color: DS.Theme.textSecondary
+            Layout.alignment: Qt.AlignLeft
+        }
+
+        DS.TextField {
+            Layout.fillWidth: true
+            text: _field.value
+            placeholderText: _field.placeholder
+
+            onEditingFinished: {
+                _field.edited(text)
+            }
+        }
+    }
+
     OV.Parameters {
         id: _scenarioParams
         parameters: scenario?.parameters ?? []
@@ -203,6 +232,16 @@ Item {
             
             DS.HorizontalSpacer { }
             
+            // Window Manager section
+            WindowManager { 
+                id: _windowManager
+                Layout.fillWidth: true
+                
+                windowManager: root.scenario.windowManager
+            }
+
+            DS.HorizontalSpacer { }
+
             // Input Section
             Rectangle {
                 id: _inputSection
@@ -330,12 +369,154 @@ Item {
 
             DS.HorizontalSpacer { }
 
-            // Window Manager section
-            WindowManager { 
-                id: _windowManager
+            // Metabox Section: metadata shown in the box palette once the scenario is saved as a metabox.
+            // Collapsed by default as it is only needed when the scenario is meant to be used as a metabox.
+            Rectangle {
+                id: _metaboxSection
                 Layout.fillWidth: true
-                
-                windowManager: root.scenario.windowManager
+                Layout.preferredHeight: _metaboxLayout.implicitHeight
+
+                property bool expanded: false
+
+                color: "transparent"
+
+                ColumnLayout {
+                    id: _metaboxLayout
+                    anchors.fill: parent
+                    anchors.leftMargin: DS.Theme.spacingLg
+                    anchors.rightMargin: DS.Theme.spacingLg
+                    anchors.bottomMargin: DS.Theme.spacingLg
+
+                    spacing: DS.Theme.spacingMd
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.minimumHeight: DS.Theme.spacing5xl
+
+                        Text {
+                            text: "Metabox"
+                            font: DS.Theme.subtitle3
+                            color: DS.Theme.textPrimary
+                            Layout.alignment: Qt.AlignVCenter
+
+                            TapHandler {
+                                onTapped: {
+                                    _metaboxSection.expanded = !_metaboxSection.expanded
+                                }
+                            }
+
+                            HoverHandler {
+                                cursorShape: Qt.PointingHandCursor
+                            }
+                        }
+
+                        Item {
+                            Layout.fillWidth: true
+                        }
+
+                        DS.IconButton {
+                            iconName: _metaboxSection.expanded ? "chevron-up" : "chevron-down"
+                            iconSize: DS.Theme.iconLg
+                            tooltip: _metaboxSection.expanded ? "Collapse" : "Expand"
+
+                            onClicked: {
+                                _metaboxSection.expanded = !_metaboxSection.expanded
+                            }
+                        }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        visible: _metaboxSection.expanded
+                        spacing: DS.Theme.spacingMd
+
+                        Label {
+                            Layout.fillWidth: true
+                            visible: !(root.scenario?.isMetabox ?? false)
+                            text: "Add a scenario input or output to make this scenario a metabox, then save it as a .mxb file to use it as a box in other scenarios."
+                            font: DS.Theme.textSmallLight
+                            color: DS.Theme.textSecondary
+                            wrapMode: Text.Wrap
+                        }
+
+                        MetaboxField {
+                            label: "Name"
+                            value: root.scenario?.metaboxName ?? ""
+                            onEdited: (text) => root.scenario.metaboxName = text
+                        }
+
+                        MetaboxField {
+                            label: "Category"
+                            value: root.scenario?.category ?? ""
+                            placeholder: "e.g. Examples/Metabox"
+                            onEdited: (text) => root.scenario.category = text
+                        }
+
+                        MetaboxField {
+                            label: "Author"
+                            value: root.scenario?.author ?? ""
+                            onEdited: (text) => root.scenario.author = text
+                        }
+
+                        MetaboxField {
+                            label: "Company"
+                            value: root.scenario?.company ?? ""
+                            onEdited: (text) => root.scenario.company = text
+                        }
+
+                        MetaboxField {
+                            label: "Version"
+                            value: root.scenario?.version ?? ""
+                            onEdited: (text) => root.scenario.version = text
+                        }
+
+                        MetaboxField {
+                            label: "Short description"
+                            value: root.scenario?.shortDescription ?? ""
+                            onEdited: (text) => root.scenario.shortDescription = text
+                        }
+
+                        MetaboxField {
+                            label: "Detailed description"
+                            value: root.scenario?.detailedDescription ?? ""
+                            onEdited: (text) => root.scenario.detailedDescription = text
+                        }
+
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: DS.Theme.spacingXs
+
+                            Label {
+                                text: "Metabox ID"
+                                font: DS.Theme.textSmallLight
+                                color: DS.Theme.textSecondary
+                                Layout.alignment: Qt.AlignLeft
+                            }
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: DS.Theme.spacingMd
+
+                                DS.TextField {
+                                    Layout.fillWidth: true
+                                    readOnly: true
+                                    text: root.scenario?.metaboxId ?? ""
+                                    placeholderText: "Generated when saved as a metabox"
+                                }
+
+                                DS.IconButton {
+                                    iconName: "redo"
+                                    iconSize: DS.Theme.iconLg
+                                    tooltip: "Regenerate metabox ID"
+
+                                    onClicked: {
+                                        root.scenario.regenerateMetaboxId()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             Item {

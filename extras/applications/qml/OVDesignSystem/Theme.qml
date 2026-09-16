@@ -56,6 +56,7 @@ QtObject {
                 navBarBackground: "#FFFFFF",
                 tabHoverBackground: "#F5F5F5",
                 boxBackground: "#F8F8F8",
+                metaboxBackground: "#E4F6EA",
                 tooltipBackground: "#051B38",
                 white: "#FFFFFF",
             },
@@ -86,6 +87,7 @@ QtObject {
                 navBarBackground: "#FFFFFF",
                 tabHoverBackground: "#F5F5F5",
                 boxBackground: "#F8F8F8",
+                metaboxBackground: "#E4F6EA",
                 tooltipBackground: "#051B38",
                 white: "#FFFFFF",
             }
@@ -121,6 +123,7 @@ QtObject {
     readonly property color navBarBackground: colorPalettes.currentPalette.navBarBackground
     readonly property color tabHoverBackground: colorPalettes.currentPalette.tabHoverBackground
     readonly property color boxBackground: colorPalettes.currentPalette.boxBackground
+    readonly property color metaboxBackground: colorPalettes.currentPalette.metaboxBackground // pastel green telling a metabox from a regular box
     readonly property color tooltipBackground: colorPalettes.currentPalette.tooltipBackground
     readonly property color white: colorPalettes.currentPalette.white
 
