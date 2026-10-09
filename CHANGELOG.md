@@ -5,6 +5,209 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-beta.1] 2025-09-12
+
+# Part 1 — The headline changes
+
+These are the four that deserve prose in the release notes rather than a bullet.
+
+## 1. The UI framework: GTK+ 2 → Qt 6 / QML
+
+The single largest change in the release. Every graphical surface in the project was rewritten.
+
+- **Designer.** Rebuilt into a QML application at
+  `designer/applications/platform/designer/`. 28 QML components: `PipelineCanvas`, `Box`,
+  `BoxPort`, `Link`, `BoxSettings`, `Toolbox`, `TopBar`, `ActionBar`, `ScenarioTab`,
+  `ScenarioConfiguration`, `ScenarioIOConnection`, `WindowManager*`, `ShortcutManager`, …
+- **Acquisition server.** Rewritten as a QML application (see §3).
+- **Visualisation boxes.** The GTK drawing code is gone. Signal Display, ERP Plot, Level Measure,
+  Display Cue Image, Graz visualisation (single and multi), ROC Curve, Classifier Accuracy
+  Measure, Topo 2D / Map 2D and Matrix Display are now QML views.
+- **New shared QML libraries** under `extras/applications/qml/`: `OVDesignSystem` (theme, icons,
+  components, bundled Be Vietnam Pro + Space Grotesk fonts), `OVControls`, `OVParameters`,
+  `OVStyle`. These are shared by the different applications and plugins for a uniform look.
+- **Window manager.** A new component replacing the old GTK visualisation-tree machinery: manages
+  fullscreen, split views.
+- **Legacy applications.** The GTK-based applications are still present in the code base for now as reference,
+  but will not build as GTK2 is not present anymore and there were some API breaks
+
+## 2. Dependency and build management: conda → pixi, and CPack packaging
+
+- **pixi replaces conda** as the dependency and task manager (`pixi.toml`, `pixi.lock`). Tasks:
+  `configure`, `build`, `test`, `install`, `package`, plus `ci-*` variants, used by CI stages.
+- **CPack packaging.** The hand-written NSIS template
+  `extras/scripts/windows-openvibe-x.x.x-setup.nsi.in` was deleted and replaced by
+  `CMake/OvPackaging.cmake` — NSIS + ZIP on Windows, TGZ elsewhere, monolithic install.
+- **Embedded Python.** The system `Python3` dependency was replaced by
+  **python-build-standalone 3.10.20** (`CMake/FindPythonBuildStandalone.cmake`,
+  `CMake/DeployPythonBuildStandalone.cmake`), fetched and deployed into the install tree. Users no
+  longer need a matching system Python for the Python scripting boxes.
+- **Documentation is a build target.** `ninja doc` now builds the documentation from the build tree. The old configure-time `BUILD_DOCUMENTATION` path is gone. Box snapshots updated.
+- **Version numbers come from the git tag.** Per-project (sdk, designer & extras) versionning deleted in favor of one `CMake/OvVersion.cmake` at the root. Version numbers are now fixed to the git tags and will display commits count on top of tag when 
+the code as evolved since the tag, allowing an accurate version tracking.
+- ** Back to monorepo.** The sdk/, designer/ and extras/ folders are now real directories instead of submodules. The three GitLab projects are archived.
+
+### Dependency version changes
+
+| Dependency | 3.7 | now |
+|---|---|---|
+| Qt | — | **6.9**|
+| GTK 2 | 2.24 | **removed** |
+| Boost | 1.77 | 1.85 |
+| expat | 2.5.0 | 2.6.4 |
+| Xerces-C | 3.2.4 | 3.3.0 |
+| zlib | 1.2.13 | 1.3.1 |
+| GTest / GMock | 1.10.0 | 1.17.0 (win) |
+| nlohmann_json | — | **3.11.3 (new)** |
+| Python | system 3.10 | embedded python-build-standalone 3.10.20 |
+
+## 3. The acquisition server, rewritten
+
+Not a port — a new application at `extras/applications/platform/acquisition-server/`, split into
+`abstractions/` (driver + writer interfaces), `builtin/` (drivers and writers), `core/`
+(incl. `net-api/`), `settings/`, `ui/qml/` and `test/`.
+
+- **Multiple simultaneous drivers**: one main driver plus 0..n auxiliary drivers (replacing old plugin hooks).
+- **New driver interface** — configuration is parameter-driven, and drivers
+  are told when configuration completes. Drops the need of custom UI components.
+- **New network layer.** `sdk/modules/network` (client/server, protocol message handler, CRC32,
+  optional firewall handling) and `sdk/openvibe/include/openvibe/acquisition-messaging`
+  (`ovMsg`, `ovMsgSerializer`, `ovCtrlCmdMsg`, `samples.h`, `drift.h`). Adds an `ACQ_STREAM`
+  request and proper message serialisation.
+- **New Acquisition Client box** (`BoxAcquisitionClient`), with the old one kept as
+  `BoxAcquisitionClientLegacy`.
+- **Stimulations** are carried over the acquisition stream.
+- **Drift measurement** reworked and surfaced in the UI; global drift now uses the first data
+  timestamp as reference and is mutex-protected against thread-init latency.
+- **Impedance checks** added.
+- **Session management**: settings persist to JSON (`nlohmann_json`), with round-trip tests.
+- **New writers**: `lsl-output` (ported off the old `ovasCPluginLSLOutput`) and `net-writer` for data streaming.
+- **New server-extension plugins**: `NetService` and `TcpTaggingService` (a TCP tagging service
+  pushing stimulations, plus a `tagging` aux driver, that can later extend to other sources of tagging).
+- **Plugin drivers**: contrib drivers are now built separately from the acquisition-server, and loaded at runtime
+  like proper plugins.
+- Acquisition-server abstractions layer allow the driver plugins to link against the acquisition-server.
+- A network API that is not fully featured yet, that will allow to use the acquisition-server in headless mode.
+
+## 4. Scenario structure: scenario-level parameters and IO
+
+New in `IScenario`:
+
+```
+addParameter                       removeParameter
+addParameterConnection             removeParameterConnection
+updateParameterName                getAvailableParameterTypes
+getParameterConnections            getParameterConnectionsCount
+getParameterConnectionDetails      getParameterConnectionCandidates
+```
+
+plus a new public type `kernel/scenario/CScenarioParameterConnection.h`.
+
+- A scenario can now **connect its parameters to box parameters**, so one
+  value can drive several boxes and be exposed at the top of the scenario.
+- Parameters UIs are contrained by the parameter type and the use of "$var{}" is limited to string-friendly parameters.
+  The previous point is the new method for connecting parameters.
+- **Scenario inputs/outputs** are configurable from the designer and connect to box ports; box IO
+  is addressable by `CIdentifier` as well as by index, so links survive reordering.
+- Boxes can have inputs/outputs added and removed from the designer UI, with **type checking on
+  link creation**.
+- Scenario configuration has a dedicated designer panel for settings, inputs/outputs, windows manager and metadata
+
+> ⚠️ **Scenario format v3 — existing scenarios must be converted.** 4.0.0 saves scenarios and
+> metaboxes in format v3 and **refuses to open v2 files**, which is the format of nearly everything
+> saved with 3.x. Convert them with **`openvibe-scenario-update-2to3`**, a small tool that ships
+> with the install. Select one or more `.mxs`/`.mxb` files, then either overwrite them or write
+> `*_v3` copies. The tool turns each `$var{…}` reference to a scenario setting into a parameter
+> connection. When a scenario setting's type differs from the box setting it feeds (for example
+> int vs float), the tool retypes the scenario setting to match. v1 and legacy files still open
+> directly.
+
+---
+
+# Part 2 — Everything else, in changelog form
+
+## Added
+
+### Parameters
+
+A new public parameter library, `sdk/openvibe/include/openvibe/parameters/`, with a factory and
+traits. Types available now:
+
+- Parameter: Bool, Int, Double, String
+- Parameter: **Color** and **ColorGradient**
+- Parameter: **Path** (file/directory picker)
+- Parameter: **ListInt**, **ListString**, **StringVector**
+- Parameter: **MultiSelect** — backs bitmask box settings (`registerBitMaskType`); its `';'`
+  join/split is the kernel's own bitmask composition format
+- Parameter: `parameterFactory`, `parameterTraits`, `parameterUtils` support headers
+- Parameter: stream (`sstream`) operators
+- Parameter: empty list of available values is now legal in `parameterListString`
+
+### Services
+
+- SDK: new `openvibe/Services/IService.h` service interface
+- Plugin: `NetService` server extension
+- Plugin: `TcpTaggingService` server extension, with protocol handler and tests
+
+### Boxes and visualisation
+
+- Box: Acquisition Client (new implementation; old kept as Legacy)
+- Box: ROC Curve (QML view)
+- Box: Classifier Accuracy Measure (QML view)
+- Box: Graz visualisation, single and multi (QML)
+- Box: Graph Window / OVChart generic charting component
+- Box: Level Measure (QML window)
+- Box: Display Cue Image (QML)
+- Box: ERP Plot (QML)
+- Box: Matrix Display, Topo 2D / Map 2D (QML, window-manager aware)
+- Box: Connectivity — channel subselection
+- Box: Keyboard Stimulator — key meanings and stimulation-code options
+
+### Build, CI and tooling
+
+- Tool: `openvibe-scenario-update-2to3` — converts v2 scenarios/metaboxes to the v3 format
+- Build: pixi workspace and task set
+- Build: CPack packaging (NSIS + ZIP on Windows, TGZ elsewhere)
+- Build: embedded Python runtime (python-build-standalone)
+- Build: `doc` build target
+- Build: application icons — designer and acquisition server
+- Build: `CMake/` root helper modules — `FindThirdParty*` consolidated, `TestUtilities.cmake`,
+  `OvConfigureRC.cmake`, `OvPrint.cmake`, per-driver find modules under `CMake/drivers/`
+- CI: GitLab pipeline split into `.gitlab/*.yml` (build, test, analyse, cleanup, reviewer)
+- CI: SonarQube analysis, cppcheck and clang-tidy reports as artifacts
+- CI: pipelines runnable from the GitLab UI; MR-triggered pipelines
+- Test: settings serialisation round-trip tests, drift calculation test, classification test fixes
+
+## Updated
+
+- **Repository: migrated to a monorepo.** `sdk/`, `designer/` and `extras/` were submodules; they
+  are now real directories and the three GitLab projects are
+  archived. `git pull` is the whole update procedure — no submodule step!
+- **Test: `DartTestfile.txt` → CMake testing framework.** 14 Dart files removed; 19
+  `test/CMakeLists.txt` added. Tests declare `DEPENDS`, and test scenarios moved under
+  `test/scenarios-tests/`.
+- Build: unit-test and CI setup moved to the root `CMakeLists.txt`
+- SDK: system module updated for library loading
+- SDK: classifier strategy management fixed; MLP and SVM options fixed
+- SDK: scenario serialisation format v3 (parameter connections, scenario IO)
+- Lua: scripts updated for the Lua 5.4 `math.random` semantics
+- Docs: box images are now rendered from the designer's real `Box.qml` instead of hand-drawn
+  QPainter art
+
+## Fixed
+
+- Riemannian Potato: redundant namespace breaking g++
+
+## Removed
+
+- Dependency: **GTK 2** (and `libiconv`, `vs2010_runtime`)
+- Build: hand-written NSIS installer script (replaced by CPack)
+- Build: `extras/externals/` and `extras/scripts/`
+- Build: per-project `GetCurrentVersion.cmake` (replaced by `CMake/OvVersion.cmake`)
+- Driver: `rt`
+- Scenario: loading of v2-format scenarios and metaboxes (convert with `openvibe-scenario-update-2to3`)
+- Test: `DartTestfile.txt` (all 14)
+
 ## [3.7.0] 2025-08-12
 
 ### Added
