@@ -193,11 +193,11 @@ void Acquisition::initAcquisition()
         unsigned int channelCount = m_driver->channelCount();
         
         computeWindowSize(sampleRate);
+
         m_sampleBufferHandler = std::unique_ptr<SampleBufferHandler>(new SampleBufferHandler(channelCount, sampleRate, m_chunkSampleCount.value())); ///< Create a new sample buffer handler with the given parameters.
         m_circularBuffer      = std::unique_ptr<CircularBuffer>(new CircularBuffer(m_sampleBufferHandler.get())); ///< Create a new circular buffer, using the sample buffer handler for buffer allocation.
         m_driftCalculator     = std::unique_ptr<DriftCalculator>(new DriftCalculator(sampleRate, m_windowSize)); ///< Create a new drift calculator with the given sample rate and window size.
 
-        
         for (auto& w : m_writers) {
             w->init(m_chunkSampleCount.value(), channelCount);
             w->onAcquisitionSetup(sampleRate, m_driver->channelNames().value());

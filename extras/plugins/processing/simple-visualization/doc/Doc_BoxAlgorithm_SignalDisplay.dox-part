@@ -6,7 +6,9 @@ Detailed description
 __________________________________________________________________
 
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Description|
-This plugin displays incoming signals. It plots values on the vertical axis while the horizontal axis represents time. 
+This plugin displays incoming signals as a single graph in which every channel is drawn as its own
+horizontally stacked trace. The horizontal axis is time; each channel gets a lane, and the 
+vertical position within a lane is the signal amplitude.
 
 To display your signal correctly and as smoothly as possible, you may need to configure this box. Please see below for examples.
 
@@ -40,8 +42,8 @@ __________________________________________________________________
 
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting1|
 Type of display, can be either Scan mode or Scroll mode. In Scan mode, the new data arrives
-from left to right and the displayed data does not move. In Scroll mode, the new data always
-arrives on the right and all displayed data moves right to left.
+from left to right and the displayed data does not move; a sweep cursor marks the write position.
+In Scroll mode, the new data always arrives on the right and all displayed data moves right to left.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting1|
 
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting2|
@@ -49,15 +51,21 @@ Automatic vertical (y) scaling mode: Per channel, Global, or None.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting2|
  
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting3|
-How often the vertical scale is refreshed. Only used when automatic vertical scaling mode is not None.
+How often the vertical scale is recomputed. Only used when automatic vertical scaling mode is not
+None. Rescaling is deliberately infrequent, and the new scale is only adopted when it differs
+enough from the current one.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting3|
 
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting4|
-Vertical (y) scale for each channel when automatic vertical scaling mode is None.
+Amplitude that fills half a channel lane, in signal units, when automatic vertical scaling mode is
+None. With a value of 100, a trace touching the top of
+its lane is at +100 units.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting4|
  
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting5|
-Vertical (y) offset for each channel when automatic vertical scaling mode is None.
+DC level subtracted from every sample before it is scaled, i.e. the signal value drawn on the lane
+baseline. Channels are separated by the stacking itself, so this is a baseline correction and not a
+channel spacing control.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting5|
  
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting6|
@@ -69,11 +77,12 @@ Enable bottom (x) ruler?
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting7|
 
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting8|
-Enable left (y, vertical) ruler?
+Enable the left amplitude ruler: a per-lane bracket showing the amplitude the lane spans.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting8|
 
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting9|
-Enable multiview? This mode displays several signals on top of each other. It is sometimes called a 'butterfly plot'.
+Draw every channel on a single shared baseline instead of one lane each. This is the 'butterfly
+plot'. It is the same renderer as the stacked view, with all baselines collapsed to mid-height.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting9|
 
 __________________________________________________________________
@@ -82,26 +91,24 @@ Online visualization settings
 __________________________________________________________________
 
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_OnlineVisualizationSettings|
-By clicking the bar at the top of the window during runtime, the user gets access to the online 
-toolbar of the display. This allows settings of the box to be modified during playback.
+A parameter panel is shown to the left of the graph during playback.
 
-Online settings :
+  - Display Mode : switches between Scan and Scroll.
+  - Auto vertical scale : Per channel, Global, or None.
+  - Time Scale : the time span displayed. Changing it resizes the buffer and clears history.
+  - Vertical Scale : the amplitude filling half a channel lane, used when auto scaling is None.
+  - Vertical Offset : DC level removed before scaling.
+  - Scale refresh interval (secs) : how often an automatic scale is recomputed.
+  - Bottom ruler / Left ruler : toggle the time ruler and the amplitude scale bar.
+  - Multiview : overlay every channel on a single baseline.
 
-  The toolbar allows access to the following settings,
+Three further entries exist only in this panel and are not box settings, so they are not saved with
+the scenario:
 
-  - Scan/scroll mode : this button switches the type of display (scan or scroll)
-  - Left/Bottom Ruler : these buttons toggle channel y and x legend (coordinate axes).
-  - Channel units : Show channel units. Requires meaningful data from the measurement units stream.
-  - Auto vertical scale : Change the vertical (y) scaling mode
-  - Vertical scale : Value when automatic scaling is not used
-  - Vertical offset : Value when automatic scaling is not used
-  - Time Scale : this setting adjusts the time span displayed, in seconds.
-  - Select Channels : Allows to show/hide some of the channels by checking/unchecking each channel.
-  - Multi-View : Allows to configure what channels should be plotted in an extra graph at the bottom of the Signal Display window. When no channels are selected (default) this extra graph is not displayed. To disable multiview, select 'None' in the channel list.
-  - Stimulation colors : Display stimulation name or identifier corresponding to the plotted colors.
-  - Information : This button displays information about the data (min/max values and so on).
-
- \image html signaldisplay_toolbar.png "Signal Display toolbar"
+  - Channels : show or hide individual channels.
+  - Channels per page : 0 fits every channel in the view; a smaller value keeps each lane that tall
+    and makes the view scroll, which is what high channel counts need.
+  - Colour per channel : colour each trace rather than drawing them all alike.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_OnlineVisualizationSettings|
 __________________________________________________________________
 
@@ -114,9 +121,7 @@ To get some signals displayed right, changing the automatic y scaling may be use
 
 	- Per channel (default) : Every channel will get centered and scaled separately. This should allow viewing arbitrary signals. This is suitable for unfiltered data which may have huge differences in scale and DC between channels.
 	- Global : All channels are put to the same scale which is the maximum of all the channels. This mode is suitable for filtered EEG and data which may have long-term trends but where all channels generally stay in the same range. 
-	- None: User must specify global center and scale. Display is never automatically rescaled. This is suitable for filtered EEG data where the meaningful range is within known parameters and DC doesn't vary. 
-
-Note that the automatic scalers may include discontinuities in the plot when the scale changes (see below for 'Best practices').
+	- None: User must specify global center and scale. Display is never automatically rescaled. This is suitable for filtered EEG data where the meaningful range is within known parameters and DC doesn't vary.
 
 Practical example :
 
@@ -136,18 +141,14 @@ __________________________________________________________________
 
 Best practices
 
-All vertical scaling modes except 'None' will change the scaling dynamically
-when the scale of the data appears to have changed. To avoid slow redraws,
-the box simply changes the scale and leaves the old part of the signal
-as it was, meaning that you may see a discontinuity in the signal, as
-for the moment there are two or more different scales visible. The scale
-change is marked by small red ticks at the top and bottom of the display. 
+All vertical scaling modes except 'None' change the scaling dynamically when the scale of the data
+appears to have changed. The whole displayed window is redrawn at the new scale, so the trace stays
+internally consistent; the 'Scale refresh (s)' setting controls how often this may happen.
 
-For most situations, and to avoid the discontinuities of the automatic
-scaling, the following is recommended:
+For most situations the following is recommended:
 
 	- First filter the signals meaningfully to remove DC and slow trends by using the Temporal Filter box. For EEG, you can use a bandpass configuration with a range a such as [1,40] hz.
-	- Next, set the vertical scaling to 'None' and provide the display box a meaningful fixed scale corresponding to your signal. You can find out a suitable scale by activating 'Left Ruler' when the auto scale is active. Note that when the scale is given in the box parameters, the scale can be saved with the scenario.
+	- Next, set the vertical scaling to 'None' and provide the display box a meaningful fixed scale corresponding to your signal. You can find out a suitable scale by activating the left ruler while the auto scale is active and reading the amplitude each lane spans. Note that when the scale is given in the box parameters, the scale can be saved with the scenario.
 
 Known issues and workarounds
 
@@ -160,11 +161,9 @@ meaningful. In the case of Feature Vector stream, you can try to use the
 Matrix Transpose box on the feature stream first to turn the features into 
 channels.
 
-Multiview: Multiview presents all the signals in the same space. 
-The different channels are not centered, so if they have large DC differences, 
-the view may not show anything meaningful. In this case, filter the signal first.
-
-Scroll mode is known to be slow, notably on Windows. For faster scrolling display, use Linux.
+Multiview presents all the signals in the same space. With 'Per Channel' scaling each trace is still
+centred on its own mean; with 'Global' or 'None' scaling, channels with large DC differences may
+overlap unhelpfully, so filter the signal first.
 
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Miscellaneous|
  */

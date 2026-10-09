@@ -12,7 +12,7 @@
 #include "IOPort.h"
 
 
-namespace OpenViBE {  
+namespace OpenViBE {
 namespace Designer {
 
 class BoxObject : public QObject
@@ -21,7 +21,8 @@ class BoxObject : public QObject
     QML_UNCREATABLE("BoxObject is not instantiable from QML")
     QML_ELEMENT
 public:
-    enum Flag {
+    enum Flag
+    {
         CanAddInput       = 1,
         CanModifyInput    = 2,
         CanAddOutput      = 4,
@@ -37,6 +38,8 @@ public:
     Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged) // name of the box. can be modified by the user with a right click on the box
     Q_PROPERTY(QString originalBoxName READ originalBoxName NOTIFY originalBoxNameChanged) // original name of the box. This is the name of the algorithm
     Q_PROPERTY(QString identifier READ identifier CONSTANT)
+    Q_PROPERTY(bool isMetabox READ isMetabox CONSTANT) // true when the box is an instance of a metabox (a scenario used as a box)
+    Q_PROPERTY(QString metaboxId READ metaboxId CONSTANT) // identifier of the metabox in the metabox manager, empty for regular boxes
     Q_PROPERTY(QString description READ description WRITE setDescription NOTIFY descriptionChanged)
     Q_PROPERTY(QJSValue parameters READ parameters NOTIFY parametersChanged)
     Q_PROPERTY(QPoint center READ center WRITE setCenter NOTIFY centerChanged)
@@ -65,6 +68,11 @@ signals:
     void portOffsetsChanged();
     void overwriteSettingsChanged();
     void settingsFilePathChanged();
+    /**
+     * A user-level edit of the box reached the kernel. `delayMs` lets continuous edits (setting
+     * sliders, typing) be coalesced by the owner before it records an undo step.
+     */
+    void edited(const QString& label, int delayMs);
 
 public:
     BoxObject(Kernel::IKernelContext* context, Kernel::IBox *box);
@@ -88,9 +96,25 @@ public:
     //Q_INVOKABLE void modifySetting(const QString& name, const QString& typeId, const QString& value, int settingIndex);
     Q_INVOKABLE void removeSetting(int settingIndex);
     Q_INVOKABLE void saveSettings(QUrl filePath);
+    /**
+     * @brief URL of the documentation page of this box algorithm (F1 help).
+     *
+     * The page is ${Designer_HelpBrowserURLBase}/Doc_BoxAlgorithm_<slug>.html, unless the box carries the
+     * OV_AttributeId_Box_DocumentationURL or OV_AttributeId_Box_DocumentationURLBase override attributes.
+     * @return The URL to open in a browser, or an empty string when no page exists for this box.
+     */
+    Q_INVOKABLE QString documentationUrl() const;
+
+    /**
+     * @brief Path of the scenario file backing this metabox, resolved through the metabox manager.
+     * @return The file path, or an empty string when the box is not a metabox or the metabox is unknown.
+     */
+    Q_INVOKABLE QString metaboxFilePath() const;
 
     QString name() const;
     QString originalBoxName() const;
+    bool isMetabox() const;
+    QString metaboxId() const;
     QString description() const;
     QJSValue parameters() const;
     QPoint center() const;
@@ -116,8 +140,14 @@ public:
     void setCenter(const QPoint &center);
     void setBoxSize(const QSize &boxSize);
 
+    /** Stops listening to the kernel box. Call before the wrapper outlives (or is deleted before) its kernel box. */
+    void detachFromKernelBox();
+
 protected:
     Parameters::ParameterObject* parameter(const QString& name) const;
+    void createPort(IOPort::PortType type, int index);
+    void watchParameterEdits();
+    Q_SLOT void onSettingEdited();
 
 protected:
     friend class DesignerScenario;

@@ -6,7 +6,7 @@
 #include <openvibe/ov_all.h>
 #include <QtCore>
 
-namespace OpenViBE {  
+namespace OpenViBE {
 namespace Designer {
 
 class IOPort : public QObject
@@ -21,9 +21,12 @@ signals:
     void nameChanged(const QString&);
     void dataTypeChanged();
     void dataTypeChanged(const QString&);
+    /** A user-level edit of the port reached the kernel (see BoxObject::edited). */
+    void edited(const QString& label, int delayMs);
 
 public:
-    enum PortType {
+    enum PortType
+    {
         Input,
         Output
     };

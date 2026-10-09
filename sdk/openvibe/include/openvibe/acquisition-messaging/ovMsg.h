@@ -42,7 +42,7 @@ struct ovMsg
         struct samplesStruct
         {
             uint64_t*       timestamp;    ///< Timestamps table.
-            sampleType*     samples;      ///< Samples table.
+            sampleType*     samples;      ///< Samples table. Sample-major (interleaved).
             ovStimulation*  stimulations; ///< Stimulations table (may be nullptr when stimCount == 0).
             uint32_t        count;        ///< Number of samples.
             uint32_t        stimCount;    ///< Number of stimulations.

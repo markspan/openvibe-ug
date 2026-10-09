@@ -155,9 +155,18 @@ bool CScenario::clear()
 
     m_outdatedBoxes.clear();
 
+    // The kernel-side connections died with the boxes; forget the bookkeeping too, otherwise
+    // addParameterConnection() would treat a re-created connection as a duplicate and skip it.
+    for (auto& connection : m_parameterConnections)
+    {
+        delete connection;
+    }
+    m_parameterConnections.clear();
+
     while (this->getSettingCount()) { this->removeSetting(0); }
     while (this->getInputCount()) { this->removeScenarioInput(0); }
     while (this->getOutputCount()) { this->removeScenarioOutput(0); }
+    m_hasIO = false;
 
     this->removeAllAttributes();
 

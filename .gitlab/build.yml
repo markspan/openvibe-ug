@@ -21,6 +21,7 @@
 
 build_openvibe_linux:
   <<: *build_script_linux
+  extends: .unix_base # Similar to <<:, but this template lives in another file, and <<: don't support this.
   variables:
     SYSTEM: linux
     LOGNAME: "${CI_PROJECT_NAME}-build-${SYSTEM}"
@@ -41,6 +42,7 @@ build_openvibe_linux:
 
 build_openvibe_macosx:
   <<: *build_script_macosx
+  extends: .unix_base # Similar to <<:, but this template lives in another file, and <<: don't support this.
   rules: !reference [.never_rules, rules]
   variables:
     SYSTEM: macosx
@@ -58,14 +60,15 @@ build_openvibe_macosx:
       - $BUILD_FOLDER/compile_commands.json
     expire_in: 24h
     when: always
-  cache:
-    key: "${SYSTEM}-$CI_COMMIT_REF_SLUG"
-    untracked: true
-    policy: push
+  # No cache: test-windows reuses $BUILD_FOLDER and .pixi directly from the
+  # runner's working tree (kept alive by GIT_CLEAN_FLAGS). Adding cache then takes
+  # ages to generate and times out the stage.
 
 build_openvibe_windows:
   <<: *build_script_windows
-  rules: !reference [.mr_or_web_rules, rules]
+  extends: .windows_base # Similar to <<:, but this template lives in another file, and <<: don't support this.
+  # Also on tags: the package stage consumes this job's build tree.
+  rules: !reference [.mr_web_or_tag_rules, rules]
   variables:
     SYSTEM: windows
     CHERE_INVOKING: "yes"

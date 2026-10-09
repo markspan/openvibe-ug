@@ -21,6 +21,19 @@ FocusScope {
   property point panOffset: Qt.point(0,0)
   property real zoomLevel: 1.0
 
+  /**
+   * Dead band along the canvas edge, in viewport pixels. While a link is being created, moving the
+   * pointer into it cancels the creation. Named explicitly rather than relying on `margin`, which
+   * would silently resolve to HoverHandler.margin (0) inside the handler.
+   */
+  readonly property int linkEdgeMargin: 15
+
+  /**
+   * resetView() needs a laid-out canvas, but the delegate is created before the StackLayout has any
+   * geometry. Fit once, on the first size we are actually given. See _tryInitialFit().
+   */
+  property bool _initialFitDone: false
+
   signal requestDeselectAll()
 
   // pan-dragging state
@@ -31,7 +44,12 @@ FocusScope {
 
   // ------ Multi-select state ------
   property var selectedBoxIds: ({})
+  // Comments are "selected" by focus, one at a time (see Comment.qml)
+  property string focusedCommentId: ""
+  readonly property bool hasSelection: Object.keys(selectedBoxIds).length > 0 || focusedCommentId !== ""
   property bool ctrlKeyActive: false
+  // Selection stashed while the scenario wrappers are rebuilt (undo/redo/paste), see onAboutToReset
+  property var _pendingSelection: []
 
   property bool _rubberBanding: false
   property point _rubberBandStart: Qt.point(0, 0)
@@ -43,12 +61,88 @@ FocusScope {
 
   onRequestDeselectAll: {
     _deselectBoxes()
+    focusedCommentId = ""
   }
 
   function _deselectBoxes() {
     selectedBoxIds = {}
     window.deselectBox()
   }
+
+  function selectedBoxIdList() {
+    return Object.keys(selectedBoxIds)
+  }
+
+  function selectedCommentIdList() {
+    return focusedCommentId !== "" ? [focusedCommentId] : []
+  }
+
+  // Selects the boxes with these identifiers (ids that no longer exist are ignored) and opens the
+  // settings panel when exactly one is selected.
+  function selectBoxes(ids) {
+    var sel = {}
+    var single = null
+    for (var i = 0; i < boxesRepeater.count; i++) {
+      var b = boxesRepeater.itemAt(i)
+      if (b && ids.indexOf(b.identifier) !== -1) {
+        sel[b.identifier] = true
+        single = b.model.modelData
+      }
+    }
+    selectedBoxIds = sel
+    if (Object.keys(sel).length === 1) {
+      window.selectedBox(single)
+    } else {
+      window.deselectBox()
+    }
+  }
+
+  // ------ Edit actions (Main.qml routes the Edit menu and shortcuts here) ------
+  function deleteSelection() {
+    if (!hasSelection) return
+    canvas.model.modelData.removeSelection(selectedBoxIdList(), selectedCommentIdList())
+    canvas.requestDeselectAll()
+  }
+
+  function copySelection() {
+    if (!hasSelection) return
+    canvas.model.modelData.copySelection(selectedBoxIdList(), selectedCommentIdList())
+  }
+
+  function cutSelection() {
+    if (!hasSelection) return
+    canvas.model.modelData.cutSelection(selectedBoxIdList(), selectedCommentIdList())
+    canvas.requestDeselectAll()
+  }
+
+  // Pasted items land under the pointer when it is over the canvas, else at the viewport centre
+  function pasteClipboard() {
+    var anchor = panArea.containsMouse
+        ? Qt.point((panArea.mouseX - panOffset.x) / zoomLevel, (panArea.mouseY - panOffset.y) / zoomLevel)
+        : Qt.point((width / 2 - panOffset.x) / zoomLevel, (height / 2 - panOffset.y) / zoomLevel)
+    var pastedIds = canvas.model.modelData.pasteFromClipboard(anchor)
+    if (pastedIds.length > 0) {
+      selectBoxes(pastedIds)
+      canvas.forceActiveFocus()
+    }
+  }
+
+  Connections {
+    target: canvas.model.modelData
+    function onAboutToReset() {
+      canvas._pendingSelection = canvas.selectedBoxIdList()
+      canvas._deselectBoxes()
+      canvas.focusedCommentId = ""
+    }
+    // Identifiers survive undo/redo, so the selection can be put back
+    function onModelReset() {
+      if (canvas._pendingSelection.length > 0) {
+        canvas.selectBoxes(canvas._pendingSelection)
+        canvas._pendingSelection = []
+      }
+    }
+  }
+  // ------ End edit actions ------
 
   function _selectBoxesInRect(rect) {
     var sel = {}
@@ -88,7 +182,17 @@ FocusScope {
   }
 
   function _endBoxDrag() {
+    // Positions were pushed to C++ continuously while dragging; one undo step for the whole move
+    var moved = false
+    for (var i = 0; i < boxesRepeater.count && !moved; i++) {
+      var b = boxesRepeater.itemAt(i)
+      var start = b ? _dragStartPositions[b.identifier] : undefined
+      moved = !!start && (b.x !== start.x || b.y !== start.y)
+    }
     _dragStartPositions = {}
+    if (moved) {
+      canvas.model.modelData.commitChange(qsTr("Move"))
+    }
     canvas.forceActiveFocus()
   }
   // ------ End multi-select state ------
@@ -174,16 +278,7 @@ FocusScope {
       canvas.requestDeselectAll()
       event.accepted = true
     } else if (event.key === Qt.Key_Delete) {
-      var idsToRemove = []
-      for (const box of boxesRepeater.model) {
-        if (canvas.selectedBoxIds[box.identifier]) {
-          idsToRemove.push(box.identifier)
-        }
-      }
-      for (const i of idsToRemove) {
-        canvas.model.modelData.removeBox(i)
-      }
-      canvas.requestDeselectAll()
+      deleteSelection()
       event.accepted = true
     }
   }
@@ -259,6 +354,33 @@ FocusScope {
   }
   // ------ end Pan dragging / zoom section ------
 
+  /**
+   * Drives the preview link that follows the cursor between the two clicks of a link creation.
+   */
+  HoverHandler {
+    id: _hoverHandlerLink
+    enabled: false
+    cursorShape: canvas.currentCursor
+
+    onPointChanged: {
+      const pos = point.position
+      // if position is outside the window, stop link creation
+      if (pos.x < canvas.linkEdgeMargin || pos.y < canvas.linkEdgeMargin
+          || pos.x > canvas.width - canvas.linkEdgeMargin
+          || pos.y > canvas.height - canvas.linkEdgeMargin) {
+        canvas.model.modelData.stopLinkCreation()
+        return
+      }
+
+      _newLink.targetPosition = Qt.point((pos.x - canvas.panOffset.x) / canvas.zoomLevel,
+                                         (pos.y - canvas.panOffset.y) / canvas.zoomLevel)
+    }
+
+    onHoveredChanged: {
+      if (!hovered && enabled) { canvas.model.modelData.stopLinkCreation() }
+    }
+  }
+
   Canvas {
     id: _backgroundDottedCanvas
     anchors.fill: parent
@@ -309,34 +431,6 @@ FocusScope {
       Scale { xScale: zoomLevel; yScale: zoomLevel; },
       Translate { x: panOffset.x; y: panOffset.y; }
     ]
-
-    //this MouseArea needs to be declared before the Repeater to be below the MouseArea in the elements!
-    HoverHandler {
-      id: _hoverHandlerLink
-      //margin: 15
-      enabled: false
-      cursorShape: canvas.currentCursor
-
-      onPointChanged: {
-        let pos = point.position
-        //if position is outside the window, stop link creation
-        if(pos.x < margin || pos.y < margin || pos.x > parent.width - margin || pos.y > parent.height - margin){
-          canvas.model.modelData.stopLinkCreation()
-          return
-        }
-
-        _newLink.targetPosition = Qt.point(pos.x, pos.y)
-      }
-
-      onHoveredChanged: {
-        if (!hovered) {
-          let pos = point.position
-          if (pos.x < margin || pos.y < margin || pos.x > parent.width - margin || pos.y > parent.height - margin) {
-            canvas.model.modelData.stopLinkCreation()
-          }
-        }
-      }
-    }
 
     TapHandler {
       id: _tapHandlerLink
@@ -425,6 +519,9 @@ FocusScope {
             window.deselectBox()
           }
         }
+        onOpenMetaboxRequested: (modelData) => {
+          window.openMetabox(modelData)
+        }
         onClickPortCallback : (portIdx, boxId, x, y, isOutput)=> {
           canvas.model.modelData.clickPort(portIdx, boxId, x, y, isOutput)
         }
@@ -482,6 +579,19 @@ FocusScope {
       delegate: OV.Comment {
         onRemoved : {
           canvas.model.modelData.removeComment(index)
+        }
+        onMoved: canvas.model.modelData.commitChange(qsTr("Move comment"))
+        onActiveFocusChanged: (focus) => {
+          if (focus) {
+            canvas._deselectBoxes()
+            canvas.focusedCommentId = identifier
+          } else if (canvas.focusedCommentId === identifier) {
+            canvas.focusedCommentId = ""
+          }
+        }
+        Connections {
+          target: canvas
+          function onRequestDeselectAll() { focus = false }
         }
       }
     }
@@ -557,13 +667,25 @@ FocusScope {
       return
     }
 
-    // Bounding box from centers only
-    var minX = boxes[0].center.x, maxX = boxes[0].center.x
-    var minY = boxes[0].center.y, maxY = boxes[0].center.y
-    for (var i = 1; i < boxes.length; ++i) {
+    // Refuse to fit against geometry we do not have yet. Without this, a canvas that has not been
+    // laid out gives zoomX = (0 - toolBoxWidth)/range, i.e. negative, which passes straight through
+    // both clamps below and pins the zoom to the 0.2 floor. Leave zoomLevel/panOffset untouched so
+    // _tryInitialFit() can retry once the real size arrives.
+    const availableWidth = canvas.width - DS.Theme.toolBoxWidth
+    if (availableWidth <= 0 || canvas.height <= 0) { return }
+
+    // Bounding box over the box extents, not just their centers, so that edge boxes are fully
+    // visible after a fit. boxSize is (0,0) for scenarios saved without the XSize/YSize attributes
+    // (every legacy scenario) until Box.qml writes the measured size back a frame later, so floor it
+    // with the same minimums Box.qml lays out against.
+    var minX = Infinity, maxX = -Infinity
+    var minY = Infinity, maxY = -Infinity
+    for (var i = 0; i < boxes.length; ++i) {
       let c = boxes[i].center
-      minX = Math.min(minX, c.x); maxX = Math.max(maxX, c.x)
-      minY = Math.min(minY, c.y); maxY = Math.max(maxY, c.y)
+      let halfW = Math.max(boxes[i].boxSize.width, DS.Theme.boxMinimumWidth) / 2
+      let halfH = Math.max(boxes[i].boxSize.height, DS.Theme.boxMinimumHeight) / 2
+      minX = Math.min(minX, c.x - halfW); maxX = Math.max(maxX, c.x + halfW)
+      minY = Math.min(minY, c.y - halfH); maxY = Math.max(maxY, c.y + halfH)
     }
 
     // Add some margins around the bounding box
@@ -571,8 +693,8 @@ FocusScope {
     minX -= margin; maxX += margin
     minY -= margin; maxY += margin
 
-    let zoomX = (canvas.width - DS.Theme.toolBoxWidth) / (maxX - minX)
-    let zoomY = canvas.height / (maxY - minY)
+    let zoomX = availableWidth / Math.max(maxX - minX, 1)
+    let zoomY = canvas.height / Math.max(maxY - minY, 1)
     canvas.zoomLevel = Math.max(0.2, Math.min(1.0, Math.min(zoomX, zoomY)))
 
     let contentCenter = Qt.point((minX + maxX) / 2, (minY + maxY) / 2)
@@ -583,12 +705,30 @@ FocusScope {
     )
   }
 
+  /**
+   * Fit the scenario exactly once, as soon as the canvas has a usable size.
+   *
+   * The delegate is created while Main.qml is still being constructed, so _scenariosStack -- and
+   * therefore this canvas -- is still 0x0 at Component.onCompleted, while `boxes` is already
+   * populated by the session restore that runs before the QML engine loads. Fitting there produced
+   * the 0.2 minimum zoom for every scenario opened at startup.
+   */
+  function _tryInitialFit() {
+    if (_initialFitDone) { return }
+    if (canvas.width - DS.Theme.toolBoxWidth <= 0 || canvas.height <= 0) { return }
+    resetView()
+    _initialFitDone = true
+  }
+
+  onWidthChanged: _tryInitialFit()
+  onHeightChanged: _tryInitialFit()
+
   onVisibleChanged: {
     if (visible) canvas.forceActiveFocus()
   }
 
   Component.onCompleted: {
-    resetView()
+    _tryInitialFit()
   }
 
   DS.Popup {

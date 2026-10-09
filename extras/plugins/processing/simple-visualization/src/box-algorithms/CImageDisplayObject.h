@@ -8,6 +8,10 @@
 
 #include <openvibe/ov_all.h>
 
+#include <functional>
+#include <string>
+#include <vector>
+
 namespace OpenViBE {
 namespace Plugins {
 namespace SimpleVisualization {
@@ -19,7 +23,12 @@ public:
     CImageDisplayObject(Kernel::ILogManager& logManager, const bool scaleToFit, QQmlEngine* engine);
     virtual ~CImageDisplayObject();
 
-    void setImage(const std::string& image);
+    /**
+     * \brief Shows an image (or clears the view when the path is empty).
+     *
+     * Safe to call from the player thread!
+     */
+    void setImage(const std::string& image, std::function<void()> onDisplayed);
 
     QQuickItem* visualItem() { return m_visualItem; }
 signals:
@@ -29,6 +38,7 @@ protected:
     QQuickItem* m_visualItem = nullptr;
 
     std::vector<std::string> m_images;
+    std::string m_currentImage;  ///< last image handed to setImage(); the QML property is never read back
     bool m_scaleToFit = false;
 
     

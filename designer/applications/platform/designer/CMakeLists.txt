@@ -28,6 +28,8 @@ qt_add_executable(${PROJECT_NAME}
   src/CommentObject.cpp
   src/DesignerScenario.h
   src/DesignerScenario.cpp
+  src/DocumentationUrl.h
+  src/DocumentationUrl.cpp
   src/IOPort.h
   src/IOPort.cpp
   src/LinkObject.h
@@ -40,8 +42,14 @@ qt_add_executable(${PROJECT_NAME}
   src/PlayerBridge.h
   src/PlayerBridge.cpp
   src/QmlEngineSingleton.h
+  src/ScenarioClipboard.h
+  src/ScenarioClipboard.cpp
+  src/ScenarioHistory.h
+  src/ScenarioHistory.cpp
   src/ScenarioIOConnection.h
   src/ScenarioIOConnection.cpp
+  src/ScenarioSerializer.h
+  src/ScenarioSerializer.cpp
   src/ScenarioParameterConnectionObject.h
   src/ScenarioParameterConnectionObject.cpp
   src/SessionManager.h
@@ -138,8 +146,13 @@ if(WIN32)
     find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS ${Qt6_DIR}/../../../bin)
     
     if(WINDEPLOYQT_EXECUTABLE)
+        # Scan only the directories that actually hold QML sources.
+        # Todo: move higher up in the CMake tree ? Not sure we should be pointing at extras/ here.
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${WINDEPLOYQT_EXECUTABLE} --qmldir ${CMAKE_SOURCE_DIR} $<TARGET_FILE:${PROJECT_NAME}>
+            COMMAND ${WINDEPLOYQT_EXECUTABLE}
+                    --qmldir ${CMAKE_SOURCE_DIR}/designer
+                    --qmldir ${CMAKE_SOURCE_DIR}/extras
+                    $<TARGET_FILE:${PROJECT_NAME}>
             COMMENT "Deploying Qt libraries"
         )
     endif()

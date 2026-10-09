@@ -87,6 +87,25 @@ list(APPEND APP_PRIVATE_HEADERS
     LightArgs.hpp
 )
 
+## ############################################################################
+## buitin drivers present conditionally (depending on OS and SDK availability)
+## ############################################################################
+if(WIN32 AND BIOSEMI_FOUND)
+    list(APPEND APP_SOURCES
+        builtin/drivers/biosemi/activetwo/CBridgeBioSemiActiveTwo.cpp
+        builtin/drivers/biosemi/activetwo/CDriverBioSemiActiveTwo.cpp
+        builtin/drivers/biosemi/activethree/CBridgeBioSemiActiveThree.cpp
+        builtin/drivers/biosemi/activethree/CDriverBioSemiActiveThree.cpp
+    )
+    list(APPEND APP_PRIVATE_HEADERS
+        builtin/drivers/biosemi/CommonBioSemi.h
+        builtin/drivers/biosemi/activetwo/CBridgeBioSemiActiveTwo.h
+        builtin/drivers/biosemi/activetwo/CDriverBioSemiActiveTwo.h
+        builtin/drivers/biosemi/activethree/CBridgeBioSemiActiveThree.h
+        builtin/drivers/biosemi/activethree/CDriverBioSemiActiveThree.h
+    )
+endif()
+
 extract_relative_directories( APP_PRIVATE_HEADERS   APP_PRIVATE_INCLUDE_DIRECTORIES)
 
 ## ############################################################################
@@ -155,6 +174,10 @@ target_link_libraries(${TARGET_NAME} PRIVATE
     Qt6::QuickControls2
     LSL::lsl
 )
+
+if(WIN32 AND BIOSEMI_FOUND)
+    target_link_libraries(${TARGET_NAME} PRIVATE sdk-biosemi)
+endif()
 
 create_filters(${TARGET_NAME})
 

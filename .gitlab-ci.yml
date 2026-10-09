@@ -5,11 +5,13 @@ stages:
   - build
   - analyze
   - test
+  - package
 
 include:
   - .gitlab/common.yml
   - .gitlab/build.yml
   - .gitlab/test.yml
   - .gitlab/analyse.yml
+  - .gitlab/package.yml
   - .gitlab/cleanup.yml
 #  - .gitlab/reviewer.yml

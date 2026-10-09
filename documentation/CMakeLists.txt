@@ -84,3 +84,9 @@ add_custom_command(
 
 add_custom_target(doc DEPENDS "${ROOT_DOC_DIR}/html/index.html")
 set_property(TARGET doc PROPERTY FOLDER ${MISC_FOLDER})
+
+# Ship the generated HTML in the package. OPTIONAL: the 'doc' target is off ALL, so a plain install or
+# cpack on a tree where the documentation was never built must still succeed (the designer then reports
+# that no local documentation is available on F1). Installed under the same relative name as in the
+# build tree, so that designer.conf can point at ${Path_Bin}/../documentation/html in both layouts.
+install(DIRECTORY "${ROOT_DOC_DIR}/html" DESTINATION "${DIST_ROOT}/documentation" OPTIONAL)

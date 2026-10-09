@@ -20,6 +20,7 @@ QtObject {
     signal zoomInRequested()
     signal zoomOutRequested()
     signal zoomResetRequested()
+    signal helpRequested()
     
     // Shortcut definitions - centralized for easy management
     readonly property var shortcuts: [
@@ -35,7 +36,8 @@ QtObject {
         { sequence: "Ctrl+V", action: "editPaste", signal: editPasteRequested },
         { sequence: "Ctrl++", action: "zoomIn", signal: zoomInRequested },
         { sequence: "Ctrl+-", action: "zoomOut", signal: zoomOutRequested },
-        { sequence: "Ctrl+0", action: "zoomReset", signal: zoomResetRequested }
+        { sequence: "Ctrl+0", action: "zoomReset", signal: zoomResetRequested },
+        { sequence: "F1", action: "help", signal: helpRequested }
     ]
 
     function getShortcutSequence(action) {

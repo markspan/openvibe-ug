@@ -1,13 +1,16 @@
 cmake_minimum_required(VERSION 3.20)
 
-set(OPENVIBE_MAJOR_VERSION 3)
-set(OPENVIBE_MINOR_VERSION 7)
-set(OPENVIBE_PATCH_VERSION 0)
+# The git tag is the source of truth for the version. This runs before project(), so it is
+# included by full path: CMAKE_MODULE_PATH is only set up below, once a project exists.
+# Sets OPENVIBE_{MAJOR,MINOR,PATCH}_VERSION plus OPENVIBE_VERSION_{FULL,SERIES,PRERELEASE}.
+include(${CMAKE_CURRENT_SOURCE_DIR}/CMake/OvVersion.cmake)
+ov_compute_version()
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project(OpenVIBE VERSION ${OPENVIBE_MAJOR_VERSION}.${OPENVIBE_MINOR_VERSION}.${OPENVIBE_PATCH_VERSION})
+message(STATUS "OpenViBE version: ${OPENVIBE_VERSION_FULL} (series ${OPENVIBE_VERSION_SERIES}, from ${OPENVIBE_VERSION_SOURCE})")
 
 set(CMAKE_MODULE_PATH_BASE "${CMAKE_SOURCE_DIR}/CMake")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH_BASE}
@@ -55,12 +58,10 @@ string(TIMESTAMP COPYRIGHT_DATE "2012-%Y")
 # Icon shared by applications & installer
 set(OV_ICON_FILE "${CMAKE_SOURCE_DIR}/share/ov-icon.ico")
 
-set(BUILD_ARCH "x64" CACHE STRING "Architecture tu build for (x64 or x86)")
-
 set(CMAKE_INSTALL_LIBDIR lib)  # Enforce as all distros may not have the same default (e.g. lib, lib32/lib64)
 # Set CMake variables
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-  set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/../dist/${BUILD_ARCH}" CACHE PATH "Install directory" FORCE)
+  set(CMAKE_INSTALL_PREFIX "${CMAKE_BINARY_DIR}/../dist/" CACHE PATH "Install directory" FORCE)
 endif()
 
 # Install RPATH. No effect on Windows, which has no RPATH.
@@ -114,7 +115,15 @@ add_definitions(-DOV_CMAKE_PATH_BIN="${DIST_ROOT_ABSOLUTE}/${CMAKE_INSTALL_BINDI
 add_definitions(-DOV_CMAKE_PATH_LIB="${DIST_ROOT_ABSOLUTE}/${CMAKE_INSTALL_LIBDIR}")
 add_definitions(-DOV_CMAKE_PATH_DATA="${DIST_ROOT_ABSOLUTE}/${CMAKE_INSTALL_DATADIR}/openvibe")
 
-set(OV_CONFIG_SUBDIR "${PROJECT_NAME}-${PROJECT_VERSION}" CACHE STRING "Subdirectory under user directory when configuration and logs will be saved")
+# Where the user's settings, recent-scenario list and logs live: %APPDATA%\OpenVIBE-4.0 or
+# ~/.config/OpenVIBE-4.0. Keyed on the MAJOR.MINOR series, not the full version, so a beta, its
+# release and later patches all share one directory and a user does not lose their settings
+# moving between them. Only a minor bump starts a fresh one.
+#
+# Deliberately not a CACHE variable: as a cache entry it kept whatever value the tree was first
+# configured with, so a version bump silently went on writing to the previous release's directory
+# until someone wiped the cache.
+set(OV_CONFIG_SUBDIR "${PROJECT_NAME}-${OPENVIBE_VERSION_SERIES}")
 set(OVT_TEST_DATA_DIR "${CMAKE_SOURCE_DIR}/test-data")
 
 
@@ -173,6 +182,7 @@ qt_policy(SET QTP0004 NEW)
 
 # #############################################################################
 # Find Acquisition Drivers
+include("FindThirdPartyBioSemiLabViewAPI")
 include("FindThirdPartyBrainProductsAmplifierAPI")
 include("FindThirdPartyEemagineEEGO")
 include("FindThirdPartyGTecUnicorn")
@@ -294,9 +304,18 @@ function(ov_collect_targets_recursive out_var dir)
 	set(${out_var} "${targets}" PARENT_SCOPE)
 endfunction()
 
+# Keep only the plugin libraries themselves: the name prefix also matches the Qt/AUTOMOC helper targets
+# (<plugin>_autogen, and for QML-module plugins <plugin>_qmllint*, _qmltyperegistration, _resources_N...).
 ov_collect_targets_recursive(OV_ALL_TARGETS "${CMAKE_SOURCE_DIR}")
-set(OV_PLUGIN_TARGETS ${OV_ALL_TARGETS})
-list(FILTER OV_PLUGIN_TARGETS INCLUDE REGEX "^openvibe-plugins-")
+set(OV_PLUGIN_TARGETS "")
+foreach(target IN LISTS OV_ALL_TARGETS)
+	if(target MATCHES "^openvibe-plugins-")
+		get_target_property(target_type ${target} TYPE)
+		if(target_type STREQUAL "SHARED_LIBRARY" OR target_type STREQUAL "MODULE_LIBRARY")
+			list(APPEND OV_PLUGIN_TARGETS ${target})
+		endif()
+	endif()
+endforeach()
 
 # Add Documentation to Build. This only defines the (ALL-excluded) "doc" target, so it is cheap
 # enough to configure unconditionally: build the documentation with "ninja doc".

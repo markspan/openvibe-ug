@@ -21,32 +21,33 @@
 # If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
-get_property(OV_PRINTED GLOBAL PROPERTY OV_TRIED_ThirdPartyEemagineEEGO)
+set(EEGO_FOUND FALSE)
 
+if(WIN32)
 
-if (WIN32)
-    add_library(eemagine-eego-sdk)
+	find_library(EEMAGINE_EEGO_SDK_LIB eego-SDK)
+	find_path(EEMAGINE_EEGO_SDK_DIR eemagine) # Find the directory containing the eemagine sdk
 
-    find_library(EEMAGINE_EEGO_SDK_LIB eego-SDK)
-    find_path(EEMAGINE_EEGO_SDK_DIR eemagine) # Find the directory containing the eemagine sdk
+	if(EEMAGINE_EEGO_SDK_LIB AND EEMAGINE_EEGO_SDK_DIR)
+		message(STATUS "Found eemagine EEGO SDK")
+		add_library(eemagine-eego-sdk)
 
-    if(EEMAGINE_EEGO_SDK_LIB AND EEMAGINE_EEGO_SDK_DIR)
-        ov_print(OV_PRINTED "  Found EEmagine EEGO SDK...") 
-        file(GLOB_RECURSE SRC_FILES ${EEMAGINE_EEGO_SDK_DIR}/eemagine/src/*.cc ${EEMAGINE_EEGO_SDK_DIR}/eemagine/include/eemagine/sdk/*.h)
-        target_sources(eemagine-eego-sdk
-                       PRIVATE ${SRC_FILES}
-        )
-        target_include_directories(eemagine-eego-sdk PUBLIC ${EEMAGINE_EEGO_SDK_DIR}/eemagine/include)
-        target_link_libraries(eemagine-eego-sdk PUBLIC ${EEMAGINE_EEGO_SDK_LIB})
-        target_compile_definitions(eemagine-eego-sdk PRIVATE -DEEGO_SDK_BIND_DYNAMIC)
-        target_compile_options(eemagine-eego-sdk
-                               INTERFACE -DTARGET_HAS_ThirdPartyEEGOAPI
-        )
-    else(EEMAGINE_EEGO_SDK_LIB AND EEMAGINE_EEGO_SDK_DIR)
-        ov_print(OV_PRINTED "  FAILED to find EEmagine EEGO SDK (optional)")
-    endif(EEMAGINE_EEGO_SDK_LIB AND EEMAGINE_EEGO_SDK_DIR)
-else()
-    add_library(eemagine-eego-sdk INTERFACE)
+		file(GLOB_RECURSE SRC_FILES ${EEMAGINE_EEGO_SDK_DIR}/eemagine/src/*.cc ${EEMAGINE_EEGO_SDK_DIR}/eemagine/include/eemagine/sdk/*.h)
+		target_sources(eemagine-eego-sdk
+					   PRIVATE ${SRC_FILES}
+		)
+		target_include_directories(eemagine-eego-sdk PUBLIC ${EEMAGINE_EEGO_SDK_DIR}/eemagine/include)
+		target_link_libraries(eemagine-eego-sdk PUBLIC ${EEMAGINE_EEGO_SDK_LIB})
+		# EEGO_SDK_BIND_DYNAMIC must reach consumers too: factory.h picks its constructor set from
+		# it, and without it every including TU emits the vendor's "defaulting to dynamic" pragma.
+		target_compile_definitions(eemagine-eego-sdk
+								   PUBLIC EEGO_SDK_BIND_DYNAMIC
+		)
+		set(EEGO_FOUND TRUE)
+
+		# No install rule for eego-SDK.dll: the SDK is a conda package, and the root CMakeLists
+		# already installs ${CONDA_PREFIX}/Library/bin/*.dll into ${DIST_BINDIR}.
+	else()
+		message(STATUS "eemagine EEGO SDK not found (optional driver)")
+	endif()
 endif()
-
-set_property(GLOBAL PROPERTY OV_TRIED_ThirdPartyEemagineEEGO "Yes")

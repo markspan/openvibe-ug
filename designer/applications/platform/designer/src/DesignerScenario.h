@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include <openvibe/ov_all.h>
 #include <QtCore>
 #include <QtQml>
@@ -50,6 +52,25 @@ class DesignerScenario : public QObject
 
     Q_PROPERTY(double cpuUsage READ cpuUsage NOTIFY cpuUsageChanged)
 
+    // Undo/redo history (see ScenarioHistory)
+    Q_PROPERTY(bool canUndo READ canUndo NOTIFY historyChanged)
+    Q_PROPERTY(bool canRedo READ canRedo NOTIFY historyChanged)
+    Q_PROPERTY(QString undoText READ undoText NOTIFY historyChanged)
+    Q_PROPERTY(QString redoText READ redoText NOTIFY historyChanged)
+    Q_PROPERTY(bool modified READ modified NOTIFY historyChanged)
+    
+    // Metabox: a scenario exposing inputs or outputs can be saved as a metabox and used as a box in other scenarios.
+    // The metadata below is stored as scenario attributes and shown in the box palette once the metabox is saved.
+    Q_PROPERTY(bool isMetabox READ isMetabox NOTIFY isMetaboxChanged)
+    Q_PROPERTY(QString metaboxId READ metaboxId NOTIFY metaboxMetadataChanged)
+    Q_PROPERTY(QString metaboxName READ metaboxName WRITE setMetaboxName NOTIFY metaboxMetadataChanged)
+    Q_PROPERTY(QString author READ author WRITE setAuthor NOTIFY metaboxMetadataChanged)
+    Q_PROPERTY(QString company READ company WRITE setCompany NOTIFY metaboxMetadataChanged)
+    Q_PROPERTY(QString category READ category WRITE setCategory NOTIFY metaboxMetadataChanged)
+    Q_PROPERTY(QString version READ version WRITE setVersion NOTIFY metaboxMetadataChanged)
+    Q_PROPERTY(QString shortDescription READ shortDescription WRITE setShortDescription NOTIFY metaboxMetadataChanged)
+    Q_PROPERTY(QString detailedDescription READ detailedDescription WRITE setDetailedDescription NOTIFY metaboxMetadataChanged)
+
 
 public:
     DesignerScenario(Kernel::IKernelContext* context, Kernel::IScenario& scenario, const CIdentifier& scenarioID);
@@ -81,6 +102,49 @@ public:
     Q_INVOKABLE void setScenarioOutputLink(int portIndex, const QString& boxId, int boxOutputIndex);
     Q_INVOKABLE void removeScenarioIOConnection(int portIndex, const QString& boxId, int boxPortIndex, bool isOutput);
 
+    // ---- Undo / redo ----
+    Q_INVOKABLE void undo();
+    Q_INVOKABLE void redo();
+    /**
+     * Records the current scenario state as the outcome of a user action. Synchronous; QML uses it
+     * at the end of a drag. C++ mutation paths prefer requestCommit() so that a cascade of kernel
+     * callbacks inside one event-loop turn yields a single history entry.
+     */
+    Q_INVOKABLE void commitChange(const QString& label);
+    Q_INVOKABLE void removeSelection(const QStringList& boxIds, const QStringList& commentIds);
+
+    // ---- Clipboard (system clipboard, see ScenarioClipboard) ----
+    Q_INVOKABLE void copySelection(const QStringList& boxIds, const QStringList& commentIds);
+    Q_INVOKABLE void cutSelection(const QStringList& boxIds, const QStringList& commentIds);
+    /** Pastes at `anchor` (scene coordinates) and returns the identifiers of the pasted boxes. */
+    Q_INVOKABLE QStringList pasteFromClipboard(const QPoint& anchor);
+
+    /**
+     * Deferred commitChange(): (re)starts a single-shot timer; the last requested label names the step.
+     * `delayMs` > 0 debounces continuous edits (setting sliders, typing).
+     */
+    void requestCommit(const QString& label, int delayMs = 0);
+    void flushPendingCommit();
+    /** Marks the current state as the saved one (clears the dirty marker). */
+    void markSaved();
+
+    bool canUndo() const;
+    bool canRedo() const;
+    QString undoText() const;
+    QString redoText() const;
+    bool modified() const;
+    /**
+     * @brief Gives the scenario a new random metabox identifier.
+     * Useful when a metabox file is copied to become a new, distinct metabox.
+     */
+    Q_INVOKABLE void regenerateMetaboxId();
+
+    /**
+     * @brief Makes sure the scenario carries the attributes the metabox manager requires to load it as a metabox:
+     * a valid metabox identifier (random one if missing) and a non-empty name (the scenario name if missing).
+     * Called before saving the scenario as a metabox.
+     */
+    void ensureMetaboxAttributes();
 
     Kernel::IScenario& scenario() const;
     const CIdentifier& id() const;
@@ -110,6 +174,24 @@ public:
     void setName(const QString &name);
     void setFilePath(const QUrl &filePath);
 
+    bool isMetabox() const;
+    QString metaboxId() const;
+    QString metaboxName() const;
+    QString author() const;
+    QString company() const;
+    QString category() const;
+    QString version() const;
+    QString shortDescription() const;
+    QString detailedDescription() const;
+
+    void setMetaboxName(const QString& value);
+    void setAuthor(const QString& value);
+    void setCompany(const QString& value);
+    void setCategory(const QString& value);
+    void setVersion(const QString& value);
+    void setShortDescription(const QString& value);
+    void setDetailedDescription(const QString& value);
+
 signals:
     void boxesChanged();
     void commentsChanged();
@@ -126,9 +208,30 @@ signals:
     void scenarioIOConnectionsChanged();
     void windowManagerChanged();
     void cpuUsageChanged();
+    void isMetaboxChanged();
+    void metaboxMetadataChanged();
 
+    /**
+     * The QML wrappers (boxes, links, comments, ports...) are about to be destroyed and rebuilt:
+     * drop any reference to them (BoxSettings panel, selection...).
+     */
+    void aboutToReset();
+    /** The wrappers have been rebuilt from the kernel scenario; identifiers are unchanged. */
+    void modelReset();
+    void historyChanged();
 
 protected:
+    /** Replaces the kernel scenario content with `snapshot` (compressed XML) and rebuilds the wrappers. */
+    bool restoreState(const QByteArray& snapshot);
+    /**
+     * Destroys every wrapper, runs `kernelMutation` (optional) on the bare kernel scenario, then
+     * recreates the wrappers and notifies QML.
+     */
+    void rebuildModel(const std::function<void()>& kernelMutation = {});
+    void notifyModelReset();
+    QByteArray captureState() const;
+    Q_SLOT void onScenarioParameterEdited();
+
     class DesignerScenarioPrivate *d;
 };
 

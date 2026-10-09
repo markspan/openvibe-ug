@@ -30,7 +30,9 @@
 
 #include "BoxTreeModel.h"
 #include "BoxTreeModelFilter.h"
+#include "ScenarioClipboard.h"
 #include "defines.hpp"
+#include "DocumentationUrl.h"
 #include "PlayerBridge.h"
 #include "QmlEngineSingleton.h"
 #include "SessionManager.h"
@@ -47,12 +49,15 @@
 namespace OpenViBE {
 namespace Designer {
 
-struct OVDesignerPrivate {
+struct OVDesignerPrivate
+{
     explicit OVDesignerPrivate(OVDesigner *parent): m_parent(parent) {}
     ~OVDesignerPrivate();
 
     bool openScenario(const std::string &filename);
     void launchScenario(Kernel::EPlayerStatus status, std::function<void()> statusChangedCallback); // can do play, play-fast or step
+    void populateBoxTree(); // fills m_boxTreeModel with the box algorithms and the metaboxes
+    void registerMetaboxFile(const QString &filePath); // (re)loads one metabox file into the metabox manager
 
     OVDesigner *m_parent;
     CKernelLoader m_loader;
@@ -67,7 +72,8 @@ struct OVDesignerPrivate {
     std::unique_ptr<SessionManager> m_session; //created by initialize(), once the command line is known
 };
 
-OVDesignerPrivate::~OVDesignerPrivate() { 
+OVDesignerPrivate::~OVDesignerPrivate()
+{
     //logMgr << Kernel::LogLevel_Info << "Application terminated, releasing allocated objects\n";
 
                 //VisualizationToolkit::uninitialize(*context);
@@ -75,26 +81,30 @@ OVDesignerPrivate::~OVDesignerPrivate() {
 
     //          desc->releaseKernel(context);
 
-    if(!m_scenarios.empty()) {
-        for(auto *scenario : m_scenarios) {
+    if(!m_scenarios.empty())
+    {
+        for(auto *scenario : m_scenarios)
+        {
             delete scenario;
         }
     }
 
-    if(m_boxProxyModel) {
+    if(m_boxProxyModel)
+    {
         delete m_boxProxyModel;
     }
 
-    if(m_boxTreeModel) {
+    if(m_boxTreeModel)
+    {
         delete m_boxTreeModel;
     }
 
     m_loader.uninitialize();
     m_loader.unload();
 
-    if(m_qmlLogListener) {
+    if(m_qmlLogListener)
+    {
         delete m_qmlLogListener;
-        m_qmlLogListener = nullptr;
     }
 
 }
@@ -102,56 +112,66 @@ OVDesignerPrivate::~OVDesignerPrivate() {
 bool OVDesignerPrivate::openScenario(const std::string &filename)
 {
     CIdentifier scenarioID;
-    if(!m_context->getScenarioManager().importScenarioFromFile(scenarioID, ScenarioImportContext_OpenScenario, filename.c_str())) {
+    const bool res = m_context->getScenarioManager().importScenarioFromFile(scenarioID, ScenarioImportContext_OpenScenario, filename.c_str());
+    if(!res)
+    {
         m_context->getLogManager() << Kernel::LogLevel_Error << "Importing scenario from file [" << filename << "] failed... "
             << " Current file either is corrupted or is not compatible with the selected scenario importer (ie not an OpenViBE scenario file)\n";
-        return false;
     }
-
-    // Closes first unnamed scenario
-    if (m_scenarios.size() == 1) {
-        if (m_scenarios[0]->isEmpty()) {
-            const CIdentifier tmp = m_scenarios[0]->id();
-            delete m_scenarios[0];
-            m_context->getScenarioManager().releaseScenario(tmp);
-            m_scenarios.clear();
+    else
+    {
+        // Closes first unnamed scenario
+        if (m_scenarios.size() == 1)
+        {
+            if (m_scenarios[0]->isEmpty())
+            {
+                const CIdentifier tmp = m_scenarios[0]->id();
+                delete m_scenarios[0];
+                m_context->getScenarioManager().releaseScenario(tmp);
+                m_scenarios.clear();
+            }
         }
+
+        Kernel::IScenario& scenario = m_context->getScenarioManager().getScenario(scenarioID);
+        DesignerScenario *newScenario = new DesignerScenario(m_context, scenario, scenarioID);
+        QUrl scenarioUrl = QUrl::fromLocalFile(QString::fromStdString(filename));
+        newScenario->setFilePath(scenarioUrl);
+        m_scenarios.push_back(newScenario);
     }
-
-    Kernel::IScenario& scenario = m_context->getScenarioManager().getScenario(scenarioID);
-    DesignerScenario *newScenario = new DesignerScenario(m_context, scenario, scenarioID);
-    QUrl scenarioUrl = QUrl::fromLocalFile(QString::fromStdString(filename));
-    newScenario->setFilePath(scenarioUrl);
-    m_scenarios.push_back(newScenario);
-
-    return true;
+    return res;
 }
 
 void OVDesignerPrivate::launchScenario(Kernel::EPlayerStatus status, std::function<void()> statusChangedCallback)
 {
-    if (m_scenarios.empty()) {
+    if (m_scenarios.empty())
+    {
         m_context->getLogManager() << Kernel::LogLevel_Error << "No scenario to play\n";
         return;
     }
 
     DesignerScenario *designerScenario = m_scenarios[m_CurrentScenarioIndex];
-    if (designerScenario->isEmpty()) {
+    if (designerScenario->isEmpty())
+    {
         m_context->getLogManager() << Kernel::LogLevel_Error << "Scenario is empty\n";
         return;
     }
 
-    if (status != Kernel::EPlayerStatus::Play && status != Kernel::EPlayerStatus::Forward && status != Kernel::EPlayerStatus::Step) {
+    if (status != Kernel::EPlayerStatus::Play && status != Kernel::EPlayerStatus::Forward && status != Kernel::EPlayerStatus::Step)
+    {
         m_context->getLogManager() << Kernel::LogLevel_Error << "Invalid status: " << toString(status) << " \n";
         return;
     }
 
     m_context->getLogManager() << Kernel::LogLevel_Debug << "Launching Scenario in mode " << toString(status) << " \n";
     auto &scenario = designerScenario->scenario();
-    if (scenario.hasOutdatedBox()) {
-        if (m_context->getConfigurationManager().expandAsBoolean("${Kernel_AbortPlayerWhenBoxIsOutdated}", false)) {
+    if (scenario.hasOutdatedBox())
+    {
+        if (m_context->getConfigurationManager().expandAsBoolean("${Kernel_AbortPlayerWhenBoxIsOutdated}", false))
+        {
             std::string outdatedBoxesList = "You can not start the scenario because following boxes need to be updated: \n";
             CIdentifier boxID;
-            while ((boxID = scenario.getNextOutdatedBoxIdentifier(boxID)) != CIdentifier::undefined()) {
+            while ((boxID = scenario.getNextOutdatedBoxIdentifier(boxID)) != CIdentifier::undefined())
+            {
                 const Kernel::IBox* box = scenario.getBoxDetails(boxID);
                 outdatedBoxesList += "\t[" + std::string(box->getName()) + "]\n";
             }
@@ -166,10 +186,12 @@ void OVDesignerPrivate::launchScenario(Kernel::EPlayerStatus status, std::functi
             //gtk_widget_destroy(dialog);
             return;
         }
-        if (m_context->getConfigurationManager().expandAsBoolean("${Designer_ThrowPopUpWhenBoxIsOutdated}", false)) {
+        if (m_context->getConfigurationManager().expandAsBoolean("${Designer_ThrowPopUpWhenBoxIsOutdated}", false))
+        {
             std::string outdatedBoxesList = "The following boxes need to be updated: \n";
             CIdentifier boxID;
-            while ((boxID = scenario.getNextOutdatedBoxIdentifier(boxID)) != CIdentifier::undefined()) {
+            while ((boxID = scenario.getNextOutdatedBoxIdentifier(boxID)) != CIdentifier::undefined())
+            {
                 const Kernel::IBox* box = scenario.getBoxDetails(boxID);
                 outdatedBoxesList += "\t[" + std::string(box->getName()) + "]\n";
             }
@@ -193,7 +215,8 @@ void OVDesignerPrivate::launchScenario(Kernel::EPlayerStatus status, std::functi
 
     // create or get the player
     auto& player = designerScenario->createOrGetPlayer();
-    if(player.isNull()) {
+    if(player.isNull())
+    {
         m_context->getLogManager() << Kernel::LogLevel_Error << "The initialization of player failed. Check the above log messages to get the issue.\n";
         return;
     }
@@ -208,7 +231,8 @@ void OVDesignerPrivate::launchScenario(Kernel::EPlayerStatus status, std::functi
 
     if(!player.start(status, [this]() {
             auto *scenario = this->m_scenarios[this->m_CurrentScenarioIndex];
-            if(scenario) {
+            if(scenario)
+            {
                 scenario->releasePlayer();
             }
          }))
@@ -218,9 +242,53 @@ void OVDesignerPrivate::launchScenario(Kernel::EPlayerStatus status, std::functi
     }
 }
 
-OVDesigner *OVDesigner::instance() 
+void OVDesignerPrivate::populateBoxTree()
 {
-    if (!s_instance) {
+    CIdentifier id;
+
+    //equivalent to old m_BoxAlgorithmTreeModel (openvibe-box_algorithm_tree)
+    // 1 box algorithms
+    while ((id = m_context->getPluginManager().getNextPluginObjectDescIdentifier(id, OV_ClassId_Plugins_BoxAlgorithmDesc)) != CIdentifier::undefined())
+    {
+        const Plugins::IPluginObjectDesc* pluginDesc = m_context->getPluginManager().getPluginObjectDesc(id);
+        QString name = QString::fromStdString(pluginDesc->getName().toASCIIString());
+        QString author = QString::fromStdString(pluginDesc->getAuthorName().toASCIIString());
+        QString description = QString::fromStdString(pluginDesc->getShortDescription().toASCIIString());
+        QString category = QString::fromStdString(pluginDesc->getCategory().toASCIIString());
+        if(category.isEmpty()) { category = "Uncategorized"; }
+
+        m_boxTreeModel->addData(name, author, category, description, pluginDesc->getCreatedClass().str().c_str());
+    }
+
+    // 2 metaboxes: they all share the metabox algorithm class, so the drag payload carries the metabox identifier instead
+    id = CIdentifier::undefined();
+    while ((id = m_context->getMetaboxManager().getNextMetaboxObjectDescIdentifier(id)) != CIdentifier::undefined())
+    {
+        const Plugins::IPluginObjectDesc* pluginDesc = m_context->getMetaboxManager().getMetaboxObjectDesc(id);
+        QString name = QString::fromStdString(pluginDesc->getName().toASCIIString());
+        QString author = QString::fromStdString(pluginDesc->getAuthorName().toASCIIString());
+        QString description = QString::fromStdString(pluginDesc->getShortDescription().toASCIIString());
+        QString category = QString::fromStdString(pluginDesc->getCategory().toASCIIString());
+        if(category.isEmpty()) { category = "Uncategorized"; }
+
+        m_boxTreeModel->addData(name, author, category, description, QString(METABOX_DRAG_PREFIX) + id.str().c_str());
+    }
+}
+
+void OVDesignerPrivate::registerMetaboxFile(const QString &filePath)
+{
+    // The metabox manager appends "*<extension>" to the given path for every registered metabox extension, so
+    // "<directory>/<base name>" targets this file only. Giving the directory would re-import every scenario in it
+    // and warn for each one that is not a metabox.
+    const QFileInfo fileInfo(filePath);
+    const QString wildcard = fileInfo.absolutePath() + "/" + fileInfo.completeBaseName();
+    m_context->getMetaboxManager().addMetaboxesFromFiles(wildcard.toStdString().c_str());
+}
+
+OVDesigner *OVDesigner::instance()
+{
+    if (!s_instance)
+    {
         s_instance = new OVDesigner();
     }
 
@@ -246,135 +314,150 @@ void OVDesigner::setParser(QCommandLineParser& parser)
     parser.process(*qGuiApp);
 }
 
-OVDesigner::OVDesigner() : d(new OVDesignerPrivate(this)) {
+OVDesigner::OVDesigner() : d(new OVDesignerPrivate(this))
+{
+    // Paste availability follows the clipboard
+    connect(&ScenarioClipboard::instance(), &ScenarioClipboard::contentChanged, this, &OVDesigner::canPasteChanged);
+
     //1. Initialize the kernel
-    std::cout << "[  INF  ] Created kernel loader, trying to load kernel module" << "\n";
+    std::cout << "[  INF  ] Created kernel loader, trying to load kernel module" << std::endl;
     CString errorMsg;
 
     CString file = Directories::getLib("kernel");
 
-    if (!d->m_loader.load(file, &errorMsg)) 
+    if (!d->m_loader.load(file, &errorMsg))
     {
-        std::cout << "[ FAILED ] Error loading kernel (" << errorMsg << ")" << " from [" << file << "]\n"; 
-        return;
+        std::cout << "[ FAILED ] Error loading kernel (" << errorMsg << ")" << " from [" << file << "]" << std::endl;
     }
+    else
+    {
+        std::cout << "[  INF  ] Kernel module loaded, trying to get kernel descriptor" << std::endl;
+        Kernel::IKernelDesc* desc = nullptr;
+        d->m_loader.initialize();
+        d->m_loader.getKernelDesc(desc);
+        if (desc == nullptr)
+        {
+            std::cout << "[ FAILED ] No kernel descriptor" << std::endl;
+        }
+        else
+        {
+            std::cout << "[  INF  ] Got kernel descriptor, trying to create kernel" << std::endl;
 
-    std::cout << "[  INF  ] Kernel module loaded, trying to get kernel descriptor" << "\n";
-    Kernel::IKernelDesc* desc = nullptr;
-    d->m_loader.initialize();
-    d->m_loader.getKernelDesc(desc);
-    if (desc == nullptr) { 
-        std::cout << "[ FAILED ] No kernel descriptor" << "\n";
-        return;
-    }
-
-    std::cout << "[  INF  ] Got kernel descriptor, trying to create kernel" << "\n";
-
-    Kernel::IKernelContext* context = desc->createKernel("designer", Directories::getDataDir() + "/kernel/openvibe.conf");
-    context->initialize();
-    d->m_context = context;
+            Kernel::IKernelContext* context = desc->createKernel("designer", Directories::getDataDir() + "/kernel/openvibe.conf");
+            context->initialize();
+            d->m_context = context;
     
-    //create qml log controller
-    d->m_qmlLogListener = new OVQmlLogListener();
-    d->m_context->getLogManager().addListener(d->m_qmlLogListener);
+            //create qml log controller
+            d->m_qmlLogListener = new OVQmlLogListener();
+            d->m_context->getLogManager().addListener(d->m_qmlLogListener);
 
-    //Connect error and warning to toast
-    connect(OVLogController::instance(), &OVLogController::newError, [this](const QString& message) {
-        emit toastMessage(message, "error");
-    });
+            //Connect error and warning to toast
+            connect(OVLogController::instance(), &OVLogController::newError, [this](const QString& message) {
+                emit toastMessage(message, "error");
+            });
 
-    connect(OVLogController::instance(), &OVLogController::newWarning, [this](const QString& message) {
-        emit toastMessage(message, "warning");
-    });
+            connect(OVLogController::instance(), &OVLogController::newWarning, [this](const QString& message) {
+                emit toastMessage(message, "warning");
+            });
 
-    context->getConfigurationManager().addConfigurationFromFile(Directories::getDataDir() + "/applications/designer/designer.conf");
-    CString appConfigFile = context->getConfigurationManager().expand("${Designer_CustomConfigurationFile}");
-    context->getConfigurationManager().addConfigurationFromFile(appConfigFile);
+            context->getConfigurationManager().addConfigurationFromFile(Directories::getDataDir() + "/applications/designer/designer.conf");
+            CString appConfigFile = context->getConfigurationManager().expand("${Designer_CustomConfigurationFile}");
+            context->getConfigurationManager().addConfigurationFromFile(appConfigFile);
 
-    VisualizationToolkit::initialize(*context);
+            VisualizationToolkit::initialize(*context);
 
-    d->m_simulatedTimeTimer.setInterval(50);
-    connect(&d->m_simulatedTimeTimer, &QTimer::timeout, this, &OVDesigner::simulatedTimeChanged);
+            d->m_simulatedTimeTimer.setInterval(50);
+            connect(&d->m_simulatedTimeTimer, &QTimer::timeout, this, &OVDesigner::simulatedTimeChanged);
+        }
+    }
 }
 
-OVDesigner::~OVDesigner() {
-    delete d;
+OVDesigner::~OVDesigner()
+{
 }
 
-void OVDesigner::startPlayer() {
+void OVDesigner::startPlayer()
+{
     auto *scenario = d->m_scenarios[d->m_CurrentScenarioIndex];
-    if(!scenario) {
-        return;
-    }
-
-    auto &player = scenario->currentPlayer();
-    if(player.isNull()) {
-        d->launchScenario(Kernel::EPlayerStatus::Play, [this]() { emit playerStatusChanged(); });
-    } else {
-        player.start(Kernel::EPlayerStatus::Play);
-    }
-    d->m_simulatedTimeTimer.start();
-}
-
-void OVDesigner::startPlayerFast() {
-    auto *scenario = d->m_scenarios[d->m_CurrentScenarioIndex];
-    if(!scenario) {
-        return;
-    }
-
-    auto &player = scenario->currentPlayer();
-    if(player.isNull()) {
-        d->launchScenario(Kernel::EPlayerStatus::Forward, [this]() { emit playerStatusChanged(); });
-    } else {
-        player.start(Kernel::EPlayerStatus::Forward);
-    }
-    d->m_simulatedTimeTimer.start();
-}
-
-bool OVDesigner::threadFinished() const {
-    if (d->m_scenarios.empty()) {
-        return true;
-    }
-    return d->m_scenarios[d->m_CurrentScenarioIndex]->currentPlayer().threadFinished;
-}
-
-void OVDesigner::stopPlayer() {
-    auto *scenario = d->m_scenarios[d->m_CurrentScenarioIndex];
-    if(!scenario) {
-        return;
-    }
-
-    scenario->windowManager()->hide();
-    scenario->currentPlayer().stop();
-        //TODO restore initial state
-
-    //for (const auto elem : m_boxConfigDialogs) {
-    //  elem->RestoreState();
-    //  delete elem;
-    //}
-    //m_boxConfigDialogs.clear();
-    d->m_simulatedTimeTimer.stop();
-    emit simulatedTimeChanged();
-}
-
-void OVDesigner::pauseOrResumePlayer() {
-    auto *scenario = d->m_scenarios[d->m_CurrentScenarioIndex];
-    if(!scenario) {
-        return;
-    }
-
-    auto &player = scenario->currentPlayer();
-    if(player.getStatus() == Kernel::EPlayerStatus::Pause) {
-        player.start(Kernel::EPlayerStatus::Play);
+    if (scenario)
+    {
+        auto &player = scenario->currentPlayer();
+        if(player.isNull())
+        {
+            d->launchScenario(Kernel::EPlayerStatus::Play, [this]() { emit playerStatusChanged(); });
+        }
+        else
+        {
+            player.start(Kernel::EPlayerStatus::Play);
+        }
         d->m_simulatedTimeTimer.start();
-    } else {
-        player.pause();
+    }
+}
+
+void OVDesigner::startPlayerFast()
+{
+    auto *scenario = d->m_scenarios[d->m_CurrentScenarioIndex];
+    if (scenario)
+    {
+        auto &player = scenario->currentPlayer();
+        if(player.isNull())
+        {
+            d->launchScenario(Kernel::EPlayerStatus::Forward, [this]() { emit playerStatusChanged(); });
+        }
+        else
+        {
+            player.start(Kernel::EPlayerStatus::Forward);
+        }
+        d->m_simulatedTimeTimer.start();
+    }
+}
+
+bool OVDesigner::threadFinished() const
+{
+    return d->m_scenarios.empty() || d->m_scenarios[d->m_CurrentScenarioIndex]->currentPlayer().threadFinished;
+}
+
+void OVDesigner::stopPlayer()
+{
+    auto *scenario = d->m_scenarios[d->m_CurrentScenarioIndex];
+    if (scenario)
+    {
+        scenario->windowManager()->hide();
+        scenario->currentPlayer().stop();
+            //TODO restore initial state
+
+        //for (const auto elem : m_boxConfigDialogs) {
+        //  elem->RestoreState();
+        //  delete elem;
+        //}
+        //m_boxConfigDialogs.clear();
         d->m_simulatedTimeTimer.stop();
+        emit simulatedTimeChanged();
+    }
+}
+
+void OVDesigner::pauseOrResumePlayer()
+{
+    auto *scenario = d->m_scenarios[d->m_CurrentScenarioIndex];
+    if (scenario)
+    {
+        auto &player = scenario->currentPlayer();
+        if(player.getStatus() == Kernel::EPlayerStatus::Pause)
+        {
+            player.start(Kernel::EPlayerStatus::Play);
+            d->m_simulatedTimeTimer.start();
+        }
+        else
+        {
+            player.pause();
+            d->m_simulatedTimeTimer.stop();
+        }
     }
 }
 
 
-void OVDesigner::initialize() {
+void OVDesigner::initialize()
+{
 
     // 1. Create an option parser
     // --------------------------------------------------------------------------------------------
@@ -383,15 +466,19 @@ void OVDesigner::initialize() {
     bool bNoGUI = parser.isSet("no-gui");
 
     // add other configuration file if --config option
-    if(parser.isSet("config")) {
+    if(parser.isSet("config"))
+    {
         CString appConfigFile = parser.value("config").toStdString().c_str();
         d->m_context->getConfigurationManager().addConfigurationFromFile(appConfigFile);
     }
 
-    if(parser.isSet("random-seed")) {
+    if(parser.isSet("random-seed"))
+    {
         const size_t seed = size_t(strtol(parser.value("random-seed").toStdString().c_str(), nullptr, 10));
         System::Math::initializeRandomMachine(seed);
-    } else {
+    }
+    else
+    {
         // initialize random number generator with nullptr by default
         System::Math::initializeRandomMachine(time(nullptr));
     }
@@ -417,8 +504,8 @@ void OVDesigner::initialize() {
     //    noSessionManagement = true;
     //}
     //
-    //// if no GUIs set and no play operation is requested, exit the designer
-    //if (noGui && (!parser.isSet("play") && !parser.isSet("play-fast"))) {
+    // if no GUIs set and no play operation is requested, exit the designer
+    // if (noGui && (!parser.isSet("play") && !parser.isSet("play-fast"))) {
     //    logMgr << Kernel::LogLevel_Info
     //           << "Switch --no-gui is enabled but no play operation was requested. Designer will exit automatically.\n";
     //    qGuiApp->exit(0);
@@ -440,8 +527,10 @@ void OVDesigner::initialize() {
     // Copy recursively default scenario directory to the default working directory if not exists
     const CString defaultWorkingDirectory   = configMgr.expand(WORKING_SCENARIOS_PATH);
     const CString defaultScenariosDirectory = configMgr.expand(SCENARIOS_PATH);
-    if (!FS::Files::directoryExists(defaultWorkingDirectory) && FS::Files::directoryExists(defaultScenariosDirectory)) {
-        if (!FS::Files::copyDirectory(defaultScenariosDirectory, defaultWorkingDirectory)) {
+    if (!FS::Files::directoryExists(defaultWorkingDirectory) && FS::Files::directoryExists(defaultScenariosDirectory))
+    {
+        if (!FS::Files::copyDirectory(defaultScenariosDirectory, defaultWorkingDirectory))
+        {
             logMgr << Kernel::LogLevel_Error << "Could not create " << defaultWorkingDirectory << " folder\n";
         }
     }
@@ -451,14 +540,19 @@ void OVDesigner::initialize() {
     // 3. Initialize a scenario
     // --------------------------------------------------------------------------------------------
     // Add or replace a configuration token if required in command line
-    if (parser.isSet("define")) {
+    if (parser.isSet("define"))
+    {
         QStringList tokens = parser.values("define");
-        for (const auto& t : tokens) {
+        for (const auto& t : tokens)
+        {
             QStringList token = t.split(":");
-            if (token.size() == 2) {
+            if (token.size() == 2)
+            {
                 logMgr << Kernel::LogLevel_Trace << "Adding command line configuration token [" << token[0].toStdString() << " = " << token[1].toStdString() << "]\n";
                 configMgr.addOrReplaceConfigurationToken(token[0].toStdString().c_str(), token[1].toStdString().c_str());
-            } else {
+            }
+            else
+            {
                 logMgr << Kernel::LogLevel_Error << "Invalid token definition: " << t.toStdString() << "\n";
             }
         }
@@ -473,348 +567,500 @@ void OVDesigner::initialize() {
 
     int restoredScenarioIndex = -1;
     const SessionManager::Session session = d->m_session->restore();
-    for (int i = 0; i < session.scenarioFiles.size(); ++i) {
+    for (int i = 0; i < session.scenarioFiles.size(); ++i)
+    {
         const QString& scenarioFile = session.scenarioFiles[i];
-        if (!QFileInfo::exists(scenarioFile)) {
+        if (!QFileInfo::exists(scenarioFile))
+        {
             logMgr << Kernel::LogLevel_Warning << "Not restoring scenario [" << scenarioFile.toStdString() << "]: the file no longer exists\n";
             continue;
         }
         logMgr << Kernel::LogLevel_Trace << "Restoring scenario [" << scenarioFile.toStdString() << "]\n";
-        if(!d->openScenario(scenarioFile.toStdString())) {
+        if(!d->openScenario(scenarioFile.toStdString()))
+        {
             continue; //openScenario already reported the failure
         }
         //compute the index from the tabs actually restored, some of them may have failed to open
-        if (i == session.selectedIndex) {
+        if (i == session.selectedIndex)
+        {
             restoredScenarioIndex = int(d->m_scenarios.size()) - 1;
         }
     }
 
-    if(parser.isSet("open") || parser.isSet("play") || parser.isSet("play-fast")) {
+    bool aborted = false;
+    if(parser.isSet("open") || parser.isSet("play") || parser.isSet("play-fast"))
+    {
         std::string fileName;
-        if(parser.isSet("open"))      fileName = parser.value("open").toStdString();
-        if(parser.isSet("play"))      fileName = parser.value("play").toStdString();
-        if(parser.isSet("play-fast")) fileName = parser.value("play-fast").toStdString();
+        if(parser.isSet("open"))      { fileName = parser.value("open").toStdString(); }
+        if(parser.isSet("play"))      { fileName = parser.value("play").toStdString(); }
+        if(parser.isSet("play-fast")) { fileName = parser.value("play-fast").toStdString(); }
         auto BackslashToSlash = [](const char c) { return c == '\\' ? '/' : c; };
         std::transform(fileName.begin(), fileName.end(), fileName.begin(), BackslashToSlash);
-        if(d->openScenario(fileName)) {
+        if(d->openScenario(fileName))
+        {
             this->setCurrentScenarioIndex(d->m_scenarios.length() - 1);
 
-            if(parser.isSet("play")) {
+            if(parser.isSet("play"))
+            {
                 this->startPlayer();
-            } else if(parser.isSet("play-fast")) {
+            }
+            else if(parser.isSet("play-fast"))
+            {
                 this->startPlayerFast();
             }
-        } else if (bNoGUI) {
-            logMgr << Kernel::LogLevel_Error << "Failed to open scenario file [" << fileName << "]\n";
-            return;
         }
-    } else if (restoredScenarioIndex != -1) {
+        else if (bNoGUI)
+        {
+            logMgr << Kernel::LogLevel_Error << "Failed to open scenario file [" << fileName << "]\n";
+            aborted = true;
+        }
+    }
+    else if (restoredScenarioIndex != -1)
+    {
         //no scenario was requested on the command line, so bring back the one that was displayed
         this->setCurrentScenarioIndex(restoredScenarioIndex);
     }
 
-    if (d->m_scenarios.empty()) {
-        CIdentifier identifier;
-        if(!d->m_context->getScenarioManager().createScenario(identifier)) {
-            logMgr << Kernel::LogLevel_Error << "Failed to create a new scenario! I will crash\n";
+    if (!aborted)
+    {
+        if (d->m_scenarios.empty())
+        {
+            CIdentifier identifier;
+            if(!d->m_context->getScenarioManager().createScenario(identifier))
+            {
+                logMgr << Kernel::LogLevel_Error << "Failed to create a new scenario! I will crash\n";
+            }
+            d->m_scenarios.push_back(new DesignerScenario(d->m_context, d->m_context->getScenarioManager().getScenario(identifier), identifier));
+            this->setCurrentScenarioIndex(d->m_scenarios.length() - 1);
         }
-        d->m_scenarios.push_back(new DesignerScenario(d->m_context, d->m_context->getScenarioManager().getScenario(identifier), identifier));
-        this->setCurrentScenarioIndex(d->m_scenarios.length() - 1);
-    }
 
-    if (int(d->m_CurrentScenarioIndex) < 0) {
-        //scenarios were restored but none of them was the one displayed on the previous run
-        this->setCurrentScenarioIndex(0);
-    }
-    // --------------------------------------------------------------------------------------------
-
-    // 4. Initialize the BoxTreeModel (available boxes)
-    // --------------------------------------------------------------------------------------------
-
-    CIdentifier id;
-    d->m_boxTreeModel = new BoxTreeModel();
-
-    //equivalent to old m_BoxAlgorithmTreeModel (openvibe-box_algorithm_tree)
-    // 169 entries with box algorithm.
-    while ((id = d->m_context->getPluginManager().getNextPluginObjectDescIdentifier(id, OV_ClassId_Plugins_BoxAlgorithmDesc)) != CIdentifier::undefined()) {
-        const Plugins::IPluginObjectDesc* pluginDesc = d->m_context->getPluginManager().getPluginObjectDesc(id);
-        QString name = QString::fromStdString(pluginDesc->getName().toASCIIString());
-        QString author = QString::fromStdString(pluginDesc->getAuthorName().toASCIIString());
-        QString description = QString::fromStdString(pluginDesc->getShortDescription().toASCIIString());
-        QString category = QString::fromStdString(pluginDesc->getCategory().toASCIIString());
-        if(category.isEmpty()) category = "Uncategorized";
-
-        d->m_boxTreeModel->addData(name, author, category, description, pluginDesc->getCreatedClass().str().c_str());
-    }
-
-    // 2 metaboxes
-    while ((id = d->m_context->getMetaboxManager().getNextMetaboxObjectDescIdentifier(id)) != CIdentifier::undefined()) {
-        const Plugins::IPluginObjectDesc* pluginDesc = d->m_context->getMetaboxManager().getMetaboxObjectDesc(id);
-        QString name = QString::fromStdString(pluginDesc->getName().toASCIIString());
-        QString author = QString::fromStdString(pluginDesc->getAuthorName().toASCIIString());
-        QString description = QString::fromStdString(pluginDesc->getShortDescription().toASCIIString());
-        QString category = QString::fromStdString(pluginDesc->getCategory().toASCIIString());
-        if(category.isEmpty()) category = "Uncategorized";
-
-        d->m_boxTreeModel->addData(name, author, category, description, pluginDesc->getCreatedClass().str().c_str());
-    }
-
-
-    // equivalent to old m_AlgorithmTreeModel (openvibe-algorithm_tree in the .ui file)
-    // 65 entries with algorithm . It's not clear where they were previously displayed in the GTK interface.
-    /*
-    id = CIdentifier::undefined();
-    while ((id = d->m_context->getPluginManager().getNextPluginObjectDescIdentifier(id, OV_ClassId_Plugins_AlgorithmDesc)) != CIdentifier::undefined()) {
-        const Plugins::IPluginObjectDesc* pluginDesc = d->m_context->getPluginManager().getPluginObjectDesc(id);
-        QString name = QString::fromStdString(pluginDesc->getName().toASCIIString());
-        QString author = QString::fromStdString(pluginDesc->getAuthorName().toASCIIString());
-        QString description = QString::fromStdString(pluginDesc->getShortDescription().toASCIIString());
-        QString category = QString::fromStdString(pluginDesc->getCategory().toASCIIString());
-        if(category.isEmpty()) category = "Uncategorized";
-
-        d->m_boxTreeModel->addData(name, author, category, description, id.str().c_str());
-    }
-    //qDebug() << "BoxTreeModel initialized rows: " << d->m_boxTreeModel->entryCount();
-
-    */
-
-    d->m_boxProxyModel = new BoxTreeModelFilter();
-    d->m_boxProxyModel->setSourceModel(d->m_boxTreeModel);
-    d->m_boxProxyModel->sort(0);
-    d->m_boxProxyModel->setRecursiveFilteringEnabled(true);
-    d->m_boxProxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
-    // --------------------------------------------------------------------------------------------
-
-    // 5. Init DataTypeModel
-    // --------------------------------------------------------------------------------------------
-    const auto& typeManager = d->m_context->getTypeManager();
-    const auto& types = typeManager.getSortedTypes();
-    for(const auto& type : types) {
-        if(typeManager.isStream(type.first)) {
-            d->streamTypes << QString::fromStdString(type.second.toASCIIString());
+        if (int(d->m_CurrentScenarioIndex) < 0)
+        {
+            //scenarios were restored but none of them was the one displayed on the previous run
+            this->setCurrentScenarioIndex(0);
         }
+        // --------------------------------------------------------------------------------------------
+
+        // 4. Initialize the BoxTreeModel (available boxes)
+        // --------------------------------------------------------------------------------------------
+
+        CIdentifier id;
+        d->m_boxTreeModel = new BoxTreeModel();
+        d->populateBoxTree();
+
+        // equivalent to old m_AlgorithmTreeModel (openvibe-algorithm_tree in the .ui file)
+        // 65 entries with algorithm . It's not clear where they were previously displayed in the GTK interface.
+        /*
+        id = CIdentifier::undefined();
+        while ((id = d->m_context->getPluginManager().getNextPluginObjectDescIdentifier(id, OV_ClassId_Plugins_AlgorithmDesc)) != CIdentifier::undefined())
+        {
+            const Plugins::IPluginObjectDesc* pluginDesc = d->m_context->getPluginManager().getPluginObjectDesc(id);
+            QString name = QString::fromStdString(pluginDesc->getName().toASCIIString());
+            QString author = QString::fromStdString(pluginDesc->getAuthorName().toASCIIString());
+            QString description = QString::fromStdString(pluginDesc->getShortDescription().toASCIIString());
+            QString category = QString::fromStdString(pluginDesc->getCategory().toASCIIString());
+            if(category.isEmpty()) { category = "Uncategorized"; }
+
+            d->m_boxTreeModel->addData(name, author, category, description, id.str().c_str());
+        }
+        //qDebug() << "BoxTreeModel initialized rows: " << d->m_boxTreeModel->entryCount();
+
+        */
+
+        d->m_boxProxyModel = new BoxTreeModelFilter();
+        d->m_boxProxyModel->setSourceModel(d->m_boxTreeModel);
+        d->m_boxProxyModel->sort(0);
+        d->m_boxProxyModel->setRecursiveFilteringEnabled(true);
+        d->m_boxProxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+        // --------------------------------------------------------------------------------------------
+
+        // 5. Init DataTypeModel
+        // --------------------------------------------------------------------------------------------
+        const auto& typeManager = d->m_context->getTypeManager();
+        const auto& types = typeManager.getSortedTypes();
+        for(const auto& type : types)
+        {
+            if(typeManager.isStream(type.first))
+            {
+                d->streamTypes << QString::fromStdString(type.second.toASCIIString());
+            }
+        }
+        QmlEngineSingleton::getInstance().engine()->rootContext()->setContextProperty("StreamTypesModel", d->streamTypes);
+
+        // --------------------------------------------------------------------------------------------
+
+
+        emit boxesTreeModelChanged();
+        emit scenariosChanged();
+        emit currentScenarioIndexChanged();  
     }
-    QmlEngineSingleton::getInstance().engine()->rootContext()->setContextProperty("StreamTypesModel", d->streamTypes);
-
-    // --------------------------------------------------------------------------------------------
-
-
-    emit boxesTreeModelChanged();
-    emit scenariosChanged();
-    emit currentScenarioIndexChanged();  
 }
 
 void OVDesigner::createScenario(const QString &scenarioName, const QString& filePath)
 {
     static int counter = 1;
 
+    bool ok = false;
     //if there is a filePath use it
-    if(!filePath.isEmpty()) {
-        if(!d->openScenario(filePath.toStdString())) {
+    if(!filePath.isEmpty())
+    {
+        ok = d->openScenario(filePath.toStdString());
+        if(!ok)
+        {
             d->m_context->getLogManager() << Kernel::LogLevel_Error << "Failed to open scenario file [" << filePath.toStdString() << "]\n";
-            return;
         }
-    } else {
+    }
+    else
+    {
         //create a new scenario
         CIdentifier identifier;
-        if(!d->m_context->getScenarioManager().createScenario(identifier)) {
+        ok = d->m_context->getScenarioManager().createScenario(identifier);
+        if(!ok)
+        {
             d->m_context->getLogManager() << Kernel::LogLevel_Error << "Failed to create a new scenario! I may crash\n";
-            return;
         }
-    
-        DesignerScenario *scenario = new DesignerScenario(d->m_context, d->m_context->getScenarioManager().getScenario(identifier), identifier);
-        if(scenarioName == "Unnamed") {
-            scenario->setName("Unnamed " + QString::number(counter++));
-        } else {
-            scenario->setName(scenarioName);
-        }
+        else
+        {
+            DesignerScenario *scenario = new DesignerScenario(d->m_context, d->m_context->getScenarioManager().getScenario(identifier), identifier);
+            if(scenarioName == "Unnamed")
+            {
+                scenario->setName("Unnamed " + QString::number(counter++));
+            }
+            else
+            {
+                scenario->setName(scenarioName);
+            }
 
-        d->m_scenarios.push_back(scenario);
+            d->m_scenarios.push_back(scenario);
+        }
     }
-    emit scenariosChanged();
 
-    this->setCurrentScenarioIndex(d->m_scenarios.length() - 1);
-    this->saveSession();
+    if(ok)
+    {
+        emit scenariosChanged();
+
+        this->setCurrentScenarioIndex(d->m_scenarios.length() - 1);
+        this->saveSession();
+    }
 }
 
-void OVDesigner::saveSession() {
-    if(!d->m_session) {
-        return; //initialize() has not run yet
-    }
-
-    SessionManager::Session session;
-    for(int i = 0; i < d->m_scenarios.size(); ++i) {
-        const QUrl filePath = d->m_scenarios[i]->filePath();
-        if(!filePath.isLocalFile()) {
-            continue; //a scenario that was never saved has nothing to restore from
+void OVDesigner::saveSession()
+{
+    if (d->m_session) //nothing to save before initialize() has run
+    {
+        SessionManager::Session session;
+        for(int i = 0; i < d->m_scenarios.size(); ++i)
+        {
+            const QUrl filePath = d->m_scenarios[i]->filePath();
+            if(!filePath.isLocalFile())
+            {
+                continue; //a scenario that was never saved has nothing to restore from
+            }
+            if(int(d->m_CurrentScenarioIndex) == i)
+            {
+                session.selectedIndex = int(session.scenarioFiles.size());
+            }
+            session.scenarioFiles << filePath.toLocalFile();
         }
-        if(int(d->m_CurrentScenarioIndex) == i) {
-            session.selectedIndex = int(session.scenarioFiles.size());
-        }
-        session.scenarioFiles << filePath.toLocalFile();
-    }
 
-    d->m_session->save(session);
+        d->m_session->save(session);
+    }
 }
 
-void OVDesigner::saveScenario(int index, QUrl filePath) {
-    if(index < 0 || index >= d->m_scenarios.size()) {
+void OVDesigner::saveScenario(int index, QUrl filePath)
+{
+    if(index < 0 || index >= d->m_scenarios.size())
+    {
         d->m_context->getLogManager() << Kernel::LogLevel_Error << "Invalid scenario index " << index << "\n";
-        return;
     }
+    else
+    {
+        QString fileString;
+        if(filePath.isLocalFile())
+        {
+            fileString = filePath.toLocalFile();
+        }
+        else
+        {
+            fileString = filePath.toString();
+        }
+        QFileInfo fileInfo(fileString);
+        DesignerScenario *scenario = d->m_scenarios[index];
 
-    QString fileString;
-    if(filePath.isLocalFile()) {
-        fileString = filePath.toLocalFile();
-    } else {
-        fileString = filePath.toString();
-    }
-    QFileInfo fileInfo(fileString);
-
-    CIdentifier exportContext;
-    if(fileInfo.suffix() ==".mxb") {
-        exportContext = ScenarioExportContext_SaveMetabox;
-    } else {
-        exportContext = ScenarioExportContext_SaveScenario;
+        //a scenario exposing inputs or outputs is a metabox whatever its extension (QFileInfo::suffix() has no leading dot)
+        const bool asMetabox = fileInfo.suffix().compare("mxb", Qt::CaseInsensitive) == 0 || scenario->isMetabox();
+        CIdentifier exportContext;
+        if(asMetabox)
+        {
+            exportContext = ScenarioExportContext_SaveMetabox;
+        }
+        else
+        {
+            exportContext = ScenarioExportContext_SaveScenario;
+        }
         //add the extension if not present
-        if(fileInfo.suffix().isEmpty()) {
+        if(fileInfo.suffix().isEmpty())
+        {
             fileString += ".xml";
         }
-    }
-    //the extension may have just been added, so the scenario must be told about the file that is
-    //really written, otherwise its tab label and the saved session point to a nonexistent file
-    d->m_scenarios[index]->setFilePath(filePath.isLocalFile() ? QUrl::fromLocalFile(fileString) : QUrl(fileString));
-    d->m_context->getScenarioManager().exportScenarioToFile(exportContext,
-                                                            fileString.toStdString().c_str(),
-                                                            d->m_scenarios[index]->id());
-
-    this->saveSession();
-}
-
-void OVDesigner::removeScenario(int index) {
-    if(index < 0 || index >= d->m_scenarios.size()) {
-        return;
-    }
-
-    //if we remove the current scenario, we need to set the current scenario to the next or previous one
-    int new_scenarioIndex = -1;
-    if(int(d->m_CurrentScenarioIndex) == index) {
-        if(index > 0) {
-            new_scenarioIndex = index - 1;
-        } else {
-            //check if we have a next scenario
-            if(d->m_scenarios.size() > 1) {
-                // we will remove the scenario with index, so the next one will have a new index = index
-                new_scenarioIndex = index;
-            } else {
-                //we have only one scenario and we remove it. We will create a new one
-                this->createScenario();
+        //the extension may have just been added, so the scenario must be told about the file that is
+        //really written, otherwise its tab label and the saved session point to a nonexistent file
+        scenario->setFilePath(filePath.isLocalFile() ? QUrl::fromLocalFile(fileString) : QUrl(fileString));
+        if(asMetabox)
+        {
+            //the metabox manager ignores files without an identifier and a name; the kernel exporter adds the prototype hash
+            scenario->ensureMetaboxAttributes();
+        }
+        scenario->flushPendingCommit();
+        if (d->m_context->getScenarioManager().exportScenarioToFile(exportContext,
+                                                                    fileString.toStdString().c_str(),
+                                                                    scenario->id()))
+        {
+            scenario->markSaved();
+            if(asMetabox)
+            {
+                //make the metabox available in the palette right away
+                d->registerMetaboxFile(fileString);
+                this->refreshBoxTree();
             }
         }
-    }
+        else
+        {
+            d->m_context->getLogManager() << Kernel::LogLevel_Error << "Failed to save scenario to [" << fileString.toStdString() << "]\n";
+        }
 
-    //if we remove a scenario before the current one, we need to decrement the index
-    if(int(d->m_CurrentScenarioIndex) > index) {
-        new_scenarioIndex = d->m_CurrentScenarioIndex - 1;
+        this->saveSession();
     }
-
-    auto *scenario = d->m_scenarios[index];
-    if(scenario) {
-        const CIdentifier tmp = scenario->id();
-        delete scenario;
-        d->m_context->getScenarioManager().releaseScenario(tmp);
-        d->m_scenarios.removeAt(index);
-    }
-
-    if(new_scenarioIndex != -1) {
-        this->setCurrentScenarioIndex(new_scenarioIndex);
-    }
-
-    emit scenariosChanged();
-    this->saveSession();
 }
 
-int OVDesigner::currentScenarioIndex() const {
+void OVDesigner::openMetabox(const QString& metaboxId)
+{
+    const CIdentifier id(metaboxId.toStdString());
+    QString filePath;
+    if(id != CIdentifier::undefined())
+    {
+        filePath = d->m_context->getMetaboxManager().getMetaboxFilePath(id).toASCIIString();
+    }
+    if(filePath.isEmpty() || !FS::Files::fileExists(filePath.toStdString().c_str()))
+    {
+        d->m_context->getLogManager() << Kernel::LogLevel_Warning << "The scenario file of the metabox " << metaboxId.toStdString()
+            << " could not be found in [" << d->m_context->getConfigurationManager().expand("${Kernel_Metabox}") << "]\n";
+    }
+    else
+    {
+        filePath.replace("\\", "/");
+
+        //reuse the tab when the metabox is already opened
+        const QString canonicalPath = QFileInfo(filePath).canonicalFilePath();
+        int openedIndex = -1;
+        for(int i = 0; i < d->m_scenarios.size() && openedIndex < 0; ++i)
+        {
+            const QUrl scenarioUrl = d->m_scenarios[i]->filePath();
+            if(scenarioUrl.isLocalFile() && QFileInfo(scenarioUrl.toLocalFile()).canonicalFilePath() == canonicalPath)
+            {
+                openedIndex = i;
+            }
+        }
+
+        if(openedIndex >= 0)
+        {
+            this->setCurrentScenarioIndex(openedIndex);
+        }
+        else
+        {
+            this->createScenario("", filePath);
+        }
+    }
+}
+
+void OVDesigner::refreshBoxTree()
+{
+    if(d->m_boxTreeModel) //initialize() may not have run yet
+    {
+        d->m_boxTreeModel->rebuild([this]() { d->populateBoxTree(); });
+        emit boxesTreeModelChanged();
+    }
+}
+
+QUrl OVDesigner::userMetaboxDirectory()
+{
+    const CString directory = d->m_context->getConfigurationManager().expand("${Path_UserData}/metaboxes");
+    if(!FS::Files::directoryExists(directory) && !FS::Files::createPath(directory))
+    {
+        d->m_context->getLogManager() << Kernel::LogLevel_Warning << "Could not create the user metabox directory [" << directory << "]\n";
+    }
+    return QUrl::fromLocalFile(QString(directory.toASCIIString()));
+}
+
+void OVDesigner::removeScenario(int index)
+{
+    if (index >= 0 && index < d->m_scenarios.size())
+    {
+        //if we remove the current scenario, we need to set the current scenario to the next or previous one
+        int new_scenarioIndex = -1;
+        if(int(d->m_CurrentScenarioIndex) == index)
+        {
+            if(index > 0)
+            {
+                new_scenarioIndex = index - 1;
+            }
+            else
+            {
+                //check if we have a next scenario
+                if(d->m_scenarios.size() > 1)
+                {
+                    // we will remove the scenario with index, so the next one will have a new index = index
+                    new_scenarioIndex = index;
+                }
+                else
+                {
+                    //we have only one scenario and we remove it. We will create a new one
+                    this->createScenario();
+                }
+            }
+        }
+
+        //if we remove a scenario before the current one, we need to decrement the index
+        if(int(d->m_CurrentScenarioIndex) > index)
+        {
+            new_scenarioIndex = d->m_CurrentScenarioIndex - 1;
+        }
+
+        auto *scenario = d->m_scenarios[index];
+        if(scenario)
+        {
+            const CIdentifier tmp = scenario->id();
+            delete scenario;
+            d->m_context->getScenarioManager().releaseScenario(tmp);
+            d->m_scenarios.removeAt(index);
+        }
+
+        if(new_scenarioIndex != -1)
+        {
+            this->setCurrentScenarioIndex(new_scenarioIndex);
+        }
+
+        emit scenariosChanged();
+        // The index may be unchanged while the scenario it points to is not (closing the current tab
+        // while a next one exists), and setCurrentScenarioIndex() stays silent in that case.
+        emit currentScenarioIndexChanged();
+        this->saveSession();
+    }
+}
+
+QString OVDesigner::documentationIndexUrl() const
+{
+    const CString index = d->m_context->getConfigurationManager().expand("${Designer_HelpBrowserDocumentationIndex}");
+    return DocumentationUrl::toBrowsableUrl(index.toASCIIString());
+}
+
+int OVDesigner::currentScenarioIndex() const
+{
     return d->m_CurrentScenarioIndex;
 }
 
-void OVDesigner::setCurrentScenarioIndex(int index) {
-    if(index < 0 || index >= d->m_scenarios.size() || index == int(d->m_CurrentScenarioIndex)) {
-        return;
-    }
-    d->m_CurrentScenarioIndex = index;
-
-    QUrl filepath = d->m_scenarios[d->m_CurrentScenarioIndex]->filePath();
-    QString path = filepath.isLocalFile() ? filepath.toLocalFile() : filepath.toString();
-    if(!path.isEmpty()) {
-        QFileInfo fileInfo(path);
-        path = fileInfo.absolutePath();
-    }
-
-    auto& configMgr = d->m_context->getConfigurationManager();
-    configMgr.setConfigurationTokenValue(configMgr.lookUpConfigurationTokenIdentifier("Player_ScenarioDirectory"), path.toStdString().c_str());
-    configMgr.setConfigurationTokenValue(configMgr.lookUpConfigurationTokenIdentifier("__volatile_ScenarioDir"),   path.toStdString().c_str());
-
-    emit currentScenarioIndexChanged();
+bool OVDesigner::canPaste() const
+{
+    return ScenarioClipboard::instance().hasContent();
 }
 
-QString OVDesigner::playerStatus() const {
-    if(!d->m_scenarios.empty()) {
+DesignerScenario* OVDesigner::currentScenario() const
+{
+    const int index = int(d->m_CurrentScenarioIndex);
+    return (index < 0 || index >= d->m_scenarios.size()) ? nullptr : d->m_scenarios[index];
+}
+
+void OVDesigner::setCurrentScenarioIndex(int index)
+{
+    if (index >= 0 && index < d->m_scenarios.size() && index != int(d->m_CurrentScenarioIndex))
+    {
+        d->m_CurrentScenarioIndex = index;
+
+        QUrl filepath = d->m_scenarios[d->m_CurrentScenarioIndex]->filePath();
+        QString path = filepath.isLocalFile() ? filepath.toLocalFile() : filepath.toString();
+        if(!path.isEmpty())
+        {
+            QFileInfo fileInfo(path);
+            path = fileInfo.absolutePath();
+        }
+
+        auto& configMgr = d->m_context->getConfigurationManager();
+        configMgr.setConfigurationTokenValue(configMgr.lookUpConfigurationTokenIdentifier("Player_ScenarioDirectory"), path.toStdString().c_str());
+        configMgr.setConfigurationTokenValue(configMgr.lookUpConfigurationTokenIdentifier("__volatile_ScenarioDir"),   path.toStdString().c_str());
+
+        emit currentScenarioIndexChanged();
+    }
+}
+
+QString OVDesigner::playerStatus() const
+{
+    QString result = "Invalid Status";
+    if(!d->m_scenarios.empty())
+    {
         auto *currentScenario = d->m_scenarios[d->m_CurrentScenarioIndex];
-        if(currentScenario) {
+        if(currentScenario)
+        {
             auto& player = currentScenario->currentPlayer();
-            if(!player.isNull()) {
-                Kernel::EPlayerStatus status = player.getStatus();
-                return QString::fromStdString(toString(status));
-            }
-            return QString::fromStdString(toString(Kernel::EPlayerStatus::Stop));
+            const Kernel::EPlayerStatus status = player.isNull() ? Kernel::EPlayerStatus::Stop : player.getStatus();
+            result = QString::fromStdString(toString(status));
         }
     }
-
-    return "Invalid Status";
+    return result;
 }
 
-QString OVDesigner::simulatedTime() const {
-    if(!d->m_scenarios.empty()) {
+QString OVDesigner::simulatedTime() const
+{
+    QString result("00:00:00");
+    if(!d->m_scenarios.empty())
+    {
         auto *currentScenario = d->m_scenarios[d->m_CurrentScenarioIndex];
-        if(currentScenario) {
+        if(currentScenario)
+        {
             auto& player = currentScenario->currentPlayer();
-            if(!player.isNull()) {
+            if(!player.isNull())
+            {
                 const double time = player.getCurrentSimulatedTime();
 
                 const int hours = int(time) / 3600;
                 const int minutes = int(time) % 3600 / 60;
                 const int seconds = int(time) % 60;
-                return QString("%1:%2:%3")
+                result = QString("%1:%2:%3")
                         .arg(hours, 2, 10, QChar('0'))
                         .arg(minutes, 2, 10, QChar('0'))
                         .arg(seconds, 2, 10, QChar('0'));
             }
         }
     }
-    return QString("00:00:00");
+    return result;
 }
 
-QString OVDesigner::simulatedTimeMs() const {
-    if(!d->m_scenarios.empty()) {
+QString OVDesigner::simulatedTimeMs() const
+{
+    QString result("000");
+    if(!d->m_scenarios.empty())
+    {
         auto *currentScenario = d->m_scenarios[d->m_CurrentScenarioIndex];
-        if(currentScenario) {
+        if(currentScenario)
+        {
             auto& player = currentScenario->currentPlayer();
-            if(!player.isNull()) {
+            if(!player.isNull())
+            {
                 const double time = player.getCurrentSimulatedTime();
                 const int milliseconds = int(time * 1000) % 1000;
-                return QString("%1").arg(milliseconds, 3, 10, QChar('0'));
+                result = QString("%1").arg(milliseconds, 3, 10, QChar('0'));
             }
         }
     }
-    return QString("000");
+    return result;
 }
 
-QQmlListProperty<DesignerScenario> OVDesigner::scenarios() {
+QQmlListProperty<DesignerScenario> OVDesigner::scenarios()
+{
     return QQmlListProperty<DesignerScenario>(this, &d->m_scenarios);
 }
 
-QObject *OVDesigner::boxesTreeModel() {    
+QObject *OVDesigner::boxesTreeModel()
+{
     return d->m_boxProxyModel;
 }
 
@@ -823,7 +1069,8 @@ void OVDesigner::filterBoxTree(const QString &filter, const QString& columnName)
     //columns are name/category, author, description, boxAlgorithmClassID
     //we allow to filter on name/category and author
     int intColumn = 0;
-    if(columnName.toLower() == "author") {
+    if(columnName.toLower() == "author")
+    {
         intColumn = 1;
     }
 

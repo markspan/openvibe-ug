@@ -35,6 +35,30 @@ ApplicationWindow {
     id: _shortcuts
   }
 
+  // The wrappers of the current scenario are rebuilt on undo/redo/paste: drop the BoxSettings
+  // reference before they die.
+  Connections {
+    target: OVDesigner.currentScenario
+    function onAboutToReset() { deselectBox() }
+  }
+
+  // Cut/Copy availability follows the selection of the current canvas
+  Binding {
+    target: MenuModel
+    property: "canCopy"
+    value: _currentCanvas()?.hasSelection ?? false
+  }
+  Binding {
+    target: MenuModel
+    property: "canCut"
+    value: (_currentCanvas()?.hasSelection ?? false) && OVDesigner.playerStatus === "Stop"
+  }
+  Binding {
+    target: MenuModel
+    property: "canPaste"
+    value: OVDesigner.canPaste && OVDesigner.playerStatus === "Stop"
+  }
+
   Connections {
     target: ShortcutManager
     function onFileNewRequested() { fileNewHandle() }
@@ -49,6 +73,7 @@ ApplicationWindow {
     function onZoomInRequested() { zoomInHandle() }
     function onZoomOutRequested() { zoomOutHandle() }
     function onZoomResetRequested() { zoomResetHandle() }
+    function onHelpRequested() { helpHandle() }
   }
 
   Connections {
@@ -57,6 +82,7 @@ ApplicationWindow {
     function onFileOpenRequested() { fileOpenHandle() }
     function onFileSaveRequested() { fileSaveHandle() }
     function onFileSaveAsRequested() { fileSaveAsHandle() }
+    function onFileSaveAsMetaboxRequested() { fileSaveAsMetaboxHandle() }
     function onEditUndoRequested() { editUndoHandle() }
     function onEditRedoRequested() { editRedoHandle() }
     function onEditCutRequested() { editCutHandle() }
@@ -111,6 +137,7 @@ ApplicationWindow {
     OV.BoxSettings {
       id: _boxSettings
       anchors.top: parent.top
+      onDocumentationRequested: helpHandle()
       anchors.bottom: _logger.top
       anchors.left: parent.left
       z: _scenariosStack.z + 1
@@ -180,7 +207,7 @@ ApplicationWindow {
     id: _openDialog
     title: "Open a scenario"
     fileMode: P.FileDialog.OpenFiles
-    nameFilters: ["Scenario files (*.xml)"]
+    nameFilters: ["Scenario files (*.xml *.mxs)", "Metabox files (*.mxb)", "All supported files (*.xml *.mxs *.mxb)"]
     onAccepted: {
       for(var i = 0; i < _openDialog.files.length; i++) {
         //decode the url
@@ -204,8 +231,17 @@ ApplicationWindow {
     id: _saveDialog
     title: "Save scenario " + OVDesigner.scenarios[OVDesigner.currentScenarioIndex].name
     fileMode: P.FileDialog.SaveFile
-    folder: StandardPaths.writableLocation(StandardPaths.DesktopLocation)
     nameFilters: ["Scenario files (*.xml)", "Metabox files (*.mxb)"]
+
+    // Metaboxes go to the user metabox directory (part of ${Kernel_Metabox}) with the .mxb filter preselected
+    function openFor(asMetabox) {
+      let scenario = OVDesigner.scenarios[OVDesigner.currentScenarioIndex]
+      let metabox = asMetabox || scenario.isMetabox
+      _saveDialog.folder = metabox ? OVDesigner.userMetaboxDirectory()
+                                   : StandardPaths.writableLocation(StandardPaths.DesktopLocation)
+      _saveDialog.selectedNameFilter.index = metabox ? 1 : 0
+      _saveDialog.open()
+    }
 
     onAccepted: {
       OVDesigner.saveScenario(OVDesigner.currentScenarioIndex ,decodeURIComponent(_saveDialog.file))
@@ -224,26 +260,63 @@ ApplicationWindow {
     _boxSettings.visible = true
   }
 
+  function _currentCanvas() {
+    // Reading `count` makes bindings that call this re-evaluate once the canvases exist
+    const index = OVDesigner.currentScenarioIndex
+    return index < _configRepeater.count ? _configRepeater.itemAt(index) : null
+  }
+
+  // Edit shortcuts inside a text editor keep their native meaning (mirrors the legacy designer).
+  function _textEditorFocused() {
+    const item = window.activeFocusItem
+    return item && (item instanceof TextInput || item instanceof TextEdit)
+  }
+  
+  // opens the scenario of a metabox box in its own tab
+  function openMetabox(box) {
+    OVDesigner.openMetabox(box.metaboxId)
+  }
+
   function fileNewHandle() { OVDesigner.createScenario() }
   function fileOpenHandle() { _openDialog.open() }
   function fileSaveHandle() {
     let path = OVDesigner.scenarios[OVDesigner.currentScenarioIndex].filePath
     if(path == "") {
-      _saveDialog.open()
+      _saveDialog.openFor(false)
     } else {
       OVDesigner.saveScenario(OVDesigner.currentScenarioIndex ,path)
     }
   }
-  function fileSaveAsHandle() { _saveDialog.open() }
-  function editUndoHandle() { console.log("editUndoHandle") }
-  function editRedoHandle() { console.log("editRedoHandle") }
-  function editCutHandle() { console.log("editCutHandle") }
-  function editCopyHandle() { console.log("editCopyHandle") }
-  function editPasteHandle() { console.log("editPasteHandle") }
+  
+  function fileSaveAsHandle() { _saveDialog.openFor(false) }
+  function fileSaveAsMetaboxHandle() { _saveDialog.openFor(true) }
+  function editUndoHandle() { if (!_textEditorFocused()) OVDesigner.currentScenario?.undo() }
+  function editRedoHandle() { if (!_textEditorFocused()) OVDesigner.currentScenario?.redo() }
+  function editCutHandle() { if (!_textEditorFocused()) _currentCanvas()?.cutSelection() }
+  function editCopyHandle() { if (!_textEditorFocused()) _currentCanvas()?.copySelection() }
+  function editPasteHandle() { if (!_textEditorFocused()) _currentCanvas()?.pasteClipboard() }
   function zoomInHandle() { console.log("zoomInHandle") }
   function zoomOutHandle() { console.log("zoomOutHandle") }
   function zoomResetHandle() { console.log("zoomResetHandle") }
-  function documentationHandle() { console.log("documentationHandle") }
-  function reportIssueHandle() { console.log("reportIssueHandle") }
+  function documentationHandle() { openDocumentationUrl(OVDesigner.documentationIndexUrl(), "the documentation index") }
+  // F1: documentation of the selected box, or the documentation index when no box is selected
+  function helpHandle() {
+    if (_boxSettings.box) {
+      openDocumentationUrl(_boxSettings.box.documentationUrl(), "box \"" + _boxSettings.box.name + "\"")
+    } else {
+      documentationHandle()
+    }
+  }
+  function openDocumentationUrl(url, subject) {
+    if (url === "") {
+      _toast.type = OV.Style.ButtonType.Warning
+      _toast.header = "Documentation"
+      _toast.message = "No documentation page found for " + subject + "."
+      _toast.open()
+    } else if (!Qt.openUrlExternally(url)) {
+      console.warn("Could not open", url)
+    }
+  }
+  function reportIssueHandle() { Qt.openUrlExternally("https://gitlab.inria.fr/openvibe/openvibe/-/issues/new?description_template=bug_report") }
   function keyboardShortcutsHandle() { console.log("keyboardShortcutsHandle") }
 }

@@ -22,7 +22,7 @@
   */
 CircularBuffer::CircularBuffer(SampleBufferHandler* sampleBufferHandler, uint32_t internalBufferCount) : m_sampleBufferHandler(sampleBufferHandler), m_internalBufferCount(internalBufferCount)
 {
-    m_allBuffers = new samplesBuffer*[m_internalBufferCount];
+    m_allBuffers = new samplesBuffer*[m_internalBufferCount]();
     allocateRoundBuffer();
     m_bCancel = true;
 }
@@ -192,7 +192,7 @@ void CircularBuffer::allocateRoundBuffer()
     for (uint32_t i = 0; i < m_internalBufferCount; ++i)
     {
         samplesBuffer* buff = m_sampleBufferHandler->createBuffer();
-        m_allBuffers[i] = buff;
+        m_allBuffers[i]     = buff;
         pushFreeBuffer(buff);
     }
 }

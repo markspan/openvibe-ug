@@ -6,6 +6,7 @@
 #include "tinyxml2.h"
 
 #include "BoxObject.h"
+#include "DocumentationUrl.h"
 #include "ParameterHelper.h"
 #include "QmlEngineSingleton.h"
 
@@ -14,15 +15,18 @@ namespace Designer {
 
 BoxObject::~BoxObject()
 {
-    for(auto paramObj: m_parameters) {
+    for(auto paramObj: m_parameters)
+    {
         delete paramObj;
     }
 
-    for(auto portObj: m_inputPorts) {
+    for(auto portObj: m_inputPorts)
+    {
         delete portObj;
     }
 
-    for(auto portObj: m_outputPorts) {
+    for(auto portObj: m_outputPorts)
+    {
         delete portObj;
     }
 
@@ -37,25 +41,42 @@ BoxObject::BoxObject(Kernel::IKernelContext* context, Kernel::IBox *box) : m_con
     bool showOriginalName = m_context->getConfigurationManager().expandAsBoolean("${Designer_ShowOriginalBoxName}", true);
     m_originalBoxName = "";
 
-    if(showOriginalName) {
-        CIdentifier algorithmClassId = box->getAlgorithmClassIdentifier();
-        const Plugins::IPluginObjectDesc* pluginDesc = m_context->getPluginManager().getPluginObjectDescCreating(algorithmClassId);
-        if(pluginDesc) {
+    if(showOriginalName)
+    {
+        const Plugins::IPluginObjectDesc* pluginDesc = nullptr;
+        if(isMetabox())
+        {
+            // metaboxes have no plugin descriptor: their descriptor lives in the metabox manager
+            CIdentifier metaboxIdentifier;
+            if(metaboxIdentifier.fromString(box->getAttributeValue(OVP_AttributeId_Metabox_ID)))
+            {
+                pluginDesc = m_context->getMetaboxManager().getMetaboxObjectDesc(metaboxIdentifier);
+            }
+        } else
+        {
+            pluginDesc = m_context->getPluginManager().getPluginObjectDescCreating(box->getAlgorithmClassIdentifier());
+        }
+        if(pluginDesc)
+        {
             m_originalBoxName = pluginDesc->getName().toASCIIString();
-        } 
-    } 
+        }
+    }
 
     setUIParameters(m_context, m_box, m_parameters);
+    watchParameterEdits();
 
     //initialize support types
-    for(auto type: box->getInputSupportTypes()) {
+    for(auto type: box->getInputSupportTypes())
+    {
         auto &typeManager = m_context->getTypeManager();
         m_inputSupportTypes.append(typeManager.getTypeName(type).toASCIIString());
         
         // if type is enumeration, add all the enumeration entries
-        if(typeManager.isEnumeration(type)) {
+        if(typeManager.isEnumeration(type))
+        {
             size_t entryCount = typeManager.getEnumerationEntryCount(type);
-            for(size_t i=0; i < entryCount; i++) {
+            for(size_t i=0; i < entryCount; i++)
+            {
                 CString entryName;
                 uint64_t entryValue;
                 typeManager.getEnumerationEntry(type, i, entryName, entryValue);
@@ -65,14 +86,17 @@ BoxObject::BoxObject(Kernel::IKernelContext* context, Kernel::IBox *box) : m_con
     }
     m_inputSupportTypes.removeDuplicates();
 
-    for(auto type: box->getOutputSupportTypes()) {
+    for(auto type: box->getOutputSupportTypes())
+    {
         auto &typeManager = m_context->getTypeManager();
         m_outputSupportTypes.append(typeManager.getTypeName(type).toASCIIString());
         
         // if type is enumeration, add all the enumeration entries
-        if(typeManager.isEnumeration(type)) {
+        if(typeManager.isEnumeration(type))
+        {
             size_t entryCount = typeManager.getEnumerationEntryCount(type);
-            for(size_t i=0; i < entryCount; i++) {
+            for(size_t i=0; i < entryCount; i++)
+            {
                 CString entryName;
                 uint64_t entryValue;
                 typeManager.getEnumerationEntry(type, i, entryName, entryValue);
@@ -83,25 +107,31 @@ BoxObject::BoxObject(Kernel::IKernelContext* context, Kernel::IBox *box) : m_con
     m_outputSupportTypes.removeDuplicates();
 
     //create Input and Output ports
-    for(size_t i=0; i < box->getInputCount(); i++) {
-        m_inputPorts.push_back(new IOPort(context, box, IOPort::PortType::Input, i));
+    for(size_t i=0; i < box->getInputCount(); i++)
+    {
+        createPort(IOPort::PortType::Input, int(i));
     }
     m_inputPortOffsets.resize(m_box->getInputCount());
 
-    for(size_t i=0; i < box->getOutputCount(); i++) {
-        m_outputPorts.push_back(new IOPort(context, box, IOPort::PortType::Output, i));
+    for(size_t i=0; i < box->getOutputCount(); i++)
+    {
+        createPort(IOPort::PortType::Output, int(i));
     }
     m_outputPortOffsets.resize(m_box->getOutputCount());
 
     //connect the callback to boxListener
     // the listener may change stuff in the box, so we need to reset the UI
-    m_box->setListenerCallback([this](Kernel::EBoxInterfacorType type, int index){
+    m_box->setListenerCallback([this](Kernel::EBoxInterfacorType type, int index) {
         // 1 checks all input of OV models and compare them to the qml model
-        for(size_t i=0; i < m_box->getInputCount(); i++) {
+        for(size_t i=0; i < m_box->getInputCount(); i++)
+        {
             //create a port if it does not exist
-            if(i >= m_inputPorts.size()) {
-                m_inputPorts.push_back(new IOPort(m_context, m_box, IOPort::PortType::Input, i));
-            } else {
+            if(i >= m_inputPorts.size())
+            {
+                createPort(IOPort::PortType::Input, int(i));
+            }
+            else
+            {
                 //the port exist, check if the name or type has changed
                 CString cName;
                 CIdentifier cType;
@@ -111,17 +141,22 @@ BoxObject::BoxObject(Kernel::IKernelContext* context, Kernel::IBox *box) : m_con
                 m_inputPorts[i]->setDataType(m_context->getTypeManager().getTypeName(cType).toASCIIString());
             }
         }
-        for(qsizetype i=m_inputPorts.size()-1; i >= qsizetype(m_box->getInputCount()); i--) {
+        for(qsizetype i=m_inputPorts.size()-1; i >= qsizetype(m_box->getInputCount()); i--)
+        {
             delete m_inputPorts[i];
             m_inputPorts.pop_back();
         }
 
         // 2 checks all output of OV models and compare them to the qml model
-        for(size_t i=0; i < m_box->getOutputCount(); i++) {
+        for(size_t i=0; i < m_box->getOutputCount(); i++)
+        {
             //create a port if it does not exist
-            if(i >= m_outputPorts.size()) {
-                m_outputPorts.push_back(new IOPort(m_context, m_box, IOPort::PortType::Output, i));
-            } else {
+            if(i >= m_outputPorts.size())
+            {
+                createPort(IOPort::PortType::Output, int(i));
+            }
+            else
+            {
                 //the port exist, check if the name or type has changed
                 CString cName;
                 CIdentifier cType;
@@ -131,13 +166,15 @@ BoxObject::BoxObject(Kernel::IKernelContext* context, Kernel::IBox *box) : m_con
                 m_outputPorts[i]->setDataType(m_context->getTypeManager().getTypeName(cType).toASCIIString());
             }
         }
-        for(qsizetype i=m_outputPorts.size()-1; i >= qsizetype(m_box->getOutputCount()); i--) {
+        for(qsizetype i=m_outputPorts.size()-1; i >= qsizetype(m_box->getOutputCount()); i--)
+        {
             delete m_outputPorts[i];
             m_outputPorts.pop_back();
         }
 
         // 3 check all settings
         setUIParameters(m_context, m_box, m_parameters);
+        watchParameterEdits();
 
         m_inputPortOffsets.resize(m_box->getInputCount());
         m_outputPortOffsets.resize(m_box->getOutputCount());
@@ -150,15 +187,48 @@ BoxObject::BoxObject(Kernel::IKernelContext* context, Kernel::IBox *box) : m_con
     m_settingsFilePath = new Parameters::ParameterPathObject("Settings file", "", "", Parameters::Read, std::vector<std::string>{"*.xml"});
     // connect settingsFilePAth value changed
     connect(m_settingsFilePath, &Parameters::ParameterPathObject::valueChanged, this, [this]() {
-        if (m_overwriteSettings) {
+        if (m_overwriteSettings)
+        {
             const std::string normalizedPath = m_settingsFilePath->value().replace('\\', '/').toStdString();
-            if (m_box->hasAttribute(m_settingAttributeId_SettingOverrideFilename)) {
+            if (m_box->hasAttribute(m_settingAttributeId_SettingOverrideFilename))
+            {
                 m_box->setAttributeValue(m_settingAttributeId_SettingOverrideFilename, normalizedPath.c_str());
-            } else {
+            }
+            else
+            {
                 m_box->addAttribute(m_settingAttributeId_SettingOverrideFilename, normalizedPath.c_str());
             }
+            emit edited(tr("Change settings file"), 0);
         }
     });
+}
+
+void BoxObject::detachFromKernelBox()
+{
+    if (m_box)
+    {
+        m_box->setListenerCallback(nullptr);
+    }
+}
+
+void BoxObject::createPort(IOPort::PortType type, int index)
+{
+    IOPort* port = new IOPort(m_context, m_box, type, index);
+    connect(port, &IOPort::edited, this, &BoxObject::edited);
+    (type == IOPort::PortType::Input ? m_inputPorts : m_outputPorts).push_back(port);
+}
+
+void BoxObject::watchParameterEdits()
+{
+    // Setting values are written straight into the kernel by the ParameterObjects; the only trace
+    // is their (differently typed) valueChanged signal.
+    const QMetaMethod slot = metaObject()->method(metaObject()->indexOfSlot("onSettingEdited()"));
+    connectParameterValueChanged(m_parameters, this, slot);
+}
+
+void BoxObject::onSettingEdited()
+{
+    emit edited(tr("Change setting"), 300);
 }
 
 void BoxObject::notifyCenterChanged(int new_x, int new_y)
@@ -174,6 +244,32 @@ QString BoxObject::name() const
 QString BoxObject::originalBoxName() const
 {
     return m_originalBoxName;
+}
+
+bool BoxObject::isMetabox() const
+{
+    return m_box->getAlgorithmClassIdentifier() == OVP_ClassId_BoxAlgorithm_Metabox;
+}
+
+QString BoxObject::metaboxId() const
+{
+    QString metaboxIdentifier;
+    if(isMetabox() && m_box->hasAttribute(OVP_AttributeId_Metabox_ID))
+    {
+        metaboxIdentifier = m_box->getAttributeValue(OVP_AttributeId_Metabox_ID).toASCIIString();
+    }
+    return metaboxIdentifier;
+}
+
+QString BoxObject::metaboxFilePath() const
+{
+    QString filePath;
+    CIdentifier metaboxIdentifier;
+    if(metaboxIdentifier.fromString(metaboxId().toStdString()))
+    {
+        filePath = m_context->getMetaboxManager().getMetaboxFilePath(metaboxIdentifier).toASCIIString();
+    }
+    return filePath;
 }
 
 QString BoxObject::identifier() const
@@ -204,9 +300,11 @@ Q_INVOKABLE void BoxObject::notifySetName(const QString &name)
 void BoxObject::setName(const QString &name)
 {
     QString oldName = m_box->getName().toASCIIString();
-    if (oldName != name) {
+    if (oldName != name)
+    {
         m_box->setName(name.toStdString().c_str());
         emit nameChanged(name);
+        emit edited(tr("Rename box"), 0);
     }
 }
 
@@ -222,12 +320,14 @@ QPoint BoxObject::center() const
 {
     int x = 0;
     int y = 0;
-    if(m_box->hasAttribute(OV_AttributeId_Box_XCenterPosition)) {
+    if(m_box->hasAttribute(OV_AttributeId_Box_XCenterPosition))
+    {
         QString xStr = m_box->getAttributeValue(OV_AttributeId_Box_XCenterPosition).toASCIIString();
         x = xStr.toInt();
     }
 
-    if (m_box->hasAttribute(OV_AttributeId_Box_YCenterPosition)) {
+    if (m_box->hasAttribute(OV_AttributeId_Box_YCenterPosition))
+    {
         QString yStr = m_box->getAttributeValue(OV_AttributeId_Box_YCenterPosition).toASCIIString();
         y = yStr.toInt();
     }
@@ -238,17 +338,20 @@ QPoint BoxObject::center() const
 void BoxObject::setCenter(const QPoint &center)
 {
     bool isChanged = false;
-    if(center.x() != QString(m_box->getAttributeValue(OV_AttributeId_Box_XCenterPosition).toASCIIString()).toInt()) {
+    if(center.x() != QString(m_box->getAttributeValue(OV_AttributeId_Box_XCenterPosition).toASCIIString()).toInt())
+    {
         m_box->setAttributeValue(OV_AttributeId_Box_XCenterPosition, std::to_string(center.x()).c_str());
         isChanged = true;
     }
 
-    if(center.y() != QString(m_box->getAttributeValue(OV_AttributeId_Box_YCenterPosition).toASCIIString()).toInt()) {
+    if(center.y() != QString(m_box->getAttributeValue(OV_AttributeId_Box_YCenterPosition).toASCIIString()).toInt())
+    {
         m_box->setAttributeValue(OV_AttributeId_Box_YCenterPosition, std::to_string(center.y()).c_str());
         isChanged = true;
     }
     
-    if(isChanged) {
+    if(isChanged)
+    {
         emit centerChanged();
     }
 }
@@ -257,12 +360,14 @@ QSize BoxObject::boxSize() const
 {
     int width = 0;
     int height = 0;
-    if(m_box->hasAttribute(OV_AttributeId_Box_XSize)) {
+    if(m_box->hasAttribute(OV_AttributeId_Box_XSize))
+    {
         QString xStr = m_box->getAttributeValue(OV_AttributeId_Box_XSize).toASCIIString();
         width = xStr.toInt();
     }
 
-    if (m_box->hasAttribute(OV_AttributeId_Box_YSize)) {
+    if (m_box->hasAttribute(OV_AttributeId_Box_YSize))
+    {
         QString yStr = m_box->getAttributeValue(OV_AttributeId_Box_YSize).toASCIIString();
         height = yStr.toInt();
     }
@@ -273,17 +378,20 @@ QSize BoxObject::boxSize() const
 void BoxObject::setBoxSize(const QSize &size)
 {
     bool isChanged = false;
-    if(size.width() != QString(m_box->getAttributeValue(OV_AttributeId_Box_XSize).toASCIIString()).toInt()) {
+    if(size.width() != QString(m_box->getAttributeValue(OV_AttributeId_Box_XSize).toASCIIString()).toInt())
+    {
         m_box->setAttributeValue(OV_AttributeId_Box_XSize, std::to_string(size.width()).c_str());
         isChanged = true;
     }
 
-    if(size.height() != QString(m_box->getAttributeValue(OV_AttributeId_Box_YSize).toASCIIString()).toInt()) {
+    if(size.height() != QString(m_box->getAttributeValue(OV_AttributeId_Box_YSize).toASCIIString()).toInt())
+    {
         m_box->setAttributeValue(OV_AttributeId_Box_YSize, std::to_string(size.height()).c_str());
         isChanged = true;
     }
     
-    if(isChanged) {
+    if(isChanged)
+    {
         //new boxSize so we need to recalculate the ports positions
         emit boxSizeChanged();
     }
@@ -307,30 +415,40 @@ CIdentifier BoxObject::id() const
 
 QJSValue BoxObject::parameters() const
 {
+    QJSValue jsParams;
     QQmlEngine *jsEngine = QmlEngineSingleton::getInstance().engine();
-    if(!jsEngine) {
+    if(!jsEngine)
+    {
         qWarning() << Q_FUNC_INFO << "Could not obtain QQmlEngine for object.\n";
-        return QJSValue();
     }
-
-    int nbParams = m_parameters.size();
-    QJSValue jsParams = jsEngine->newArray(nbParams);
-    for (int i = 0; i < nbParams; ++i) {
-        jsParams.setProperty(i, jsEngine->newQObject(m_parameters[i]));
+    else
+    {
+        int nbParams = m_parameters.size();
+        jsParams = jsEngine->newArray(nbParams);
+        for (int i = 0; i < nbParams; ++i)
+        {
+            jsParams.setProperty(i, jsEngine->newQObject(m_parameters[i]));
+        }
     }
-    
     return jsParams;
 }
 
 Parameters::ParameterObject* BoxObject::parameter(const QString& name) const
 {
-    for(auto paramObj: m_parameters) {
-        if(paramObj->name() == name) {
-            return paramObj;
+    Parameters::ParameterObject* result = nullptr;
+    for(auto paramObj: m_parameters)
+    {
+        if(paramObj->name() == name)
+        {
+            result = paramObj;
+            break;
         }
     }
-    m_context->getLogManager() << Kernel::LogLevel_Error << "Failed to find parameter " << name.toStdString() << " in box " << this->name().toStdString() <<"\n";
-    return nullptr;
+    if(!result)
+    {
+        m_context->getLogManager() << Kernel::LogLevel_Error << "Failed to find parameter " << name.toStdString() << " in box " << this->name().toStdString() <<"\n";
+    }
+    return result;
 }
 
 BoxObject::Flags BoxObject::flags() const
@@ -350,19 +468,21 @@ void BoxObject::addInput(const QString& name, const QString& typeId)
 {
     CIdentifier cidTypeId = m_context->getTypeManager().getTypeFromName(typeId.toStdString().c_str());
     CIdentifier inputId = m_box->getUnusedInputIdentifier();
-    if(!m_box->addInput(name.toStdString().c_str(), cidTypeId, inputId, true)) {
+    if(!m_box->addInput(name.toStdString().c_str(), cidTypeId, inputId, true))
+    {
         m_context->getLogManager() << Kernel::LogLevel_Warning << "Could not add input port to box " << m_box->getName() << "\n";
-        return;
     }
-
-    //A Listener may have been called in which case, the input port list has been updated
-    if(m_inputPorts.size() == m_box->getInputCount()) {
-        return;
+    else
+    {
+        //A Listener may have been called in which case, the input port list has been updated
+        if(m_inputPorts.size() != m_box->getInputCount())
+        {
+            createPort(IOPort::PortType::Input, int(m_inputPorts.size()));
+            m_inputPortOffsets.resize(m_box->getInputCount());
+            emit inputPortsChanged();
+        }
+        emit edited(tr("Add box input"), 0);
     }
-
-    m_inputPorts.push_back(new IOPort(m_context, m_box, IOPort::PortType::Input, m_inputPorts.size()));
-    m_inputPortOffsets.resize(m_box->getInputCount());
-    emit inputPortsChanged();
 }
 
 void BoxObject::removeInput(int portIndex)
@@ -371,36 +491,41 @@ void BoxObject::removeInput(int portIndex)
 
     //calling IBox::removeInput deletes all the links and recreate them..
     //so we need to update all links
-    for(auto* port: m_inputPorts) {
+    for(auto* port: m_inputPorts)
+    {
         delete port;
     }
     m_inputPorts.clear();
 
-    for(size_t i=0; i < m_box->getInputCount(); i++) {
-        m_inputPorts.push_back(new IOPort(m_context, m_box, IOPort::PortType::Input, i));
+    for(size_t i=0; i < m_box->getInputCount(); i++)
+    {
+        createPort(IOPort::PortType::Input, int(i));
     }
 
     m_inputPortOffsets.resize(m_box->getInputCount());
     emit inputPortsChanged();
+    emit edited(tr("Remove box input"), 0);
 }
 
 void BoxObject::addOutput(const QString& name, const QString& typeId)
 {
     CIdentifier cidTypeId = m_context->getTypeManager().getTypeFromName(typeId.toStdString().c_str());
     CIdentifier outputId = m_box->getUnusedOutputIdentifier();
-    if(!m_box->addOutput(name.toStdString().c_str(), cidTypeId, outputId, true)) {
+    if(!m_box->addOutput(name.toStdString().c_str(), cidTypeId, outputId, true))
+    {
         m_context->getLogManager() << Kernel::LogLevel_Warning << "Could not add output port to box " << m_box->getName() << "\n";
-        return;
     }
-
-    //A Listener may have been called in which case, the output port list has been updated
-    if(m_outputPorts.size() == m_box->getOutputCount()) {
-        return;
+    else
+    {
+        //A Listener may have been called in which case, the output port list has been updated
+        if(m_outputPorts.size() != m_box->getOutputCount())
+        {
+            createPort(IOPort::PortType::Output, int(m_outputPorts.size()));
+            m_outputPortOffsets.resize(m_box->getOutputCount());
+            emit outputPortsChanged();
+        }
+        emit edited(tr("Add box output"), 0);
     }
-
-    m_outputPorts.push_back(new IOPort(m_context, m_box, IOPort::PortType::Output, m_outputPorts.size()));
-    m_outputPortOffsets.resize(m_box->getOutputCount());
-    emit outputPortsChanged();
 }
 
 void BoxObject::removeOutput(int portIndex)
@@ -409,23 +534,27 @@ void BoxObject::removeOutput(int portIndex)
 
     //calling IBox::removeOutput deletes all the links and recreate them..
     //so we need to update all links
-    for(auto* port: m_outputPorts) {
+    for(auto* port: m_outputPorts)
+    {
         delete port;
     }
     m_outputPorts.clear();
 
-    for(size_t i=0; i < m_box->getOutputCount(); i++) {
-        m_outputPorts.push_back(new IOPort(m_context, m_box, IOPort::PortType::Output, i));
+    for(size_t i=0; i < m_box->getOutputCount(); i++)
+    {
+        createPort(IOPort::PortType::Output, int(i));
     }
 
     m_outputPortOffsets.resize(m_box->getOutputCount());
     emit outputPortsChanged();
+    emit edited(tr("Remove box output"), 0);
 }
 
 void BoxObject::updatePortOffset(int portIndex, bool isOutput, const QPointF& offset)
 {
     auto& portOffsets = isOutput ? m_outputPortOffsets : m_inputPortOffsets;
-    if (portIndex < portOffsets.size() && portOffsets[portIndex] != offset) {
+    if (portIndex < portOffsets.size() && portOffsets[portIndex] != offset)
+    {
         portOffsets[portIndex] = offset;
         emit portOffsetsChanged();
     }
@@ -457,8 +586,9 @@ void BoxObject::notifyNewOutName(int portIndex, const QString& name)
 
 void BoxObject::addSetting(const QString& name, const QString& typeId, const QString& value, bool modifiability)
 {
-    if (!m_box->addSetting(name.toStdString().c_str(), CIdentifier(typeId.toStdString().c_str()), value.toStdString().c_str(), size_t(-1), modifiability)) { 
-        return;
+    if (m_box->addSetting(name.toStdString().c_str(), CIdentifier(typeId.toStdString().c_str()), value.toStdString().c_str(), size_t(-1), modifiability))
+    {
+        emit edited(tr("Add box setting"), 0);
     }
 }
 
@@ -469,22 +599,69 @@ void BoxObject::addSetting(const QString& name, const QString& typeId, const QSt
 
 void BoxObject::removeSetting(int settingIndex)
 {
-    m_box->removeSetting(settingIndex);
+    if (m_box->removeSetting(settingIndex))
+    {
+        emit edited(tr("Remove box setting"), 0);
+    }
+}
+
+QString BoxObject::documentationUrl() const
+{
+    QString url;
+    Kernel::IConfigurationManager& config = m_context->getConfigurationManager();
+    const CIdentifier algorithmClassId = m_box->getAlgorithmClassIdentifier();
+
+    // The page is named after the algorithm (descriptor) name, not the user-editable box name
+    const Plugins::IPluginObjectDesc* desc = nullptr;
+    if (algorithmClassId == OVP_ClassId_BoxAlgorithm_Metabox)
+    {
+        CIdentifier metaboxId;
+        metaboxId.fromString(m_box->getAttributeValue(OVP_AttributeId_Metabox_ID));
+        desc = m_context->getMetaboxManager().getMetaboxObjectDesc(metaboxId);
+    }
+    else
+    {
+        desc = m_context->getPluginManager().getPluginObjectDescCreating(algorithmClassId);
+    }
+
+    if (desc != nullptr)
+    {
+        if (m_box->hasAttribute(OV_AttributeId_Box_DocumentationURL))
+        {
+            url = config.expand(m_box->getAttributeValue(OV_AttributeId_Box_DocumentationURL)).toASCIIString();
+        }
+        else
+        {
+            CString urlBase = config.expand("${Designer_HelpBrowserURLBase}");
+            if (m_box->hasAttribute(OV_AttributeId_Box_DocumentationURLBase))
+            {
+                urlBase = config.expand(m_box->getAttributeValue(OV_AttributeId_Box_DocumentationURLBase));
+            }
+            const std::string page = "Doc_BoxAlgorithm_" + DocumentationUrl::boxAlgorithmSlug(desc->getName().toASCIIString()) + ".html";
+            url = QString::fromStdString(std::string(urlBase.toASCIIString()) + "/" + page);
+        }
+        url = DocumentationUrl::toBrowsableUrl(url);
+    }
+    return url;
 }
 
 void BoxObject::saveSettings(QUrl filePath)
 {
     QString fileString;
-    if(filePath.isLocalFile()) {
+    if(filePath.isLocalFile())
+    {
         fileString = filePath.toLocalFile();
-    } else {
+    }
+    else
+    {
         fileString = filePath.toString();
     }
 
     tinyxml2::XMLDocument xmlDoc;
     tinyxml2::XMLNode* root = xmlDoc.NewElement(m_boxSettingsRootTag.c_str());         // Create root node
     xmlDoc.InsertFirstChild(root);                                  // Add root to XML
-    for (size_t i = 0; i < m_box->getInterfacorCountIncludingDeprecated(Kernel::EBoxInterfacorType::Setting); ++i) {
+    for (size_t i = 0; i < m_box->getInterfacorCountIncludingDeprecated(Kernel::EBoxInterfacorType::Setting); ++i)
+    {
         tinyxml2::XMLElement* e = xmlDoc.NewElement(m_boxSettingsSettingTag.c_str());  // Create data node
         CString value;
         m_box->getSettingValue(i, value);
@@ -511,34 +688,47 @@ bool BoxObject::overwriteSettings() const
 
 void BoxObject::setOverwriteSettings(bool overwriteSettings)
 {
-    if (m_overwriteSettings != overwriteSettings) {
+    if (m_overwriteSettings != overwriteSettings)
+    {
         m_overwriteSettings = overwriteSettings;
         emit overwriteSettingsChanged();
     }
 
-    if (m_overwriteSettings) {
+    if (m_overwriteSettings)
+    {
         const std::string normalizedPath = m_settingsFilePath->value().replace('\\', '/').toStdString();
-        if (m_box->hasAttribute(m_settingAttributeId_SettingOverrideFilename)) {
+        if (m_box->hasAttribute(m_settingAttributeId_SettingOverrideFilename))
+        {
             m_box->setAttributeValue(m_settingAttributeId_SettingOverrideFilename, normalizedPath.c_str());
-        } else {
+        }
+        else
+        {
             m_box->addAttribute(m_settingAttributeId_SettingOverrideFilename, normalizedPath.c_str());
         }
-    } else {
-        if (m_box->hasAttribute(m_settingAttributeId_SettingOverrideFilename)) {
+    }
+    else
+    {
+        if (m_box->hasAttribute(m_settingAttributeId_SettingOverrideFilename))
+        {
             m_box->removeAttribute(m_settingAttributeId_SettingOverrideFilename);
         }
     }
+    emit edited(tr("Change settings override"), 0);
 }
 
 QJSValue BoxObject::settingsFilePath() const
 {
+    QJSValue result;
     QQmlEngine *jsEngine = QmlEngineSingleton::getInstance().engine();
-    if(!jsEngine) {
+    if(!jsEngine)
+    {
         qWarning() << Q_FUNC_INFO << "Could not obtain QQmlEngine for object.\n";
-        return QJSValue();
     }
-
-    return jsEngine->newQObject(m_settingsFilePath);
+    else
+    {
+        result = jsEngine->newQObject(m_settingsFilePath);
+    }
+    return result;
 }
 
 } // Designer

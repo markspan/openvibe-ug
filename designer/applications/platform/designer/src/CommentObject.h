@@ -6,7 +6,7 @@
 #include <openvibe/ov_all.h>
 #include <QtCore>
 
-namespace OpenViBE {  
+namespace OpenViBE {
 namespace Designer {
 
 class CommentObject : public QObject
@@ -19,6 +19,8 @@ class CommentObject : public QObject
 signals:
     void textChanged();
     void centerChanged();
+    /** A user-level edit of the comment reached the kernel (see BoxObject::edited). */
+    void edited(const QString& label, int delayMs);
 
 public:
     CommentObject(Kernel::IKernelContext* kernelCtx, Kernel::IComment *comment);

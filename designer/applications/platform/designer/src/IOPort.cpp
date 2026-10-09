@@ -21,9 +21,12 @@ IOPort::~IOPort()
 QString IOPort::name() const
 {
     CString cName;
-    if(m_portType == PortType::Input) {
+    if(m_portType == PortType::Input)
+    {
         m_box->getInputName(m_portIndex, cName);
-    } else {
+    }
+    else
+    {
         m_box->getOutputName(m_portIndex, cName);
     }
     return QString(cName.toASCIIString());
@@ -31,23 +34,27 @@ QString IOPort::name() const
 
 void IOPort::setName(const QString &name)
 {
-    if (this->name() == name) {
-         return; 
-    }
-    CString cName = CString(name.toStdString().c_str());
-    if(m_portType == PortType::Input) {
-        m_box->setInputName(m_portIndex, cName);
-    } else {
-        m_box->setOutputName(m_portIndex, cName);
+    if (this->name() != name)
+    {
+        CString cName = CString(name.toStdString().c_str());
+        const bool success = (m_portType == PortType::Input) ? m_box->setInputName(m_portIndex, cName) : m_box->setOutputName(m_portIndex, cName);
+        if (success)
+        {
+            emit nameChanged();
+            emit edited(tr("Rename port"), 0);
+        }
     }
 }
 
 QString IOPort::dataType() const
 {
     CIdentifier typeID;
-    if(m_portType == PortType::Input) {
+    if(m_portType == PortType::Input)
+    {
         m_box->getInputType(m_portIndex, typeID);
-    } else {
+    }
+    else
+    {
         m_box->getOutputType(m_portIndex, typeID);
     }
     CString ovName = m_context->getTypeManager().getTypeName(typeID);
@@ -64,26 +71,25 @@ void IOPort::setDataType(const QString &dataType)
     CString ovName = CString(dataType.toStdString().c_str());
     CIdentifier newDataType = m_context->getTypeManager().getTypeFromName(ovName);
     QString oldDataType = this->dataType();
-    if(newDataType != CIdentifier::undefined() && dataType != oldDataType) {
-        if(m_portType == PortType::Input) {
-            if(!m_box->setInputType(m_portIndex, newDataType)) {
-                m_context->getLogManager() << Kernel::LogLevel_Warning << "Could not set input type to " << dataType.toStdString() 
-                                           << " for port " << m_portIndex 
-                                           << "  reverting to " << oldDataType.toStdString() << "\n";
-                return;
-            }
-        } else {
-            if(!m_box->setOutputType(m_portIndex, newDataType)) {
-                m_context->getLogManager() << Kernel::LogLevel_Warning << "Could not set output type to " << dataType.toStdString() 
-                                           << " for port " << m_portIndex 
-                                           << "  reverting to " << oldDataType.toStdString() << "\n";
-                return;
-            }
+    if(newDataType != CIdentifier::undefined() && dataType != oldDataType)
+    {
+        const bool isInput = (m_portType == PortType::Input);
+        const bool ok = isInput ? m_box->setInputType(m_portIndex, newDataType)
+                                : m_box->setOutputType(m_portIndex, newDataType);
+        if(!ok)
+        {
+            m_context->getLogManager() << Kernel::LogLevel_Warning << "Could not set " << (isInput ? "input" : "output") << " type to " << dataType.toStdString()
+                                       << " for port " << m_portIndex
+                                       << "  reverting to " << oldDataType.toStdString() << "\n";
         }
-
-        //the setInputType may call a callback that will change the type again
-        if(this->dataType() == dataType) {
-            emit dataTypeChanged();
+        else
+        {
+            //the setInputType may call a callback that will change the type again
+            if(this->dataType() == dataType)
+            {
+                emit dataTypeChanged();
+            }
+            emit edited(tr("Change port type"), 0);
         }
     }
 }

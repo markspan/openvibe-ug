@@ -1,7 +1,7 @@
 [workspace]
 name = "openvibe"
 channels = ["openvibe", "conda-forge", "anaconda", "nodefaults"]
-platforms = ["linux-64", "win-64"]
+platforms = ["linux-64", "win-64", "osx-arm64"]
 
 [dependencies]
 cmake = "3.25.*"
@@ -9,6 +9,8 @@ pkg-config = "*"
 ninja = "1.10.0.*"
 numpy = "*"
 eigen = "3.3.8.*"
+gtest = "1.17.0.*"
+gmock = "1.17.0.*"
 lua = "5.4.6.*"
 tinyxml2 = "9.0.0.*"
 expat = "2.6.4.*"
@@ -34,8 +36,6 @@ qt6-main = "6.8.*"
 qt6-charts = "6.8.*"
 qt6-graphs = "6.8.*"
 boost-cpp = "1.85.*"
-gtest = "1.10.0.*"
-gmock = "1.10.0.*"
 libglvnd-devel-cos7-x86_64 = "*"
 xorg-x11-proto-devel-cos7-x86_64 = "*"
 mesa-libgl-devel-cos7-x86_64 = "*"
@@ -76,8 +76,6 @@ nsis = "3.11"
 vs2022_win-64 = "19.44.35207.*"
 vs2013_runtime = { version = "*", channel = "anaconda" }
 boost-cpp = "1.83.*"
-gtest = "1.17.0.*"
-gmock = "1.17.0.*"
 pthreads-win32 = "2.9.1.*"
 sdk-brain-products = "*"
 sdk-gtec-unicorn = "*"
@@ -85,17 +83,31 @@ sdk-eemagine-eego = "*"
 sdk-micromed = "*"
 sdk-tmsi = "*"
 
+# macOS ARM: provided for convenience, not built in CI.
+[target.osx-arm64.dependencies]
+clangxx_osx-arm64 = "18.*"
+ninja = "1.11.1.*"
+qt6-main = "6.9.*"
+qt6-charts = "6.9.*"
+qt6-graphs = "6.9.*"
+boost-cpp = "1.85.*"
+llvm-openmp = "*"
+xorg-libx11 = "1.8.6.*"
+libxcb = "*"
+
 [tasks]
 configure = "cmake -G Ninja -S . -B build"
 build = { cmd = "ninja -C build", depends-on = ["configure"] }
 test = { cmd = "ctest -T Test", cwd = "build", depends-on = ["build"] }
 install = { cmd = "cmake --install build", depends-on = ["build"] }
-package = { cmd = "cpack -V --config build/CPackConfig.cmake -B build/package", depends-on = ["build"] }
+doc = { cmd = "ninja -C build doc", depends-on = ["build"] }
+package = { cmd = "cpack -V --config build/CPackConfig.cmake -B build/package", depends-on = ["doc"] }
 
 ci-configure = "cmake -G Ninja -S . -B $BUILD_FOLDER"
 ci-build = { cmd = "ninja -C $BUILD_FOLDER", depends-on = ["ci-configure"] }
 ci-test = { cmd = "cd \"$BUILD_FOLDER\" && ctest -T Test"  } # depends-on = ["ci-build"] but intentionally removed to avoid rerunning configure & build chain.
-ci-package = { cmd = "cpack --config \"$BUILD_FOLDER/CPackConfig.cmake\" -B \"$BUILD_FOLDER/package\"" } # depends-on = ["ci-build"] intentionally omitted, as for ci-test.
+ci-doc = { cmd = "ninja -C \"$BUILD_FOLDER\" doc", depends-on = ["ci-configure"]} # depends-on = ["ci-build"] intentionally omitted, as for ci-test.
+ci-package = { cmd = "cpack --config \"$BUILD_FOLDER/CPackConfig.cmake\" -B \"$PACKAGE_FOLDER\"", depends-on = ["ci-doc"] } # documentation is only built when packaging.
 
 [target.linux-64.tasks]
 ci-configure = 'cmake -G Ninja -S . -B $BUILD_FOLDER -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS_DEBUG=-O0\ -g\ -Wall\ -fPIC\ -fno-inline\ --coverage -DCMAKE_CXX_FLAGS_DEBUG=-O0\ -g\ -Wall\ -fPIC\ -fno-inline\ --coverage -Wno-dev'

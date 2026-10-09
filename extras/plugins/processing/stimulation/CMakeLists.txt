@@ -4,6 +4,7 @@ file(GLOB_RECURSE SRC_FILES src/*.cpp src/*.h src/*.hpp src/*.inl)
 add_library(${PROJECT_NAME} SHARED ${SRC_FILES})
 
 target_link_libraries(${PROJECT_NAME}
+					  PUBLIC
 					  openvibe
 					  openvibe-common
 					  openvibe-toolkit
@@ -18,7 +19,7 @@ target_link_libraries(${PROJECT_NAME}
 if(UNIX AND NOT APPLE)
 	find_library(LIB_RT rt)
 	if(LIB_RT)
-		target_link_libraries(${PROJECT_NAME} ${LIB_RT})
+		target_link_libraries(${PROJECT_NAME} PUBLIC ${LIB_RT})
 	else()
 		message(WARNING "  FAILED to find rt...")
 	endif()
@@ -44,7 +45,7 @@ if(WIN32)
 	find_library(LIB_STANDARD_MODULE_WINMM winmm)
 	if(LIB_STANDARD_MODULE_WINMM)
 		message(STATUS "  Found winmm...")
-		target_link_libraries(${PROJECT_NAME} ${LIB_STANDARD_MODULE_WINMM})
+		target_link_libraries(${PROJECT_NAME} PUBLIC ${LIB_STANDARD_MODULE_WINMM})
 	else(LIB_STANDARD_MODULE_WINMM)
 		message(STATUS "  FAILED to find winmm...")
 	endif(LIB_STANDARD_MODULE_WINMM)

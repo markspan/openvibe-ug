@@ -1,23 +1,22 @@
-///-------------------------------------------------------------------------------------------------
-/// 
-/// \file main.cpp
-/// \brief Main file for simple visualization plugin, registering the boxes to OpenViBE
-/// \copyright Copyright (C) 2022 Inria
-///
-/// This program is free software: you can redistribute it and/or modify
-/// it under the terms of the GNU Affero General Public License as published
-/// by the Free Software Foundation, either version 3 of the License, or
-/// (at your option) any later version.
-///
-/// This program is distributed in the hope that it will be useful,
-/// but WITHOUT ANY WARRANTY; without even the implied warranty of
-/// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-/// GNU Affero General Public License for more details.
-///
-/// You should have received a copy of the GNU Affero General Public License
-/// along with this program.  If not, see <https://www.gnu.org/licenses/>.
-/// 
-///-------------------------------------------------------------------------------------------------
+/**-------------------------------------------------------------------------------------------------
+ * \file main.cpp
+ * \brief Main file for simple visualization plugin, registering the boxes to OpenViBE
+ * \copyright Copyright (C) 2022 Inria
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published
+ * by the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *-------------------------------------------------------------------------------------------------
+ */
 
 #include "defines.hpp"
 
@@ -48,13 +47,13 @@ OVP_Declare_Begin()
                                                       OV_AttributeId_Box_FlagIsUnstable.id());
 
     context.getTypeManager().registerEnumerationType(TypeId_SignalDisplayMode, "Signal display mode");
-    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayMode, "Scroll", Scroll);
-    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayMode, "Scan", Scan);
+    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayMode, "Scroll", uint64_t(ESignalDisplayMode::Scroll));
+    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayMode, "Scan", uint64_t(ESignalDisplayMode::Scan));
 
     context.getTypeManager().registerEnumerationType(TypeId_SignalDisplayScaling, "Signal display scaling");
-    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayScaling, "Per Channel", PerChannel);
-    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayScaling, "Global", Global);
-    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayScaling, "None", None);
+    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayScaling, "Per channel", uint64_t(ESignalDisplayScaling::PerChannel));
+    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayScaling, "Global", uint64_t(ESignalDisplayScaling::Global));
+    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayScaling, "None", uint64_t(ESignalDisplayScaling::None));
 
 
     context.getTypeManager().registerEnumerationType(TypeId_FeedbackMode, "Feedback display mode");

@@ -6,7 +6,6 @@ set(CMAKE_MODULE_PATH
 	# ${CMAKE_MODULE_PATH}
 	)
 
-set_version()
 message(STATUS "BUILDING VERSION OpenViBE SDK: ${PROJECT_VERSION}")
 
 # Default is to build to dist/. If you wish a custom install, set your own MAKE_INSTALL_PREFIX when you call CMake. Safest to do under a fakeroot.
@@ -36,9 +35,6 @@ endif()
 
 add_definitions("-DOV_CONFIG_SUBDIR=\"${OV_CONFIG_SUBDIR}\"")
 add_definitions("-DOV_PROJECT_NAME=\"${PROJECT_NAME}\"")
-add_definitions("-DOV_VERSION_MAJOR=\"${PROJECT_VERSION_MAJOR}\"")
-add_definitions("-DOV_VERSION_MINOR=\"${PROJECT_VERSION_MINOR}\"")
-add_definitions("-DOV_VERSION_PATCH=\"${PROJECT_VERSION_PATCH}\"")
 
 if(WIN32)
 	add_definitions("-DNOMINMAX -DBOOST_ALL_NO_LIB")
@@ -63,14 +59,8 @@ message(STATUS "  CMAKE_CXX_FLAGS_RELEASE = '${CMAKE_CXX_FLAGS_RELEASE}'")
 message(STATUS "  CMAKE_CXX_FLAGS_DEBUG = '${CMAKE_CXX_FLAGS_DEBUG}'")
 
 function(SET_BUILD_PLATFORM)
-	if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
-		add_definitions(-DTARGET_ARCHITECTURE_x64)
-	elseif("${CMAKE_SIZEOF_VOID_P}" EQUAL "4")
-		add_definitions(-DTARGET_ARCHITECTURE_i386)
-		SET(PLATFORM_TARGET "x86")
-	else()
-		add_definitions(-DTARGET_ARCHITECTURE_Unknown)
-	endif()
+	# x64 is the only supported architecture.
+	add_definitions(-DTARGET_ARCHITECTURE_x64)
 
 	if(WIN32)
 		add_definitions(-D_CRT_SECURE_NO_DEPRECATE)
