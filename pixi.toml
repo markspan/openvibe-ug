@@ -96,7 +96,9 @@ xorg-libx11 = "1.8.6.*"
 libxcb = "*"
 
 [tasks]
-configure = "cmake -G Ninja -B build -DCMAKE_PREFIX_PATH=\"D:/Qt/6.9.3/msvc2022_64\""
+# On Windows, point CMake at your Qt install with a user environment variable, e.g.
+#   setx CMAKE_PREFIX_PATH D:\Qt\6.9.3\msvc2022_64
+configure = "cmake -G Ninja -S . -B build"
 build = { cmd = "cmake --build build", depends-on = ["configure"] }
 test = { cmd = "ctest -T Test", cwd = "build", depends-on = ["build"] }
 install = { cmd = "cmake --install build", depends-on = ["build"] }
