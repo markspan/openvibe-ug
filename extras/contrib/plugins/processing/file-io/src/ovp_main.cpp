@@ -8,6 +8,9 @@
 // @BEGIN GIPSA
 #include "box-algorithms/ovpCBoxAlgorithmBrainampFileWriterGipsa.h"
 // @END GIPSA
+// @BEGIN UG
+#include "box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h"
+// @END UG
 
 #include "box-algorithms/ovpCBoxAlgorithmEDFFileReader.hpp"
 
@@ -29,6 +32,10 @@ OVP_Declare_Begin()
 
     OVP_Declare_New(CBoxAlgorithmBrainampFileWriterGipsaDesc)
     // @END GIPSA
+    // @BEGIN UG
+    // Shares the binary format dropdown registered above
+    OVP_Declare_New(CBoxAlgorithmBrainampFileWriterUGDesc)
+    // @END UG
 
     OVP_Declare_New(CBoxAlgorithmEDFFileReaderDesc)
 

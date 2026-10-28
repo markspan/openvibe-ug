@@ -27,6 +27,7 @@ project(${TARGET_NAME} VERSION ${OPENVIBE_MAJOR_VERSION}.${OPENVIBE_MINOR_VERSIO
 ## ############################################################################
 list(APPEND DLL_SOURCES
 	driver/AbstractDriver.cpp
+	driver/CharmeleonMontage.cpp
 	writer/AbstractWriter.cpp
 )
 
@@ -34,6 +35,7 @@ list(APPEND DLL_PUBLIC_HEADERS
 	samplesBuffer.h
 	driver/AbstractDriver.h
 	driver/AbstractDriverBuilder.h
+	driver/CharmeleonMontage.h
 	writer/AbstractWriter.h
 	writer/AbstractWriterBuilder.h
 )
@@ -98,6 +100,7 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/samplesBuffer.h
         DESTINATION ${DIST_INCLUDEDIR}/openvibe/acquisition-server/)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/driver/AbstractDriver.h
               ${CMAKE_CURRENT_SOURCE_DIR}/driver/AbstractDriverBuilder.h
+              ${CMAKE_CURRENT_SOURCE_DIR}/driver/CharmeleonMontage.h
         DESTINATION ${DIST_INCLUDEDIR}/openvibe/acquisition-server/driver/)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/writer/AbstractWriter.h
               ${CMAKE_CURRENT_SOURCE_DIR}/writer/AbstractWriterBuilder.h

@@ -106,6 +106,16 @@ if(WIN32 AND BIOSEMI_FOUND)
     )
 endif()
 
+# TMSiSDK.dll is loaded at runtime, so the driver needs no SDK at build time
+if(WIN32)
+    list(APPEND APP_SOURCES
+        builtin/drivers/tmsi/CDriverTMSi.cpp
+    )
+    list(APPEND APP_PRIVATE_HEADERS
+        builtin/drivers/tmsi/CDriverTMSi.h
+    )
+endif()
+
 extract_relative_directories( APP_PRIVATE_HEADERS   APP_PRIVATE_INCLUDE_DIRECTORIES)
 
 ## ############################################################################

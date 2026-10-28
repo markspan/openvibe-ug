@@ -7,6 +7,8 @@
 
 #include "CDriverEEGO.h"
 
+#include <CharmeleonMontage.h>
+
 // The SDK picks its factory signatures from these; wrapper.cc forces _UNICODE on itself anyway,
 // so this only keeps the vendor's "defaulting to..." pragma quiet on our side.
 #define _UNICODE
@@ -95,7 +97,9 @@ CDriverEEGO::CDriverEEGO()
                       { "350", "700", "1500", "4000" }, "1500"),
       m_paramEEGMask("EEGMask", "Referential channel mask (0x.., 0b.., octal or decimal)",
                      "0xFFFFFFFFFFFFFFFF"),
-      m_paramBIPMask("BIPMask", "Bipolar channel mask (0x.., 0b.., octal or decimal)", "0xFFFFFF")
+      m_paramBIPMask("BIPMask", "Bipolar channel mask (0x.., 0b.., octal or decimal)", "0xFFFFFF"),
+      m_paramMontage("Montage", "Charmeleon montage, selects and names the channels instead of the masks", "",
+                     OpenViBE::Parameters::Read, { "Charmeleon montage (*.json)", "Any File (*)" })
 {
     // The rate and the ranges are discrete sets the amplifier rejects anything outside of, so they
     // are dropdowns; the inherited m_samplingRate / m_channelCount are derived in init() and stay
@@ -105,6 +109,7 @@ CDriverEEGO::CDriverEEGO()
     m_parameters.push_back(&m_paramBIPRange);
     m_parameters.push_back(&m_paramEEGMask);
     m_parameters.push_back(&m_paramBIPMask);
+    m_parameters.push_back(&m_paramMontage);
 }
 
 CDriverEEGO::~CDriverEEGO() = default;
@@ -159,6 +164,8 @@ bool CDriverEEGO::convertMask(const std::string& str, uint64_t& out)
 
 uint64_t CDriverEEGO::refMask() const
 {
+    if (!m_montage.empty()) { return m_montageRefMask; }
+
     uint64_t mask = 0;
     if (!convertMask(m_paramEEGMask.value(), mask))
     {
@@ -169,12 +176,70 @@ uint64_t CDriverEEGO::refMask() const
 
 uint64_t CDriverEEGO::bipMask() const
 {
+    if (!m_montage.empty()) { return m_montageBipMask; }
+
     uint64_t mask = 0;
     if (!convertMask(m_paramBIPMask.value(), mask))
     {
         std::cout << "[EEGO] Invalid BIP mask '" << m_paramBIPMask.value() << "', using none." << std::endl;
     }
     return mask;
+}
+
+bool CDriverEEGO::loadMontage()
+{
+    m_montage.clear();
+    m_montageRefMask = 0;
+    m_montageBipMask = 0;
+
+    if (m_paramMontage.value().empty()) { return true; }
+
+    std::string error;
+    std::vector<std::string> warnings;
+    std::map<int, std::string> montage = loadCharmeleonMontage(m_paramMontage.value(), error, warnings);
+    for (const auto& warning : warnings) { std::cout << "[EEGO] Montage: " << warning << std::endl; }
+    if (montage.empty())
+    {
+        std::cout << "[EEGO] Montage: " << error << std::endl;
+        return false;
+    }
+
+    int nRef = 0;
+    int nBip = 0;
+    for (const auto& channel : m_amplifier->getChannelList())
+    {
+        if (channel.getType() == es::channel::reference) { nRef++; }
+        else if (channel.getType() == es::channel::bipolar) { nBip++; }
+    }
+
+    for (auto it = montage.begin(); it != montage.end();)
+    {
+        const int hardwareChannel = it->first;
+        if (hardwareChannel <= nRef && hardwareChannel <= 64) { m_montageRefMask |= uint64_t(1) << (hardwareChannel - 1); }
+        else if (hardwareChannel > nRef && hardwareChannel - nRef <= nBip && hardwareChannel - nRef <= 64)
+        {
+            m_montageBipMask |= uint64_t(1) << (hardwareChannel - nRef - 1);
+        }
+        else
+        {
+            std::cout << "[EEGO] Montage: " << it->second << " is on hardware channel " << hardwareChannel << ", but the amplifier has "
+                      << nRef << " EEG + " << nBip << " BIP channels. Ignored." << std::endl;
+            it = montage.erase(it);
+            continue;
+        }
+        ++it;
+    }
+
+    if (montage.empty())
+    {
+        std::cout << "[EEGO] Montage: no channel of " << m_paramMontage.value() << " exists on this amplifier." << std::endl;
+        return false;
+    }
+
+    m_montage = std::move(montage);
+    std::cout << "[EEGO] Montage " << m_paramMontage.value() << " selects " << m_montage.size()
+              << " channels; the EEG and BIP masks are not used." << std::endl;
+    return true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -248,7 +313,7 @@ bool CDriverEEGO::init()
         m_samplingRate.setValue(rate);
         m_effectiveBipRange = bipRange / 1000.0;
 
-        success = buildChannelNames();
+        success = loadMontage() && buildChannelNames();
     }
     catch (const std::exception& ex)
     {
@@ -277,19 +342,40 @@ bool CDriverEEGO::buildChannelNames()
         return false;
     }
 
-    // eego channels carry a type and an index but no name, so the names are synthesised.
+    // eego channels carry a type and an index but no name, so the names come from the montage or
+    // are synthesised.
     std::vector<std::string> names;
     names.reserve(channels.size() + STATUS_CHANNEL_COUNT);
 
     int nEEG = 0;
     int nBIP = 0;
-    for (const auto& channel : channels)
+    if (!m_montage.empty())
     {
-        switch (channel.getType())
+        // The masks were built from the montage, and the SDK lists the selected channels in
+        // hardware order, which is the montage's key order.
+        for (const auto& entry : m_montage) { names.push_back(entry.second); }
+        for (const auto& channel : channels)
         {
-            case es::channel::reference: names.push_back("EEG" + std::to_string(++nEEG)); break;
-            case es::channel::bipolar: names.push_back("BIP" + std::to_string(++nBIP)); break;
-            default: names.push_back("CH" + std::to_string(int(names.size()) + 1)); break;
+            if (channel.getType() == es::channel::reference) { nEEG++; }
+            else if (channel.getType() == es::channel::bipolar) { nBIP++; }
+        }
+        if (names.size() != channels.size())
+        {
+            std::cout << "[EEGO] The montage names " << names.size() << " channels but the amplifier selected "
+                      << channels.size() << "." << std::endl;
+            return false;
+        }
+    }
+    else
+    {
+        for (const auto& channel : channels)
+        {
+            switch (channel.getType())
+            {
+                case es::channel::reference: names.push_back("EEG" + std::to_string(++nEEG)); break;
+                case es::channel::bipolar: names.push_back("BIP" + std::to_string(++nBIP)); break;
+                default: names.push_back("CH" + std::to_string(int(names.size()) + 1)); break;
+            }
         }
     }
 
@@ -440,6 +526,7 @@ size_t CDriverEEGO::fetchPending()
 
 int CDriverEEGO::read(sampleType* data, const uint64_t size)
 {
+    m_pendingTriggers.clear();
     if (!m_stream) { return 0; }
 
     if (m_pendingOffset >= m_pendingSamples && fetchPending() == 0)
@@ -475,12 +562,10 @@ int CDriverEEGO::read(sampleType* data, const uint64_t size)
             const uint32_t rising   = triggers & ~m_lastTriggerValue;
             m_lastTriggerValue      = triggers;
 
-            // Date 0 lets AbstractDriver::getData() stamp it with this read's timestamp. The
-            // pre-port driver put an in-chunk *duration* here, which the new interface reads as an
-            // absolute date -- carrying that over would date every stimulation near the epoch.
+            // getData() dates it at this sample once the read timestamp is known
             if (rising != 0)
             {
-                m_stimQueue.push_back(ovStimulation{ STIMULATION_LABEL_BASE | (rising & 0xFF), 0, 0 });
+                m_pendingTriggers.emplace_back(STIMULATION_LABEL_BASE | (rising & 0xFF), sample);
             }
         }
     }
@@ -488,6 +573,24 @@ int CDriverEEGO::read(sampleType* data, const uint64_t size)
     m_pendingOffset += count;
 
     return int(count);
+}
+
+void CDriverEEGO::getData(samplesBuffer* buff)
+{
+    buff->count             = read(buff->samplesBuff, buff->maxSampleCount);
+    const uint64_t readTime = timestamp();
+    if (buff->count > 0) { buff->timestampsBuff[buff->count - 1] = readTime; }
+
+    // Date each trigger at its own sample, counting back from the last sample of the block, which is stamped readTime
+    const uint64_t periodNs = 1'000'000'000ULL / uint64_t(m_samplingRate.value());
+    for (const auto& [id, sample] : m_pendingTriggers)
+    {
+        const uint64_t samplesBefore = buff->count - 1 - sample;
+        m_stimQueue.push_back(ovStimulation{ id, readTime - samplesBefore * periodNs, 0 });
+    }
+    m_pendingTriggers.clear();
+
+    buff->stimCount = readStimulations(buff->stimulationsBuff, buff->maxStimCount);
 }
 
 int CDriverEEGO::readStimulations(ovStimulation* buff, const uint32_t maxCount)

@@ -4,3 +4,4 @@
 # other folders here are unported legacy sources targeting the retired ovasIDriver/GTK interface and
 # build nothing.
 add_subdirectory(gtec-gipsa)
+add_subdirectory(eemagine-eego)

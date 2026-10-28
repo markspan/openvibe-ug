@@ -10,9 +10,11 @@
 #include <AbstractDriverBuilder.h>
 
 #include <openvibe/parameters/parameterListString.h>
+#include <openvibe/parameters/parameterPath.h>
 #include <openvibe/parameters/parameterString.h>
 
 #include <deque>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -31,6 +33,8 @@ class stream;
  *
  * Channels are picked with two bit masks -- one over the referential (EEG) channels, one over the
  * bipolar (BIP) ones -- and the stream always carries a trigger and a sample-counter channel on top.
+ * Alternatively a Charmeleon montage picks and names them: HardwareChannel counts the referential
+ * channels first, then the bipolar ones, and channels the montage does not name are not recorded.
  * The trigger channel is published as a signal channel *and* flank-decoded into stimulations, as it
  * was before the port.
  *
@@ -51,6 +55,7 @@ public:
 
     int read(sampleType* data, uint64_t size) override;
     int readStimulations(ovStimulation* buff, uint32_t maxCount) override;
+    void getData(samplesBuffer* buff) override;
 
     bool supportsImpedanceCheck() const override { return true; }
     bool startImpedanceCheck() override;
@@ -83,6 +88,12 @@ private:
     uint64_t refMask() const;
     uint64_t bipMask() const;
 
+    /**
+     * Reads the montage parameter, if set, into m_montage and the masks it selects. Needs the
+     * amplifier, whose channel list tells how many referential channels precede the bipolar ones.
+     */
+    bool loadMontage();
+
     /** Fills m_channelCount / m_channelNames from the amplifier's channel list. No stream needed. */
     bool buildChannelNames();
 
@@ -95,6 +106,11 @@ private:
     OpenViBE::Parameters::ParameterListString m_paramBIPRange; ///< [mV]
     OpenViBE::Parameters::ParameterString     m_paramEEGMask;
     OpenViBE::Parameters::ParameterString     m_paramBIPMask;
+    OpenViBE::Parameters::ParameterPath       m_paramMontage;
+
+    std::map<int, std::string> m_montage; ///< HardwareChannel (1-based) -> name, empty without a montage.
+    uint64_t m_montageRefMask = 0;
+    uint64_t m_montageBipMask = 0;
 
     std::unique_ptr<eemagine::sdk::factory>   m_factory;
     std::unique_ptr<eemagine::sdk::amplifier> m_amplifier;
@@ -116,6 +132,8 @@ private:
 
     int      m_triggerChannel   = -1; ///< Index of the trigger channel in a scan, -1 if absent.
     uint32_t m_lastTriggerValue = 0;  ///< Previous trigger word, for rising-edge detection.
+    /// Triggers found by the current read(): stimulation id and index of their sample in the block.
+    std::vector<std::pair<uint64_t, size_t>> m_pendingTriggers;
     std::deque<ovStimulation> m_stimQueue;
 };
 
