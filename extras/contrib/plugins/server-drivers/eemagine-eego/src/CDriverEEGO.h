@@ -58,6 +58,7 @@ public:
     void getData(samplesBuffer* buff) override;
 
     bool supportsImpedanceCheck() const override { return true; }
+    bool usesCharmeleonForImpedance() const override { return true; }
     bool startImpedanceCheck() override;
     int  readImpedances(double* values, size_t count) override;
     bool stopImpedanceCheck() override;

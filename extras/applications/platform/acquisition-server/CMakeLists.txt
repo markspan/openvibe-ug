@@ -160,6 +160,8 @@ qt_add_qml_module(${TARGET_NAME}
     SOURCES
         ui/AcquisitionController.h
         ui/AcquisitionController.cpp
+        ui/Charmeleon.h
+        ui/Charmeleon.cpp
         ui/ImpedanceItem.h
     RESOURCES
         ${OV_ICON_FILE}

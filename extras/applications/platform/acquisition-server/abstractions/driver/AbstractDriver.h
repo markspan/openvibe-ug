@@ -141,6 +141,12 @@ public:
     /** Returns true if this driver supports impedance measurement. */
     virtual bool supportsImpedanceCheck() const { return false; }
 
+    /**
+     * Returns true if Charmeleon, when installed, should check impedances for this driver's
+     * amplifiers instead of startImpedanceCheck() and friends.
+     */
+    virtual bool usesCharmeleonForImpedance() const { return false; }
+
     /** Enter impedance measurement mode. Called after init(), before start(). */
     virtual bool startImpedanceCheck() { return false; }
 

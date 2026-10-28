@@ -215,6 +215,15 @@ bool Acquisition::supportsImpedanceCheck() const
 }
 
 /**
+ * @brief Checks if the driver hands impedance checking to Charmeleon when it is installed.
+ * @return True if Charmeleon should check impedances for this driver, false otherwise.
+ */
+bool Acquisition::usesCharmeleonForImpedance() const
+{
+    return m_driver && m_driver->usesCharmeleonForImpedance();
+}
+
+/**
  * @brief Starts the impedance measurement process.
  * @return True if the impedance measurement process was started successfully, false otherwise.
  */

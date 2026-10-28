@@ -92,6 +92,7 @@ public:
 
 	// Impedance check block
     bool supportsImpedanceCheck() const;
+    bool usesCharmeleonForImpedance() const;
     bool startImpedanceCheck();
     bool stopImpedanceCheck();
     int  readImpedances(double* values, size_t count);

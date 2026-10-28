@@ -52,6 +52,8 @@ public:
     int readStimulations(ovStimulation* buff, uint32_t maxCount) override;
     void getData(samplesBuffer* buff) override;
 
+    bool usesCharmeleonForImpedance() const override { return true; }
+
     void setChunkSize(uint32_t chunkSize) override { m_nSamplePerSentBlock = chunkSize; }
 
     OpenViBE::Parameters::Parameters getParameters() override;

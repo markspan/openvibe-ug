@@ -4,6 +4,7 @@
  */
 
 #include "AcquisitionController.h"
+#include "Charmeleon.h"
 
 #include <QCoreApplication>
 #include <QQmlContext>
@@ -286,13 +287,30 @@ bool AcquisitionController::isCheckingImpedance() {
     return d->m_acquisition && d->m_acquisition->state() == Acquisition::State::ImpedanceCheck;
 }
 
+std::string AcquisitionController::charmeleonExecutable() {
+    if (!d->m_acquisition || !d->m_acquisition->usesCharmeleonForImpedance()) { return {}; }
+    const CString configured = d->m_kernelCtx.getConfigurationManager().expand("${AcquisitionServer_CharmeleonPath}");
+    return Charmeleon::findExecutable(configured.toASCIIString());
+}
+
 bool AcquisitionController::supportsImpedanceCheck() {
-    return d->m_acquisition && d->m_acquisition->supportsImpedanceCheck();
+    return d->m_acquisition && (d->m_acquisition->supportsImpedanceCheck() || !charmeleonExecutable().empty());
 }
 
 bool AcquisitionController::toggleImpedanceCheck() {
 
     bool res = false;
+
+    // Charmeleon checks the impedances in its own window; Play closes it again
+    const std::string charmeleon = charmeleonExecutable();
+    if (!charmeleon.empty() && d->m_acquisition->state() == Acquisition::State::Idle) {
+        d->getLogManager() << Kernel::LogLevel_Info << "Checking impedances with " << charmeleon << "\n";
+        if (!Charmeleon::launch(charmeleon)) {
+            d->getLogManager() << Kernel::LogLevel_Error << "Could not start " << charmeleon << "\n";
+            return false;
+        }
+        return true;
+    }
 
     if (d->m_acquisition) {
         if (d->m_acquisition->state() == Acquisition::State::ImpedanceCheck) {
@@ -562,6 +580,11 @@ bool AcquisitionController::disconnectDevice()
 bool AcquisitionController::startAcquisition()
 {
     d->getLogManager() << Kernel::LogLevel_Info << "Starting acquisition.\n";
+
+    // Charmeleon holds the amplifier while it runs
+    if (const int closed = Charmeleon::closeAll(); closed > 0) {
+        d->getLogManager() << Kernel::LogLevel_Info << "Closed " << closed << " running Charmeleon instance(s).\n";
+    }
 
     // If transitioning from impedance check, stop the polling timer first.
     if (d->m_impedanceTimer) {

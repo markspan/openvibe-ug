@@ -87,6 +87,9 @@ signals:
     void channelNamesChanged();
 
 protected:
+    /// Path of Charmeleon.exe when the current driver hands impedance checking to it and it is installed, else empty.
+    std::string charmeleonExecutable();
+
     struct AcquisitionControllerPrivate *d = nullptr;
 };
 
