@@ -116,11 +116,11 @@ public:
     CString getDetailedDescription() const override
     {
         return
-                "You must select the location of the output header file .vhdr. The .eeg and .vmrk files will be created with the same name and in the same folder. Integer codes of OpenVibe stimulations are saved in the .vmrk file. OV Stimulation with code 233 will be saved as S233 on the .vmrk file.";
+                "Writes the header file .vhdr to the output directory, which is created if needed; a header filename with a full path ignores the directory. The .eeg and .vmrk files will be created with the same name and in the same folder. Hardware triggers are saved in the .vmrk file as BrainVision stimulus markers: trigger 1 as \"S  1\", trigger 233 as \"S233\".";
     }
 
     CString getCategory() const override { return "File reading and writing/BrainVision Format"; }
-    CString getVersion() const override { return "1.1"; }
+    CString getVersion() const override { return "1.2"; }
     CString getStockItemName() const override { return "gtk-save"; }
 
     CIdentifier getCreatedClass() const override { return OVP_ClassId_BoxAlgorithm_BrainampFileWriterUG; }
@@ -133,6 +133,7 @@ public:
         prototype.addInput("Streamed matrix", OV_TypeId_Signal);
         prototype.addInput("Input stimulation channel", OV_TypeId_Stimulations);
 
+        prototype.addSetting("Output directory", OV_TypeId_Foldername, "${Path_Documents}/data");
         prototype.addSetting("Header filename", OV_TypeId_Filename, "record-[$core{date}-$core{time}].vhdr");
         prototype.addSetting("Binary format", OVP_TypeId_BinaryFormat, "IEEE_FLOAT_32");
 

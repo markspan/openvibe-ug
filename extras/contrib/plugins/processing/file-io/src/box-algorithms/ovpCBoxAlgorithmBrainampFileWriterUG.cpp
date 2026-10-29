@@ -11,6 +11,8 @@
 
 #include "ovpCBoxAlgorithmBrainampFileWriterUG.h"
 
+#include <filesystem>
+#include <iomanip>
 #include <string>
 #include <iostream>
 #include <sstream>
@@ -33,9 +35,10 @@ bool CBoxAlgorithmBrainampFileWriterUG::initialize()
     m_stimDecoder = new Toolkit::TStimulationDecoder<CBoxAlgorithmBrainampFileWriterUG>(*this, 1);
 
     //Get parameters:
-    const CString filename = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0);
+    const CString directory = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0);
+    const CString filename  = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1);
 
-    const CString tmp                = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1);
+    const CString tmp                = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 2);
     const CIdentifier binaryFormatID = this->getTypeManager().getEnumerationEntryValueFromName(OVP_TypeId_BinaryFormat, tmp);
 
     if (binaryFormatID == OVP_TypeId_BinaryFormat_int16_t) { m_binaryFormat = BinaryFormat_Integer16; }
@@ -59,9 +62,21 @@ bool CBoxAlgorithmBrainampFileWriterUG::initialize()
         this->getLogManager() << Kernel::LogLevel_Warning << "The supplied output file does not end with .vhdr\n";
     }
 
-    m_headerFilename = filename;
+    // A header filename with a full path replaces the directory
+    const std::filesystem::path headerPath = std::filesystem::u8path(directory.toASCIIString()) / std::filesystem::u8path(filename.toASCIIString());
+    std::error_code error;
+    if (headerPath.has_parent_path()) { std::filesystem::create_directories(headerPath.parent_path(), error); }
+    if (error)
+    {
+        this->getLogManager() << Kernel::LogLevel_Error << "Could not create directory [" << headerPath.parent_path().generic_u8string() << "]: "
+                << error.message() << "\n";
+        return false;
+    }
 
-    m_headerFile.open(m_headerFilename.c_str());
+    m_headerFilename = headerPath.generic_u8string();
+    this->getLogManager() << Kernel::LogLevel_Info << "Recording to [" << m_headerFilename << "]\n";
+
+    m_headerFile.open(headerPath);
     if (!m_headerFile.good())
     {
         this->getLogManager() << Kernel::LogLevel_Error << "Could not open header file [" << m_headerFilename << "]\n";
@@ -72,7 +87,7 @@ bool CBoxAlgorithmBrainampFileWriterUG::initialize()
 
     m_dataFilename = m_headerFilename.substr(0, m_headerFilename.length() - 5) + std::string(".eeg");
 
-    m_dataFile.open(m_dataFilename.c_str(), std::ios::binary);
+    m_dataFile.open(std::filesystem::u8path(m_dataFilename), std::ios::binary);
     if (!m_dataFile.good())
     {
         this->getLogManager() << Kernel::LogLevel_Error << "Could not open data file [" << m_dataFilename << "]\n";
@@ -81,7 +96,7 @@ bool CBoxAlgorithmBrainampFileWriterUG::initialize()
 
     m_markerFilename = m_headerFilename.substr(0, m_headerFilename.length() - 5) + std::string(".vmrk");
 
-    m_markerFile.open(m_markerFilename.c_str());
+    m_markerFile.open(std::filesystem::u8path(m_markerFilename));
     if (!m_markerFile.good())
     {
         this->getLogManager() << Kernel::LogLevel_Error << "Could not open marker file [" << m_markerFilename << "]\n";
@@ -211,7 +226,8 @@ bool CBoxAlgorithmBrainampFileWriterUG::process()
                 const uint64_t code     = id - OVTK_StimulationId_LabelStart; // extract raw value 1-255
                 const uint64_t position = CTime(stimSet->getDate(j)).toSampleCount(m_sampling) + 1;
 
-                m_markerFile << "Mk" << m_stimulationCounter << "=Stimulus," << code << "," << position << ",1,0" << std::endl;
+                // BrainVision Recorder names stimulus markers "S" plus the code right-aligned in 3 characters: "S  1", "S 12", "S123"
+                m_markerFile << "Mk" << m_stimulationCounter << "=Stimulus,S" << std::setw(3) << code << "," << position << ",1,0" << std::endl;
 
                 m_stimulationCounter++;
             }

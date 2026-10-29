@@ -22,8 +22,33 @@
 
 #include <fs/Files.h>
 
+#include <filesystem>
+
+#if defined TARGET_OS_Windows
+#include <ShlObj.h>
+#pragma comment(lib, "Shell32.lib")
+#pragma comment(lib, "Ole32.lib")
+#endif
+
 namespace OpenViBE {
 namespace Kernel {
+
+namespace {
+/// The user's Documents folder, wherever it was moved to (OneDrive, a network share), with / as separator
+std::string getUserDocumentsDir()
+{
+#if defined TARGET_OS_Windows
+    std::string dir;
+    PWSTR path = nullptr;
+    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Documents, KF_FLAG_DEFAULT, nullptr, &path))) {
+        dir = std::filesystem::path(path).generic_u8string();
+    }
+    CoTaskMemFree(path);
+    if (!dir.empty()) { return dir; }
+#endif
+    return StringDirectories::getUserHomeDir() + "/Documents";
+}
+}  // namespace
 
 CKernelContext::CKernelContext(const IKernelContext* masterKernelCtx, const CString& applicationName, const CString& configFile)
     : m_masterKernelCtx(masterKernelCtx ? *masterKernelCtx : *this), m_algorithmManager(nullptr), m_configManager(nullptr),
@@ -72,6 +97,7 @@ bool CKernelContext::initialize(const char* const* tokenList, size_t nToken)
     m_configManager->createConfigurationToken("Path_Lib", Directories::getLibDir());
     m_configManager->createConfigurationToken("Path_Bin", Directories::getBinDir());
     m_configManager->createConfigurationToken("Path_Data", Directories::getDataDir());
+    m_configManager->createConfigurationToken("Path_Documents", getUserDocumentsDir().c_str());
 
 #if defined TARGET_OS_Windows
     m_configManager->createConfigurationToken("OperatingSystem", "Windows");
@@ -145,6 +171,7 @@ bool CKernelContext::initialize(const char* const* tokenList, size_t nToken)
     m_typeManager->registerType(OV_TypeId_Float, "Float");
     m_typeManager->registerType(OV_TypeId_String, "String");
     m_typeManager->registerType(OV_TypeId_Filename, "Filename");
+    m_typeManager->registerType(OV_TypeId_Foldername, "Foldername");
     m_typeManager->registerType(OV_TypeId_Script, "Script");
     m_typeManager->registerType(OV_TypeId_Color, "Color");
     m_typeManager->registerType(OV_TypeId_ColorGradient, "Color Gradient");
