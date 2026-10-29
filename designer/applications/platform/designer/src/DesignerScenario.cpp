@@ -575,6 +575,14 @@ QQmlListProperty<LinkObject> DesignerScenario::links()
 
 void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qreal y, bool isOutput)
 {
+    // A second click on a port of the same kind as the first (another output, or the very same port again) starts a new
+    // link from there, rather than trying to link two outputs, two inputs, or a box to itself
+    if(d->linkCreationStarted && isOutput == d->linkCreationSourceIsOutput)
+    {
+        this->stopLinkCreation();
+    }
+
+    // Every way out of the second click ends link creation, so that a failed attempt does not leave it pending
     if(d->linkCreationStarted)
     {
         for(auto *box : d->boxes)
@@ -612,11 +620,13 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                 if(!srcBox)
                 {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to find the box details for " << boxSrcTypeID.toString() << " as a Source \n";
+                    this->stopLinkCreation();
                     return;
                 }
                 if(!dstBox)
                 {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to find the box details for " << boxDstTypeID.toString() << " as a Target \n";
+                    this->stopLinkCreation();
                     return;
                 }
 
@@ -631,12 +641,14 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                 if(hasDeprecatedIO)
                 {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Warning << "Cannot connect from deprecated Output :" << boxSrcTypeID.toString() << " \n";
+                    this->stopLinkCreation();
                     return;
                 }
                 dstBox->getInterfacorDeprecatedStatus(Kernel::Input, boxDstPort, hasDeprecatedIO);
                 if(hasDeprecatedIO)
                 {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Warning << "Cannot connect to deprecated Input : " << boxDstTypeID.toString()  << " \n";
+                    this->stopLinkCreation();
                     return;
                 }
 
@@ -648,6 +660,7 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                     {
                         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to create link between " << d->linkCreationSource->name().toStdString()
                                                       << " and " << boxId.toStdString() << "\n";
+                        this->stopLinkCreation();
                         return;
                     }
                 }
@@ -655,6 +668,7 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                 {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to create link between " << d->linkCreationSource->name().toStdString()
                                                       << " and " << boxId.toStdString() << "\n";
+                    this->stopLinkCreation();
                     return;
                 }
                 
@@ -701,7 +715,7 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
             }
         }
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to find the box " << boxId.toStdString() << " as a Target \n";
-        emit finishLinkCreation();
+        this->stopLinkCreation();
         return;
     }
 
