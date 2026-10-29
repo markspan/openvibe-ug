@@ -14,7 +14,9 @@
 #include <Windows.h>
 
 #include <algorithm>
+#include <any>
 #include <cctype>
+#include <map>
 #include <chrono>
 #include <iostream>
 #include <sstream>
@@ -131,19 +133,6 @@ bool looksLikeSawtooth(std::string name)
     std::transform(name.begin(), name.end(), name.begin(), [](const unsigned char c) { return char(std::tolower(c)); });
     return name.find("saw") != std::string::npos || name.find("ramp") != std::string::npos;
 }
-
-/// Splits "a;b; c" into {"a", "b", "c"}, dropping empty entries.
-std::vector<std::string> splitNames(const std::string& s)
-{
-    std::vector<std::string> names;
-    std::stringstream ss(s);
-    std::string item;
-    while (std::getline(ss, item, ';')) {
-        item = trim(item);
-        if (!item.empty()) { names.push_back(item); }
-    }
-    return names;
-}
 }  // namespace
 
 struct TMSiApi
@@ -177,25 +166,26 @@ CDriverTMSi::CDriverTMSi()
     : m_api(std::make_unique<TMSiApi>()),
       m_paramProtocol("ConnectionProtocol", "Connection protocol", protocolNames(), "USB"),
       m_paramDevice("DeviceIdentifier", "Device", {FIRST_DEVICE}, FIRST_DEVICE),
-      m_paramAdditionalChannels("AdditionalChannels",
-                                "Additional channels: device names separated by ;, optionally renamed, e.g. AUX3=Photodiode;Digi;Saw",
-                                ""),
       m_paramTriggerChannel("TriggerChannel", "Trigger channel (device name; empty = the first digital channel that is not the sawtooth)", ""),
       m_paramCommonModeRejection("CommonModeRejection", "Common mode rejection (common average reference)", true),
-      m_paramMontage("Montage", "Charmeleon montage, selects and names channels by hardware channel instead of the channel count", "",
+      m_paramMontage("Montage", "Charmeleon montage, names the EEG channels by hardware channel; EEG channels it leaves out are not recorded", "",
                      OpenViBE::Parameters::Read, {"Charmeleon montage (*.json)", "Any File (*)"})
 {
     m_samplingRate = 512;
     m_channelCount = 32;
+    // Set from the amplifier, but kept among the parameters so that the names of the last session's channels can be restored
+    // when it is not connected at startup
+    m_channelCount.setDescription("Number of channels (read from the amplifier)");
 
     m_parameters.push_back(&m_paramProtocol);
     m_parameters.push_back(&m_paramDevice);
     m_parameters.push_back(&m_samplingRate);
     m_parameters.push_back(&m_channelCount);
     m_parameters.push_back(&m_paramMontage);
-    m_parameters.push_back(&m_paramAdditionalChannels);
     m_parameters.push_back(&m_paramTriggerChannel);
     m_parameters.push_back(&m_paramCommonModeRejection);
+
+    m_paramMontage.connect([this](std::any) { onMontageChanged(); });
 }
 
 CDriverTMSi::~CDriverTMSi()
@@ -213,8 +203,85 @@ OpenViBE::Parameters::Parameters CDriverTMSi::getParameters()
         std::vector<std::string> devices{FIRST_DEVICE};
         devices.insert(devices.end(), m_devices.begin(), m_devices.end());
         m_paramDevice.setAvailableValues(devices);
+        if (queryLayout()) { fitNamesToLayout(); }
     }
     return AbstractDriver::getParameters();
+}
+
+std::string CDriverTMSi::selectedDevice() const
+{
+    if (m_devices.empty()) { return ""; }
+    const std::string& device = m_paramDevice.value();
+    return std::find(m_devices.begin(), m_devices.end(), device) != m_devices.end() ? device : m_devices.front();
+}
+
+bool CDriverTMSi::queryLayout()
+{
+    const std::string device = selectedDevice();
+    if (device.empty()) { return false; }
+    if (device == m_layoutDevice && !m_layout.empty()) { return true; }
+
+    if (!openFrontEnd(device)) { return false; }
+    const bool ok = readSignalFormat();
+    closeFrontEnd();
+    if (ok) { m_layoutDevice = device; }
+    return ok;
+}
+
+bool CDriverTMSi::fitNamesToLayout()
+{
+    if (m_layout.empty()) { return false; }
+
+    // Names stored for another layout (another device, or a changed channel count) mean nothing here: start over
+    std::vector<std::string> names = m_channelNames.value();
+    if (names.size() != m_layout.size()) {
+        names.assign(m_layout.size(), "");
+        for (size_t i = 0; i < m_layout.size(); ++i) { if (m_layout[i].type == CHANNELTYPE_EXG) { names[i] = m_layout[i].name; } }
+    }
+    const bool ok = applyMontage(names);
+
+    // Resizes m_channelNames too, through the notifier AbstractDriver installs in its constructor
+    m_channelCount.setValue(int(m_layout.size()));
+    m_channelNames.setValue(names);
+    return ok;
+}
+
+bool CDriverTMSi::applyMontage(std::vector<std::string>& names) const
+{
+    if (m_paramMontage.value().empty()) { return true; }
+
+    std::string error;
+    std::vector<std::string> warnings;
+    const std::map<int, std::string> montage = loadCharmeleonMontage(m_paramMontage.value(), error, warnings);
+    for (const auto& warning : warnings) { std::cout << "[TMSi] Montage: " << warning << std::endl; }
+    if (montage.empty()) {
+        std::cout << "[TMSi] Montage: " << error << std::endl;
+        return false;
+    }
+
+    for (size_t i = 0; i < names.size() && i < m_layout.size(); ++i) { if (m_layout[i].type == CHANNELTYPE_EXG) { names[i].clear(); } }
+    for (const auto& [hardwareChannel, name] : montage) {
+        if (hardwareChannel < 1 || size_t(hardwareChannel) > names.size()) {
+            std::cout << "[TMSi] Montage: " << name << " is on hardware channel " << hardwareChannel << ", but the device has "
+                      << names.size() << " channels. Ignored." << std::endl;
+            continue;
+        }
+        names[hardwareChannel - 1] = name;
+    }
+    return true;
+}
+
+void CDriverTMSi::onMontageChanged()
+{
+    // During an acquisition the list only holds the recorded channels; init() applies the montage anyway
+    if (m_layout.empty() || m_opened || m_channelNames.value().size() != m_layout.size()) { return; }
+
+    std::vector<std::string> names = m_channelNames.value();
+    if (m_paramMontage.value().empty()) {
+        for (size_t i = 0; i < m_layout.size(); ++i) { if (m_layout[i].type == CHANNELTYPE_EXG) { names[i] = m_layout[i].name; } }
+    }
+    else if (!applyMontage(names)) { return; }
+    m_channelNames.setValue(names);
 }
 
 //___________________________________________________________________//
@@ -347,15 +414,13 @@ bool CDriverTMSi::readSignalFormat()
         return false;
     }
 
-    m_nDeviceChannel    = m_api->signalFormat->Elements;
-    m_nDeviceEXGChannel = 0;
-    // NOTE that this ONLY works if all EXG channels are listed first
+    m_nDeviceChannel = m_api->signalFormat->Elements;
+    m_layout.clear();
     for (uint32_t i = 0; i < m_nDeviceChannel; ++i) {
-        if (m_api->signalFormat[i].Type == CHANNELTYPE_EXG) { m_nDeviceEXGChannel++; }
-    }
-
-    for (uint32_t i = 0; i < m_nDeviceChannel; ++i) {
-        std::cout << "[TMSi] " << i << ": " << channelName(i) << " (" << channelType(i) << ")" << std::endl;
+        std::string name;
+        for (size_t c = 0; c < SIGNAL_NAME && m_api->signalFormat[i].Name[c] != 0; ++c) { name += char(m_api->signalFormat[i].Name[c]); }
+        m_layout.push_back({trim(name), uint32_t(m_api->signalFormat[i].Type)});
+        std::cout << "[TMSi] " << i + 1 << ": " << channelName(i) << " (" << channelType(i) << ")" << std::endl;
     }
     return true;
 }
@@ -389,20 +454,13 @@ void CDriverTMSi::printError(const std::string& what) const
               << std::endl;
 }
 
-std::string CDriverTMSi::channelName(const size_t index) const
-{
-    if (!m_api->signalFormat || index >= m_nDeviceChannel) { return ""; }
-
-    std::string name;
-    for (size_t i = 0; i < SIGNAL_NAME && m_api->signalFormat[index].Name[i] != 0; ++i) { name += char(m_api->signalFormat[index].Name[i]); }
-    return trim(name);
-}
+std::string CDriverTMSi::channelName(const size_t index) const { return index < m_layout.size() ? m_layout[index].name : ""; }
 
 std::string CDriverTMSi::channelType(const size_t index) const
 {
-    if (!m_api->signalFormat || index >= m_nDeviceChannel) { return ""; }
+    if (index >= m_layout.size()) { return ""; }
 
-    switch (m_api->signalFormat[index].Type) {
+    switch (m_layout[index].type) {
         case CHANNELTYPE_EXG: return "EXG";
         case CHANNELTYPE_BIP: return "BIP";
         case CHANNELTYPE_AUX: return "AUX";
@@ -426,10 +484,9 @@ bool CDriverTMSi::init()
     if (!initLibrary()) { return false; }
     if (m_devices.empty()) { return false; }
 
-    std::string deviceID = m_paramDevice.value();
-    if (deviceID == FIRST_DEVICE || std::find(m_devices.begin(), m_devices.end(), deviceID) == m_devices.end()) {
-        if (deviceID != FIRST_DEVICE) { std::cout << "[TMSi] Device " << deviceID << " not found, using " << m_devices.front() << std::endl; }
-        deviceID = m_devices.front();
+    const std::string deviceID = selectedDevice();
+    if (m_paramDevice.value() != FIRST_DEVICE && deviceID != m_paramDevice.value()) {
+        std::cout << "[TMSi] Device " << m_paramDevice.value() << " not found, using " << deviceID << std::endl;
     }
     std::cout << "[TMSi] Opening device " << deviceID << std::endl;
 
@@ -445,56 +502,29 @@ bool CDriverTMSi::init()
         closeFrontEnd();
         return false;
     }
+    m_layoutDevice = deviceID;
 
-    // Select the EEG channels: those a montage names, or else the first m_channelCount EXG ones
-    m_requestedChannelCount = uint32_t(m_channelCount.value());
+    // Record the channels that have a name, under that name
+    if (!fitNamesToLayout()) {
+        closeFrontEnd();
+        return false;
+    }
+    m_configuredNames = m_channelNames.value();
     m_isChannelActivated.assign(m_nDeviceChannel, false);
-    std::map<uint32_t, std::string> labels; // Device channel -> name given by the montage or the additional channels
-
-    if (!m_paramMontage.value().empty()) {
-        std::string error;
-        std::vector<std::string> warnings;
-        const std::map<int, std::string> montage = loadCharmeleonMontage(m_paramMontage.value(), error, warnings);
-        for (const auto& warning : warnings) { std::cout << "[TMSi] Montage: " << warning << std::endl; }
-        if (montage.empty()) {
-            std::cout << "[TMSi] Montage: " << error << std::endl;
-            closeFrontEnd();
-            return false;
-        }
-        for (const auto& [hardwareChannel, name] : montage) {
-            if (uint32_t(hardwareChannel) > m_nDeviceChannel) {
-                std::cout << "[TMSi] Montage: " << name << " is on hardware channel " << hardwareChannel << ", but the device has "
-                          << m_nDeviceChannel << " channels. Ignored." << std::endl;
-                continue;
-            }
-            m_isChannelActivated[hardwareChannel - 1] = true;
-            labels[hardwareChannel - 1]               = name;
-        }
-        std::cout << "[TMSi] Montage " << m_paramMontage.value() << " selects " << labels.size() << " channels" << std::endl;
+    std::vector<std::string> recordedNames;
+    for (uint32_t i = 0; i < m_nDeviceChannel; ++i) {
+        const std::string name = trim(m_configuredNames[i]);
+        if (name.empty()) { continue; }
+        m_isChannelActivated[i] = true;
+        recordedNames.push_back(name);
     }
-    else {
-        const uint32_t count = std::min<uint32_t>(m_requestedChannelCount, m_nDeviceEXGChannel);
-        if (count < m_requestedChannelCount) { std::cout << "[TMSi] The device only has " << m_nDeviceEXGChannel << " EXG channels" << std::endl; }
-        for (uint32_t i = 0; i < count; ++i) { m_isChannelActivated[i] = true; }
+    if (recordedNames.empty()) {
+        std::cout << "[TMSi] No channel has a name, so there is nothing to record" << std::endl;
+        m_configuredNames.clear();
+        closeFrontEnd();
+        return false;
     }
-    m_eegChannelCount = uint32_t(std::count(m_isChannelActivated.begin(), m_isChannelActivated.end(), true));
-
-    // Additional channels, by device name, optionally relabelled: "AUX3=Photodiode;Digi;Saw"
-    for (const auto& entry : splitNames(m_paramAdditionalChannels.value())) {
-        const size_t equals      = entry.find('=');
-        const std::string name   = trim(entry.substr(0, equals));
-        const std::string label  = equals == std::string::npos ? "" : trim(entry.substr(equals + 1));
-        bool found               = false;
-        for (uint32_t i = 0; i < m_nDeviceChannel; ++i) {
-            if (channelName(i) == name) {
-                m_isChannelActivated[i] = true;
-                if (!label.empty()) { labels[i] = label; }
-                found = true;
-                break;
-            }
-        }
-        if (!found) { std::cout << "[TMSi] Additional channel " << name << " not found on the device" << std::endl; }
-    }
+    std::cout << "[TMSi] Recording " << recordedNames.size() << " of the " << m_nDeviceChannel << " channels" << std::endl;
 
     // The trigger channel, named or else the first DIG channel that is not the sawtooth, which the SDK also types as DIG
     m_triggerChannel   = -1;
@@ -510,20 +540,9 @@ bool CDriverTMSi::init()
     else if (!triggerName.empty()) { std::cout << "[TMSi] Trigger channel " << triggerName << " not found on the device, no triggers" << std::endl; }
     else { std::cout << "[TMSi] No digital channel found, no triggers" << std::endl; }
 
-    // Widen the channel count for the duration of the acquisition; unInit() restores it. Growing it also resizes
-    // m_channelNames, through the notifier AbstractDriver installs in its constructor.
-    m_channelCount.setValue(int(std::count(m_isChannelActivated.begin(), m_isChannelActivated.end(), true)));
-
-    // Names follow the recording order, which is the device order. A label from the montage or the additional channels
-    // wins; EEG channels keep a name the user gave them; anything else gets its device name.
-    uint32_t position = 0;
-    for (uint32_t i = 0; i < m_nDeviceChannel; ++i) {
-        if (!m_isChannelActivated[i]) { continue; }
-        const auto label = labels.find(i);
-        if (label != labels.end()) { m_channelNames.setAt(position, label->second); }
-        else if (position >= m_eegChannelCount || m_channelNames.getAt(position).empty()) { m_channelNames.setAt(position, channelName(i)); }
-        position++;
-    }
+    // For the duration of the acquisition the channel count and names describe the recorded channels only; unInit() restores the full list
+    m_channelCount.setValue(int(recordedNames.size()));
+    m_channelNames.setValue(recordedNames);
 
     return true;
 }
@@ -533,8 +552,11 @@ bool CDriverTMSi::unInit()
     closeFrontEnd();
     exitLibrary();
 
-    // Back to the channel count the user asked for, so the additional channels' names are not persisted as if the user had chosen them
-    if (m_requestedChannelCount > 0) { m_channelCount.setValue(int(m_requestedChannelCount)); }
+    if (!m_configuredNames.empty()) {
+        m_channelCount.setValue(int(m_configuredNames.size()));
+        m_channelNames.setValue(m_configuredNames);
+        m_configuredNames.clear();
+    }
     return true;
 }
 
