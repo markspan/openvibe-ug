@@ -328,6 +328,7 @@ ApplicationWindow {
                   id: _channelRename
                   Layout.fillWidth: true
                   channelNames: controller.channelNames
+                  channelHints: controller.channelHints
 
                   onNameChanged: (index, name) => controller.setChannelName(index, name)
                   onAllNamesChanged: (channelNames) => controller.setChannelNames(channelNames)

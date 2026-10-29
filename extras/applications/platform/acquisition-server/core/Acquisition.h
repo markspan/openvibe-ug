@@ -114,6 +114,7 @@ public:
 
     std::vector<std::string> getDriverChannelNames() const { return !m_driver ? std::vector<std::string>{} : m_driver->channelNames().value(); }
     void setDriverChannelNames(const std::vector<std::string>& names) { if (m_driver) m_driver->channelNames().setValue(names); }
+    std::vector<std::string> getDriverChannelHints() const { return !m_driver ? std::vector<std::string>{} : m_driver->channelHints(); }
 
     OpenViBE::Parameters::ParameterStringVector* getDriverChannelNamesParam() { return m_driver ? &m_driver->channelNames() : nullptr; }
 

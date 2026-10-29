@@ -58,6 +58,9 @@ public:
 
     void setChunkSize(uint32_t chunkSize) override { m_nSamplePerSentBlock = chunkSize; }
 
+    /// BIP1, BIP2, AUX1, ... for the bipolar and auxiliary channels, the device name for the other non-EEG channels.
+    std::vector<std::string> channelHints() const override;
+
     OpenViBE::Parameters::Parameters getParameters() override;
 
 private:

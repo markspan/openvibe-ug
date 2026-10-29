@@ -197,6 +197,12 @@ public:
     virtual OpenViBE::Parameters::ParameterStringVector& channelNames() { return m_channelNames; }
 
     /**
+     * @brief Hints the channel names list shows in entries left empty, e.g. which device channel an entry stands for.
+     * @return One hint per channel name (an empty one for none), or an empty vector for no hints at all.
+     */
+    virtual std::vector<std::string> channelHints() const { return {}; }
+
+    /**
      * @brief Sets the chunk size for the driver.
      * @param chunkSize The chunk size to set in samples.
      */

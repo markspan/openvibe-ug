@@ -11,6 +11,8 @@ Control {
     id: _control
 
     required property var channelNames
+    // Shown greyed out in an empty entry, e.g. which device channel it stands for
+    property var channelHints: []
 
     property bool collapsed: true
     property var _editableNames: []
@@ -106,6 +108,8 @@ Control {
                     DS.TextField {
                         Layout.fillWidth: true
                         text: modelData
+                        placeholderText: index < _control.channelHints.length ? _control.channelHints[index] : ""
+                        placeholderTextColor: DS.Theme.textTertiary
                         onEditingFinished: {
                             var copy = _control._editableNames.slice()
                             copy[index] = displayText

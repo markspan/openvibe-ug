@@ -470,6 +470,13 @@ QStringList AcquisitionController::getChannelNames()
     return d->m_channelNamesObj ? d->m_channelNamesObj->value() : QStringList();
 }
 
+QStringList AcquisitionController::getChannelHints()
+{
+    QStringList hints;
+    for (const auto& hint : d->m_acquisition->getDriverChannelHints()) { hints.append(QString::fromStdString(hint)); }
+    return hints;
+}
+
 void AcquisitionController::setChannelNames(const QStringList& channelNames)
 {
     std::vector<std::string> names;

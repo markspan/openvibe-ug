@@ -37,6 +37,7 @@ class AcquisitionController : public QObject
     Q_PROPERTY(double instantDrift READ instantDrift NOTIFY driftChanged)
     Q_PROPERTY(double globalDrift READ globalDrift NOTIFY driftChanged)
     Q_PROPERTY(QStringList channelNames READ getChannelNames NOTIFY channelNamesChanged)
+    Q_PROPERTY(QStringList channelHints READ getChannelHints NOTIFY channelNamesChanged)
 
 public:
     AcquisitionController();
@@ -74,6 +75,7 @@ public:
     Q_INVOKABLE bool toggleImpedanceCheck();
     Q_INVOKABLE void configureDeviceDriver();
     Q_INVOKABLE QStringList getChannelNames();
+    Q_INVOKABLE QStringList getChannelHints();
     Q_INVOKABLE void setChannelNames(const QStringList& channelNames);
     Q_INVOKABLE void setChannelName(int index, const QString& name);
 

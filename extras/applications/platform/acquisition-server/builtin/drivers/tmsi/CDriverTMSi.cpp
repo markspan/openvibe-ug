@@ -208,6 +208,24 @@ OpenViBE::Parameters::Parameters CDriverTMSi::getParameters()
     return AbstractDriver::getParameters();
 }
 
+std::vector<std::string> CDriverTMSi::channelHints() const
+{
+    // During an acquisition the list holds the recorded channels only, which all have a name
+    if (m_layout.empty() || m_channelNames.value().size() != m_layout.size()) { return {}; }
+
+    std::vector<std::string> hints(m_layout.size());
+    uint32_t nBipolar = 0, nAuxiliary = 0;
+    for (size_t i = 0; i < m_layout.size(); ++i) {
+        switch (m_layout[i].type) {
+            case CHANNELTYPE_EXG: break;
+            case CHANNELTYPE_BIP: hints[i] = "BIP" + std::to_string(++nBipolar); break;
+            case CHANNELTYPE_AUX: hints[i] = "AUX" + std::to_string(++nAuxiliary); break;
+            default: hints[i] = m_layout[i].name; break;
+        }
+    }
+    return hints;
+}
+
 std::string CDriverTMSi::selectedDevice() const
 {
     if (m_devices.empty()) { return ""; }
