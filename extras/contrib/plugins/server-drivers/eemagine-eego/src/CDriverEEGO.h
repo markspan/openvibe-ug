@@ -9,6 +9,7 @@
 #include <AbstractDriver.h>
 #include <AbstractDriverBuilder.h>
 
+#include <openvibe/parameters/parameterInt.h>
 #include <openvibe/parameters/parameterListString.h>
 #include <openvibe/parameters/parameterPath.h>
 #include <openvibe/parameters/parameterString.h>
@@ -31,10 +32,11 @@ class stream;
 /**
  * \brief Acquisition driver for eemagine eego amplifiers.
  *
- * Channels are picked with two bit masks -- one over the referential (EEG) channels, one over the
- * bipolar (BIP) ones -- and the stream always carries a trigger and a sample-counter channel on top.
- * Alternatively a Charmeleon montage picks and names them: HardwareChannel counts the referential
- * channels first, then the bipolar ones, and channels the montage does not name are not recorded.
+ * The amplifier's channels are called EEG1..EEGn (referential) and BIP1..BIPm (bipolar). The first
+ * "EEG channel count" referential channels are recorded, or the channels a Charmeleon montage names
+ * (HardwareChannel counts the referential channels first, then the bipolar ones). Further channels are
+ * added by name, optionally relabelled ("BIP1=Photodiode"). The stream always carries a trigger and a
+ * sample-counter channel on top.
  * The trigger channel is published as a signal channel *and* flank-decoded into stimulations, as it
  * was before the port.
  *
@@ -69,34 +71,17 @@ private:
     /** Number of status channels the stream appends to the selected EEG/BIP ones: trigger + counter. */
     static const int STATUS_CHANNEL_COUNT = 2;
 
-    /**
-     * \brief Parses a channel mask written as "0x..", "0b..", "0.." (octal) or plain decimal.
-     *
-     * Strict on purpose: a single character the base does not accept is an error rather than a
-     * silently truncated mask, which is what strtoull on its own would give. Ported from the
-     * retired CHeaderEEGO.
-     *
-     * \return true when \p str was fully parsed, false otherwise (\p out is then 0).
-     */
-    static bool convertMask(const std::string& str, uint64_t& out);
-
     /** Absolute path to eego-SDK.dll next to the host executable, or the bare name as a fallback. */
     static std::string sdkLibraryPath();
 
     /** Lazily builds the SDK factory. Throws whatever the SDK throws when the library is missing. */
     eemagine::sdk::factory& factory();
 
-    uint64_t refMask() const;
-    uint64_t bipMask() const;
-
     /**
-     * Reads the montage parameter, if set, into m_montage and the masks it selects. Needs the
-     * amplifier, whose channel list tells how many referential channels precede the bipolar ones.
+     * Picks the channels to record from the amplifier's channel list, into m_selectedChannels, and
+     * fills m_channelCount / m_channelNames. No stream needed.
      */
-    bool loadMontage();
-
-    /** Fills m_channelCount / m_channelNames from the amplifier's channel list. No stream needed. */
-    bool buildChannelNames();
+    bool selectChannels();
 
     /** Copies one stream buffer into m_pending. Returns the number of samples fetched. */
     size_t fetchPending();
@@ -105,13 +90,12 @@ private:
     OpenViBE::Parameters::ParameterListString m_paramSamplingRate;
     OpenViBE::Parameters::ParameterListString m_paramEEGRange; ///< [mV]
     OpenViBE::Parameters::ParameterListString m_paramBIPRange; ///< [mV]
-    OpenViBE::Parameters::ParameterString     m_paramEEGMask;
-    OpenViBE::Parameters::ParameterString     m_paramBIPMask;
+    OpenViBE::Parameters::ParameterInt        m_paramEEGChannelCount;
     OpenViBE::Parameters::ParameterPath       m_paramMontage;
+    OpenViBE::Parameters::ParameterString     m_paramAdditionalChannels;
 
-    std::map<int, std::string> m_montage; ///< HardwareChannel (1-based) -> name, empty without a montage.
-    uint64_t m_montageRefMask = 0;
-    uint64_t m_montageBipMask = 0;
+    /// Channels to record, as SDK channel index and type, in amplifier order.
+    std::vector<std::pair<unsigned int, int>> m_selectedChannels;
 
     std::unique_ptr<eemagine::sdk::factory>   m_factory;
     std::unique_ptr<eemagine::sdk::amplifier> m_amplifier;

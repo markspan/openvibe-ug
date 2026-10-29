@@ -28,12 +28,12 @@ struct TMSiApi;
  *
  * TMSi amplifiers (Refa, Porti, Mobita...) through TMSiSDK.dll, ported from the legacy ovasIDriver/GTK driver.
  *
- * m_channelCount is the number of EEG (EXG/BIP/AUX) channels, taken in device order, unless a Charmeleon
- * montage is set: it then picks and names the EEG channels by HardwareChannel. Additional channels
- * (DIG, SAW, ...) are added by name. Only additional DIG channels listed there produce stimulations, so the
- * SAW ramp channel, which the SDK also types as digital, never does.
+ * m_channelCount is the number of EXG channels, taken in device order, unless a Charmeleon montage is set:
+ * it then picks and names channels by HardwareChannel. Additional channels (BIP, AUX, DIG, SAW, ...) are added
+ * by device name, optionally relabelled ("AUX3=Photodiode"). Channels are recorded in device order.
  *
- * Triggers are the low 8 bits of a DIG channel, sent as OVTK_StimulationId_Label(value), i.e. 0x8101 to 0x81FF,
+ * Triggers come from one channel only, the trigger channel, never from the SAW ramp channel, which the SDK may
+ * also type as digital. They are its low 8 bits, sent as OVTK_StimulationId_Label(value), i.e. 0x8101 to 0x81FF,
  * without inversion. Nothing else is sent as a stimulation.
  */
 class CDriverTMSi final : public AbstractDriver
@@ -83,6 +83,7 @@ private:
     OpenViBE::Parameters::ParameterListString m_paramProtocol;
     OpenViBE::Parameters::ParameterListString m_paramDevice;
     OpenViBE::Parameters::ParameterString m_paramAdditionalChannels;
+    OpenViBE::Parameters::ParameterString m_paramTriggerChannel;
     OpenViBE::Parameters::ParameterBool m_paramCommonModeRejection;
     OpenViBE::Parameters::ParameterPath m_paramMontage;
 
@@ -98,9 +99,10 @@ private:
 
     // Device signal format
     uint32_t m_nDeviceChannel    = 0;
-    uint32_t m_nDeviceEEGChannel = 0;
+    uint32_t m_nDeviceEXGChannel = 0;
     std::vector<bool> m_isChannelActivated;
-    std::vector<uint32_t> m_lastTriggerValue; ///< Per device channel, only meaningful for DIG channels.
+    int m_triggerChannel        = -1; ///< Device channel carrying the triggers, -1 if none.
+    uint32_t m_lastTriggerValue = 0;
 
     // Raw device buffer, holding what GetSamples returned and read() has not consumed yet
     std::vector<unsigned long> m_rawBuffer;

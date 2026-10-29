@@ -14,6 +14,7 @@
 #include <Windows.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <iostream>
 #include <sstream>
@@ -124,6 +125,13 @@ std::string trim(const std::string& s)
     return s.substr(first, s.find_last_not_of(" \t") - first + 1);
 }
 
+/// True for the sawtooth/ramp channel, which the SDK may type as a digital channel.
+bool looksLikeSawtooth(std::string name)
+{
+    std::transform(name.begin(), name.end(), name.begin(), [](const unsigned char c) { return char(std::tolower(c)); });
+    return name.find("saw") != std::string::npos || name.find("ramp") != std::string::npos;
+}
+
 /// Splits "a;b; c" into {"a", "b", "c"}, dropping empty entries.
 std::vector<std::string> splitNames(const std::string& s)
 {
@@ -169,9 +177,12 @@ CDriverTMSi::CDriverTMSi()
     : m_api(std::make_unique<TMSiApi>()),
       m_paramProtocol("ConnectionProtocol", "Connection protocol", protocolNames(), "USB"),
       m_paramDevice("DeviceIdentifier", "Device", {FIRST_DEVICE}, FIRST_DEVICE),
-      m_paramAdditionalChannels("AdditionalChannels", "Additional channels (names, separated by ;). DIG channels listed here send triggers", ""),
+      m_paramAdditionalChannels("AdditionalChannels",
+                                "Additional channels: device names separated by ;, optionally renamed, e.g. AUX3=Photodiode;Digi;Saw",
+                                ""),
+      m_paramTriggerChannel("TriggerChannel", "Trigger channel (device name; empty = the first digital channel that is not the sawtooth)", ""),
       m_paramCommonModeRejection("CommonModeRejection", "Common mode rejection (common average reference)", true),
-      m_paramMontage("Montage", "Charmeleon montage, selects and names the EEG channels instead of the channel count", "",
+      m_paramMontage("Montage", "Charmeleon montage, selects and names channels by hardware channel instead of the channel count", "",
                      OpenViBE::Parameters::Read, {"Charmeleon montage (*.json)", "Any File (*)"})
 {
     m_samplingRate = 512;
@@ -183,6 +194,7 @@ CDriverTMSi::CDriverTMSi()
     m_parameters.push_back(&m_channelCount);
     m_parameters.push_back(&m_paramMontage);
     m_parameters.push_back(&m_paramAdditionalChannels);
+    m_parameters.push_back(&m_paramTriggerChannel);
     m_parameters.push_back(&m_paramCommonModeRejection);
 }
 
@@ -336,11 +348,10 @@ bool CDriverTMSi::readSignalFormat()
     }
 
     m_nDeviceChannel    = m_api->signalFormat->Elements;
-    m_nDeviceEEGChannel = 0;
-    // NOTE that this ONLY works if all EEG channels are listed first
+    m_nDeviceEXGChannel = 0;
+    // NOTE that this ONLY works if all EXG channels are listed first
     for (uint32_t i = 0; i < m_nDeviceChannel; ++i) {
-        const ULONG type = m_api->signalFormat[i].Type;
-        if (type == CHANNELTYPE_EXG || type == CHANNELTYPE_BIP || type == CHANNELTYPE_AUX) { m_nDeviceEEGChannel++; }
+        if (m_api->signalFormat[i].Type == CHANNELTYPE_EXG) { m_nDeviceEXGChannel++; }
     }
 
     for (uint32_t i = 0; i < m_nDeviceChannel; ++i) {
@@ -435,10 +446,10 @@ bool CDriverTMSi::init()
         return false;
     }
 
-    // Select the EEG channels: those a montage names, or else the first m_channelCount ones
+    // Select the EEG channels: those a montage names, or else the first m_channelCount EXG ones
     m_requestedChannelCount = uint32_t(m_channelCount.value());
     m_isChannelActivated.assign(m_nDeviceChannel, false);
-    std::vector<std::string> eegNames;
+    std::map<uint32_t, std::string> labels; // Device channel -> name given by the montage or the additional channels
 
     if (!m_paramMontage.value().empty()) {
         std::string error;
@@ -451,53 +462,68 @@ bool CDriverTMSi::init()
             return false;
         }
         for (const auto& [hardwareChannel, name] : montage) {
-            if (uint32_t(hardwareChannel) > m_nDeviceEEGChannel) {
+            if (uint32_t(hardwareChannel) > m_nDeviceChannel) {
                 std::cout << "[TMSi] Montage: " << name << " is on hardware channel " << hardwareChannel << ", but the device has "
-                          << m_nDeviceEEGChannel << " EEG channels. Ignored." << std::endl;
+                          << m_nDeviceChannel << " channels. Ignored." << std::endl;
                 continue;
             }
             m_isChannelActivated[hardwareChannel - 1] = true;
-            eegNames.push_back(name);
+            labels[hardwareChannel - 1]               = name;
         }
-        std::cout << "[TMSi] Montage " << m_paramMontage.value() << " selects " << eegNames.size() << " EEG channels" << std::endl;
+        std::cout << "[TMSi] Montage " << m_paramMontage.value() << " selects " << labels.size() << " channels" << std::endl;
     }
     else {
-        const uint32_t count = std::min<uint32_t>(m_requestedChannelCount, m_nDeviceEEGChannel);
-        if (count < m_requestedChannelCount) { std::cout << "[TMSi] The device only has " << m_nDeviceEEGChannel << " EEG channels" << std::endl; }
+        const uint32_t count = std::min<uint32_t>(m_requestedChannelCount, m_nDeviceEXGChannel);
+        if (count < m_requestedChannelCount) { std::cout << "[TMSi] The device only has " << m_nDeviceEXGChannel << " EXG channels" << std::endl; }
         for (uint32_t i = 0; i < count; ++i) { m_isChannelActivated[i] = true; }
     }
     m_eegChannelCount = uint32_t(std::count(m_isChannelActivated.begin(), m_isChannelActivated.end(), true));
 
-    std::vector<uint32_t> additionalChannels;
-    for (const auto& name : splitNames(m_paramAdditionalChannels.value())) {
-        bool found = false;
-        for (uint32_t i = m_nDeviceEEGChannel; i < m_nDeviceChannel; ++i) {
-            if (channelName(i) == name && !m_isChannelActivated[i]) {
+    // Additional channels, by device name, optionally relabelled: "AUX3=Photodiode;Digi;Saw"
+    for (const auto& entry : splitNames(m_paramAdditionalChannels.value())) {
+        const size_t equals      = entry.find('=');
+        const std::string name   = trim(entry.substr(0, equals));
+        const std::string label  = equals == std::string::npos ? "" : trim(entry.substr(equals + 1));
+        bool found               = false;
+        for (uint32_t i = 0; i < m_nDeviceChannel; ++i) {
+            if (channelName(i) == name) {
                 m_isChannelActivated[i] = true;
-                additionalChannels.push_back(i);
+                if (!label.empty()) { labels[i] = label; }
                 found = true;
                 break;
             }
         }
         if (!found) { std::cout << "[TMSi] Additional channel " << name << " not found on the device" << std::endl; }
     }
-    std::sort(additionalChannels.begin(), additionalChannels.end());
 
-    m_lastTriggerValue.assign(m_nDeviceChannel, 0);
-    for (const uint32_t i : additionalChannels) {
-        if (m_api->signalFormat[i].Type == CHANNELTYPE_DIG) { std::cout << "[TMSi] Triggers are read from channel " << channelName(i) << std::endl; }
+    // The trigger channel, named or else the first DIG channel that is not the sawtooth, which the SDK also types as DIG
+    m_triggerChannel   = -1;
+    m_lastTriggerValue = 0;
+    const std::string triggerName = trim(m_paramTriggerChannel.value());
+    for (uint32_t i = 0; i < m_nDeviceChannel && m_triggerChannel < 0; ++i) {
+        if (!triggerName.empty()) {
+            if (channelName(i) == triggerName) { m_triggerChannel = int(i); }
+        }
+        else if (m_api->signalFormat[i].Type == CHANNELTYPE_DIG && !looksLikeSawtooth(channelName(i))) { m_triggerChannel = int(i); }
     }
+    if (m_triggerChannel >= 0) { std::cout << "[TMSi] Triggers are read from channel " << channelName(m_triggerChannel) << std::endl; }
+    else if (!triggerName.empty()) { std::cout << "[TMSi] Trigger channel " << triggerName << " not found on the device, no triggers" << std::endl; }
+    else { std::cout << "[TMSi] No digital channel found, no triggers" << std::endl; }
 
     // Widen the channel count for the duration of the acquisition; unInit() restores it. Growing it also resizes
     // m_channelNames, through the notifier AbstractDriver installs in its constructor.
-    m_channelCount.setValue(int(m_eegChannelCount + additionalChannels.size()));
+    m_channelCount.setValue(int(std::count(m_isChannelActivated.begin(), m_isChannelActivated.end(), true)));
 
-    // A montage names the EEG channels; otherwise only fill in the blanks, so that channels the user renamed keep their name
-    for (uint32_t i = 0; i < m_eegChannelCount; ++i) {
-        if (!eegNames.empty()) { m_channelNames.setAt(i, eegNames[i]); }
-        else if (m_channelNames.getAt(i).empty()) { m_channelNames.setAt(i, channelName(i)); }
+    // Names follow the recording order, which is the device order. A label from the montage or the additional channels
+    // wins; EEG channels keep a name the user gave them; anything else gets its device name.
+    uint32_t position = 0;
+    for (uint32_t i = 0; i < m_nDeviceChannel; ++i) {
+        if (!m_isChannelActivated[i]) { continue; }
+        const auto label = labels.find(i);
+        if (label != labels.end()) { m_channelNames.setAt(position, label->second); }
+        else if (position >= m_eegChannelCount || m_channelNames.getAt(position).empty()) { m_channelNames.setAt(position, channelName(i)); }
+        position++;
     }
-    for (size_t i = 0; i < additionalChannels.size(); ++i) { m_channelNames.setAt(m_eegChannelCount + i, channelName(additionalChannels[i])); }
 
     return true;
 }
@@ -516,7 +542,7 @@ bool CDriverTMSi::start()
 {
     m_pendingTriggers.clear();
     m_stimQueue.clear();
-    std::fill(m_lastTriggerValue.begin(), m_lastTriggerValue.end(), 0);
+    m_lastTriggerValue = 0;
     m_rawSampleCount = 0;
     m_rawSampleIndex = 0;
 
@@ -584,14 +610,14 @@ int CDriverTMSi::read(sampleType* data, const uint64_t size)
                 }
             }
             virtualChannel++;
+        }
 
-            // Only activated DIG channels carry triggers: the low 8 bits, as is, sent on change to a non-zero value
-            if (format.Type == CHANNELTYPE_DIG) {
-                const uint32_t trigger = raw[c] & 0xFFU;
-                if (trigger != m_lastTriggerValue[c]) {
-                    m_lastTriggerValue[c] = trigger;
-                    if (trigger != 0) { m_pendingTriggers.push_back({uint64_t(OVTK_StimulationId_Label(trigger)), s}); }
-                }
+        // Only the trigger channel carries triggers: the low 8 bits, as is, sent on change to a non-zero value
+        if (m_triggerChannel >= 0) {
+            const uint32_t trigger = raw[m_triggerChannel] & 0xFFU;
+            if (trigger != m_lastTriggerValue) {
+                m_lastTriggerValue = trigger;
+                if (trigger != 0) { m_pendingTriggers.push_back({uint64_t(OVTK_StimulationId_Label(trigger)), s}); }
             }
         }
     }
