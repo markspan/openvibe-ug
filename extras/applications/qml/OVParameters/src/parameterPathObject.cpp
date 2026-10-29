@@ -68,20 +68,23 @@ QString ParameterPathObject::value() const
     return QString::fromStdString(m_path->value());
 }
 
-void ParameterPathObject::setValue(QString value) 
+QString ParameterPathObject::decode(const QString& value)
 {
-    //first decode the path
     const QUrl url(value);
-    QString decoded_value;
-    if(url.isLocalFile()) {
-        decoded_value = QDir::toNativeSeparators(url.toLocalFile());
-    } else {
-        decoded_value = value;
-    }
+    return url.isLocalFile() ? QDir::toNativeSeparators(url.toLocalFile()) : value;
+}
 
+void ParameterPathObject::setValue(QString value)
+{
+    const QString decoded_value = decode(value);
     if(decoded_value != this->value()) {
         m_path->setValue(decoded_value.toStdString());
     }
+}
+
+void ParameterPathObject::choose(QString value)
+{
+    m_path->setValue(decode(value).toStdString());
 }
 
 QStringList ParameterPathObject::filters() const 

@@ -30,7 +30,8 @@ struct TMSiApi;
  *
  * The channel names list has one entry per device channel, read from the amplifier, and only channels with a name
  * are recorded, in device order. EXG channels start out with their device name, or, when a Charmeleon montage is
- * set, with the name it gives their HardwareChannel; EXG channels the montage leaves out are not recorded. All other
+ * set, with the name it gives their HardwareChannel, which counts EXG channels only (electrodes beyond the device's
+ * EXG channels are ignored); EXG channels the montage leaves out are not recorded. All other
  * channels (BIP, AUX, DIG, SAW, ...) start out empty: giving one a name records it under that name.
  *
  * Triggers come from one channel only, the trigger channel, never from the SAW ramp channel, which the SDK may

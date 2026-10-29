@@ -85,7 +85,8 @@ Control {
     modality: Qt.ApplicationModal
 
     onAccepted: {
-        _control.param.value = decodeURIComponent(_fileDialog.file);
+        // choose() rather than value, so that picking the file that is already set reloads it
+        _control.param.choose(decodeURIComponent(_fileDialog.file));
     }
   }
 }

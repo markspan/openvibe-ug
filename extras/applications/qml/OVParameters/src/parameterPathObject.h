@@ -26,6 +26,8 @@ public:
 
     QString value() const;
     void setValue(QString value);
+    /// Sets the value even when it does not change, so that choosing the same file again reloads it.
+    Q_INVOKABLE void choose(QString value);
 
     QStringList filters() const;
     void setFilters(QStringList filters);
@@ -39,6 +41,8 @@ signals:
     void filtersChanged(const QStringList&);
 
 private:
+    static QString decode(const QString& value);
+
     ParameterPath *m_path = nullptr;
 };
 

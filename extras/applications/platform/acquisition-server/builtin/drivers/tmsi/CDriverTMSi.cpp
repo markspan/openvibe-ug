@@ -277,14 +277,26 @@ bool CDriverTMSi::applyMontage(std::vector<std::string>& names) const
         return false;
     }
 
-    for (size_t i = 0; i < names.size() && i < m_layout.size(); ++i) { if (m_layout[i].type == CHANNELTYPE_EXG) { names[i].clear(); } }
+    // Charmeleon only knows the EEG channels: its HardwareChannel n is the n-th EXG channel, wherever the device lists it
+    std::vector<size_t> eegChannels;
+    for (size_t i = 0; i < names.size() && i < m_layout.size(); ++i) {
+        if (m_layout[i].type == CHANNELTYPE_EXG) {
+            eegChannels.push_back(i);
+            names[i].clear();
+        }
+    }
+
+    std::string ignored;
     for (const auto& [hardwareChannel, name] : montage) {
-        if (hardwareChannel < 1 || size_t(hardwareChannel) > names.size()) {
-            std::cout << "[TMSi] Montage: " << name << " is on hardware channel " << hardwareChannel << ", but the device has "
-                      << names.size() << " channels. Ignored." << std::endl;
+        if (size_t(hardwareChannel) > eegChannels.size()) {
+            ignored += (ignored.empty() ? "" : ", ") + name + " (" + std::to_string(hardwareChannel) + ")";
             continue;
         }
-        names[hardwareChannel - 1] = name;
+        names[eegChannels[hardwareChannel - 1]] = name;
+    }
+    if (!ignored.empty()) {
+        std::cout << "[TMSi] Montage: the device has " << eegChannels.size() << " EEG channels, so these electrodes are not recorded: " << ignored
+                  << std::endl;
     }
     return true;
 }
