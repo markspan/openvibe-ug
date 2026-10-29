@@ -278,10 +278,15 @@ bool CDriverTMSi::applyMontage(std::vector<std::string>& names) const
     }
 
     // Charmeleon only knows the EEG channels: its HardwareChannel n is the n-th EXG channel, wherever the device lists it
+    // Other channels keep the names the user gave them, except a montage electrode's name: that is left from a montage
+    // put on them before, when HardwareChannel counted all device channels
     std::vector<size_t> eegChannels;
     for (size_t i = 0; i < names.size() && i < m_layout.size(); ++i) {
         if (m_layout[i].type == CHANNELTYPE_EXG) {
             eegChannels.push_back(i);
+            names[i].clear();
+        }
+        else if (std::any_of(montage.begin(), montage.end(), [&](const auto& electrode) { return electrode.second == trim(names[i]); })) {
             names[i].clear();
         }
     }
