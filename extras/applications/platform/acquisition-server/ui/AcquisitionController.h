@@ -30,6 +30,8 @@ class AcquisitionController : public QObject
     Q_PROPERTY(QObject* connectionPort READ connectionPort CONSTANT) // Pointer is constant although value may change
     Q_PROPERTY(QObject* tcpTaggingPort READ tcpTaggingPort CONSTANT) // Pointer is constant although value may change
     Q_PROPERTY(QObject* sampleCountPerBlock READ getSampleCountPerBlock CONSTANT)
+    Q_PROPERTY(QObject* driftCorrectionPolicy READ driftCorrectionPolicy CONSTANT)
+    Q_PROPERTY(QObject* driftTolerance READ driftTolerance CONSTANT)
     Q_PROPERTY(QQmlListProperty<ImpedanceItem> impedances READ impedances NOTIFY impedancesChanged)
     Q_PROPERTY(double driftLimit READ driftLimit CONSTANT)
     Q_PROPERTY(double instantDrift READ instantDrift NOTIFY driftChanged)
@@ -57,6 +59,8 @@ public:
     QObject* tcpTaggingPort() const;
 
     QObject* getSampleCountPerBlock() const;
+    QObject* driftCorrectionPolicy() const;
+    QObject* driftTolerance() const;
 
     Q_INVOKABLE void setCurrentDriver(const QString& driverName);
 

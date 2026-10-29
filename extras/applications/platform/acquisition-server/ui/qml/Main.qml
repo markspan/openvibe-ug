@@ -420,6 +420,18 @@ ApplicationWindow {
           Layout.fillWidth: true
           param: controller.tcpTaggingPort
         }
+
+        OV.ListParameter {
+          id: _driftCorrectionPolicy
+          Layout.fillWidth: true
+          param: controller.driftCorrectionPolicy
+        }
+
+        OV.NumericParameter {
+          id: _driftTolerance
+          Layout.fillWidth: true
+          param: controller.driftTolerance
+        }
       }
     }
   }

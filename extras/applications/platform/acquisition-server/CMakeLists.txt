@@ -34,6 +34,7 @@ list(APPEND APP_SOURCES
     core/Api.cpp
     core/CircularBuffer.cpp
     core/DriftCalculator.cpp
+    core/DriftCorrector.cpp
     core/SampleBufferHandler.cpp
     core/Thread.cpp
 	core/net-api/CNetAcqControlAPI.cpp
@@ -63,6 +64,7 @@ list(APPEND APP_PRIVATE_HEADERS
     core/Api.h
     core/CircularBuffer.h
     core/DriftCalculator.h
+    core/DriftCorrector.h
     core/SampleBufferHandler.h
     core/Thread.h
     #core/Bridges/CBridgesCollection.h

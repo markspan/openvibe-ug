@@ -137,6 +137,8 @@ private:
         std::map<std::string, bool> enabledWriters;          ///< writer name -> whether it is enabled
         std::map<std::string, nlohmann::json> writerParams;  ///< writer name -> serialized parameters
         std::optional<int> chunkSampleCount;                 ///< unset when no chunk size was saved
+        std::optional<std::string> driftCorrectionPolicy;    ///< unset when no drift correction setting was saved
+        std::optional<int> driftToleranceMs;                 ///< unset when no drift tolerance was saved
     };
 
     /// Applies the stored settings to the services given to setServices().

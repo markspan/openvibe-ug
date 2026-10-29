@@ -15,6 +15,7 @@
 
 #include "Acquisition.h"
 #include "DriftCalculator.h" // for DriftCalculator
+#include "DriftCorrector.h"
 
 #include <chrono> // for high_resolution_clock
 #include <iostream>
@@ -36,6 +37,11 @@ Acquisition::Acquisition() : m_bRun(false),
                                                 "Number of samples required to send a block",
                                                 {4, 8, 16, 32, 64, 128, 256, 512},
                                                 32),
+                             m_driftCorrectionPolicy("Drift correction",
+                                                     "Repeat or drop samples when the amplifier's clock drifts away from the computer's, as the 3.x server did",
+                                                     {"Let the driver decide", "Forced", "Disabled"},
+                                                     "Let the driver decide"),
+                             m_driftTolerance("Drift tolerance (ms)", "Drift that is left uncorrected", 5, 1, 100),
                              m_drift({0, 0, 0, 0})
 { }
 
@@ -53,6 +59,7 @@ void Acquisition::processBuffer()
     {
         if (buff->count > 0) {
             interpolateTimestamps(buff, m_lastTimestamps); ///< Fill in any invalid timestamps in the buffer.
+            if (m_driftCorrector) { m_driftCorrector->process(buff); }
             m_lastTimestamps = buff->timestampsBuff[buff->count - 1]; ///< Update the timestamp of the last processed sample.
 
             if (!m_bFirstbufferProcessed)
@@ -313,6 +320,13 @@ void Acquisition::start()
             m_driftCalculator->setStartTimeAcq(m_lastTimestamps); // Record the start time of the acquisition for drift calculation.
             m_driftCalculator->setStopTimeAcq(0); // Reset the stop time.
 
+            const std::string& policy = m_driftCorrectionPolicy.value();
+            if (policy == "Forced" || (policy == "Let the driver decide" && m_driver->wantsDriftCorrection())) {
+                m_driftCorrector = std::make_unique<DriftCorrector>(m_driver->samplingRate(), m_driver->channelCount(), uint32_t(m_driftTolerance.value()));
+                std::cout << "[Drift] Correcting drift beyond " << m_driftTolerance.value() << " ms" << std::endl;
+            }
+            else { m_driftCorrector.reset(); }
+
             m_threadReader  = std::unique_ptr<thread>(new thread([this] { acquisitionProcessTreadFunction(); })); // Create a thread that continuously reads data from the driver and writes it to the circular buffer.
             m_threadProcess = std::unique_ptr<thread>(new thread([this] { processBufferThreadFunction(); })); // Create a thread that continuously processes buffers from the circular buffer.
             m_threadClean   = std::unique_ptr<thread>(new thread([this] { cleanBuffersThreadFunction(); }));  // Create a thread that continuously cleans up buffers in the circular buffer.
@@ -424,6 +438,11 @@ void Acquisition::stop()
         m_threadProcess->join();
         m_threadClean->join();
         m_threadDrift->join();
+        if (m_driftCorrector) {
+            std::cout << "[Drift] Added " << m_driftCorrector->addedCount() << " and removed " << m_driftCorrector->removedCount()
+                      << " samples in " << m_driftCorrector->correctionCount() << " corrections" << std::endl;
+            m_driftCorrector.reset();
+        }
         m_driver->unInit();
         m_state = State::Idle;
         m_sampleBufferHandler = nullptr;

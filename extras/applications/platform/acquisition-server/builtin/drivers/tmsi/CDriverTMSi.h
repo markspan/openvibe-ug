@@ -53,6 +53,7 @@ public:
     void getData(samplesBuffer* buff) override;
 
     bool usesCharmeleonForImpedance() const override { return true; }
+    bool wantsDriftCorrection() const override { return true; }
 
     void setChunkSize(uint32_t chunkSize) override { m_nSamplePerSentBlock = chunkSize; }
 
@@ -109,6 +110,7 @@ private:
     uint32_t m_rawSampleCount = 0;
     uint32_t m_rawSampleIndex = 0;
 
+    uint64_t m_lastSampleTime = 0; ///< Timestamp given to the last sample handed over, see getData().
     std::vector<PendingTrigger> m_pendingTriggers;
     std::deque<ovStimulation> m_stimQueue;
 };

@@ -60,8 +60,6 @@ struct AcquisitionControllerPrivate {
 
     //config parameters
     OpenViBE::Parameters::ParameterObjects m_configParams;
-    OpenViBE::Parameters::ParameterListStringObject m_driftCorrectionPolicy;
-    OpenViBE::Parameters::ParameterIntObject m_driftTolerance;
     OpenViBE::Parameters::ParameterIntObject m_jitterEstimation;
     OpenViBE::Parameters::ParameterIntObject m_oversamplingFactor;
     OpenViBE::Parameters::ParameterBoolObject m_selectOnlyNamedChannels;
@@ -74,6 +72,8 @@ struct AcquisitionControllerPrivate {
     OpenViBE::Parameters::ParameterIntObject* m_connectionPort;
     OpenViBE::Parameters::ParameterIntObject* m_tcpTaggingPort;
     OpenViBE::Parameters::ParameterListIntObject* m_sampleCountPerBlock;
+    OpenViBE::Parameters::ParameterListStringObject* m_driftCorrectionPolicy;
+    OpenViBE::Parameters::ParameterIntObject* m_driftTolerance;
     std::vector<double> m_impedances;
     std::vector<double> m_impedanceBuf;
     QList<ImpedanceItem*> m_impedancesItems;
@@ -92,8 +92,6 @@ struct AcquisitionControllerPrivate {
 AcquisitionControllerPrivate::AcquisitionControllerPrivate(const Kernel::IKernelContext& kernelCtx, AcquisitionController *q)
     : m_kernelCtx(kernelCtx), 
      q(q),
-     m_driftCorrectionPolicy("Drift Correction Policy", "Drift correction Policy", {"Let the Driver Decide", "Forced", "Disabled"}, "Disabled"),
-     m_driftTolerance("Drift Tolerance", "Drift tolerance in ms", 2, 0, 100),
      m_jitterEstimation("Jitter Estimation", "Jitter estimation count for drift in ms", 16, 0, 1000),
      m_oversamplingFactor("Oversampling Factor", "Oversampling factor", 1, 0, 100),
      m_selectOnlyNamedChannels("Select Only Named Channels", "Select only named channels", false),
@@ -114,6 +112,8 @@ AcquisitionControllerPrivate::AcquisitionControllerPrivate(const Kernel::IKernel
     wrapDriverChannelNames();
 
     m_sampleCountPerBlock = new OpenViBE::Parameters::ParameterListIntObject(m_acquisition->getChunkSampleCount());
+    m_driftCorrectionPolicy = new OpenViBE::Parameters::ParameterListStringObject(m_acquisition->getDriftCorrectionPolicy());
+    m_driftTolerance        = new OpenViBE::Parameters::ParameterIntObject(m_acquisition->getDriftTolerance());
 
     m_connectionPort = new OpenViBE::Parameters::ParameterIntObject(m_netSrv.getPortParameter());
     m_tcpTaggingPort = new OpenViBE::Parameters::ParameterIntObject(m_tcpTaggingSrv.getPortParameter());
@@ -121,6 +121,8 @@ AcquisitionControllerPrivate::AcquisitionControllerPrivate(const Kernel::IKernel
     const std::string acquisitionName = m_acquisitionName;
     const auto saveOnChange = [acquisitionName](std::any) { SessionManager::instance().saveCurrent(acquisitionName); };
     m_acquisition->getChunkSampleCount()->connect(saveOnChange);
+    m_acquisition->getDriftCorrectionPolicy()->connect(saveOnChange);
+    m_acquisition->getDriftTolerance()->connect(saveOnChange);
     m_netSrv.getPortParameter()->connect(saveOnChange);
     m_tcpTaggingSrv.getPortParameter()->connect(saveOnChange);
 
@@ -499,6 +501,16 @@ QObject* AcquisitionController::tcpTaggingPort() const
 QObject* AcquisitionController::getSampleCountPerBlock() const
 {
     return d->m_sampleCountPerBlock;
+}
+
+QObject* AcquisitionController::driftCorrectionPolicy() const
+{
+    return d->m_driftCorrectionPolicy;
+}
+
+QObject* AcquisitionController::driftTolerance() const
+{
+    return d->m_driftTolerance;
 }
 
 QQmlListProperty<ImpedanceItem> AcquisitionController::impedances()

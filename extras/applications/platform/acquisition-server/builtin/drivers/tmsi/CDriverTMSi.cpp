@@ -543,6 +543,7 @@ bool CDriverTMSi::start()
     m_pendingTriggers.clear();
     m_stimQueue.clear();
     m_lastTriggerValue = 0;
+    m_lastSampleTime   = 0;
     m_rawSampleCount = 0;
     m_rawSampleIndex = 0;
 
@@ -629,13 +630,19 @@ void CDriverTMSi::getData(samplesBuffer* buff)
 {
     buff->count             = read(buff->samplesBuff, buff->maxSampleCount);
     const uint64_t readTime = timestamp();
-    if (buff->count > 0) { buff->timestampsBuff[buff->count - 1] = readTime; }
 
-    // Date each trigger at its own sample, counting back from the last sample of the block, which is stamped readTime
+    // Stamp every sample, counting back from the last one (readTime) at the nominal period, and keep the stamps
+    // strictly increasing across blocks. The client places a stimulation on the sample whose stamp matches its date,
+    // so dating each trigger with its own sample's stamp puts it on exactly that sample.
     const uint64_t periodNs = 1'000'000'000ULL / uint64_t(m_samplingRate.value());
+    for (uint32_t i = 0; i < buff->count; ++i) {
+        uint64_t stamp = readTime - uint64_t(buff->count - 1 - i) * periodNs;
+        if (stamp <= m_lastSampleTime) { stamp = m_lastSampleTime + 1; }
+        buff->timestampsBuff[i] = m_lastSampleTime = stamp;
+    }
+
     for (const auto& trigger : m_pendingTriggers) {
-        const uint64_t samplesBefore = buff->count - 1 - trigger.sampleIndex;
-        m_stimQueue.push_back(ovStimulation{trigger.id, readTime - samplesBefore * periodNs, 0});
+        m_stimQueue.push_back(ovStimulation{trigger.id, buff->timestampsBuff[trigger.sampleIndex], 0});
     }
     m_pendingTriggers.clear();
 

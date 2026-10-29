@@ -147,6 +147,12 @@ public:
      */
     virtual bool usesCharmeleonForImpedance() const { return false; }
 
+    /**
+     * Returns true if the server should correct this driver's drift when the drift correction setting
+     * leaves the choice to the driver.
+     */
+    virtual bool wantsDriftCorrection() const { return false; }
+
     /** Enter impedance measurement mode. Called after init(), before start(). */
     virtual bool startImpedanceCheck() { return false; }
 

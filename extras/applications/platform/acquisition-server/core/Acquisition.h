@@ -20,6 +20,8 @@
 #include "AbstractWriter.h"
 
 #include <openvibe/parameters/parameters.h>
+#include <openvibe/parameters/parameterInt.h>
+#include <openvibe/parameters/parameterListString.h>
 
 #include "Thread.h" // Assuming this is a custom thread class
 #include <thread>
@@ -32,6 +34,7 @@
 #include <optional>
 
 class DriftCalculator; ///< Forward declaration of the DriftCalculator class.
+class DriftCorrector;
 
 /**
  * @brief Manages the acquisition of data from a hardware driver.
@@ -102,6 +105,8 @@ public:
     void setNbCycles(uint32_t cycles);
 
     OpenViBE::Parameters::ParameterListInt* getChunkSampleCount() { return &m_chunkSampleCount; }
+    OpenViBE::Parameters::ParameterListString* getDriftCorrectionPolicy() { return &m_driftCorrectionPolicy; }
+    OpenViBE::Parameters::ParameterInt* getDriftTolerance() { return &m_driftTolerance; }
     OpenViBE::Parameters::Parameters getDriverParameters() const { return !m_driver ? OpenViBE::Parameters::Parameters{} : m_driver->getParameters(); }
 
     /// Name of the primary driver, as registered with the AcquisitionManager. Empty when unset.
@@ -137,6 +142,8 @@ private:
     uint64_t m_lastTimestamps; ///< Timestamp of the last processed sample.
 
     OpenViBE::Parameters::ParameterListInt m_chunkSampleCount; ///< Size of output chunks (in samples)
+    OpenViBE::Parameters::ParameterListString m_driftCorrectionPolicy; ///< Whether to add or drop samples to make up for drift
+    OpenViBE::Parameters::ParameterInt m_driftTolerance; ///< Drift left alone, in ms
 
     uint32_t m_nbCycle;
     std::mutex m_driftMutex;
@@ -153,6 +160,7 @@ private:
     std::unique_ptr<SampleBufferHandler> m_sampleBufferHandler; ///< Unique pointer to the handler for managing sample buffers.
     std::unique_ptr<CircularBuffer>      m_circularBuffer; ///< Unique pointer to the circular buffer for storing acquired data.
     std::unique_ptr<DriftCalculator>     m_driftCalculator; ///< Unique pointer to the object responsible for calculating drift.
+    std::unique_ptr<DriftCorrector>      m_driftCorrector; ///< Set while streaming with drift correction on.
 
     DriverPtr m_driver; ///< Owning pointer to the abstract driver instance, released through its builder.
     std::string m_driverName; ///< Registered name of the primary driver, which the driver itself does not carry.

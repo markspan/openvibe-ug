@@ -240,8 +240,12 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
           const uint64_t chunkStartTime = m_startTime + m_chunkQueue.size() * chunkDuration;
 
           for (size_t i = 0; i < payload.stimCount; ++i) {
+            // The last sample stamped at or before the stimulation. Of samples sharing a stamp, which is how drift
+            // correction stamps the samples it repeats, the first: the original that the stimulation was dated with.
+            const uint64_t date = payload.stimulations[i].date;
             size_t idx = 0;
-            while (idx + 1 < payload.count && payload.timestamp[idx + 1] <= payload.stimulations[i].date) {
+            while (idx + 1 < payload.count
+                   && (payload.timestamp[idx + 1] < date || (payload.timestamp[idx + 1] == date && payload.timestamp[idx] != date))) {
               idx++;
             }
             chunk.stims.push_back({payload.stimulations[i].id,

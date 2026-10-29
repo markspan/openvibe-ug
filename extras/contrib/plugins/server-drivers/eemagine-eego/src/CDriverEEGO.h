@@ -61,6 +61,7 @@ public:
 
     bool supportsImpedanceCheck() const override { return true; }
     bool usesCharmeleonForImpedance() const override { return true; }
+    bool wantsDriftCorrection() const override { return true; }
     bool startImpedanceCheck() override;
     int  readImpedances(double* values, size_t count) override;
     bool stopImpedanceCheck() override;
@@ -117,6 +118,7 @@ private:
 
     int      m_triggerChannel   = -1; ///< Index of the trigger channel in a scan, -1 if absent.
     uint32_t m_lastTriggerValue = 0;  ///< Previous trigger word, for rising-edge detection.
+    uint64_t m_lastSampleTime   = 0;  ///< Timestamp given to the last sample handed over, see getData().
     /// Triggers found by the current read(): stimulation id and index of their sample in the block.
     std::vector<std::pair<uint64_t, size_t>> m_pendingTriggers;
     std::deque<ovStimulation> m_stimQueue;

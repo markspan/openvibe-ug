@@ -25,6 +25,8 @@ const char* DRIVER_KEY      = "driver";
 const char* DRIVERS_KEY     = "drivers";
 const char* WRITERS_KEY     = "writers";
 const char* CHUNK_SIZE_KEY  = "chunkSampleCount";
+const char* DRIFT_CORRECTION_KEY = "driftCorrection";
+const char* DRIFT_TOLERANCE_KEY  = "driftToleranceMs";
 const char* NAME_KEY        = "name";
 const char* PARAMS_KEY      = "params";
 const char* ENABLED_KEY     = "enabled";
@@ -224,6 +226,14 @@ SessionManager::Session SessionManager::readStoredSession()
         session.chunkSampleCount = stored[CHUNK_SIZE_KEY].get<int>();
     }
 
+    if (stored.contains(DRIFT_CORRECTION_KEY) && stored[DRIFT_CORRECTION_KEY].is_string()) {
+        session.driftCorrectionPolicy = stored[DRIFT_CORRECTION_KEY].get<std::string>();
+    }
+
+    if (stored.contains(DRIFT_TOLERANCE_KEY) && stored[DRIFT_TOLERANCE_KEY].is_number_integer()) {
+        session.driftToleranceMs = stored[DRIFT_TOLERANCE_KEY].get<int>();
+    }
+
     if (stored.contains(DRIVERS_KEY)) {
         readNamedParams(stored[DRIVERS_KEY], session.driverParams);
         readDriverChannelNames(stored[DRIVERS_KEY], session.driverChannelNames);
@@ -277,6 +287,12 @@ void SessionManager::restoreAll(const std::string& acquisitionName)
 
         if (session.chunkSampleCount) {
             acquisition->getChunkSampleCount()->setValue(*session.chunkSampleCount);
+        }
+        if (session.driftCorrectionPolicy) {
+            acquisition->getDriftCorrectionPolicy()->setValue(*session.driftCorrectionPolicy);
+        }
+        if (session.driftToleranceMs) {
+            acquisition->getDriftTolerance()->setValue(*session.driftToleranceMs);
         }
 
         // Setting the enable flag is what adds the writer to the acquisition, so the settings can
@@ -380,6 +396,8 @@ void SessionManager::saveCurrent(const std::string& acquisitionName)
     session.driverChannelNames = m_driverChannelNames;
     session.writerParams       = m_writerParams;
     session.chunkSampleCount   = acquisition->getChunkSampleCount()->value();
+    session.driftCorrectionPolicy = acquisition->getDriftCorrectionPolicy()->value();
+    session.driftToleranceMs      = acquisition->getDriftTolerance()->value();
 
     for (const auto& [name, enableParam] : manager.getAcquisitionWritersEnableParam(acquisitionName)) {
         session.enabledWriters[name] = enableParam.value();
@@ -401,6 +419,12 @@ void SessionManager::writeAll(const Session& session) const
     }
     if (session.chunkSampleCount) {
         stored[CHUNK_SIZE_KEY] = *session.chunkSampleCount;
+    }
+    if (session.driftCorrectionPolicy) {
+        stored[DRIFT_CORRECTION_KEY] = *session.driftCorrectionPolicy;
+    }
+    if (session.driftToleranceMs) {
+        stored[DRIFT_TOLERANCE_KEY] = *session.driftToleranceMs;
     }
 
     // A driver is listed as soon as it has either settings or channel names.
