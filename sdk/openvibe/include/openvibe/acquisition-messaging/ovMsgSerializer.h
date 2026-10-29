@@ -10,6 +10,7 @@
 
 #include "ovMsg.h"
 
+#include <algorithm> // std::min
 #include <cstring>   // memcpy
 #include <utility>   // std::pair
 #include <stdexcept> // std::runtime_error
@@ -21,7 +22,8 @@
  * Wire formats:
  *   OV_MSG_SAMPLES:            [msgType:u32][msgSize:u32][count:u32][stimCount:u32][timestamps: count*u64][samples: derived from msgSize][stims: stimCount*ovStimulation]
  *   OV_MSG_DRIFT:              [msgType:u32][startLatency:u64][globalLatency:u64][currentLatency:u64][endLatency:u64]
- *   OV_MSG_ACQUISITION_CONFIG: [msgType:u32][channelCount:u32][sampleRate:u32][sampleChunk:u32]
+ *   OV_MSG_ACQUISITION_CONFIG: [msgType:u32][msgSize:u32][channelCount:u32][sampleRate:u32][sampleChunk:u32][channelNames: msgSize - 5*u32]
+ *                              The channel names, each ended by a '\0', are absent when the server predates them.
  *
  * @note For OV_MSG_SAMPLES, msgSize must be set correctly by the caller before serializing.
  *       samplesBytes is back-calculated as: msgSize - 4*u32 - count*u64 - stimCount*sizeof(ovStimulation)
@@ -67,11 +69,21 @@ inline std::pair<size_t, void*> serializeOvMsg(const ovMsg& msg)
 
         case ovMsg::OV_MSG_ACQUISITION_CONFIG:
         {
-            uint8_t* buffer = new uint8_t[msg.msgSize];
+            const auto& c = msg.msgData.acquisitionConfigStruct;
+            const uint32_t size = 5 * sizeof(uint32_t) + c.channelNamesSize;
 
-            std::memcpy(buffer, &msg, msg.msgSize);
+            uint8_t* buffer = new uint8_t[size];
+            uint8_t* ptr = buffer;
 
-            return { msg.msgSize, buffer };
+            const uint32_t type = static_cast<uint32_t>(msg.msgType);
+            std::memcpy(ptr, &type,          sizeof(uint32_t)); ptr += sizeof(uint32_t);
+            std::memcpy(ptr, &size,          sizeof(uint32_t)); ptr += sizeof(uint32_t);
+            std::memcpy(ptr, &c.channelCount,sizeof(uint32_t)); ptr += sizeof(uint32_t);
+            std::memcpy(ptr, &c.sampleRate,  sizeof(uint32_t)); ptr += sizeof(uint32_t);
+            std::memcpy(ptr, &c.sampleChunk, sizeof(uint32_t)); ptr += sizeof(uint32_t);
+            if (c.channelNamesSize > 0) { std::memcpy(ptr, c.channelNames, c.channelNamesSize); }
+
+            return { size, buffer };
         }
 
         default:
@@ -146,7 +158,21 @@ inline ovMsg deserializeOvMsg(const uint8_t* data, size_t dataSize)
 
         case ovMsg::OV_MSG_ACQUISITION_CONFIG:
         {
-            std::memcpy(&msg.msgData.acquisitionConfigStruct, ptr, sizeof(msg.msgData.acquisitionConfigStruct));
+            auto& c = msg.msgData.acquisitionConfigStruct;
+            std::memcpy(&c.channelCount, ptr, sizeof(uint32_t)); ptr += sizeof(uint32_t);
+            std::memcpy(&c.sampleRate,   ptr, sizeof(uint32_t)); ptr += sizeof(uint32_t);
+            std::memcpy(&c.sampleChunk,  ptr, sizeof(uint32_t)); ptr += sizeof(uint32_t);
+
+            const size_t headerSize = 5 * sizeof(uint32_t);
+            const size_t size       = std::min<size_t>(msg.msgSize, dataSize);
+            c.channelNamesSize = size > headerSize ? uint32_t(size - headerSize) : 0;
+            if (c.channelNamesSize > 0)
+            {
+                char* names = new char[c.channelNamesSize];
+                std::memcpy(names, ptr, c.channelNamesSize);
+                c.channelNames = names;
+            }
+            else { c.channelNames = nullptr; }
             break;
         }
 

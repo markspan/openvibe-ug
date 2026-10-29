@@ -56,14 +56,24 @@ bool AbstractWriter::init(uint32_t chunkSamplesCount, uint32_t chanelCount)
     return bRes;
 }
 
-size_t AbstractWriter::writeAcquisitionConfig(uint32_t channelCount, uint32_t sampleRate, uint32_t sampleChunk, uint64_t clientId)
+size_t AbstractWriter::writeAcquisitionConfig(uint32_t channelCount, uint32_t sampleRate, uint32_t sampleChunk,
+                                              const std::vector<std::string>& channelNames, uint64_t clientId)
 {
+    // One name per channel, each ended by a '\0'; a channel without a name is sent as an empty one
+    std::string names;
+    for (uint32_t i = 0; i < channelCount; ++i) {
+        if (i < channelNames.size()) { names += channelNames[i]; }
+        names += '\0';
+    }
+
     ovMsg msg; ///< Create a message to send.
     msg.msgType = ovMsg::OV_MSG_ACQUISITION_CONFIG; ///< Set the message type to acquisition configuration.
-    msg.msgSize = sizeof(m_msg.msgType) + sizeof(m_msg.msgSize) + sizeof(msg.msgData.acquisitionConfigStruct); ///< Set the message size to the size of the message structure.
+    msg.msgSize = uint32_t(5 * sizeof(uint32_t) + names.size()); ///< Set the message size to the size of the message on the wire.
     msg.msgData.acquisitionConfigStruct.channelCount = channelCount; ///< Set the number of channels in the message.
     msg.msgData.acquisitionConfigStruct.sampleRate = sampleRate; ///< Set the sample rate in the message.
     msg.msgData.acquisitionConfigStruct.sampleChunk = sampleChunk; ///< Set the sample chunk size in the message.
+    msg.msgData.acquisitionConfigStruct.channelNames = names.data();
+    msg.msgData.acquisitionConfigStruct.channelNamesSize = uint32_t(names.size());
     return send(&msg, clientId);
 }
 

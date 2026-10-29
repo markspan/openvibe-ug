@@ -83,10 +83,12 @@ public:
     * @param channelCount Number of channels.
     * @param sampleRate   Sampling rate (in Hz).
     * @param sampleChunk  Number of samples per chunk.
+    * @param channelNames Names of the channels; missing ones are sent empty.
     * @param clientId     Target client identifier, or @c -1 to broadcast to all clients.
     * @return Number of bytes sent.
     */
-   size_t writeAcquisitionConfig(uint32_t channelCount, uint32_t sampleRate, uint32_t sampleChunk, uint64_t clientId = -1);
+   size_t writeAcquisitionConfig(uint32_t channelCount, uint32_t sampleRate, uint32_t sampleChunk, const std::vector<std::string>& channelNames,
+                                 uint64_t clientId = -1);
 
    /**
     * @brief Serializes and sends a drift information message.

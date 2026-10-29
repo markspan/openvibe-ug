@@ -258,29 +258,47 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
         break;
       case ovMsg::msgTypeEnum::OV_MSG_ACQUISITION_CONFIG:
         {
+          std::lock_guard<std::mutex> lock(m_signalMutex);
           if (! m_acquisitionConfigured) {
             auto& payload = msg.msgData.acquisitionConfigStruct;
             m_channelCount = payload.channelCount;
             m_sampleRate = payload.sampleRate;
             m_sampleChunk = payload.sampleChunk;
             m_signalMatrix->resize(m_channelCount, m_sampleChunk);
+
+            // The server sends one name per channel, each ended by a '\0'; a channel without one is numbered from 1
+            const char* name = payload.channelNames;
+            const char* end  = payload.channelNames + payload.channelNamesSize;
+            for (size_t i = 0; i < m_channelCount; ++i) {
+              std::string label;
+              if (name && name < end) {
+                label = std::string(name, std::find(name, end, '\0'));
+                name += label.size() + 1;
+              }
+              if (label.empty()) { label = std::to_string(i + 1); }
+              m_signalMatrix->setDimensionLabel(0, i, label.c_str());
+            }
+
             m_acquisitionConfigured = true;
             std::cout << "Acquisition started" << std::endl;
             std::cout << "Channel count: " << m_channelCount << std::endl;
             std::cout << "Sample rate: " << m_sampleRate << std::endl;
             std::cout << "Sample chunk: " << m_sampleChunk << std::endl;
-
-            /* TODO: get channel names from acquisition config, or elsewhere
-            // Convention: channel shown as users go as 1,2,...
-            for (size_t i = 0; i < m_nChannel; ++i) {
-                matrix->setDimensionLabel(0, i, ("channel " + std::to_string(i + 1)).c_str());
-            }
-              */
           }
         }
         break;
       default:
         break;
+    }
+
+    // deserializeOvMsg() allocates the arrays it fills, and the data has been copied out of them
+    if (msg.msgType == ovMsg::msgTypeEnum::OV_MSG_SAMPLES) {
+      delete[] msg.msgData.samplesStruct.timestamp;
+      delete[] msg.msgData.samplesStruct.samples;
+      delete[] msg.msgData.samplesStruct.stimulations;
+    }
+    else if (msg.msgType == ovMsg::msgTypeEnum::OV_MSG_ACQUISITION_CONFIG) {
+      delete[] msg.msgData.acquisitionConfigStruct.channelNames;
     }
     return true;
 

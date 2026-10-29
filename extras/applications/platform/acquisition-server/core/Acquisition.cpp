@@ -555,7 +555,7 @@ void Acquisition::addClient(uint64_t clientId)
 {
     // Prepare ovMsg with acquisition config and send to client before adding it to the list and stream starts going
     for (auto& w : m_writers) {
-        w->writeAcquisitionConfig(m_driver->channelCount(), m_driver->samplingRate(), m_chunkSampleCount.value(), clientId);
+        w->writeAcquisitionConfig(m_driver->channelCount(), m_driver->samplingRate(), m_chunkSampleCount.value(), m_driver->channelNames().value(), clientId);
     }
     m_clientsList.push_back(clientId);
 }
