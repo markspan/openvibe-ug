@@ -147,6 +147,9 @@ public:
      */
     virtual bool usesCharmeleonForImpedance() const { return false; }
 
+    /** Path of the Charmeleon montage the driver uses, which Charmeleon then opens; empty for none. */
+    virtual std::string charmeleonMontage() const { return {}; }
+
     /**
      * Returns true if the server should correct this driver's drift when the drift correction setting
      * leaves the choice to the driver.

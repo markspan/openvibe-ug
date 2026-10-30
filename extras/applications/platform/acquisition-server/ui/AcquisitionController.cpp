@@ -306,8 +306,10 @@ bool AcquisitionController::toggleImpedanceCheck() {
     // Charmeleon checks the impedances in its own window; Play closes it again
     const std::string charmeleon = charmeleonExecutable();
     if (!charmeleon.empty() && d->m_acquisition->state() == Acquisition::State::Idle) {
-        d->getLogManager() << Kernel::LogLevel_Info << "Checking impedances with " << charmeleon << "\n";
-        if (!Charmeleon::launch(charmeleon)) {
+        const std::string montage = d->m_acquisition->getCharmeleonMontage();
+        d->getLogManager() << Kernel::LogLevel_Info << "Checking impedances with " << charmeleon
+                           << (montage.empty() ? std::string() : " and montage " + montage) << "\n";
+        if (!Charmeleon::launch(charmeleon, montage)) {
             d->getLogManager() << Kernel::LogLevel_Error << "Could not start " << charmeleon << "\n";
             return false;
         }

@@ -19,8 +19,14 @@ namespace Charmeleon {
  */
 std::string findExecutable(const std::string& configuredPath);
 
-/// Starts Charmeleon, or brings it to the front when it already runs. Returns false when it could not be started.
-bool launch(const std::string& executable);
+/**
+ * @brief Starts Charmeleon, or brings it to the front when it already runs.
+ * @param executable Full path of Charmeleon.exe.
+ * @param montage    Montage (.json) for Charmeleon to open, empty for its default layout. A Charmeleon
+ *                   that already runs keeps the montage it has.
+ * @return False when it could not be started.
+ */
+bool launch(const std::string& executable, const std::string& montage = {});
 
 /**
  * @brief Closes every running Charmeleon, so that it releases the amplifier.

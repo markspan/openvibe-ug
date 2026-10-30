@@ -55,6 +55,7 @@ public:
     void getData(samplesBuffer* buff) override;
 
     bool usesCharmeleonForImpedance() const override { return true; }
+    std::string charmeleonMontage() const override { return m_paramMontage.value(); }
     bool wantsDriftCorrection() const override { return true; }
 
     void setChunkSize(uint32_t chunkSize) override { m_nSamplePerSentBlock = chunkSize; }

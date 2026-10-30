@@ -209,12 +209,14 @@ Upstream 4.0 measures and displays drift but never corrects it. Its UI code decl
 - `extras/applications/platform/acquisition-server/ui/AcquisitionController.cpp`
 - `extras/applications/platform/acquisition-server/core/Acquisition.h`
 - `extras/applications/platform/acquisition-server/core/Acquisition.cpp`
-- `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` (`usesCharmeleonForImpedance()`)
+- `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` (`usesCharmeleonForImpedance()`, `charmeleonMontage()`)
 - `extras/applications/platform/acquisition-server/CMakeLists.txt`
+- `CDriverTMSi.h` and `CDriverEEGO.h` (they report their montage)
 
 **What it does**
 - Drivers can opt in with `usesCharmeleonForImpedance()`; eego and TMSi do.
 - When Charmeleon is installed, the impedance button launches it, or brings it to the front if it is already running, instead of the built-in check.
+- When the driver has a montage set, Charmeleon is started with that file (as an absolute path), so it shows the same montage. This needs a Charmeleon that opens a `.json` given on its command line. A Charmeleon that is already running keeps the montage it has.
 - The impedance button is enabled for these drivers even when the driver has no built-in check (TMSi).
 - Charmeleon is found in this order:
   1. The `AcquisitionServer_CharmeleonPath` configuration token.

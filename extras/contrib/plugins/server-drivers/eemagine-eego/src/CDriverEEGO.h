@@ -60,6 +60,7 @@ public:
 
     bool supportsImpedanceCheck() const override { return true; }
     bool usesCharmeleonForImpedance() const override { return true; }
+    std::string charmeleonMontage() const override { return m_paramMontage.value(); }
     bool wantsDriftCorrection() const override { return true; }
     bool startImpedanceCheck() override;
     int  readImpedances(double* values, size_t count) override;

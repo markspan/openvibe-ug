@@ -105,7 +105,7 @@ std::string findExecutable(const std::string& configuredPath)
     return {};
 }
 
-bool launch(const std::string& executable)
+bool launch(const std::string& executable, const std::string& montage)
 {
 #if defined(_WIN32)
     const std::vector<DWORD> running = runningInstances();
@@ -121,6 +121,12 @@ bool launch(const std::string& executable)
     // Charmeleon loads its default layout relative to the working directory, so run it from its own folder
     const std::wstring workingDir = exe.parent_path().wstring();
     std::wstring commandLine      = L"\"" + exe.wstring() + L"\"";
+    // Absolute, as Charmeleon runs from another directory
+    if (!montage.empty()) {
+        std::error_code ec;
+        const std::filesystem::path path = std::filesystem::absolute(std::filesystem::u8path(montage), ec);
+        commandLine += L" \"" + (ec ? std::filesystem::u8path(montage) : path).wstring() + L"\"";
+    }
 
     STARTUPINFOW startupInfo        = {};
     startupInfo.cb                  = sizeof(startupInfo);
@@ -133,6 +139,7 @@ bool launch(const std::string& executable)
     return true;
 #else
     (void)executable;
+    (void)montage;
     return false;
 #endif
 }
