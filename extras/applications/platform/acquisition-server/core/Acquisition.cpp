@@ -40,7 +40,7 @@ Acquisition::Acquisition() : m_bRun(false),
                              m_driftCorrectionPolicy("Drift correction",
                                                      "Repeat or drop samples when the amplifier's clock drifts away from the computer's, as the 3.x server did",
                                                      {"Let the driver decide", "Forced", "Disabled"},
-                                                     "Let the driver decide"),
+                                                     "Disabled"),
                              m_driftTolerance("Drift tolerance (ms)", "Drift that is left uncorrected", 5, 1, 100),
                              m_drift({0, 0, 0, 0})
 { }

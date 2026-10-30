@@ -37,7 +37,7 @@ Everything outside the files listed here is identical to upstream.
 | Channel selection (TMSi, eego) | Bit masks (eego) | Channel list read from the amplifier; a channel is recorded when it has a name |
 | Montages | none | Charmeleon `.json` montages name and select the EEG channels |
 | Impedance check | Built-in check only | Charmeleon is launched for eego and TMSi when installed, and closed on Play |
-| Drift correction | Settings declared in the UI code, never shown and never applied | Working drift correction as in the 3.x server, with settings in Preferences |
+| Drift correction | Settings declared in the UI code, never shown and never applied | Working drift correction as in the 3.x server, off by default, with settings in Preferences |
 | Trigger timing | Triggers dated at the block they arrive in | Every sample is timestamped; each trigger is dated at its own sample |
 | Hardware triggers | n/a (TMSi) / flank-decoded (eego) | Sent as `OVTK_StimulationId_Label(value)`, value 1–255, not inverted |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
@@ -176,15 +176,17 @@ Upstream 4.0 measures and displays drift but never corrects it. Its UI code decl
 - When the average exceeds the tolerance, it corrects at the end of the current buffer:
   - **Too few samples:** it repeats the last sample. Repeated samples get the same timestamp as the original.
   - **Too many samples:** it drops the last samples. Stimulations on dropped samples move to the new last sample, so none are lost.
-- Two settings under Preferences control it, and both are saved in the session as `driftCorrection` and `driftToleranceMs`:
-  - *Drift correction*: "Let the driver decide" (default), "Forced" or "Disabled". "Let the driver decide" corrects drivers whose `wantsDriftCorrection()` returns true, which are TMSi and eego.
+- Two settings under Preferences control it, and both are saved in the session as `driftCorrectionPolicy` and `driftToleranceMs`:
+  - *Drift correction*: "Disabled" (default), "Let the driver decide" or "Forced". "Let the driver decide" corrects drivers whose `wantsDriftCorrection()` returns true, which are TMSi and eego.
   - *Drift tolerance (ms)*: default 5, range 1–100.
 - At Stop, the log reports how many samples were added and removed, and in how many corrections.
 
 **Consequences**
-- Long TMSi and eego recordings keep the number of samples in step with wall-clock time, as in 3.x. Upstream lets them drift.
-- The recorded signal can contain repeated or missing samples at correction points. This is the same trade-off 3.x made. Set the policy to "Disabled" for sample-exact raw data.
-- The defaults differ from what upstream had declared (Disabled, 2 ms). In the UG fork, correction is active for TMSi and eego out of the box.
+- Out of the box nothing is corrected, and the recorded samples are exactly what the amplifier sent.
+- With "Let the driver decide" or "Forced", long TMSi and eego recordings keep the number of samples in step with wall-clock time, as in 3.x. Upstream lets them drift.
+- With correction on, the recorded signal can contain repeated or missing samples at correction points. This is the same trade-off 3.x made.
+- The default policy matches what upstream had declared (Disabled), and the default tolerance differs (5 ms instead of 2 ms).
+- Sessions saved while the default was "Let the driver decide" stored the policy under `driftCorrection`. On their first load "Let the driver decide" there is taken as the old default and becomes "Disabled", while "Forced" and "Disabled" are kept. From then on the policy is stored under `driftCorrectionPolicy`, so choosing "Let the driver decide" again sticks.
 
 ### 2.5 Exact trigger placement
 
@@ -354,7 +356,7 @@ Behaviour:
 - `extras/applications/platform/acquisition-server/settings/SessionManager.h`
 - `extras/applications/platform/acquisition-server/settings/SessionManager.cpp`
 
-**What it does:** the stored session gains the keys `driftCorrection` and `driftToleranceMs`. The driver parameters stored for TMSi and eego follow their new settings.
+**What it does:** the stored session gains the keys `driftCorrectionPolicy` and `driftToleranceMs`. The driver parameters stored for TMSi and eego follow their new settings.
 
 **Consequences**
 - A UG session file opened by upstream ignores the extra keys.
@@ -438,7 +440,7 @@ Behaviour:
 - **Platform.** The TMSi driver and the Charmeleon integration are Windows-only. On Linux and macOS the fork builds and behaves like upstream, apart from the eego build, the writer, the drift correction and the fixes.
 - **Mixing versions.** Use the UG acquisition server with the UG Designer or Scenario Player. Mixing with upstream should work (see 2.7) but loses the channel names and the trigger placement fix, and has not been tested.
 - **Scenarios.** Scenarios using the Gipsa writer are unaffected. To get Recorder-style markers and the output directory setting, replace that box with the UG writer.
-- **Recorded data.** With drift correction on (the default for TMSi and eego), recordings may contain repeated or dropped samples at correction points. The log reports how many.
+- **Recorded data.** With drift correction on (off by default; "Let the driver decide" turns it on for TMSi and eego), recordings may contain repeated or dropped samples at correction points. The log reports how many.
 - **Merging upstream.** The fork changes shared code that upstream may also change, so these are the likely merge conflicts:
   - acquisition message format and serializer
   - `AbstractWriter` signature

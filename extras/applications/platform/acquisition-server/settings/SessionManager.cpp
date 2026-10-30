@@ -25,7 +25,9 @@ const char* DRIVER_KEY      = "driver";
 const char* DRIVERS_KEY     = "drivers";
 const char* WRITERS_KEY     = "writers";
 const char* CHUNK_SIZE_KEY  = "chunkSampleCount";
-const char* DRIFT_CORRECTION_KEY = "driftCorrection";
+const char* DRIFT_CORRECTION_KEY = "driftCorrectionPolicy";
+// Where the policy was stored while it defaulted to "Let the driver decide"
+const char* OLD_DRIFT_CORRECTION_KEY = "driftCorrection";
 const char* DRIFT_TOLERANCE_KEY  = "driftToleranceMs";
 const char* NAME_KEY        = "name";
 const char* PARAMS_KEY      = "params";
@@ -228,6 +230,14 @@ SessionManager::Session SessionManager::readStoredSession()
 
     if (stored.contains(DRIFT_CORRECTION_KEY) && stored[DRIFT_CORRECTION_KEY].is_string()) {
         session.driftCorrectionPolicy = stored[DRIFT_CORRECTION_KEY].get<std::string>();
+    }
+    else if (stored.contains(OLD_DRIFT_CORRECTION_KEY) && stored[OLD_DRIFT_CORRECTION_KEY].is_string()) {
+        // Every save stored the policy, so the old default can not be told apart from a choice: it
+        // makes way for the new default (Disabled) once. The next save writes the new key only.
+        const std::string policy = stored[OLD_DRIFT_CORRECTION_KEY].get<std::string>();
+        if (policy != "Let the driver decide") {
+            session.driftCorrectionPolicy = policy;
+        }
     }
 
     if (stored.contains(DRIFT_TOLERANCE_KEY) && stored[DRIFT_TOLERANCE_KEY].is_number_integer()) {
