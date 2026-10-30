@@ -87,6 +87,7 @@ Loading a montage:
 - It renames the EEG channels.
 - It empties any BIP, AUX or DIG entry whose name equals one of the montage's electrode names. These are names left over from older montage handling.
 - Other names typed for non-EEG channels are kept.
+- **Without an amplifier connected**, the driver does not know which channels are EEG. It treats every entry in the list as EEG, in hardware-channel order: entry *n* gets the montage's electrode on HardwareChannel *n*, and entries the montage leaves out are emptied. Play opens the amplifier and applies the montage again, to the real EEG channels.
 
 Triggers:
 - Triggers come from **one** channel, the trigger channel. They are never taken from the SAW (sawtooth) channel, which the SDK may also type as digital.
@@ -102,6 +103,7 @@ The driver asks for drift correction when the policy is "Let the driver decide" 
 - The 3.x "Additional channels" setting is gone for TMSi. Old session files that carry it are ignored for that setting.
 - A recording's channel order is always device order, whatever order names were typed in.
 - On an amplifier with few EEG channels (e.g. 8 EXG plus BIP/AUX), montage electrodes beyond the EEG channels are not recorded. One log line lists them.
+- A montage chosen without an amplifier connected names the list at once, but by guesswork: names typed for BIP or AUX entries are emptied, and the names only sit on the right channels once Play has seen the amplifier.
 - **Not yet verified on hardware:** the channel list, montage mapping, hints and Signal display names introduced in the last commits.
 
 ### 2.2 eego driver (built and reworked)
@@ -117,6 +119,7 @@ The driver asks for drift correction when the policy is "Let the driver decide" 
   - **Channel list.** When the driver settings are shown, the driver acquires the amplifier briefly and reads its channel list. No stream is needed. The channel count setting is set from it ("read from the amplifier"), and the channel names list gets one entry per referential (EEG1…EEGn) and bipolar (BIP1…BIPm) channel. The list is read once per run of the server; `init()` reads it again from the amplifier actually used.
   - **EEG channels** start with their name (`EEG1`, …). With a *Montage* (a Charmeleon `.json`), they start with the montage's electrode names instead, and those names show in the list as soon as the montage is chosen. HardwareChannel *n* is the *n*-th referential channel. EEG channels the montage leaves out stay empty, and electrodes beyond the amplifier's EEG channels are listed in one log line.
   - **Bipolar channels** start empty, with greyed hints `BIP1`, `BIP2`, …. Typing a name records the channel under that name. Loading a montage empties bipolar entries that carry one of its electrode names.
+  - **Without an amplifier connected**, a montage names the list as TMSi's does (2.1): every entry counts as EEG, in hardware-channel order, until Play applies the montage to the amplifier's channels.
   - **Recording.** Only channels with a name are recorded, in amplifier order. During acquisition the list shows only the recorded channels plus `Trigger` and `SampleCounter`. The full list comes back afterwards.
 - Channels are handed to the SDK as an explicit list. This also removes the 64-bit mask limit.
 - The trigger and sample-counter channels are always appended, as upstream does.

@@ -280,9 +280,12 @@ bool CDriverTMSi::applyMontage(std::vector<std::string>& names) const
     // Charmeleon only knows the EEG channels: its HardwareChannel n is the n-th EXG channel, wherever the device lists it
     // Other channels keep the names the user gave them, except a montage electrode's name: that is left from a montage
     // put on them before, when HardwareChannel counted all device channels
+    // Without the device the driver does not know which channels are EEG: it takes them all to be, as they come first
+    // in the device's list, until init() puts the names where they belong
+    const bool layoutKnown = !m_layout.empty();
     std::vector<size_t> eegChannels;
-    for (size_t i = 0; i < names.size() && i < m_layout.size(); ++i) {
-        if (m_layout[i].type == CHANNELTYPE_EXG) {
+    for (size_t i = 0; i < names.size(); ++i) {
+        if (!layoutKnown || (i < m_layout.size() && m_layout[i].type == CHANNELTYPE_EXG)) {
             eegChannels.push_back(i);
             names[i].clear();
         }
@@ -299,9 +302,12 @@ bool CDriverTMSi::applyMontage(std::vector<std::string>& names) const
         }
         names[eegChannels[hardwareChannel - 1]] = name;
     }
-    if (!ignored.empty()) {
+    if (!ignored.empty() && layoutKnown) {
         std::cout << "[TMSi] Montage: the device has " << eegChannels.size() << " EEG channels, so these electrodes are not recorded: " << ignored
                   << std::endl;
+    }
+    else if (!ignored.empty()) {
+        std::cout << "[TMSi] Montage: the list has " << names.size() << " channels, so these electrodes are not on it: " << ignored << std::endl;
     }
     return true;
 }
@@ -309,10 +315,12 @@ bool CDriverTMSi::applyMontage(std::vector<std::string>& names) const
 void CDriverTMSi::onMontageChanged()
 {
     // During an acquisition the list only holds the recorded channels; init() applies the montage anyway
-    if (m_layout.empty() || m_opened || m_channelNames.value().size() != m_layout.size()) { return; }
+    if (m_opened || (!m_layout.empty() && m_channelNames.value().size() != m_layout.size())) { return; }
 
     std::vector<std::string> names = m_channelNames.value();
     if (m_paramMontage.value().empty()) {
+        // Without the device there are no device names to go back to
+        if (m_layout.empty()) { return; }
         for (size_t i = 0; i < m_layout.size(); ++i) { if (m_layout[i].type == CHANNELTYPE_EXG) { names[i] = m_layout[i].name; } }
     }
     else if (!applyMontage(names)) { return; }

@@ -222,10 +222,13 @@ bool CDriverEEGO::applyMontage(std::vector<std::string>& names) const
     // Charmeleon only knows the EEG channels: its HardwareChannel n is the n-th referential channel
     // Bipolar channels keep the names the user gave them, except a montage electrode's name: that is left from a montage
     // put on them before, when HardwareChannel went on into the bipolar channels
+    // Without the amplifier the driver does not know which channels are EEG: it takes them all to be, as they come first
+    // in the amplifier's list, until init() puts the names where they belong
+    const bool layoutKnown = !m_layout.empty();
     std::vector<size_t> eegChannels;
-    for (size_t i = 0; i < names.size() && i < m_layout.size(); ++i)
+    for (size_t i = 0; i < names.size(); ++i)
     {
-        if (m_layout[i].type == es::channel::reference)
+        if (!layoutKnown || (i < m_layout.size() && m_layout[i].type == es::channel::reference))
         {
             eegChannels.push_back(i);
             names[i].clear();
@@ -246,10 +249,14 @@ bool CDriverEEGO::applyMontage(std::vector<std::string>& names) const
         }
         names[eegChannels[hardwareChannel - 1]] = name;
     }
-    if (!ignored.empty())
+    if (!ignored.empty() && layoutKnown)
     {
         std::cout << "[EEGO] Montage: the amplifier has " << eegChannels.size() << " EEG channels, so these electrodes are not recorded: "
                   << ignored << std::endl;
+    }
+    else if (!ignored.empty())
+    {
+        std::cout << "[EEGO] Montage: the list has " << names.size() << " channels, so these electrodes are not on it: " << ignored << std::endl;
     }
     return true;
 }
@@ -257,11 +264,13 @@ bool CDriverEEGO::applyMontage(std::vector<std::string>& names) const
 void CDriverEEGO::onMontageChanged()
 {
     // During an acquisition the list only holds the recorded channels; init() applies the montage anyway
-    if (m_layout.empty() || m_amplifier || m_channelNames.value().size() != m_layout.size()) { return; }
+    if (m_amplifier || (!m_layout.empty() && m_channelNames.value().size() != m_layout.size())) { return; }
 
     std::vector<std::string> names = m_channelNames.value();
     if (m_paramMontage.value().empty())
     {
+        // Without the amplifier there are no amplifier names to go back to
+        if (m_layout.empty()) { return; }
         for (size_t i = 0; i < m_layout.size(); ++i)
         {
             if (m_layout[i].type == es::channel::reference) { names[i] = m_layout[i].name; }
