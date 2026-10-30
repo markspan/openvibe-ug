@@ -9,10 +9,8 @@
 #include <AbstractDriver.h>
 #include <AbstractDriverBuilder.h>
 
-#include <openvibe/parameters/parameterInt.h>
 #include <openvibe/parameters/parameterListString.h>
 #include <openvibe/parameters/parameterPath.h>
-#include <openvibe/parameters/parameterString.h>
 
 #include <deque>
 #include <map>
@@ -32,11 +30,12 @@ class stream;
 /**
  * \brief Acquisition driver for eemagine eego amplifiers.
  *
- * The amplifier's channels are called EEG1..EEGn (referential) and BIP1..BIPm (bipolar). The first
- * "EEG channel count" referential channels are recorded, or the channels a Charmeleon montage names
- * (HardwareChannel counts the referential channels first, then the bipolar ones). Further channels are
- * added by name, optionally relabelled ("BIP1=Photodiode"). The stream always carries a trigger and a
- * sample-counter channel on top.
+ * The amplifier's channels are called EEG1..EEGn (referential) and BIP1..BIPm (bipolar). The channel
+ * names list has one entry per amplifier channel, read from the amplifier, and only channels with a name
+ * are recorded, in amplifier order. EEG channels start out with their name (EEG1, ...), or, when a
+ * Charmeleon montage is set, with the name it gives their HardwareChannel, which counts EEG channels only;
+ * EEG channels the montage leaves out are not recorded. Bipolar channels start out empty: giving one a
+ * name records it under that name. The stream always carries a trigger and a sample-counter channel on top.
  * The trigger channel is published as a signal channel *and* flank-decoded into stimulations, as it
  * was before the port.
  *
@@ -68,6 +67,11 @@ public:
 
     void setChunkSize(uint32_t chunkSize) override;
 
+    /// BIP1, BIP2, ... for the bipolar channels.
+    std::vector<std::string> channelHints() const override;
+
+    OpenViBE::Parameters::Parameters getParameters() override;
+
 private:
     /** Number of status channels the stream appends to the selected EEG/BIP ones: trigger + counter. */
     static const int STATUS_CHANNEL_COUNT = 2;
@@ -78,9 +82,25 @@ private:
     /** Lazily builds the SDK factory. Throws whatever the SDK throws when the library is missing. */
     eemagine::sdk::factory& factory();
 
+    struct DeviceChannel
+    {
+        unsigned int index; ///< SDK channel index.
+        int type;           ///< SDK channel type, reference or bipolar.
+        std::string name;   ///< EEG<n> or BIP<n>: eego channels carry a type and an index but no name.
+    };
+
+    /** Reads the referential and bipolar channels of \p amplifier into m_layout. No stream needed. */
+    void readLayout(eemagine::sdk::amplifier& amplifier);
+    /** Reads m_layout from the amplifier, acquiring it briefly, unless it is known already. */
+    bool queryLayout();
+    /** Gives the channel names list one entry per amplifier channel, see the class description. */
+    bool fitNamesToLayout();
+    /** Names the EEG channels after the montage, if one is set, and clears those it leaves out. */
+    bool applyMontage(std::vector<std::string>& names) const;
+    void onMontageChanged();
     /**
-     * Picks the channels to record from the amplifier's channel list, into m_selectedChannels, and
-     * fills m_channelCount / m_channelNames. No stream needed.
+     * Reads the channel list from the acquired amplifier and picks the channels with a name, into
+     * m_selectedChannels; m_channelCount / m_channelNames then describe those, plus the status channels.
      */
     bool selectChannels();
 
@@ -91,10 +111,12 @@ private:
     OpenViBE::Parameters::ParameterListString m_paramSamplingRate;
     OpenViBE::Parameters::ParameterListString m_paramEEGRange; ///< [mV]
     OpenViBE::Parameters::ParameterListString m_paramBIPRange; ///< [mV]
-    OpenViBE::Parameters::ParameterInt        m_paramEEGChannelCount;
     OpenViBE::Parameters::ParameterPath       m_paramMontage;
-    OpenViBE::Parameters::ParameterString     m_paramAdditionalChannels;
 
+    /// Referential then bipolar channels of the amplifier, as it lists them.
+    std::vector<DeviceChannel> m_layout;
+    /// The full channel names list, one entry per amplifier channel, while only the recorded ones are shown. Restored in unInit().
+    std::vector<std::string> m_configuredNames;
     /// Channels to record, as SDK channel index and type, in amplifier order.
     std::vector<std::pair<unsigned int, int>> m_selectedChannels;
 

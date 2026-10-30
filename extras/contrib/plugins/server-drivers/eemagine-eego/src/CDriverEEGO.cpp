@@ -34,7 +34,6 @@
 #include <filesystem>
 #include <iostream>
 #include <regex>
-#include <sstream>
 #include <string>
 #include <thread>
 
@@ -103,24 +102,174 @@ CDriverEEGO::CDriverEEGO()
                       { "150", "750", "1000" }, "1000"),
       m_paramBIPRange("BIPRange", "Signal range of the bipolar channels [mV]",
                       { "350", "700", "1500", "4000" }, "1500"),
-      m_paramEEGChannelCount("EEGChannelCount", "Number of EEG channels (EEG1..EEGn)", 64, 0, 1024),
-      m_paramMontage("Montage", "Charmeleon montage, selects and names channels by hardware channel instead of the EEG channel count", "",
-                     OpenViBE::Parameters::Read, { "Charmeleon montage (*.json)", "Any File (*)" }),
-      m_paramAdditionalChannels("AdditionalChannels",
-                                "Additional channels: names separated by ;, optionally renamed, e.g. BIP1=Photodiode;BIP2", "")
+      m_paramMontage("Montage", "Charmeleon montage, names the EEG channels by hardware channel; EEG channels it leaves out are not recorded", "",
+                     OpenViBE::Parameters::Read, { "Charmeleon montage (*.json)", "Any File (*)" })
 {
     // The rate and the ranges are discrete sets the amplifier rejects anything outside of, so they
-    // are dropdowns; the inherited m_samplingRate / m_channelCount are derived in init() and stay
-    // out of the parameter list (same arrangement as CDriverLabStreamingLayer).
+    // are dropdowns; the inherited m_samplingRate is derived in init() and stays out of the parameter list.
+    // The channel count is read from the amplifier, but kept among the parameters so that the names of the
+    // last session's channels can be restored when it is not connected at startup.
+    m_channelCount.setDescription("Number of channels (read from the amplifier)");
+
     m_parameters.push_back(&m_paramSamplingRate);
     m_parameters.push_back(&m_paramEEGRange);
     m_parameters.push_back(&m_paramBIPRange);
-    m_parameters.push_back(&m_paramEEGChannelCount);
+    m_parameters.push_back(&m_channelCount);
     m_parameters.push_back(&m_paramMontage);
-    m_parameters.push_back(&m_paramAdditionalChannels);
+
+    m_paramMontage.connect([this](std::any) { onMontageChanged(); });
 }
 
 CDriverEEGO::~CDriverEEGO() = default;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Channel list
+// ─────────────────────────────────────────────────────────────────────────────
+
+OpenViBE::Parameters::Parameters CDriverEEGO::getParameters()
+{
+    // Never touch the amplifier while it is in use
+    if (!m_amplifier && queryLayout()) { fitNamesToLayout(); }
+    return AbstractDriver::getParameters();
+}
+
+std::vector<std::string> CDriverEEGO::channelHints() const
+{
+    // During an acquisition the list holds the recorded channels only, which all have a name
+    if (m_layout.empty() || m_channelNames.value().size() != m_layout.size()) { return {}; }
+
+    std::vector<std::string> hints(m_layout.size());
+    for (size_t i = 0; i < m_layout.size(); ++i)
+    {
+        if (m_layout[i].type == es::channel::bipolar) { hints[i] = m_layout[i].name; }
+    }
+    return hints;
+}
+
+void CDriverEEGO::readLayout(es::amplifier& amplifier)
+{
+    m_layout.clear();
+    int nEEG = 0;
+    int nBIP = 0;
+    for (const auto& channel : amplifier.getChannelList())
+    {
+        if (channel.getType() == es::channel::reference)
+        {
+            m_layout.push_back({ channel.getIndex(), int(channel.getType()), "EEG" + std::to_string(++nEEG) });
+        }
+        else if (channel.getType() == es::channel::bipolar)
+        {
+            m_layout.push_back({ channel.getIndex(), int(channel.getType()), "BIP" + std::to_string(++nBIP) });
+        }
+    }
+}
+
+bool CDriverEEGO::queryLayout()
+{
+    // Read once: the session is saved on every setting change, and acquiring the amplifier each time would be slow.
+    // init() reads it again from the amplifier actually used.
+    if (!m_layout.empty()) { return true; }
+
+    try
+    {
+        std::unique_ptr<es::amplifier> amplifier(factory().getAmplifier());
+        readLayout(*amplifier);
+    }
+    catch (const std::exception& ex)
+    {
+        std::cout << "[EEGO] Could not read the amplifier's channels: " << ex.what() << std::endl;
+        m_layout.clear();
+    }
+    return !m_layout.empty();
+}
+
+bool CDriverEEGO::fitNamesToLayout()
+{
+    if (m_layout.empty()) { return false; }
+
+    // Names stored for another layout (another amplifier) mean nothing here: start over
+    std::vector<std::string> names = m_channelNames.value();
+    if (names.size() != m_layout.size())
+    {
+        names.assign(m_layout.size(), "");
+        for (size_t i = 0; i < m_layout.size(); ++i)
+        {
+            if (m_layout[i].type == es::channel::reference) { names[i] = m_layout[i].name; }
+        }
+    }
+    const bool ok = applyMontage(names);
+
+    // Resizes m_channelNames too, through the notifier AbstractDriver installs in its constructor
+    m_channelCount.setValue(int(m_layout.size()));
+    m_channelNames.setValue(names);
+    return ok;
+}
+
+bool CDriverEEGO::applyMontage(std::vector<std::string>& names) const
+{
+    if (m_paramMontage.value().empty()) { return true; }
+
+    std::string error;
+    std::vector<std::string> warnings;
+    const std::map<int, std::string> montage = loadCharmeleonMontage(m_paramMontage.value(), error, warnings);
+    for (const auto& warning : warnings) { std::cout << "[EEGO] Montage: " << warning << std::endl; }
+    if (montage.empty())
+    {
+        std::cout << "[EEGO] Montage: " << error << std::endl;
+        return false;
+    }
+
+    // Charmeleon only knows the EEG channels: its HardwareChannel n is the n-th referential channel
+    // Bipolar channels keep the names the user gave them, except a montage electrode's name: that is left from a montage
+    // put on them before, when HardwareChannel went on into the bipolar channels
+    std::vector<size_t> eegChannels;
+    for (size_t i = 0; i < names.size() && i < m_layout.size(); ++i)
+    {
+        if (m_layout[i].type == es::channel::reference)
+        {
+            eegChannels.push_back(i);
+            names[i].clear();
+        }
+        else if (std::any_of(montage.begin(), montage.end(), [&](const auto& electrode) { return electrode.second == trim(names[i]); }))
+        {
+            names[i].clear();
+        }
+    }
+
+    std::string ignored;
+    for (const auto& [hardwareChannel, name] : montage)
+    {
+        if (size_t(hardwareChannel) > eegChannels.size())
+        {
+            ignored += (ignored.empty() ? "" : ", ") + name + " (" + std::to_string(hardwareChannel) + ")";
+            continue;
+        }
+        names[eegChannels[hardwareChannel - 1]] = name;
+    }
+    if (!ignored.empty())
+    {
+        std::cout << "[EEGO] Montage: the amplifier has " << eegChannels.size() << " EEG channels, so these electrodes are not recorded: "
+                  << ignored << std::endl;
+    }
+    return true;
+}
+
+void CDriverEEGO::onMontageChanged()
+{
+    // During an acquisition the list only holds the recorded channels; init() applies the montage anyway
+    if (m_layout.empty() || m_amplifier || m_channelNames.value().size() != m_layout.size()) { return; }
+
+    std::vector<std::string> names = m_channelNames.value();
+    if (m_paramMontage.value().empty())
+    {
+        for (size_t i = 0; i < m_layout.size(); ++i)
+        {
+            if (m_layout[i].type == es::channel::reference) { names[i] = m_layout[i].name; }
+        }
+    }
+    else if (!applyMontage(names)) { return; }
+    m_channelNames.setValue(names);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SDK factory
@@ -214,94 +363,36 @@ bool CDriverEEGO::selectChannels()
     // The amplifier can enumerate its channels without a stream being open, which matters: the SDK
     // allows only one stream at a time and the acquisition server reads channelCount() straight
     // after init(), long before start() opens one.
-    struct Candidate
-    {
-        es::channel channel;
-        std::string name;  ///< EEG<n> or BIP<n>: eego channels carry a type and an index but no name.
-        std::string label; ///< Name to record it under, empty when not selected.
-    };
-    std::vector<Candidate> candidates; // Referential and bipolar channels in amplifier order: HardwareChannel - 1
-    int nEEG = 0;
-    int nBIP = 0;
-    for (const auto& channel : m_amplifier->getChannelList())
-    {
-        if (channel.getType() == es::channel::reference) { candidates.push_back({ channel, "EEG" + std::to_string(++nEEG), "" }); }
-        else if (channel.getType() == es::channel::bipolar) { candidates.push_back({ channel, "BIP" + std::to_string(++nBIP), "" }); }
-    }
+    readLayout(*m_amplifier);
 
-    // The montage's channels, or else the first EEG channel count referential ones
-    if (!m_paramMontage.value().empty())
-    {
-        std::string error;
-        std::vector<std::string> warnings;
-        const std::map<int, std::string> montage = loadCharmeleonMontage(m_paramMontage.value(), error, warnings);
-        for (const auto& warning : warnings) { std::cout << "[EEGO] Montage: " << warning << std::endl; }
-        if (montage.empty())
-        {
-            std::cout << "[EEGO] Montage: " << error << std::endl;
-            return false;
-        }
-        for (const auto& [hardwareChannel, name] : montage)
-        {
-            if (size_t(hardwareChannel) > candidates.size())
-            {
-                std::cout << "[EEGO] Montage: " << name << " is on hardware channel " << hardwareChannel << ", but the amplifier has "
-                          << nEEG << " EEG + " << nBIP << " BIP channels. Ignored." << std::endl;
-                continue;
-            }
-            candidates[hardwareChannel - 1].label = name;
-        }
-    }
-    else
-    {
-        const int count = std::min(m_paramEEGChannelCount.value(), nEEG);
-        if (count < m_paramEEGChannelCount.value()) { std::cout << "[EEGO] The amplifier only has " << nEEG << " EEG channels." << std::endl; }
-        for (int i = 0; i < count; ++i) { candidates[i].label = candidates[i].name; }
-    }
-
-    // Additional channels, by name, optionally relabelled: "BIP1=Photodiode;BIP2"
-    std::stringstream entries(m_paramAdditionalChannels.value());
-    std::string entry;
-    while (std::getline(entries, entry, ';'))
-    {
-        const size_t equals     = entry.find('=');
-        const std::string name  = trim(entry.substr(0, equals));
-        const std::string label = equals == std::string::npos ? "" : trim(entry.substr(equals + 1));
-        if (name.empty()) { continue; }
-
-        const auto match = std::find_if(candidates.begin(), candidates.end(),
-                                        [&name](const Candidate& candidate) { return _stricmp(candidate.name.c_str(), name.c_str()) == 0; });
-        if (match == candidates.end())
-        {
-            std::cout << "[EEGO] Additional channel " << name << " not found; the amplifier has EEG1..EEG" << nEEG << " and BIP1..BIP" << nBIP << "."
-                      << std::endl;
-            continue;
-        }
-        match->label = label.empty() ? match->name : label;
-    }
-
+    // Record the channels that have a name, under that name
+    if (!fitNamesToLayout()) { return false; }
+    m_configuredNames = m_channelNames.value();
     m_selectedChannels.clear();
     std::vector<std::string> names;
-    for (const auto& candidate : candidates)
+    for (size_t i = 0; i < m_layout.size(); ++i)
     {
-        if (candidate.label.empty()) { continue; }
-        m_selectedChannels.emplace_back(candidate.channel.getIndex(), int(candidate.channel.getType()));
-        names.push_back(candidate.label);
+        const std::string name = trim(m_configuredNames[i]);
+        if (name.empty()) { continue; }
+        m_selectedChannels.emplace_back(m_layout[i].index, m_layout[i].type);
+        names.push_back(name);
     }
 
     if (m_selectedChannels.empty())
     {
-        std::cout << "[EEGO] No channel selected." << std::endl;
+        std::cout << "[EEGO] No channel has a name, so there is nothing to record." << std::endl;
+        m_configuredNames.clear();
         return false;
     }
 
     names.push_back("Trigger");
     names.push_back("SampleCounter");
 
+    // For the duration of the acquisition the channel count and names describe the recorded channels only; unInit() restores the full list
     m_channelCount.setValue(int(names.size()));
     m_channelNames.setValue(names);
 
-    std::cout << "[EEGO] Recording " << m_selectedChannels.size() << " channels + " << STATUS_CHANNEL_COUNT
+    std::cout << "[EEGO] Recording " << m_selectedChannels.size() << " of the " << m_layout.size() << " channels + " << STATUS_CHANNEL_COUNT
               << " status channels at " << m_samplingRate.value() << " Hz." << std::endl;
 
     return true;
@@ -329,6 +420,12 @@ bool CDriverEEGO::unInit()
     m_pendingOffset   = 0;
     m_stimQueue.clear();
 
+    if (!m_configuredNames.empty())
+    {
+        m_channelCount.setValue(int(m_configuredNames.size()));
+        m_channelNames.setValue(m_configuredNames);
+        m_configuredNames.clear();
+    }
     return true;
 }
 
