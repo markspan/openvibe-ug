@@ -15,21 +15,43 @@ Control {
     property var channelHints: []
 
     property bool collapsed: true
-    property var _editableNames: []
-    property bool _suppressReset: false
 
     signal allNamesChanged(var channelNames)
     signal nameChanged(int index, string name)
 
     implicitHeight: _mainContainer.height
 
-    onChannelNamesChanged: {
-        if (!_suppressReset) {
-            _editableNames = channelNames.slice()
-            _listView.model = null
-            _listView.model = _editableNames
+    onChannelNamesChanged: _syncNames(channelNames)
+    Component.onCompleted: _syncNames(channelNames)
+
+    // The rows are updated in place, so editing a name keeps the list where it is and the
+    // focus in it; the list is only rebuilt when the number of channels changes.
+    ListModel { id: _namesModel }
+
+    function _syncNames(names) {
+        if (_namesModel.count !== names.length) {
+            _namesModel.clear()
+            for (var i = 0; i < names.length; i++) { _namesModel.append({ channelName: names[i] }) }
+            return
         }
-        _suppressReset = false
+        for (var j = 0; j < names.length; j++) {
+            if (_namesModel.get(j).channelName !== names[j]) { _namesModel.setProperty(j, "channelName", names[j]) }
+        }
+    }
+
+    function _names() {
+        var names = []
+        for (var i = 0; i < _namesModel.count; i++) { names.push(_namesModel.get(i).channelName) }
+        return names
+    }
+
+    // Scrolls the row into view and edits it; false when there is no such row
+    function _focusRow(row) {
+        if (row < 0 || row >= _namesModel.count) { return false }
+        _listView.positionViewAtIndex(row, ListView.Contain)
+        var item = _listView.itemAtIndex(row)
+        if (item) { item.edit() }
+        return true
     }
 
     Rectangle {
@@ -91,11 +113,17 @@ Control {
 
                 visible: !_control.collapsed
                 clip: true
-                model: _editableNames
+                model: _namesModel
 
                 delegate: RowLayout {
+                    id: _row
                     required property int index
-                    required property string modelData
+                    required property string channelName
+
+                    function edit() {
+                        _field.forceActiveFocus()
+                        _field.selectAll()
+                    }
 
                     width: _listView.width - DS.Theme.spacingSm
                     spacing: DS.Theme.spacingSm
@@ -106,16 +134,22 @@ Control {
                         text: (index + 1) + "."
                     }
                     DS.TextField {
+                        id: _field
                         Layout.fillWidth: true
-                        text: modelData
-                        placeholderText: index < _control.channelHints.length ? _control.channelHints[index] : ""
+                        text: _row.channelName
+                        placeholderText: _row.index < _control.channelHints.length ? _control.channelHints[_row.index] : ""
                         placeholderTextColor: DS.Theme.textTertiary
                         onEditingFinished: {
-                            var copy = _control._editableNames.slice()
-                            copy[index] = displayText
-                            _control._editableNames = copy
-                            _control._suppressReset = true
-                            _control.nameChanged(index, displayText)
+                            if (displayText === _row.channelName) { return }
+                            _namesModel.setProperty(_row.index, "channelName", displayText)
+                            _control.nameChanged(_row.index, displayText)
+                        }
+                        // Enter and Tab go on to the next name, Shift+Tab back to the previous one
+                        Keys.onPressed: (event) => {
+                            var step = 0
+                            if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Tab) { step = 1 }
+                            else if (event.key === Qt.Key_Backtab) { step = -1 }
+                            if (step !== 0 && _control._focusRow(_row.index + step)) { event.accepted = true }
                         }
                     }
                 }
@@ -159,15 +193,12 @@ Control {
             if (_loadFileDialog.selectedFile) {
                 const fileContent = OV.QmlHelper.read(_loadFileDialog.selectedFile)
                 var entries = fileContent.split("\n")
-                var newNames = _control._editableNames.slice()
+                var newNames = _control._names()
                 for (var i = 0; i < entries.length && i < newNames.length; i++) {
                     newNames[i] = entries[i]
                 }
-                _control._editableNames = newNames
-                _listView.model = null
-                _listView.model = _control._editableNames
-                _control._suppressReset = true
-                _control.allNamesChanged(_control._editableNames)
+                _control._syncNames(newNames)
+                _control.allNamesChanged(newNames)
             }
         }
     }
@@ -179,7 +210,7 @@ Control {
         nameFilters: ["Channel Names (*.txt)"]
         onAccepted: {
             if (_saveFileDialog.selectedFile) {
-                if (OV.QmlHelper.write(_saveFileDialog.selectedFile, _control._editableNames.join("\n"))) {
+                if (OV.QmlHelper.write(_saveFileDialog.selectedFile, _control._names().join("\n"))) {
                     console.log("Channel names saved to " + _saveFileDialog.selectedFile)
                 } else {
                     console.log("Failed to save channel names to " + _saveFileDialog.selectedFile)

@@ -253,7 +253,7 @@ Upstream 4.0 measures and displays drift but never corrects it. Its UI code decl
 - Writer plugins built against upstream's `AbstractWriter` need recompiling because the signature changed.
 - Memory use of the Designer and Scenario Player no longer grows during long recordings.
 
-### 2.8 Channel name hints
+### 2.8 Channel name hints and editing
 
 **Files**
 - `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` (`channelHints()`)
@@ -265,11 +265,15 @@ Upstream 4.0 measures and displays drift but never corrects it. Its UI code decl
 
 **What it does**
 
-Drivers can supply one hint per channel name entry. The channel names panel shows it as greyed placeholder text while the entry is empty. TMSi supplies `BIP1`, `AUX1`, … and device names; other drivers supply none.
+Drivers can supply one hint per channel name entry. The channel names panel shows it as greyed placeholder text while the entry is empty. TMSi supplies `BIP1`, `AUX1`, … and device names, and eego supplies `BIP1`, `BIP2`, …; other drivers supply none.
+
+Editing a name updates that entry in place, so the list keeps its scroll position. Upstream rebuilt the list after every edit, which sent it back to the top. Enter and Tab move on to the next entry and Shift+Tab to the previous one, scrolling it into view with its text selected.
 
 **Consequences**
 - The empty entries are self-explanatory.
 - A hint is never recorded as a name: only typed text records a channel.
+- A series of names (e.g. the additional channels) can be typed in one go without reaching for the mouse.
+- Leaving an entry without changing it no longer saves the session.
 
 ### 2.9 BrainVision Format file writer (UG) (new box)
 
