@@ -163,7 +163,9 @@ One set of rules, shared by the TMSi and eego drivers, so that a montage means t
   - Every EEG channel gets the name of the electrode on it, or none: the montage decides which EEG channels are recorded.
   - A BIP or AUX channel the montage names gets that name. The others keep the names typed for them, unless a name is one of the montage's electrodes, left over from an older montage.
   - The result also says which entries the montage decided (the *locks*, shown read-only, see 2.8) and gives a summary for the note under the settings (2.16): electrodes the amplifier has no channel for, a montage made for another amplifier, problems in the file.
-- **Without an amplifier connected,** the driver does not know which channels are EEG. Every entry then counts as EEG, in channel order, and only the entries the montage named are locked. Play applies the montage again, to the amplifier's real channels.
+- **Without an amplifier connected,** the driver does not know which channels are EEG, so the montage is placed provisionally and only the entries it names are locked. Play applies it again, to the amplifier's real channels.
+  - **TMSi** assumes the layout a Refa has: the list's channels are EEG, except the last eight, which are BIP1–4 and AUX1–4. These show their hints, a montage's BIP and AUX channels land on them, and names typed for them are kept.
+  - **eego** counts every entry as EEG, in channel order.
 - **Finding the file** (`locateCharmeleonMontage()`), in this order:
   1. the setting as a path;
   2. by its file name, in Charmeleon's installed `montages` folder, then its `Resources` (default layouts), so a setting such as `ca-208.json` works on every PC with Charmeleon;
@@ -177,7 +179,7 @@ One set of rules, shared by the TMSi and eego drivers, so that a montage means t
 - A montage with two electrodes on one channel records only the first. The note says so, and Charmeleon 2.2 refuses to save such a montage.
 - Montages from before Charmeleon 2.2 that put electrodes on numbers above the EEG range (the old Left/Right/Top/Bottom markers on e.g. 72–75) no longer reach BIP or AUX channels. The note lists them as not recorded; set their channel to `BIPn`/`AUXn` in Charmeleon.
 - A montage file that is moved or deleted no longer stops a recording.
-- The rules have unit tests (13 in `CharmeleonMontageTest.cpp`).
+- The rules have unit tests (14 in `CharmeleonMontageTest.cpp`).
 
 ### 2.4 Drift correction (new)
 
@@ -513,7 +515,7 @@ Behaviour:
 
   New files (TMSi driver, drift corrector, Charmeleon, UG writer) merge cleanly.
 - **Charmeleon.** The montage round trip and the choice of amplifier need Charmeleon 2.2 (see 2.6). Charmeleon is a separate repository and installer.
-- **Tests.** The acquisition server unit tests (`test-acquisition-server-core`, 40 tests) pass. They include new tests for the drift corrector, the config message and the montage rules.
+- **Tests.** The acquisition server unit tests (`test-acquisition-server-core`, 41 tests) pass. They include new tests for the drift corrector, the config message and the montage rules.
 - **Tested without an amplifier:**
   - the montage note and locked entries;
   - the error under the settings when Play fails;

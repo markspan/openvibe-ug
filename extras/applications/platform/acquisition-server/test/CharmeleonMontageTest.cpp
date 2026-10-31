@@ -267,3 +267,21 @@ TEST_F(CharmeleonMontageTest, KeepsTheSettingWhenCharmeleonSavedToTheSameFile)
     EXPECT_EQ(montageSettingAfterSave(path, other), other);
     EXPECT_EQ(montageSettingAfterSave(path, ""), path);
 }
+
+TEST_F(CharmeleonMontageTest, PlacesOtherChannelsOnAnAssumedLayout)
+{
+    // As the TMSi driver assumes it without a device: EEG, then BIP and AUX
+    const std::vector<Kind> assumed = {Kind::EEG, Kind::EEG, Kind::Bipolar, Kind::Bipolar, Kind::Auxiliary};
+    const CharmeleonMontage montage = load(R"({
+        "Cz":   { "IsActive": true, "LabelText": "Cz",   "HardwareChannel": 2 },
+        "HEOG": { "IsActive": true, "LabelText": "HEOG", "Channel": "BIP2" }
+    })");
+
+    const MontageApplication result = applyCharmeleonMontage(montage, assumed, {"a", "b", "ECG", "", "GSR"}, true);
+
+    EXPECT_EQ(result.names, (std::vector<std::string>{"", "Cz", "ECG", "HEOG", "GSR"}));
+    // A preview: only what the montage named is locked
+    EXPECT_EQ(result.locked, (std::vector<bool>{false, true, false, true, false}));
+    EXPECT_NE(result.summary.find("No amplifier connected"), std::string::npos) << result.summary;
+    EXPECT_EQ(result.summary.find("Named on Play"), std::string::npos) << result.summary;
+}

@@ -38,7 +38,8 @@ struct TMSiApi;
  * the rules in CharmeleonMontage, names them instead: its HardwareChannel n is the n-th EXG channel, and EXG
  * channels it leaves out are not recorded; it can also name BIP and AUX channels ("Channel": "BIP1"). The entries
  * a montage decides are shown read-only (channelLocks()), and what it did is shown under the settings (note()).
- * Without a device connected the montage still names the list, provisionally, taking every channel to be EXG.
+ * Without a device connected the montage still names the list, provisionally, on the layout a Refa has: EXG channels,
+ * then 4 BIP and 4 AUX channels (assumedLayout()).
  * All other channels (BIP, AUX, DIG, SAW, ...) start out empty: giving one a name records it under that name.
  *
  * Triggers come from one channel only, the trigger channel, never from the SAW ramp channel, which the SDK may
@@ -102,6 +103,14 @@ private:
     bool fitNamesToLayout();
     /// The montage kind of each channel in m_layout.
     std::vector<MontageChannelKind> layoutKinds() const;
+    /**
+     * @brief The channel layout assumed while no device is connected: EXG channels, then 4 BIP and 4 AUX
+     *        channels, as a Refa lists them.
+     *
+     * UG fork: so that a montage's BIP and AUX channels, and the names typed for them, have a place before the
+     * device is seen. A list of 8 channels or fewer is taken to be EXG only.
+     */
+    static std::vector<MontageChannelKind> assumedLayout(size_t channelCount);
     /**
      * @brief Applies the montage, if one is set, to @p names, and shows the outcome: a note and the locked entries.
      * @return False when the montage is set but can not be used; @p names is then left as it was.

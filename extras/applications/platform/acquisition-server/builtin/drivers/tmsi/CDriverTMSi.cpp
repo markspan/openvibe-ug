@@ -218,8 +218,21 @@ OpenViBE::Parameters::Parameters CDriverTMSi::getParameters()
 
 std::vector<std::string> CDriverTMSi::channelHints() const
 {
+    // UG fork: without a device, the hints of the assumed layout, so that it is clear where BIP and AUX names go
+    if (m_layout.empty()) {
+        if (m_opened) { return {}; }
+        const std::vector<MontageChannelKind> kinds = assumedLayout(m_channelNames.value().size());
+        std::vector<std::string> hints(kinds.size());
+        uint32_t nBipolar = 0, nAuxiliary = 0;
+        for (size_t i = 0; i < kinds.size(); ++i) {
+            if (kinds[i] == MontageChannelKind::Bipolar) { hints[i] = "BIP" + std::to_string(++nBipolar); }
+            else if (kinds[i] == MontageChannelKind::Auxiliary) { hints[i] = "AUX" + std::to_string(++nAuxiliary); }
+        }
+        return hints;
+    }
+
     // During an acquisition the list holds the recorded channels only, which all have a name
-    if (m_layout.empty() || m_channelNames.value().size() != m_layout.size()) { return {}; }
+    if (m_channelNames.value().size() != m_layout.size()) { return {}; }
 
     std::vector<std::string> hints(m_layout.size());
     uint32_t nBipolar = 0, nAuxiliary = 0;
@@ -287,6 +300,18 @@ std::vector<MontageChannelKind> CDriverTMSi::layoutKinds() const
     return kinds;
 }
 
+std::vector<MontageChannelKind> CDriverTMSi::assumedLayout(const size_t channelCount)
+{
+    constexpr size_t BIPOLAR = 4, AUXILIARY = 4;
+    std::vector<MontageChannelKind> kinds(channelCount, MontageChannelKind::EEG);
+    if (channelCount <= BIPOLAR + AUXILIARY) { return kinds; }
+    const size_t firstBipolar = channelCount - BIPOLAR - AUXILIARY;
+    for (size_t i = firstBipolar; i < channelCount; ++i) {
+        kinds[i] = i < firstBipolar + BIPOLAR ? MontageChannelKind::Bipolar : MontageChannelKind::Auxiliary;
+    }
+    return kinds;
+}
+
 bool CDriverTMSi::applyMontage(std::vector<std::string>& names)
 {
     // UG fork: the montage rules live in CharmeleonMontage, shared with the eego driver; this only feeds them the
@@ -300,7 +325,10 @@ bool CDriverTMSi::applyMontage(std::vector<std::string>& names)
 
     MontageApplication application;
     std::string error;
-    if (!applyCharmeleonMontageSetting(m_paramMontage.value(), layoutKinds(), names, application, error)) {
+    // Without a device, the layout a Refa has (EXG, then 4 BIP and 4 AUX), which Play replaces by the device's own
+    const bool assumed = m_layout.empty();
+    const std::vector<MontageChannelKind> kinds = assumed ? assumedLayout(names.size()) : layoutKinds();
+    if (!applyCharmeleonMontageSetting(m_paramMontage.value(), kinds, names, application, error, assumed)) {
         report(error);
         m_montageNote = {Note::Level::Error, error};
         setNote(m_montageNote.level, m_montageNote.text);

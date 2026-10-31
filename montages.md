@@ -156,7 +156,11 @@ In the **Channel Names** list, the entries the montage decides are **greyed and 
 
 ### 5.3 Without an amplifier
 
-With no amplifier connected, the server can not know which of its channels are EEG. It shows the montage's names anyway, provisionally, in channel order, and the note says so. **Play** opens the amplifier and puts every name on the right channel, so the provisional list never ends up in a recording.
+With no amplifier connected, the server can not know which of its channels are EEG. It shows the montage's names anyway, provisionally, and the note says so:
+- **TMSi:** it assumes the layout of a Refa. The list's channels are EEG, except the last eight, which are BIP1–4 and AUX1–4, with their hints. A montage's BIP and AUX channels land there, and names you type for them are kept.
+- **eego:** every entry counts as EEG, in channel order.
+
+**Play** opens the amplifier and puts every name on the right channel, so the provisional list never ends up in a recording.
 
 ### 5.4 Editing a montage from the acquisition server
 

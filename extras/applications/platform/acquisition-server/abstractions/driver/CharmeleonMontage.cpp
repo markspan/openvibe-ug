@@ -220,10 +220,13 @@ bool loadCharmeleonMontage(const std::string& path, CharmeleonMontage& montage, 
     return true;
 }
 
-MontageApplication applyCharmeleonMontage(const CharmeleonMontage& montage, const std::vector<MontageChannelKind>& layout, std::vector<std::string> names)
+MontageApplication applyCharmeleonMontage(const CharmeleonMontage& montage, const std::vector<MontageChannelKind>& layout, std::vector<std::string> names,
+                                          const bool assumed)
 {
     MontageApplication result;
     const bool layoutKnown = !layout.empty();
+    // Without the amplifier, an assumed layout, or none at all: the result is only a preview
+    const bool provisional = assumed || !layoutKnown;
     const std::vector<MontageChannelKind> kinds = layoutKnown ? layout : std::vector<MontageChannelKind>(names.size(), MontageChannelKind::EEG);
 
     std::set<std::string> montageNames;
@@ -245,6 +248,7 @@ MontageApplication applyCharmeleonMontage(const CharmeleonMontage& montage, cons
 
     size_t nEEG = 0, nExtra = 0;
     std::vector<CharmeleonMontage::Electrode> missing, pending;
+    std::vector<bool> named(names.size(), false);
     for (const auto& electrode : montage.electrodes) {
         if (!layoutKnown && electrode.kind != MontageChannelKind::EEG) {
             pending.push_back(electrode);
@@ -258,12 +262,11 @@ MontageApplication applyCharmeleonMontage(const CharmeleonMontage& montage, cons
         const size_t row = ofKind[size_t(electrode.number) - 1];
         names[row]         = electrode.name;
         result.locked[row] = true;
+        named[row]         = true;
         ++(electrode.kind == MontageChannelKind::EEG ? nEEG : nExtra);
     }
-    // Without the amplifier the guess is only a preview: what turns out not to be EEG must stay editable
-    if (!layoutKnown) {
-        for (size_t i = 0; i < names.size(); ++i) { result.locked[i] = !names[i].empty(); }
-    }
+    // Without the amplifier the guess is only a preview: what turns out to be another channel must stay editable
+    if (provisional) { result.locked = named; }
 
     std::ostringstream summary;
     summary << plural(nEEG, "EEG electrode", "EEG electrodes");
@@ -273,11 +276,15 @@ MontageApplication applyCharmeleonMontage(const CharmeleonMontage& montage, cons
         summary << " No amplifier connected, so the names are placed in channel order; Play places them on the amplifier's EEG channels.";
         if (!pending.empty()) { summary << " Named on Play: " << listElectrodes(pending) << "."; }
     }
+    else if (assumed) {
+        summary << " No amplifier connected, so the names are placed on the channels such an amplifier usually has; Play places them on the "
+                   "amplifier's own channels.";
+    }
     if (!missing.empty()) {
-        summary << " Not recorded, as the " << (layoutKnown ? "amplifier" : "list") << " has no such channel: " << listElectrodes(missing) << ".";
+        summary << " Not recorded, as the " << (provisional ? "list" : "amplifier") << " has no such channel: " << listElectrodes(missing) << ".";
         result.warning = true;
     }
-    if (layoutKnown && montage.hasAmplifier) {
+    if (!provisional && montage.hasAmplifier) {
         const auto count = [&](MontageChannelKind kind) { return int(channels[kind].size()); };
         const CharmeleonMontage::Amplifier& amp = montage.amplifier;
         if ((amp.eegChannels > 0 && amp.eegChannels != count(MontageChannelKind::EEG))
@@ -360,7 +367,7 @@ std::string montageSettingAfterSave(const std::string& setting, const std::strin
 }
 
 bool applyCharmeleonMontageSetting(const std::string& setting, const std::vector<MontageChannelKind>& layout, const std::vector<std::string>& names,
-                                   MontageApplication& result, std::string& error)
+                                   MontageApplication& result, std::string& error, const bool assumed)
 {
     const MontageLocation location = locateCharmeleonMontage(setting);
     if (location.source == MontageLocation::Source::NotFound) {
@@ -374,7 +381,7 @@ bool applyCharmeleonMontageSetting(const std::string& setting, const std::vector
         return false;
     }
 
-    result = applyCharmeleonMontage(montage, layout, names);
+    result = applyCharmeleonMontage(montage, layout, names, assumed);
     std::string from;
     switch (location.source) {
         case MontageLocation::Source::CharmeleonFolder: from = " (from " + location.path + ")"; break;

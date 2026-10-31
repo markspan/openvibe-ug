@@ -82,13 +82,16 @@ struct OVACQUISITIONABSTRACTIONS_EXPORT MontageApplication
  * keep theirs, unless it is the name of one of the montage's electrodes, left from an older montage.
  *
  * @param montage The montage.
- * @param layout  The kind of each channel, in device order. Empty when the amplifier is not connected:
- *                every channel is then taken to be EEG, as they come first in the amplifiers' lists, and
- *                the result is provisional.
+ * @param layout  The kind of each channel, in device order. Empty when the amplifier is not connected and
+ *                the driver can not tell: every channel is then taken to be EEG, as they come first in the
+ *                amplifiers' lists.
  * @param names   The current names, one per channel.
+ * @param assumed True when @p layout is what the driver assumes, the amplifier not being connected (e.g.
+ *                TMSi: EEG, then 4 BIP and 4 AUX). As with an empty layout, the result is then provisional:
+ *                only the entries the montage names are locked, and the summary says so.
  */
 OVACQUISITIONABSTRACTIONS_EXPORT MontageApplication applyCharmeleonMontage(const CharmeleonMontage& montage, const std::vector<MontageChannelKind>& layout,
-                                                                           std::vector<std::string> names);
+                                                                           std::vector<std::string> names, bool assumed = false);
 
 /// Where a montage setting was found.
 struct OVACQUISITIONABSTRACTIONS_EXPORT MontageLocation
@@ -128,6 +131,8 @@ OVACQUISITIONABSTRACTIONS_EXPORT std::string charmeleonInstallFolder();
  * @param names   As for applyCharmeleonMontage().
  * @param result  The application; its summary starts with the montage's file name.
  * @param error   Set when the montage can not be used. @p result is then left as it was.
+ * @param assumed As for applyCharmeleonMontage().
  */
 OVACQUISITIONABSTRACTIONS_EXPORT bool applyCharmeleonMontageSetting(const std::string& setting, const std::vector<MontageChannelKind>& layout,
-                                                                    const std::vector<std::string>& names, MontageApplication& result, std::string& error);
+                                                                    const std::vector<std::string>& names, MontageApplication& result, std::string& error,
+                                                                    bool assumed = false);
