@@ -15,7 +15,8 @@
  * HardwareChannel n (1-based) is the amplifier's n-th EEG channel. "Channel" names any other channel by
  * kind and number, BIP1, AUX2, ..., counted in the amplifier's own order; it takes precedence over
  * HardwareChannel. Inactive electrodes, and those on channel 0, are not in use. "Amplifier", written by
- * Charmeleon 2.2 and later, describes the amplifier the montage was made for.
+ * Charmeleon 2.2 and later, describes the amplifier the montage was made for. Theta and Phi, also since 2.2, give
+ * where an electrode sits on the head; older montages give it only as the head map's Angle and Radius.
  *
  * UG fork: new file, not in upstream OpenViBE. The TMSi and eego drivers share these rules, so that a montage
  * means the same on both; montages.md, at the top of the repository, explains their use.
@@ -40,6 +41,13 @@ struct OVACQUISITIONABSTRACTIONS_EXPORT CharmeleonMontage
         std::string name;
         MontageChannelKind kind = MontageChannelKind::EEG;
         int number = 0;  ///< 1-based, among the channels of its kind
+
+        /// Where the electrode sits on a unit sphere, in degrees: theta from the vertex (Cz), phi from the right ear
+        /// (T8) towards the nose. Exact when the montage has Theta and Phi; else from the head map, on which the rings
+        /// are 22.5 degrees apart, so that ring 4 (Fpz, T7, Oz) lies on the equator, as in the 10-20 system.
+        bool onHead  = false;  ///< False for an other channel (EOG, ECG, ...), which has no place on the head
+        double theta = 0.0;
+        double phi   = 0.0;
     };
 
     struct Amplifier
@@ -110,6 +118,19 @@ struct OVACQUISITIONABSTRACTIONS_EXPORT MontageLocation
  * not stop a recording.
  */
 OVACQUISITIONABSTRACTIONS_EXPORT MontageLocation locateCharmeleonMontage(const std::string& setting);
+
+/**
+ * @brief Loads the montage a Montage setting stands for, found as locateCharmeleonMontage() finds it.
+ * @param setting  The setting; must not be empty.
+ * @param montage  Filled with the file's contents.
+ * @param error    Set to a description of the problem when the montage can not be used.
+ * @param location Set to where the file was found, when not null.
+ */
+OVACQUISITIONABSTRACTIONS_EXPORT bool loadCharmeleonMontageSetting(const std::string& setting, CharmeleonMontage& montage, std::string& error,
+                                                                   MontageLocation* location = nullptr);
+
+/// The montage's name as the user knows it: the file name in a Montage setting, e.g. "Refa-64.json".
+OVACQUISITIONABSTRACTIONS_EXPORT std::string montageName(const std::string& setting);
 
 /// Keeps a copy of the montage file @p path loaded for @p setting, for locateCharmeleonMontage().
 OVACQUISITIONABSTRACTIONS_EXPORT void keepCharmeleonMontageCopy(const std::string& setting, const std::string& path);

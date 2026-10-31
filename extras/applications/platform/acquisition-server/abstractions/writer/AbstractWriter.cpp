@@ -57,15 +57,11 @@ bool AbstractWriter::init(uint32_t chunkSamplesCount, uint32_t chanelCount)
 }
 
 size_t AbstractWriter::writeAcquisitionConfig(uint32_t channelCount, uint32_t sampleRate, uint32_t sampleChunk,
-                                              const std::vector<std::string>& channelNames, uint64_t clientId)
+                                              const ovChannelInfo& channels, uint64_t clientId)
 {
     // UG fork: the configuration carries the channel names, which upstream does not send, so that Designer shows
-    // them. One name per channel, each ended by a '\0'; a channel without a name is sent as an empty one
-    std::string names;
-    for (uint32_t i = 0; i < channelCount; ++i) {
-        if (i < channelNames.size()) { names += channelNames[i]; }
-        names += '\0';
-    }
+    // them, and the montage that named them, so that a recording gets its electrode positions (ovChannelInfo.h)
+    const std::string names = encodeChannelInfo(channels, channelCount);
 
     ovMsg msg; ///< Create a message to send.
     msg.msgType = ovMsg::OV_MSG_ACQUISITION_CONFIG; ///< Set the message type to acquisition configuration.

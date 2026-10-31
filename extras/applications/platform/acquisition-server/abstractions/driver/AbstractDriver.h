@@ -161,6 +161,13 @@ public:
     /** Path of the Charmeleon montage the driver uses, which Charmeleon then opens; empty for none. */
     virtual std::string charmeleonMontage() const { return {}; }  // UG fork
     /**
+     * @brief The driver's Montage setting as the user gave it, empty for none; the acquisition server sends the
+     *        montage's name and electrode positions to its clients with the channel names (ovChannelInfo.h).
+     *
+     * UG fork: upstream has no montages.
+     */
+    virtual std::string montageSetting() const { return {}; }
+    /**
      * @brief Takes over the montage Charmeleon saved, e.g. after editing it: the driver reads it again, and uses
      *        @p path from now on when it is another file than its own (Charmeleon's Save As).
      *

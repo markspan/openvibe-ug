@@ -72,6 +72,7 @@ public:
     std::vector<std::string> charmeleonArguments() const override;
     /// The montage file, found as locateCharmeleonMontage() finds it, so that Charmeleon opens the file the driver reads.
     std::string charmeleonMontage() const override;
+    std::string montageSetting() const override { return m_paramMontage.value(); }
     /// Reads the montage again, under its new name if Charmeleon saved it under another one.
     void takeOverCharmeleonMontage(const std::string& path) override;
     bool startImpedanceCheck() override;

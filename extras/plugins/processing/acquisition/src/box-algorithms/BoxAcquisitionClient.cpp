@@ -6,6 +6,7 @@
 
 #include <CClient.h>
 #include <CNetwork.h>
+#include <openvibe/acquisition-messaging/ovChannelInfo.h>
 #include <openvibe/acquisition-messaging/ovCtrlCmdMsg.h>
 #include <openvibe/acquisition-messaging/ovMsg.h>
 #include <openvibe/acquisition-messaging/ovMsgSerializer.h>
@@ -34,6 +35,10 @@ bool CBoxAcquisitionClient::initialize()
   m_signalMatrix = m_signalEncoder.getInputMatrix();
 
   m_stimEncoder.initialize(*this, 1);
+
+  // UG fork: no montage until the server sends one
+  this->getConfigurationManager().addOrReplaceConfigurationToken(OV_CHANNEL_INFO_MONTAGE_TOKEN, "");
+  this->getConfigurationManager().addOrReplaceConfigurationToken(OV_CHANNEL_INFO_POSITIONS_TOKEN, "");
 
   m_client = network.createClient();
 
@@ -103,6 +108,12 @@ bool CBoxAcquisitionClient::process()
 
   if (m_acquisitionConfigured && !m_headerSent) {
     Kernel::IBoxIO& boxContext = this->getDynamicBoxContext();
+    // UG fork: before the header, with which the BrainVision writer writes its own
+    this->getConfigurationManager().addOrReplaceConfigurationToken(OV_CHANNEL_INFO_MONTAGE_TOKEN, m_montage.c_str());
+    this->getConfigurationManager().addOrReplaceConfigurationToken(OV_CHANNEL_INFO_POSITIONS_TOKEN, m_electrodePositions.c_str());
+    if (!m_montage.empty()) {
+      this->getLogManager() << Kernel::LogLevel_Info << "Montage " << m_montage << ", from the acquisition server\n";
+    }
     m_signalEncoder.encodeHeader();
     m_stimEncoder.encodeHeader();
 
@@ -266,19 +277,15 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
             m_sampleChunk = payload.sampleChunk;
             m_signalMatrix->resize(m_channelCount, m_sampleChunk);
 
-            // UG fork: the server sends one name per channel, each ended by a '\0'; a channel without one is numbered
-            // from 1. Upstream leaves the channels unnamed
-            const char* name = payload.channelNames;
-            const char* end  = payload.channelNames + payload.channelNamesSize;
+            // UG fork: the server sends the channel names, a channel without one is numbered from 1, and the montage
+            // that named them (ovChannelInfo.h). Upstream leaves the channels unnamed
+            const ovChannelInfo info = decodeChannelInfo(payload.channelNames, payload.channelNamesSize, m_channelCount);
             for (size_t i = 0; i < m_channelCount; ++i) {
-              std::string label;
-              if (name && name < end) {
-                label = std::string(name, std::find(name, end, '\0'));
-                name += label.size() + 1;
-              }
-              if (label.empty()) { label = std::to_string(i + 1); }
+              const std::string label = info.names[i].empty() ? std::to_string(i + 1) : info.names[i];
               m_signalMatrix->setDimensionLabel(0, i, label.c_str());
             }
+            m_montage            = info.montage;
+            m_electrodePositions = encodeElectrodePositions(info);
 
             m_acquisitionConfigured = true;
             std::cout << "Acquisition started" << std::endl;

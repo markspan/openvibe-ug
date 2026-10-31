@@ -15,6 +15,7 @@
 
 #include "Acquisition.h"
 #include "DriftCalculator.h" // for DriftCalculator
+#include "CharmeleonMontage.h"
 
 #include <chrono> // for high_resolution_clock
 #include <iostream>
@@ -93,6 +94,40 @@ private:
     HANDLE m_task = nullptr;
 #endif
 };
+
+/**
+ * @brief The channels as the clients get them: their names, and the montage that named them, with where each
+ *        electrode sat, matched to the channels by name.
+ *
+ * UG fork: so that the montage is chosen once, in the server, and a recording in Designer still gets it (the
+ * BrainVision writer's [Coordinates]). Without a montage, or when it can not be read, the names only.
+ */
+ovChannelInfo describeChannels(AbstractDriver& driver)
+{
+    ovChannelInfo info;
+    info.names = driver.channelNames().value();
+
+    const std::string setting = driver.montageSetting();
+    if (setting.empty()) { return info; }
+    CharmeleonMontage montage;
+    std::string error;
+    if (!loadCharmeleonMontageSetting(setting, montage, error)) {
+        std::cout << "The montage is not sent to the clients: " << error << std::endl;
+        return info;
+    }
+
+    info.montage = montageName(setting);
+    info.positions.resize(info.names.size());
+    for (size_t i = 0; i < info.names.size(); ++i) {
+        for (const auto& electrode : montage.electrodes) {
+            if (electrode.onHead && electrode.name == info.names[i]) {
+                info.positions[i] = {true, electrode.theta, electrode.phi};
+                break;
+            }
+        }
+    }
+    return info;
+}
 
 }  // namespace
 
@@ -276,6 +311,7 @@ void Acquisition::initAcquisition()
         }
         m_driftCalculator     = std::unique_ptr<DriftCalculator>(new DriftCalculator(sampleRate, m_windowSize)); ///< Create a new drift calculator with the given sample rate and window size.
 
+        m_channelInfo = describeChannels(*m_driver);
         for (auto& w : m_writers) {
             w->init(m_chunkSampleCount.value(), channelCount);
             w->onAcquisitionSetup(sampleRate, m_driver->channelNames().value());
@@ -637,8 +673,8 @@ void Acquisition::addClient(uint64_t clientId)
 {
     // Prepare ovMsg with acquisition config and send to client before adding it to the list and stream starts going
     for (auto& w : m_writers) {
-        // UG fork: with the channel names, see AbstractWriter::writeAcquisitionConfig()
-        w->writeAcquisitionConfig(m_driver->channelCount(), m_driver->samplingRate(), m_chunkSampleCount.value(), m_driver->channelNames().value(), clientId);
+        // UG fork: with the channel names and the montage, see AbstractWriter::writeAcquisitionConfig()
+        w->writeAcquisitionConfig(m_driver->channelCount(), m_driver->samplingRate(), m_chunkSampleCount.value(), m_channelInfo, clientId);
     }
     m_clientsList.push_back(clientId);
 }

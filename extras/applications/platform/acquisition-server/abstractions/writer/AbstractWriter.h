@@ -14,6 +14,7 @@
 #include <samplesBuffer.h>
 
 #include <openvibe/acquisition-messaging/drift.h>
+#include <openvibe/acquisition-messaging/ovChannelInfo.h>
 #include <openvibe/acquisition-messaging/ovMsg.h>
 #include <openvibe/parameters/parameters.h>
 
@@ -83,11 +84,12 @@ public:
     * @param channelCount Number of channels.
     * @param sampleRate   Sampling rate (in Hz).
     * @param sampleChunk  Number of samples per chunk.
-    * @param channelNames Names of the channels; missing ones are sent empty. UG fork: upstream sends no names.
+    * @param channels     Names of the channels, and the montage that named them; missing names are sent empty. UG fork:
+    *                     upstream sends neither.
     * @param clientId     Target client identifier, or @c -1 to broadcast to all clients.
     * @return Number of bytes sent.
     */
-   size_t writeAcquisitionConfig(uint32_t channelCount, uint32_t sampleRate, uint32_t sampleChunk, const std::vector<std::string>& channelNames,
+   size_t writeAcquisitionConfig(uint32_t channelCount, uint32_t sampleRate, uint32_t sampleChunk, const ovChannelInfo& channels,
                                  uint64_t clientId = -1);
 
    /**

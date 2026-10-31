@@ -190,5 +190,6 @@ private:
     std::vector<std::unique_ptr<AbstractWriter>> m_writers; ///< Vector of unique pointers to abstract writers.
 
     std::list<uint64_t> m_clientsList; ///< List of client identifiers.
+    ovChannelInfo m_channelInfo; ///< UG fork: the channel names and montage sent to each client, set by initAcquisition()
     std::optional<uint64_t> m_owner; ///< Client allowed to control this acquisition, unset when shared.
 };

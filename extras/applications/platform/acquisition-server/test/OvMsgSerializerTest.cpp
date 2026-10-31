@@ -12,6 +12,7 @@
 
 #include <gtest/gtest.h>
 
+#include <openvibe/acquisition-messaging/ovChannelInfo.h>
 #include <openvibe/acquisition-messaging/ovMsgSerializer.h>
 
 namespace {
@@ -59,4 +60,46 @@ TEST(OvMsgSerializerTest, AcquisitionConfigWithoutNamesFromAnOlderServer)
     EXPECT_EQ(msg.msgData.acquisitionConfigStruct.sampleChunk, 16u);
     EXPECT_EQ(msg.msgData.acquisitionConfigStruct.channelNamesSize, 0u);
     EXPECT_EQ(msg.msgData.acquisitionConfigStruct.channelNames, nullptr);
+}
+
+TEST(OvMsgSerializerTest, ChannelInfoCarriesTheMontage)
+{
+    ovChannelInfo info;
+    info.names     = {"Fp1", "Cz", "HEOG"};
+    info.montage   = "Refa-64.json";
+    info.positions = {{true, 92.0, 108.0}, {true, 0.0, 0.0}, {}};
+
+    const std::string block     = encodeChannelInfo(info, 3);
+    const ovChannelInfo decoded = decodeChannelInfo(block.data(), block.size(), 3);
+    EXPECT_EQ(decoded.names, info.names);
+    EXPECT_EQ(decoded.montage, "Refa-64.json");
+    ASSERT_EQ(decoded.positions.size(), 3u);
+    EXPECT_TRUE(decoded.positions[0].known);
+    EXPECT_DOUBLE_EQ(decoded.positions[0].theta, 92.0);
+    EXPECT_DOUBLE_EQ(decoded.positions[0].phi, 108.0);
+    EXPECT_TRUE(decoded.positions[1].known);
+    EXPECT_FALSE(decoded.positions[2].known);
+
+    // What Designer's boxes pass on, by channel name
+    const auto positions = decodeElectrodePositions(encodeElectrodePositions(decoded));
+    ASSERT_EQ(positions.size(), 2u);
+    EXPECT_DOUBLE_EQ(positions.at("Fp1").phi, 108.0);
+    EXPECT_EQ(positions.count("HEOG"), 0u);
+}
+
+TEST(OvMsgSerializerTest, ChannelInfoWithNamesOnly)
+{
+    // Without a montage the block is the names only, as servers before the montage sent it
+    ovChannelInfo info;
+    info.names = {"Fp1", "", "Photodiode"};
+    const std::string block = encodeChannelInfo(info, 3);
+    EXPECT_EQ(block, std::string("Fp1\0\0Photodiode\0", 16));
+
+    const ovChannelInfo decoded = decodeChannelInfo(block.data(), block.size(), 3);
+    EXPECT_EQ(decoded.names, info.names);
+    EXPECT_TRUE(decoded.montage.empty());
+    EXPECT_TRUE(decoded.positions.empty());
+
+    // Nor does a missing block break it
+    EXPECT_EQ(decodeChannelInfo(nullptr, 0, 2).names, (std::vector<std::string>{"", ""}));
 }

@@ -85,6 +85,14 @@ int readInt(const nlohmann::ordered_json& entry, const char* key)
     return 0;
 }
 
+/// A number field; false when absent or not a number.
+bool readNumber(const nlohmann::ordered_json& entry, const char* key, double& value)
+{
+    if (!entry.contains(key) || !entry[key].is_number()) { return false; }
+    value = entry[key].get<double>();
+    return true;
+}
+
 std::string readString(const nlohmann::ordered_json& entry, const char* key)
 {
     return entry.contains(key) && entry[key].is_string() ? trim(entry[key].get<std::string>()) : std::string();
@@ -201,6 +209,13 @@ bool loadCharmeleonMontage(const std::string& path, CharmeleonMontage& montage, 
             }
         }
         if (electrode.number <= 0) { continue; }
+
+        if (readNumber(entry, "Theta", electrode.theta) && readNumber(entry, "Phi", electrode.phi)) { electrode.onHead = true; }
+        else if (double angle = 0.0, radius = 0.0; readNumber(entry, "Angle", angle) && readNumber(entry, "Radius", radius)) {
+            electrode.onHead = true;
+            electrode.theta  = 22.5 * radius;
+            electrode.phi    = angle;
+        }
 
         const auto [slot, inserted] = used.emplace(std::make_pair(electrode.kind, electrode.number), name);
         if (!inserted) {
@@ -366,20 +381,29 @@ std::string montageSettingAfterSave(const std::string& setting, const std::strin
     return savedPath;
 }
 
-bool applyCharmeleonMontageSetting(const std::string& setting, const std::vector<MontageChannelKind>& layout, const std::vector<std::string>& names,
-                                   MontageApplication& result, std::string& error, const bool assumed)
+bool loadCharmeleonMontageSetting(const std::string& setting, CharmeleonMontage& montage, std::string& error, MontageLocation* location)
 {
-    const MontageLocation location = locateCharmeleonMontage(setting);
-    if (location.source == MontageLocation::Source::NotFound) {
+    const MontageLocation found = locateCharmeleonMontage(setting);
+    if (location) { *location = found; }
+    if (found.source == MontageLocation::Source::NotFound) {
         error = "Montage " + setting + " not found.";
         return false;
     }
-
-    CharmeleonMontage montage;
-    if (!loadCharmeleonMontage(location.path, montage, error)) {
+    if (!loadCharmeleonMontage(found.path, montage, error)) {
         error = "Montage: " + error + ".";
         return false;
     }
+    return true;
+}
+
+std::string montageName(const std::string& setting) { return toUtf8(fs::u8path(trim(setting)).filename()); }
+
+bool applyCharmeleonMontageSetting(const std::string& setting, const std::vector<MontageChannelKind>& layout, const std::vector<std::string>& names,
+                                   MontageApplication& result, std::string& error, const bool assumed)
+{
+    CharmeleonMontage montage;
+    MontageLocation location;
+    if (!loadCharmeleonMontageSetting(setting, montage, error, &location)) { return false; }
 
     result = applyCharmeleonMontage(montage, layout, names, assumed);
     std::string from;
@@ -391,7 +415,7 @@ bool applyCharmeleonMontageSetting(const std::string& setting, const std::vector
             break;
         default: break;
     }
-    result.summary = toUtf8(fs::u8path(setting).filename()) + from + ": " + result.summary;
+    result.summary = montageName(setting) + from + ": " + result.summary;
 
     if (location.source != MontageLocation::Source::KeptCopy) { keepCharmeleonMontageCopy(setting, location.path); }
     return true;

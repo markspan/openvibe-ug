@@ -24,9 +24,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 21 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 22 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 54 files, about 5,550 lines added and 530 removed |
+| Size | 56 files, about 5,830 lines added and 530 removed |
 
 To regenerate the list of changes:
 
@@ -57,7 +57,7 @@ Everything outside the files listed here is identical to upstream.
 | Hardware triggers | n/a (TMSi) / flank-decoded (eego) | Sent as `OVTK_StimulationId_Label(value)`, value 1–255, not inverted |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025` | Hardware trigger shown as its value (`1`, `12`, …) |
-| BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and electrode positions from a montage |
+| BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
 | Kernel tokens | no `Path_Documents`; the Foldername setting type is unregistered | `${Path_Documents}` added; `Foldername` setting type registered |
 | Designer | Clicking two outputs could try to link a box to itself and wedge link creation | Second click on a port of the same kind restarts the link; failures end link creation |
 | Path parameters | Re-choosing the same file in the file dialog does nothing | Re-choosing the same file applies it again (reloads an edited montage) |
@@ -184,7 +184,7 @@ One set of rules, shared by the TMSi and eego drivers, so that a montage means t
 - A montage with two electrodes on one channel records only the first. The note says so, and Charmeleon 2.2 refuses to save such a montage.
 - Montages from before Charmeleon 2.2 that put electrodes on numbers above the EEG range (the old Left/Right/Top/Bottom markers on e.g. 72–75) no longer reach BIP or AUX channels. The note lists them as not recorded; set their channel to `BIPn`/`AUXn` in Charmeleon.
 - A montage file that is moved or deleted no longer stops a recording.
-- The rules have unit tests (14 in `CharmeleonMontageTest.cpp`).
+- The rules have unit tests (16 in `CharmeleonMontageTest.cpp`).
 
 ### 2.4 Acquisition threads, buffers and lost samples (reworked)
 
@@ -272,27 +272,32 @@ Samples are lost only when the amplifier's own buffer overflows. The server read
 - This needs **Charmeleon 2.2** or later. An older Charmeleon ignores the extra arguments: it opens the first amplifier it finds, eego before TMSi, and does not report back. The server's log then says the driver keeps its montage, and unsaved edits in it are lost on Play, as before.
 - Without Charmeleon installed, eego falls back to its built-in impedance check. TMSi then has no impedance check.
 
-### 2.7 Channel names sent to the client
+### 2.7 Channel names and montage sent to the client
 
 **Files**
 - `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsg.h`
+- `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h` (new)
 - `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsgSerializer.h`
 - `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h`
 - `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp`
-- `extras/applications/platform/acquisition-server/core/Acquisition.cpp`
-- `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp`
+- `extras/applications/platform/acquisition-server/core/Acquisition.h` and `.cpp`
+- `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` (`montageSetting()`)
+- `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` and `.cpp`
 - `extras/applications/platform/acquisition-server/test/OvMsgSerializerTest.cpp` (new)
 
 **What it does**
 - The `OV_MSG_ACQUISITION_CONFIG` message now carries the channel names, each ended by `\0`, after the three counts. The wire format is `[type][size][channelCount][sampleRate][sampleChunk][names…]`.
 - The serializer writes and reads this format field by field, instead of copying the in-memory struct.
-- `AbstractWriter::writeAcquisitionConfig()` takes the names as a new argument. This changes the API.
+- After the names, when a montage named the channels, come the montage's file name and one position per channel, `<theta> <phi>` in degrees or empty (`ovChannelInfo.h` defines the format, in one place for both sides). The server reads them from the driver's montage (`montageSetting()`, implemented by TMSi and eego) when the acquisition starts, matched to the channels by name.
+- `AbstractWriter::writeAcquisitionConfig()` takes the names and montage (`ovChannelInfo`) as a new argument. This changes the API.
+- The Acquisition client box passes the montage on to the scenario as two configuration tokens of the run, `${AcquisitionServer_Montage}` and `${AcquisitionServer_ElectrodePositions}`, before it sends the signal header. The UG BrainVision writer reads them (2.9). Unlike a stream, they survive boxes between the two.
 - The Acquisition client box labels its signal channels with the received names. A channel without a name, or a server that sends no names, gets numbered from 1.
 - The client now frees the arrays `deserializeOvMsg()` allocates for every message. Upstream leaked them for the whole recording.
 
 **Consequences**
 - Channel names typed in the acquisition server appear in the Signal display, in the channel selectors and in every file writer (BrainVision, GDF, CSV, …). Upstream shows 1, 2, 3, ….
-- **Compatibility:** a UG client reading an upstream server's message (20 bytes, no names) falls back to numbers; this case is covered by a unit test. The upstream client reads the three counts the same way, so it should take a UG server's message, but this has not been tested.
+- The montage is chosen once, in the server. `${AcquisitionServer_Montage}` can also be used in a scenario's settings, e.g. in a file name.
+- **Compatibility:** a UG client reading an upstream server's message (20 bytes, no names) falls back to numbers; this case is covered by a unit test. A client from before the montage reads the names and ignores the rest; a server from before it sends no montage. The upstream client reads the three counts the same way, so it should take a UG server's message, but this has not been tested.
 - Writer plugins built against upstream's `AbstractWriter` need recompiling because the signature changed.
 - Memory use of the Designer and Scenario Player no longer grows during long recordings.
 
@@ -330,7 +335,7 @@ Editing a name updates that entry in place, so the list keeps its scroll positio
 
 **What it does**
 
-This is a new box next to upstream's "BrainVision Format file writer (Gipsa)", which is unchanged. It sits in *File reading and writing/BrainVision Format* and is at version 1.3.
+This is a new box next to upstream's "BrainVision Format file writer (Gipsa)", which is unchanged. It sits in *File reading and writing/BrainVision Format* and is at version 1.4.
 
 Settings:
 
@@ -339,16 +344,17 @@ Settings:
 | Output directory | `${Path_Documents}/data` | Created if it does not exist |
 | Header filename | `record-[$core{date}-$core{time}].vhdr` | A filename with a full path ignores the directory |
 | Binary format | `IEEE_FLOAT_32` | Gipsa's default is `INT_16` |
-| Montage (electrode positions) | empty | A Charmeleon montage. Boxes saved before version 1.3 lack it and record no positions |
+
+Version 1.3 had a fourth setting, *Montage (electrode positions)*. It is gone: the montage is the acquisition server's (2.7). Scenarios saved with it still open, and it is ignored.
 
 Behaviour:
 - `.eeg` and `.vmrk` files are written next to the `.vhdr`.
 - The full path is logged when recording starts.
 - **Only hardware triggers** (`OVTK_StimulationId_Label(1..255)`) are written to the `.vmrk`. They are named as BrainVision Recorder names them: `Mk2=Stimulus,S  1,…`, `S 12`, `S233`.
 - All other stimulations (OpenViBE's own, e.g. experiment start or end) are left out.
-- **Electrode positions**, with a montage set. The header gets a `[Coordinates]` section, `Ch<n>=1,<theta>,<phi>` in BrainVision's convention (theta negative on the left), and the montage's name under `[Comment]`.
+- **Electrode positions**, when the acquisition server named the channels with a montage. The header gets a `[Coordinates]` section, `Ch<n>=1,<theta>,<phi>` in BrainVision's convention (theta negative on the left), and the montage's name under `[Comment]`.
   - Channels are matched to electrodes by name. A channel the montage does not place on the head (EOG, ECG) gets `0,0,0`.
-  - Positions come from the montage's `Theta`/`Phi` when it has them (Charmeleon writes these for the equidistant layout). Otherwise they come from the head map: theta = 22.5° × ring, phi = angle.
+  - Positions come from the montage's `Theta`/`Phi` when it has them (Charmeleon writes these for the equidistant layout). Otherwise they come from the head map: theta = 22.5° × ring, phi = angle. The server works them out (`loadCharmeleonMontage()`, 2.3); the writer only turns them into BrainVision's convention.
 
 **Consequences**
 - Files load in BrainVision Analyzer, EEGLAB, MNE and FieldTrip with marker names as the original Recorder produced them, `S  1` … `S255`.
@@ -484,15 +490,15 @@ Behaviour:
 | M | `extras/applications/platform/acquisition-server/CMakeLists.txt` | 2.1, 2.4, 2.6, 2.17 |
 | M | `extras/applications/platform/acquisition-server/abstractions/CMakeLists.txt` | 2.3 |
 | M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.cpp` | 2.16 |
-| M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` | 2.4, 2.6, 2.8, 2.16 |
+| M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` | 2.4, 2.6, 2.7, 2.8, 2.16 |
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.cpp` | 2.3 |
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.h` | 2.3 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7 |
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7 |
-| M | `extras/applications/platform/acquisition-server/core/Acquisition.h` | 2.4, 2.6, 2.8, 2.16 |
+| M | `extras/applications/platform/acquisition-server/core/Acquisition.h` | 2.4, 2.6, 2.7, 2.8, 2.16 |
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.cpp` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.h` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.cpp` | 2.4 |
@@ -523,14 +529,16 @@ Behaviour:
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_main.cpp` | 2.9 |
 | M | `extras/contrib/plugins/server-drivers/CMakeLists.txt` | 2.2 |
 | M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7 |
 | M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7 |
+| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11 |
 | M | `pixi.lock` | 2.15 |
 | M | `pixi.toml` | 2.15 |
 | M | `sdk/kernel/src/kernel/ovkCKernelContext.cpp` | 2.10 |
 | M | `sdk/modules/network/Server/CServer.cpp` | 2.4 |
 | A | `sdk/openvibe/include/openvibe/ConsoleLog.hpp` | 2.17 |
+| A | `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h` | 2.7 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsg.h` | 2.7 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsgSerializer.h` | 2.7 |
 | A | `UG.md` | this document |
@@ -556,7 +564,7 @@ Behaviour:
 
   New files (TMSi driver, Charmeleon, UG writer, buffer display) merge cleanly.
 - **Charmeleon.** The montage round trip and the choice of amplifier need Charmeleon 2.2 (see 2.6). Charmeleon is a separate repository and installer.
-- **Tests.** The acquisition server unit tests (`test-acquisition-server-core`, 42 tests) pass. They include new tests for the circular buffer, the config message and the montage rules.
+- **Tests.** The acquisition server unit tests (`test-acquisition-server-core`, 46 tests) pass. They include new tests for the circular buffer, the config message and the montage rules.
 - **Tested without an amplifier:**
   - the montage note and locked entries;
   - the error under the settings when Play fails;
@@ -570,4 +578,4 @@ Behaviour:
   - TMSi impedances on BIP and AUX channels;
   - the TMSi buffer level and overflow count, and the eego sample-counter check.
 - **Not yet verified end to end:** a Designer recording through the changed network server (2.4).
-- **Not yet run in Designer:** the electrode positions the UG writer writes.
+- **Not yet run in Designer:** the montage name and electrode positions the UG writer writes, now that they come from the server (2.7, 2.9). The message format and the montage reading have unit tests.

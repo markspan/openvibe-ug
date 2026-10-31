@@ -57,6 +57,9 @@ protected:
   uint32_t m_sampleChunk = 0;
   bool m_acquisitionConfigured = false;
   bool m_headerSent = false;
+  // UG fork: the montage the server sent, passed on to the scenario with the header, see ovChannelInfo.h
+  std::string m_montage;
+  std::string m_electrodePositions;
 
   struct ReceivedChunk {
     std::vector<double>       samples;

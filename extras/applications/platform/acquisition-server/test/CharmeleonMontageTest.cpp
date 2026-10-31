@@ -285,3 +285,37 @@ TEST_F(CharmeleonMontageTest, PlacesOtherChannelsOnAnAssumedLayout)
     EXPECT_NE(result.summary.find("No amplifier connected"), std::string::npos) << result.summary;
     EXPECT_EQ(result.summary.find("Named on Play"), std::string::npos) << result.summary;
 }
+
+TEST_F(CharmeleonMontageTest, ReadsWhereTheElectrodesSit)
+{
+    const CharmeleonMontage montage = load(R"({
+        "Fp1":  { "IsActive": true, "LabelText": "Fp1",  "HardwareChannel": 1, "Angle": 108, "Radius": 4, "Theta": 92, "Phi": 108 },
+        "Cz":   { "IsActive": true, "LabelText": "Cz",   "HardwareChannel": 2, "Angle": 0, "Radius": 0 },
+        "T7":   { "IsActive": true, "LabelText": "T7",   "HardwareChannel": 3, "Angle": 180, "Radius": 4 },
+        "HEOG": { "IsActive": true, "LabelText": "HEOG", "Channel": "BIP1", "X": 0.85, "Y": 0.72 }
+    })");
+
+    ASSERT_EQ(montage.electrodes.size(), 4u);
+    // Exact when the montage has Theta and Phi, else from the head map: 22.5 degrees per ring
+    EXPECT_TRUE(montage.electrodes[0].onHead);
+    EXPECT_DOUBLE_EQ(montage.electrodes[0].theta, 92.0);
+    EXPECT_DOUBLE_EQ(montage.electrodes[0].phi, 108.0);
+    EXPECT_TRUE(montage.electrodes[1].onHead);
+    EXPECT_DOUBLE_EQ(montage.electrodes[1].theta, 0.0);
+    EXPECT_DOUBLE_EQ(montage.electrodes[2].theta, 90.0);
+    EXPECT_DOUBLE_EQ(montage.electrodes[2].phi, 180.0);
+    EXPECT_FALSE(montage.electrodes[3].onHead);
+}
+
+TEST_F(CharmeleonMontageTest, NamesTheMontageByItsFileName)
+{
+    const std::string path = write("Refa-64.json", R"({ "Cz": { "IsActive": true, "LabelText": "Cz", "HardwareChannel": 1 } })");
+    EXPECT_EQ(montageName(path), "Refa-64.json");
+    EXPECT_EQ(montageName("Refa-64.json"), "Refa-64.json");
+
+    CharmeleonMontage montage;
+    std::string error;
+    EXPECT_TRUE(loadCharmeleonMontageSetting(path, montage, error)) << error;
+    EXPECT_FALSE(loadCharmeleonMontageSetting((m_folder / "gone.json").string(), montage, error));
+    EXPECT_NE(error.find("not found"), std::string::npos) << error;
+}

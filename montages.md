@@ -16,7 +16,7 @@ A **montage** is a small JSON file that says, for every electrode, **which ampli
 |---|---|
 | **Charmeleon** (impedance check) | Shows each electrode's impedance at its place on the head map, under its name. |
 | **Acquisition server** (TMSi and eego drivers) | Names the channels, and decides which EEG channels are recorded: an EEG channel the montage leaves out is not recorded. |
-| **BrainVision writer (UG)** in Designer | Writes where each electrode sat into the recording's header (`[Coordinates]`), so that EEGLAB, MNE and BrainVision Analyzer load the layout with the data. |
+| **BrainVision writer (UG)** in Designer | Writes the montage's name and where each electrode sat into the recording's header (`[Coordinates]`), so that EEGLAB, MNE and BrainVision Analyzer load the layout with the data. It takes the montage from the acquisition server: there is nothing to set. |
 
 So there is **one source of truth**. You name the electrodes once, in Charmeleon, and the impedance check, the recording and the analysis all agree on what "Cz" is.
 
@@ -196,9 +196,11 @@ Use them by name in the acquisition server (section 5.1), or open one in Charmel
 
 ## 7. Electrode positions in the recording
 
-In Designer, set the **BrainVision Format file writer (UG)** box's **Montage (electrode positions)** setting to the same montage. The header (`.vhdr`) then gets:
+The montage is chosen in one place: the acquisition server's driver. On Play the server sends its name and the position of each electrode to Designer, with the channel names, and the **BrainVision Format file writer (UG)** box writes them into the header (`.vhdr`):
 - a `[Coordinates]` section, one line per channel: `Ch<n>=1,<theta>,<phi>`, on a unit sphere, in BrainVision's convention (theta negative on the left half of the head);
-- a line under `[Comment]` naming the montage.
+- a line under `[Comment]` naming the montage: `Montage: Refa-64.json (electrode positions of 62 channels)`.
+
+The positions travel, not the file, so this also works with the server on another PC. Boxes between the Acquisition client and the writer (a channel selector, a filter) do not lose them.
 
 Channels are matched to electrodes **by name**. A channel the montage does not place on the head (EOG, ECG, ...) gets `0,0,0`, "no position".
 
@@ -206,7 +208,9 @@ Where the positions come from:
 - **Exact,** when the montage has `Theta` and `Phi`. Charmeleon writes these for the equidistant layout, from the cap's 3-D coordinates.
 - **From the head map** otherwise: Charmeleon's rings are 22.5 degrees apart, so ring 4 (Fpz, T7, Oz) lies on the equator, as in the 10-20 system. This is exact for the standard 10/20 positions and close for the positions between them.
 
-Leave the setting empty to record no positions, as before.
+Without a montage in the server, or when the signal comes from a file rather than the server, the header has no positions and no montage line.
+
+Up to version 1.3 the writer box had a **Montage (electrode positions)** setting of its own. A scenario saved with it still opens; the setting is ignored.
 
 ---
 
