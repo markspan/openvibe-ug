@@ -15,6 +15,8 @@ This document lists every change against upstream, what each change does and wha
 git grep -n "UG fork"
 ```
 
+**Logs.** Neither application opens a console window; what they print is in `%APPDATA%\OpenVIBE-4.0\log\` (see 2.17).
+
 **Montages** have their own how-to: [montages.md](montages.md). It covers why TMSi montages are tailor-made and eego montages semi-fixed, how to make one in Charmeleon, and how the server and the BrainVision writer use it.
 
 ## Base and scope
@@ -22,9 +24,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 19 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 21 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 47 files, about 4,900 lines added and 160 removed |
+| Size | 54 files, about 5,550 lines added and 530 removed |
 
 To regenerate the list of changes:
 
@@ -47,7 +49,10 @@ Everything outside the files listed here is identical to upstream.
 | Montage feedback | n/a | The server says what the montage did, and shows the entries it decides read-only |
 | Impedance check | Built-in check only | Charmeleon is launched for eego and TMSi, on the driver's own amplifier; its montage edits come back to the driver when it closes |
 | Driver errors | Printed to the console only | Shown under the driver settings, including why Play failed |
-| Drift correction | Settings declared in the UI code, never shown and never applied | Working drift correction as in the 3.x server, off by default, with settings in Preferences |
+| Lost samples | Drift shown; nothing shows how close the acquisition is to losing samples | Amplifier buffer level, free server buffers and lost samples shown during an acquisition (TMSi, eego) |
+| Server threads | Three threads poll in a loop, keeping CPU cores busy, also at idle | They wait for work; the amplifier is read at multimedia priority |
+| Drift correction | Settings declared in the UI code, never shown and never applied | None; the settings are gone |
+| Console windows | The server opens one; Designer uses that of whatever started it | None; output goes to a log file |
 | Trigger timing | Triggers dated at the block they arrive in | Every sample is timestamped; each trigger is dated at its own sample |
 | Hardware triggers | n/a (TMSi) / flank-decoded (eego) | Sent as `OVTK_StimulationId_Label(value)`, value 1–255, not inverted |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
@@ -103,7 +108,7 @@ Triggers:
 - A trigger is sent when the value changes to a non-zero value.
 - Each trigger is dated at the timestamp of its own sample (see 2.5).
 
-The driver asks for drift correction when the policy is "Let the driver decide" (see 2.4) and hands impedance checking to Charmeleon (see 2.6).
+The driver reports how full the TMSi library's buffer is and how many samples it lost (see 2.4), and hands impedance checking to Charmeleon (see 2.6).
 
 **Consequences**
 - Upstream 4.0 cannot record from a TMSi amplifier at all. The UG fork can, on Windows only.
@@ -130,7 +135,7 @@ The driver asks for drift correction when the policy is "Let the driver decide" 
 - Channels are handed to the SDK as an explicit list. This also removes the 64-bit mask limit.
 - The trigger and sample-counter channels are always appended, as upstream does.
 - Every sample is timestamped, and each trigger is dated at its own sample (see 2.5).
-- The driver asks for drift correction under "Let the driver decide" and uses Charmeleon for impedances when it is installed.
+- The driver reports how much data waited at each read, and counts lost samples from the sample counter (see 2.4). It uses Charmeleon for impedances when it is installed.
 - When it cannot start, it says why under the settings (see 2.16).
 
 **Consequences**
@@ -181,42 +186,46 @@ One set of rules, shared by the TMSi and eego drivers, so that a montage means t
 - A montage file that is moved or deleted no longer stops a recording.
 - The rules have unit tests (14 in `CharmeleonMontageTest.cpp`).
 
-### 2.4 Drift correction (new)
+### 2.4 Acquisition threads, buffers and lost samples (reworked)
 
 **Files**
-- `extras/applications/platform/acquisition-server/core/DriftCorrector.h` (new)
-- `extras/applications/platform/acquisition-server/core/DriftCorrector.cpp` (new)
-- `extras/applications/platform/acquisition-server/core/Acquisition.h`
-- `extras/applications/platform/acquisition-server/core/Acquisition.cpp`
-- `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` (`wantsDriftCorrection()`)
-- `extras/applications/platform/acquisition-server/settings/SessionManager.h`
-- `extras/applications/platform/acquisition-server/settings/SessionManager.cpp`
-- `extras/applications/platform/acquisition-server/ui/AcquisitionController.h`
-- `extras/applications/platform/acquisition-server/ui/AcquisitionController.cpp`
-- `extras/applications/platform/acquisition-server/ui/qml/Main.qml`
+- `extras/applications/platform/acquisition-server/core/Acquisition.h` and `.cpp`
+- `extras/applications/platform/acquisition-server/core/CircularBuffer.h` and `.cpp`
+- `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.h` and `.cpp`
+- `sdk/modules/network/Server/CServer.cpp`
+- `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` (`DeviceBuffer`, `takeDeviceBuffer()`)
+- `CDriverTMSi.*` and `CDriverEEGO.*`
+- `extras/applications/platform/acquisition-server/ui/AcquisitionController.h` and `.cpp` (`buffers`)
+- `extras/applications/platform/acquisition-server/ui/qml/BufferControl.qml` and `LevelBar.qml` (new), replacing `DriftControl.qml` and `DriftBar.qml` (removed); `Main.qml`
 - `extras/applications/platform/acquisition-server/CMakeLists.txt`
-- `extras/applications/platform/acquisition-server/test/CMakeLists.txt`
-- `extras/applications/platform/acquisition-server/test/DriftCorrectorTest.cpp` (new)
+- `extras/applications/platform/acquisition-server/test/CircularBufferTest.cpp` (new)
 
 **What it does**
 
-Upstream 4.0 measures and displays drift but never corrects it. Its UI code declares "Drift Correction Policy" and "Drift Tolerance" parameters that are neither shown nor used. The UG fork restores the 3.x behaviour:
+Samples are lost only when the amplifier's own buffer overflows. The server reads the amplifier on one thread (the reader) into a pool of 10 buffers. A second thread hands them to the clients (Designer), and a third cleans them for reuse. When the clients are slow, the pool runs out, the reader stops reading, and the amplifier's buffer fills. This section makes that chain cheaper and visible:
 
-- For every buffer, `DriftCorrector` compares the number of samples received with the number the elapsed time calls for. It averages this over the last 128 buffers.
-- When the average exceeds the tolerance, it corrects at the end of the current buffer:
-  - **Too few samples:** it repeats the last sample. Repeated samples get the same timestamp as the original.
-  - **Too many samples:** it drops the last samples. Stimulations on dropped samples move to the new last sample, so none are lost.
-- Two settings under Preferences control it, and both are saved in the session as `driftCorrectionPolicy` and `driftToleranceMs`:
-  - *Drift correction*: "Disabled" (default), "Let the driver decide" or "Forced". "Let the driver decide" corrects drivers whose `wantsDriftCorrection()` returns true, which are TMSi and eego.
-  - *Drift tolerance (ms)*: default 5, range 1–100.
-- At Stop, the log reports how many samples were added and removed, and in how many corrections.
+- **Threads that wait.** Upstream's processing and cleaning threads poll the buffer queues without pause. So does the network control thread (`CNetAcqControlAPI::run()`), even with nothing connected. The network server's receive loop (`CServer::loopDataFromClient()`) spins too, as soon as a client (Designer) has sent anything. Each kept a CPU core busy. All four now wait until there is work.
+- **Reader priority.** The reader thread registers with the Windows multimedia scheduler (MMCSS) as a "Pro Audio" task at high priority, and opts out of Windows 11's power throttling, which may slow down minimised programs. It waits whenever there is nothing to read, so it takes no more CPU than before; it gets it sooner.
+- **Empty reads.** A driver that returns at once with nothing (the generic oscillator, LSL) would keep that high-priority reader spinning, so the reader pauses 1 ms after a quick, empty read. Drivers that wait for data themselves (TMSi, eego) take longer than that and are not slowed down. An empty buffer is kept for the next read instead of going round the cleaning thread.
+- **Buffers panel.** Where upstream shows the drift, the server shows, twice a second, during an acquisition:
+  - **Amplifier buffer.** TMSi: how full the TMSi library's buffer is (`GetBufferInfo`), as a percentage of its 10 seconds. eego: the SDK does not say how full its buffer is, so the panel shows how much data waited at each read. For both, a reader that is held up counts as a growing backlog.
+  - **Server buffers:** how many of the 10 are free. The reader and the processing thread hold one each, so 8 free is normal.
+  - **Lost samples.** TMSi: the library's overflow count, times its buffer size. eego: gaps in the amplifier's sample counter channel, counted exactly. Lost samples also show in red in the panel's header and are logged as an error.
+
+  Each value is the worst since the previous update; the one in brackets is the worst since Play.
+- **Drift correction removed.** Earlier versions of this fork added a 3.x-style drift correction (`DriftCorrector`), with "Drift correction" and "Drift tolerance (ms)" settings under Preferences. Repeating and dropping samples hides exactly what this section shows, and the settings were confusing, so they are gone. Upstream's drift measurement (`DriftCalculator`) still runs but is no longer shown.
+- **Fixed in passing:**
+  - `Acquisition::stop()` destroyed the buffer handler before the circular buffer, whose destructor uses it;
+  - `CNetAcqControlAPI::pushRequest()` added requests to the queue without its lock;
+  - `CircularBuffer::setRunning()` could miss waking a thread that was about to wait.
 
 **Consequences**
-- Out of the box nothing is corrected, and the recorded samples are exactly what the amplifier sent.
-- With "Let the driver decide" or "Forced", long TMSi and eego recordings keep the number of samples in step with wall-clock time, as in 3.x. Upstream lets them drift.
-- With correction on, the recorded signal can contain repeated or missing samples at correction points. This is the same trade-off 3.x made.
-- The default policy matches what upstream had declared (Disabled), and the default tolerance differs (5 ms instead of 2 ms).
-- Sessions saved while the default was "Let the driver decide" stored the policy under `driftCorrection`. On their first load "Let the driver decide" there is taken as the old default and becomes "Disabled", while "Forced" and "Disabled" are kept. From then on the policy is stored under `driftCorrectionPolicy`, so choosing "Let the driver decide" again sticks.
+- The server's CPU use with the generic oscillator went from about 2.4 cores while playing (1 core at idle) to about 0.02 cores while playing and 0 at idle. More of a modest PC is left for Designer, which writes the recording.
+- A stall shows as a rising amplifier-buffer level before anything is lost; a loss, if any, is counted and shown.
+- Recordings contain exactly the samples the amplifier delivered: the server repeats or drops none.
+- Sessions saved with the old drift correction keys still load; the keys are ignored (2.14).
+- The circular buffer's waiting and free count have unit tests (5 in `CircularBufferTest.cpp`).
+- **Not yet verified on hardware:** the TMSi buffer level and overflow count, and the eego backlog and sample-counter check. **Not yet verified end to end:** a Designer recording through the changed network server.
 
 ### 2.5 Exact trigger placement
 
@@ -226,11 +235,10 @@ Upstream 4.0 measures and displays drift but never corrects it. Its UI code decl
 
 **What it does**
 - Both drivers give every sample its own timestamp and date each trigger with its sample's timestamp.
-- The Acquisition client box places each stimulation on the last sample stamped at or before the stimulation's date. Among samples that share a stamp (samples repeated by drift correction), it picks the first one, the original.
+- The Acquisition client box places each stimulation on the last sample stamped at or before the stimulation's date. Among samples that share a stamp, it picks the first one.
 
 **Consequences**
 - A trigger lands on the sample where the amplifier saw it, not at the start or end of the block it arrived in. Without this, its position could be off by up to one block.
-- Drift correction cannot shift a trigger onto a repeated sample.
 
 ### 2.6 Impedance check through Charmeleon (new)
 
@@ -396,7 +404,7 @@ Behaviour:
 - `extras/applications/platform/acquisition-server/settings/SessionManager.h`
 - `extras/applications/platform/acquisition-server/settings/SessionManager.cpp`
 
-**What it does:** the stored session gains the keys `driftCorrectionPolicy` and `driftToleranceMs`. The driver parameters stored for TMSi and eego follow their new settings.
+**What it does:** the driver parameters stored for TMSi and eego follow their new settings. Sessions saved by earlier versions of the fork may carry `driftCorrectionPolicy`, `driftCorrection` and `driftToleranceMs`. These are ignored, and the next save drops them.
 
 **Consequences**
 - A UG session file opened by upstream ignores the extra keys.
@@ -441,16 +449,39 @@ Behaviour:
 - A failed Play is no longer silent: upstream drivers can only print to the console, which the server does not show.
 - Drivers that set no note look as in upstream.
 
+### 2.17 No console windows; output in a log file (new)
+
+**Files**
+- `sdk/openvibe/include/openvibe/ConsoleLog.hpp` (new: `redirectConsoleToLogFile()`)
+- `extras/applications/platform/acquisition-server/main.cpp`, `CMakeLists.txt` (`WIN32_EXECUTABLE`)
+- `designer/applications/platform/designer/src/main.cpp`
+
+**What it does**
+- The acquisition server is built as a windowed application, as Designer already was, so it opens no console window.
+- What either application prints (the console log, and driver messages such as `[TMSi] …`) goes to `%APPDATA%\OpenVIBE-4.0\log\`:
+  - `openvibe-acquisition-server-console.log`
+  - `openvibe-designer-console.log`
+
+  These sit next to the kernel's own `openvibe-<application>.log`. Each start keeps the previous run's file as `….previous.log`. The file is written unbuffered and can be read while the application runs.
+- When the application is started with its output redirected (to a file or a pipe), the output stays there.
+- Designer no longer attaches to the console of the program that started it.
+
+**Consequences**
+- No command window next to either application, also when it is started from a terminal or a launcher script. Start the `.exe` (or the Start Menu shortcut) rather than a `.cmd`: a launcher script still shows its own window.
+- After a recording that went wrong, the previous run's messages are still there.
+- Started from a terminal, the applications print nothing there; read the log file, or redirect the output.
+
 ---
 
 ## 3. All modified files
 
-`A` = added, `M` = modified. The section column refers to the sections above.
+`A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
 
 | Status | File | Section |
 |---|---|---|
 | M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12 |
-| M | `extras/applications/platform/acquisition-server/CMakeLists.txt` | 2.1, 2.4, 2.6 |
+| M | `designer/applications/platform/designer/src/main.cpp` | 2.17 |
+| M | `extras/applications/platform/acquisition-server/CMakeLists.txt` | 2.1, 2.4, 2.6, 2.17 |
 | M | `extras/applications/platform/acquisition-server/abstractions/CMakeLists.txt` | 2.3 |
 | M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.cpp` | 2.16 |
 | M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` | 2.4, 2.6, 2.8, 2.16 |
@@ -458,24 +489,30 @@ Behaviour:
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.h` | 2.3 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.5, 2.6, 2.16 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.6 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.h` | 2.4, 2.6, 2.8, 2.16 |
-| A | `extras/applications/platform/acquisition-server/core/DriftCorrector.cpp` | 2.4 |
-| A | `extras/applications/platform/acquisition-server/core/DriftCorrector.h` | 2.4 |
-| M | `extras/applications/platform/acquisition-server/settings/SessionManager.cpp` | 2.4, 2.14 |
-| M | `extras/applications/platform/acquisition-server/settings/SessionManager.h` | 2.4, 2.14 |
+| M | `extras/applications/platform/acquisition-server/core/CircularBuffer.cpp` | 2.4 |
+| M | `extras/applications/platform/acquisition-server/core/CircularBuffer.h` | 2.4 |
+| M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.cpp` | 2.4 |
+| M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.h` | 2.4 |
+| M | `extras/applications/platform/acquisition-server/main.cpp` | 2.17 |
+| M | `extras/applications/platform/acquisition-server/settings/SessionManager.cpp` | 2.14 |
+| M | `extras/applications/platform/acquisition-server/settings/SessionManager.h` | 2.14 |
 | A | `extras/applications/platform/acquisition-server/test/CharmeleonMontageTest.cpp` | 2.3 |
-| M | `extras/applications/platform/acquisition-server/test/CMakeLists.txt` | 2.4 |
-| A | `extras/applications/platform/acquisition-server/test/DriftCorrectorTest.cpp` | 2.4 |
+| A | `extras/applications/platform/acquisition-server/test/CircularBufferTest.cpp` | 2.4 |
 | A | `extras/applications/platform/acquisition-server/test/OvMsgSerializerTest.cpp` | 2.7 |
 | M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.cpp` | 2.4, 2.6, 2.8, 2.16 |
 | M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.h` | 2.4, 2.6, 2.8, 2.16 |
 | A | `extras/applications/platform/acquisition-server/ui/Charmeleon.cpp` | 2.6 |
 | A | `extras/applications/platform/acquisition-server/ui/Charmeleon.h` | 2.6 |
 | M | `extras/applications/platform/acquisition-server/ui/qml/ChannelRename.qml` | 2.8 |
+| A | `extras/applications/platform/acquisition-server/ui/qml/BufferControl.qml` | 2.4 |
+| D | `extras/applications/platform/acquisition-server/ui/qml/DriftBar.qml` | 2.4 |
+| D | `extras/applications/platform/acquisition-server/ui/qml/DriftControl.qml` | 2.4 |
 | A | `extras/applications/platform/acquisition-server/ui/qml/DriverNote.qml` | 2.16 |
+| A | `extras/applications/platform/acquisition-server/ui/qml/LevelBar.qml` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/ui/qml/Main.qml` | 2.4, 2.8, 2.16 |
 | M | `extras/applications/qml/OVParameters/PathParameter.qml` | 2.13 |
 | M | `extras/applications/qml/OVParameters/src/parameterPathObject.cpp` | 2.13 |
@@ -485,13 +522,15 @@ Behaviour:
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_defines.h` | 2.9 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_main.cpp` | 2.9 |
 | M | `extras/contrib/plugins/server-drivers/CMakeLists.txt` | 2.2 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.5, 2.6, 2.16 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.6 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6 |
 | M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11 |
 | M | `pixi.lock` | 2.15 |
 | M | `pixi.toml` | 2.15 |
 | M | `sdk/kernel/src/kernel/ovkCKernelContext.cpp` | 2.10 |
+| M | `sdk/modules/network/Server/CServer.cpp` | 2.4 |
+| A | `sdk/openvibe/include/openvibe/ConsoleLog.hpp` | 2.17 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsg.h` | 2.7 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsgSerializer.h` | 2.7 |
 | A | `UG.md` | this document |
@@ -501,28 +540,34 @@ Behaviour:
 
 ## 4. Overall consequences and caveats
 
-- **Platform.** The TMSi driver and the Charmeleon integration are Windows-only. On Linux and macOS the fork builds and behaves like upstream, apart from the eego build, the writer, the drift correction and the fixes.
+- **Platform.** The TMSi driver and the Charmeleon integration are Windows-only. On Linux and macOS the fork builds and behaves like upstream, apart from the eego build, the writer, the buffer display and the fixes.
 - **Mixing versions.** Use the UG acquisition server with the UG Designer or Scenario Player. Mixing with upstream should work (see 2.7) but loses the channel names and the trigger placement fix, and has not been tested.
 - **Scenarios.** Scenarios using the Gipsa writer are unaffected. To get Recorder-style markers and the output directory setting, replace that box with the UG writer.
-- **Recorded data.** With drift correction on (off by default; "Let the driver decide" turns it on for TMSi and eego), recordings may contain repeated or dropped samples at correction points. The log reports how many.
+- **Recorded data.** Recordings contain exactly the samples the amplifier delivered. The server repeats or drops none, and samples the amplifier lost are counted and shown (2.4).
 - **Merging upstream.** The fork changes shared code that upstream may also change, so these are the likely merge conflicts:
   - acquisition message format and serializer
   - `AbstractWriter` signature
-  - `Acquisition`, `AcquisitionController`, `SessionManager`
+  - `Acquisition`, `CircularBuffer`, `AcquisitionController`, `SessionManager`
+  - the network control API and `CServer`
+  - Designer's and the server's `main.cpp`
   - `DesignerScenario::clickPort`
   - the kernel context
   - `pixi.toml` and `pixi.lock`
 
-  New files (TMSi driver, drift corrector, Charmeleon, UG writer) merge cleanly.
+  New files (TMSi driver, Charmeleon, UG writer, buffer display) merge cleanly.
 - **Charmeleon.** The montage round trip and the choice of amplifier need Charmeleon 2.2 (see 2.6). Charmeleon is a separate repository and installer.
-- **Tests.** The acquisition server unit tests (`test-acquisition-server-core`, 41 tests) pass. They include new tests for the drift corrector, the config message and the montage rules.
+- **Tests.** The acquisition server unit tests (`test-acquisition-server-core`, 42 tests) pass. They include new tests for the circular buffer, the config message and the montage rules.
 - **Tested without an amplifier:**
   - the montage note and locked entries;
   - the error under the settings when Play fails;
   - the round trip with Charmeleon 2.2 in demo mode: the server starts it, it saves on closing, and the driver takes the montage over;
-  - the fallback for an older Charmeleon.
+  - the fallback for an older Charmeleon;
+  - the buffers panel and the server's CPU use, with the generic oscillator;
+  - both applications starting without a console window and writing their log files.
 - **Not yet verified on hardware:**
   - the TMSi and eego channel lists, montage mapping, channel hints, and channel names in the Signal display;
   - Charmeleon opening the driver's device;
-  - TMSi impedances on BIP and AUX channels.
+  - TMSi impedances on BIP and AUX channels;
+  - the TMSi buffer level and overflow count, and the eego sample-counter check.
+- **Not yet verified end to end:** a Designer recording through the changed network server (2.4).
 - **Not yet run in Designer:** the electrode positions the UG writer writes.

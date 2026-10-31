@@ -180,11 +180,10 @@ ApplicationWindow {
           }
         }
 
-        OV.DriftControl {
+        // UG fork: the buffer levels, where upstream shows the drift
+        OV.BufferControl {
               Layout.fillWidth: true
-              instantDrift: controller.instantDrift
-              globalDrift: controller.globalDrift
-              driftLimit: controller.driftLimit
+              buffers: controller.buffers
         }
 
         DS.HorizontalSpacer {
@@ -428,19 +427,6 @@ ApplicationWindow {
           id: _tcpTaggingPort
           Layout.fillWidth: true
           param: controller.tcpTaggingPort
-        }
-
-        // UG fork: the drift correction settings, which upstream 4.0 does not have
-        OV.ListParameter {
-          id: _driftCorrectionPolicy
-          Layout.fillWidth: true
-          param: controller.driftCorrectionPolicy
-        }
-
-        OV.NumericParameter {
-          id: _driftTolerance
-          Layout.fillWidth: true
-          param: controller.driftTolerance
         }
       }
     }

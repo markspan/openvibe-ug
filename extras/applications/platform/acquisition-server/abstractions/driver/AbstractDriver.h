@@ -169,10 +169,28 @@ public:
     virtual void takeOverCharmeleonMontage(const std::string& /*path*/) {}
 
     /**
-     * Returns true if the server should correct this driver's drift when the drift correction setting
-     * leaves the choice to the driver.
+     * @brief How full the amplifier's own sample buffer got, and how many samples it lost, as far as the driver can
+     *        tell.
+     *
+     * UG fork: upstream does not show it. The amplifier's buffer is the last margin before samples are lost: it fills
+     * whenever the server reads more slowly than the amplifier sends, so the server shows it during an acquisition.
      */
-    virtual bool wantsDriftCorrection() const { return false; }  // UG fork: see DriftCorrector
+    struct DeviceBuffer
+    {
+        bool reported          = false;  ///< False when the driver can tell nothing about its buffer
+        double peakSeconds     = 0;      ///< Most data waiting in the buffer since the previous takeDeviceBuffer(), in seconds
+        double capacitySeconds = 0;      ///< How much data the buffer holds, in seconds; 0 when unknown
+        bool lossCounted       = false;  ///< True when lostSamples is counted; false when the driver cannot tell
+        uint64_t lostSamples   = 0;      ///< Samples lost since the acquisition started
+    };
+
+    /**
+     * @brief The buffer state since the previous call, which this resets for the next one.
+     *
+     * UG fork. Called on the user interface's thread while the server's reader thread runs the driver, so a driver
+     * keeps what this returns in atomics. The default reports nothing.
+     */
+    virtual DeviceBuffer takeDeviceBuffer() { return {}; }
 
     /** Enter impedance measurement mode. Called after init(), before start(). */
     virtual bool startImpedanceCheck() { return false; }

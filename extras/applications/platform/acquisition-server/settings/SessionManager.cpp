@@ -25,11 +25,6 @@ const char* DRIVER_KEY      = "driver";
 const char* DRIVERS_KEY     = "drivers";
 const char* WRITERS_KEY     = "writers";
 const char* CHUNK_SIZE_KEY  = "chunkSampleCount";
-// UG fork: the drift correction settings, which upstream does not have
-const char* DRIFT_CORRECTION_KEY = "driftCorrectionPolicy";
-// Where the policy was stored while it defaulted to "Let the driver decide"
-const char* OLD_DRIFT_CORRECTION_KEY = "driftCorrection";
-const char* DRIFT_TOLERANCE_KEY  = "driftToleranceMs";
 const char* NAME_KEY        = "name";
 const char* PARAMS_KEY      = "params";
 const char* ENABLED_KEY     = "enabled";
@@ -229,23 +224,6 @@ SessionManager::Session SessionManager::readStoredSession()
         session.chunkSampleCount = stored[CHUNK_SIZE_KEY].get<int>();
     }
 
-    // UG fork: the drift correction settings
-    if (stored.contains(DRIFT_CORRECTION_KEY) && stored[DRIFT_CORRECTION_KEY].is_string()) {
-        session.driftCorrectionPolicy = stored[DRIFT_CORRECTION_KEY].get<std::string>();
-    }
-    else if (stored.contains(OLD_DRIFT_CORRECTION_KEY) && stored[OLD_DRIFT_CORRECTION_KEY].is_string()) {
-        // Every save stored the policy, so the old default can not be told apart from a choice: it
-        // makes way for the new default (Disabled) once. The next save writes the new key only.
-        const std::string policy = stored[OLD_DRIFT_CORRECTION_KEY].get<std::string>();
-        if (policy != "Let the driver decide") {
-            session.driftCorrectionPolicy = policy;
-        }
-    }
-
-    if (stored.contains(DRIFT_TOLERANCE_KEY) && stored[DRIFT_TOLERANCE_KEY].is_number_integer()) {
-        session.driftToleranceMs = stored[DRIFT_TOLERANCE_KEY].get<int>();
-    }
-
     if (stored.contains(DRIVERS_KEY)) {
         readNamedParams(stored[DRIVERS_KEY], session.driverParams);
         readDriverChannelNames(stored[DRIVERS_KEY], session.driverChannelNames);
@@ -299,12 +277,6 @@ void SessionManager::restoreAll(const std::string& acquisitionName)
 
         if (session.chunkSampleCount) {
             acquisition->getChunkSampleCount()->setValue(*session.chunkSampleCount);
-        }
-        if (session.driftCorrectionPolicy) {  // UG fork
-            acquisition->getDriftCorrectionPolicy()->setValue(*session.driftCorrectionPolicy);
-        }
-        if (session.driftToleranceMs) {
-            acquisition->getDriftTolerance()->setValue(*session.driftToleranceMs);
         }
 
         // Setting the enable flag is what adds the writer to the acquisition, so the settings can
@@ -408,8 +380,6 @@ void SessionManager::saveCurrent(const std::string& acquisitionName)
     session.driverChannelNames = m_driverChannelNames;
     session.writerParams       = m_writerParams;
     session.chunkSampleCount   = acquisition->getChunkSampleCount()->value();
-    session.driftCorrectionPolicy = acquisition->getDriftCorrectionPolicy()->value();  // UG fork
-    session.driftToleranceMs      = acquisition->getDriftTolerance()->value();
 
     for (const auto& [name, enableParam] : manager.getAcquisitionWritersEnableParam(acquisitionName)) {
         session.enabledWriters[name] = enableParam.value();
@@ -431,12 +401,6 @@ void SessionManager::writeAll(const Session& session) const
     }
     if (session.chunkSampleCount) {
         stored[CHUNK_SIZE_KEY] = *session.chunkSampleCount;
-    }
-    if (session.driftCorrectionPolicy) {  // UG fork
-        stored[DRIFT_CORRECTION_KEY] = *session.driftCorrectionPolicy;
-    }
-    if (session.driftToleranceMs) {
-        stored[DRIFT_TOLERANCE_KEY] = *session.driftToleranceMs;
     }
 
     // A driver is listed as soon as it has either settings or channel names.

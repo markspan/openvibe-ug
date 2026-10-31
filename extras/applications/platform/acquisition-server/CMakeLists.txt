@@ -34,7 +34,6 @@ list(APPEND APP_SOURCES
     core/Api.cpp
     core/CircularBuffer.cpp
     core/DriftCalculator.cpp
-    core/DriftCorrector.cpp   # UG fork
     core/SampleBufferHandler.cpp
     core/Thread.cpp
 	core/net-api/CNetAcqControlAPI.cpp
@@ -64,7 +63,6 @@ list(APPEND APP_PRIVATE_HEADERS
     core/Api.h
     core/CircularBuffer.h
     core/DriftCalculator.h
-    core/DriftCorrector.h     # UG fork
     core/SampleBufferHandler.h
     core/Thread.h
     #core/Bridges/CBridgesCollection.h
@@ -135,6 +133,10 @@ if(WIN32)
 endif()
 
 qt_add_executable(${TARGET_NAME})
+if(WIN32)
+    # UG fork: no console window; main() sends what the server prints to a log file (openvibe/ConsoleLog.hpp)
+    set_target_properties(${TARGET_NAME} PROPERTIES WIN32_EXECUTABLE ON)
+endif()
 target_sources(${TARGET_NAME} PRIVATE ${APP_SOURCES} ${APP_PRIVATE_HEADERS} ${OV_ACQUISITION_SERVER_RC})
 setup_output_paths_general(${TARGET_NAME})
 target_include_directories(${TARGET_NAME}
@@ -159,8 +161,8 @@ qt_add_qml_module(${TARGET_NAME}
         ui/qml/Impedances.qml
         ui/qml/ChannelRename.qml
         ui/qml/DriverNote.qml     # UG fork
-        ui/qml/DriftBar.qml
-        ui/qml/DriftControl.qml
+        ui/qml/LevelBar.qml       # UG fork: with BufferControl, in place of DriftBar and DriftControl
+        ui/qml/BufferControl.qml  # UG fork
     SOURCES
         ui/AcquisitionController.h
         ui/AcquisitionController.cpp

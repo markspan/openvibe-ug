@@ -13,6 +13,7 @@
 #include <QQmlContext>
 
 #include <iostream>
+#include <openvibe/ConsoleLog.hpp>  // UG fork
 #include "Acquisition.h"
 #include "AcquisitionManager.h"
 
@@ -27,6 +28,10 @@
 
 int main(int argc, char *argv[])
 {
+    // UG fork: the server has no console window (WIN32_EXECUTABLE); what it prints goes to
+    // <user data>/log/openvibe-acquisition-server-console.log, unless the parent redirected the output
+    OpenViBE::redirectConsoleToLogFile("openvibe-acquisition-server-console");
+
     CInitApp appInit(argc, const_cast<char const**>(argv));
 
     appInit.loadSettings();

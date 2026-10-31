@@ -12,6 +12,8 @@
  */
 #include "CircularBuffer.h"
 
+#include <algorithm>
+
  /**
   * @brief Constructor for the CircularBuffer class.
   *
@@ -24,6 +26,7 @@ CircularBuffer::CircularBuffer(SampleBufferHandler* sampleBufferHandler, uint32_
 {
     m_allBuffers = new samplesBuffer*[m_internalBufferCount]();
     allocateRoundBuffer();
+    m_minFreeCount = m_internalBufferCount;
     m_bCancel = true;
 }
 
@@ -59,7 +62,30 @@ samplesBuffer* CircularBuffer::popFreeBuffer()
     }
     auto* buff = m_buffFree.front();
     m_buffFree.pop_front();
+    m_minFreeCount = std::min(m_minFreeCount, uint32_t(m_buffFree.size()));  // UG fork
     return buff;
+}
+
+uint32_t CircularBuffer::takeMinFreeCount()
+{
+    std::lock_guard<std::mutex> lock(m_mutexBuffFree);
+    const uint32_t count = m_minFreeCount;
+    m_minFreeCount       = uint32_t(m_buffFree.size());
+    return count;
+}
+
+void CircularBuffer::setRunning(const bool run)
+{
+    {
+        std::lock_guard<std::mutex> lock(m_mutexBuffFree);
+        m_bCancel = run;
+    }
+    // Taking the other locks orders the change before any wait those queues' threads are about to start
+    { std::lock_guard<std::mutex> lock(m_mutexBuffToClean); }
+    { std::lock_guard<std::mutex> lock(m_mutexBuffToProcess); }
+    m_condBuffFree.notify_all();
+    m_condBuffToClean.notify_all();
+    m_condBuffToProcess.notify_all();
 }
 
 /**
@@ -106,6 +132,17 @@ samplesBuffer* CircularBuffer::popBufferToProcess()
     return buffRes;
 }
 
+samplesBuffer* CircularBuffer::waitBufferToProcess()
+{
+    std::unique_lock<std::mutex> lock(m_mutexBuffToProcess);
+    m_condBuffToProcess.wait(lock, [this] { return !m_buffToProcess.empty() || !m_bCancel; });
+    if (m_buffToProcess.empty()) { return nullptr; }
+
+    samplesBuffer* buff = m_buffToProcess.front();
+    m_buffToProcess.pop_front();
+    return buff;
+}
+
 /**
  * @brief Pushes a buffer onto the free buffer queue.
  *
@@ -131,8 +168,11 @@ void CircularBuffer::pushFreeBuffer(samplesBuffer* buff)
  */
 void CircularBuffer::pushBufferToClean(samplesBuffer* buff)
 {
-    std::lock_guard<std::mutex> lockClean(m_mutexBuffToClean);
-    m_buffToClean.push_back(buff);
+    {
+        std::lock_guard<std::mutex> lockClean(m_mutexBuffToClean);
+        m_buffToClean.push_back(buff);
+    }
+    m_condBuffToClean.notify_one();  // UG fork
 }
 
 /**
@@ -144,8 +184,11 @@ void CircularBuffer::pushBufferToClean(samplesBuffer* buff)
  */
 void CircularBuffer::pushBufferToProcess(samplesBuffer* buff)
 {
-    std::lock_guard<std::mutex> lockProcess(m_mutexBuffToProcess);
-    m_buffToProcess.push_back(buff);
+    {
+        std::lock_guard<std::mutex> lockProcess(m_mutexBuffToProcess);
+        m_buffToProcess.push_back(buff);
+    }
+    m_condBuffToProcess.notify_one();  // UG fork
 }
 
 /**
@@ -168,11 +211,20 @@ void CircularBuffer::processBuffer()
 /**
  * @brief Cleans buffers by popping them from the clean queue and returning them to the free queue.
  *
- * This method pops buffers from the clean queue, uses the SampleBufferHandler
- * to clean their contents, and then pushes them back onto the free queue for reuse.
+ * This method waits until there is a buffer to clean (or setRunning(false) is called), then pops
+ * buffers from the clean queue, uses the SampleBufferHandler to clean their contents, and pushes
+ * them back onto the free queue for reuse.
+ *
+ * UG fork: upstream returns at once when there is nothing to clean, so that its caller's loop keeps a
+ * CPU core busy for the whole acquisition.
  */
 void CircularBuffer::cleanBuffers()
 {
+    {
+        std::unique_lock<std::mutex> lock(m_mutexBuffToClean);
+        m_condBuffToClean.wait(lock, [this] { return !m_buffToClean.empty() || !m_bCancel; });
+    }
+
     samplesBuffer* buff = nullptr;
     while ((buff = popBufferToClean()))
     {

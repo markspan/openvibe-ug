@@ -30,13 +30,14 @@ class AcquisitionController : public QObject
     Q_PROPERTY(QObject* connectionPort READ connectionPort CONSTANT) // Pointer is constant although value may change
     Q_PROPERTY(QObject* tcpTaggingPort READ tcpTaggingPort CONSTANT) // Pointer is constant although value may change
     Q_PROPERTY(QObject* sampleCountPerBlock READ getSampleCountPerBlock CONSTANT)
-    // UG fork: the drift correction settings
-    Q_PROPERTY(QObject* driftCorrectionPolicy READ driftCorrectionPolicy CONSTANT)
-    Q_PROPERTY(QObject* driftTolerance READ driftTolerance CONSTANT)
     Q_PROPERTY(QQmlListProperty<ImpedanceItem> impedances READ impedances NOTIFY impedancesChanged)
-    Q_PROPERTY(double driftLimit READ driftLimit CONSTANT)
-    Q_PROPERTY(double instantDrift READ instantDrift NOTIFY driftChanged)
-    Q_PROPERTY(double globalDrift READ globalDrift NOTIFY driftChanged)
+    /**
+     * UG fork: how full the buffers between the amplifier and the clients got, shown where upstream shows the drift;
+     * see Acquisition::BufferStatus. Keys: acquiring; serverBuffers, serverFree, serverMinFree; deviceReported,
+     * deviceSeconds, deviceMaxSeconds, deviceCapacity (seconds, 0 when unknown), lossCounted, lostSamples. "Free",
+     * "Seconds" are the worst since the previous update, "Min", "Max" the worst since Play.
+     */
+    Q_PROPERTY(QVariantMap buffers READ buffers NOTIFY buffersChanged)
     Q_PROPERTY(QStringList channelNames READ getChannelNames NOTIFY channelNamesChanged)
     Q_PROPERTY(QStringList channelHints READ getChannelHints NOTIFY channelNamesChanged)  // UG fork
     // UG fork: what the driver says about its settings (e.g. what its montage did, why Play failed) and the
@@ -60,16 +61,12 @@ public:
     QJSValue configParameters();
     QJSValue deviceParameters();
     QJSValue driverParameters();
-    double instantDrift();
-    double globalDrift();
-    double driftLimit();
+    QVariantMap buffers() const;
 
     QObject* connectionPort() const;
     QObject* tcpTaggingPort() const;
 
     QObject* getSampleCountPerBlock() const;
-    QObject* driftCorrectionPolicy() const;
-    QObject* driftTolerance() const;
 
     Q_INVOKABLE void setCurrentDriver(const QString& driverName);
 
@@ -105,7 +102,7 @@ signals:
     void deviceParametersChanged(void);
     void driverChanged();
     void driverParametersChanged(void);
-    void driftChanged(void);
+    void buffersChanged(void);
     void impedancesChanged(void);
     void impedanceRequested(void);
     void channelNamesChanged();

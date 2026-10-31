@@ -18,6 +18,8 @@
 #include "WindowManagerNode.h"
 #include "system/OSAL.h"
 
+#include <openvibe/ConsoleLog.hpp>  // UG fork
+
 #ifdef WIN32
 #include <system/WindowsUtilities.h>
 #endif
@@ -40,16 +42,10 @@ void sigHandler(int s)
 int main(int argc, char *argv[])
 {
 #ifdef WIN32
-        // The GUI subsystem gives the process no console. Attach the parent's so logs stay visible
-        // when launched from a terminal. Skipped when stdout is already valid, i.e. the parent
-        // redirected it to a pipe or file -- reopening CONOUT$ would discard that output.
-        const HANDLE existingOut = GetStdHandle(STD_OUTPUT_HANDLE);
-        if ((existingOut == nullptr || existingOut == INVALID_HANDLE_VALUE) && AttachConsole(ATTACH_PARENT_PROCESS)) {
-            FILE* stream = nullptr;
-            freopen_s(&stream, "CONOUT$", "w", stdout);
-            freopen_s(&stream, "CONOUT$", "w", stderr);
-            std::ios::sync_with_stdio();
-        }
+        // UG fork: what Designer prints goes to <user data>/log/openvibe-designer-console.log, unless the parent
+        // redirected the output. Upstream attaches to the console of whatever started it, which shows a command
+        // window next to Designer when that is a launcher script.
+        OpenViBE::redirectConsoleToLogFile("openvibe-designer-console");
 
         SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_USER_DIRS);
         // Python DLL location for delay-load hook

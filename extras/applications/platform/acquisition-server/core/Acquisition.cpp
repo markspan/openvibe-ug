@@ -15,12 +15,86 @@
 
 #include "Acquisition.h"
 #include "DriftCalculator.h" // for DriftCalculator
-#include "DriftCorrector.h"  // UG fork: drift correction, which upstream 4.0 does not do
 
 #include <chrono> // for high_resolution_clock
 #include <iostream>
 
+#ifdef _WIN32  // UG fork: for the multimedia scheduler, see RealtimeThread
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#include <avrt.h>
+#pragma comment(lib, "Avrt.lib")
+#endif
+
 using Clock = std::chrono::steady_clock; ///< Monotonic clock for interval measurements.
+
+namespace {
+
+/**
+ * @brief Registers the thread that makes it with the Windows Multimedia Class Scheduler Service (MMCSS), as a
+ *        "Pro Audio" task at high priority, for as long as it lives.
+ *
+ * UG fork: upstream reads the amplifier at normal thread priority. MMCSS is how Windows protects streaming threads
+ * (audio, video) from being held up by other work: the thread is scheduled ahead of normal threads, while Windows
+ * still keeps a share of the CPU for the rest of the system. The reader thread sleeps or waits whenever there is
+ * nothing to read, so it takes no more CPU than before; it only gets it sooner. The thread is also exempted from
+ * Windows' power throttling, which may slow down programs that are minimised. Elsewhere this does nothing.
+ */
+class RealtimeThread
+{
+public:
+    RealtimeThread()
+    {
+#ifdef _WIN32
+        DWORD taskIndex = 0;
+        m_task          = AvSetMmThreadCharacteristicsW(L"Pro Audio", &taskIndex);
+        if (!m_task) {
+            std::cout << "[Acquisition] Could not register the reader thread with the multimedia scheduler (error " << GetLastError()
+                      << "); it reads the amplifier at normal priority." << std::endl;
+            return;
+        }
+        if (!AvSetMmThreadPriority(m_task, AVRT_PRIORITY_HIGH)) {
+            std::cout << "[Acquisition] The multimedia scheduler did not raise the reader thread's priority (error " << GetLastError() << ")."
+                      << std::endl;
+        }
+        std::cout << "[Acquisition] The reader thread runs as a multimedia (Pro Audio) task." << std::endl;
+
+        // Windows 11 may slow down the threads of a program that is minimised or in the background (EcoQoS); never this one
+        THREAD_POWER_THROTTLING_STATE throttling{};
+        throttling.Version     = THREAD_POWER_THROTTLING_CURRENT_VERSION;
+        throttling.ControlMask = THREAD_POWER_THROTTLING_EXECUTION_SPEED;
+        throttling.StateMask   = 0;
+        // Looked up, as the build targets a Windows version older than the function (Windows 8)
+        using SetThreadInformationFn = BOOL(WINAPI*)(HANDLE, THREAD_INFORMATION_CLASS, LPVOID, DWORD);
+        if (const auto setThreadInformation = reinterpret_cast<SetThreadInformationFn>(
+                GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "SetThreadInformation"))) {
+            setThreadInformation(GetCurrentThread(), ThreadPowerThrottling, &throttling, sizeof(throttling));
+        }
+#endif
+    }
+
+    ~RealtimeThread()
+    {
+#ifdef _WIN32
+        if (m_task) { AvRevertMmThreadCharacteristics(m_task); }
+#endif
+    }
+
+    RealtimeThread(const RealtimeThread&)            = delete;
+    RealtimeThread& operator=(const RealtimeThread&) = delete;
+
+private:
+#ifdef _WIN32
+    HANDLE m_task = nullptr;
+#endif
+};
+
+}  // namespace
 
 
 /**
@@ -37,12 +111,6 @@ Acquisition::Acquisition() : m_bRun(false),
                                                 "Number of samples required to send a block",
                                                 {4, 8, 16, 32, 64, 128, 256, 512},
                                                 32),
-                             // UG fork: the drift correction settings, see DriftCorrector
-                             m_driftCorrectionPolicy("Drift correction",
-                                                     "Repeat or drop samples when the amplifier's clock drifts away from the computer's, as the 3.x server did",
-                                                     {"Let the driver decide", "Forced", "Disabled"},
-                                                     "Disabled"),
-                             m_driftTolerance("Drift tolerance (ms)", "Drift that is left uncorrected", 5, 1, 100),
                              m_drift({0, 0, 0, 0})
 { }
 
@@ -55,12 +123,11 @@ Acquisition::Acquisition() : m_bRun(false),
  */
 void Acquisition::processBuffer()
 {
-    auto buff = m_circularBuffer->popBufferToProcess(); ///< Get a buffer to process from the circular buffer.
+    auto buff = m_circularBuffer->waitBufferToProcess(); ///< UG fork: waits for a buffer to process, instead of polling for one.
     if (buff)
     {
         if (buff->count > 0) {
             interpolateTimestamps(buff, m_lastTimestamps); ///< Fill in any invalid timestamps in the buffer.
-            if (m_driftCorrector) { m_driftCorrector->process(buff); }  // UG fork: repeats or drops samples to follow the PC's clock
             m_lastTimestamps = buff->timestampsBuff[buff->count - 1]; ///< Update the timestamp of the last processed sample.
 
             if (!m_bFirstbufferProcessed)
@@ -203,7 +270,10 @@ void Acquisition::initAcquisition()
         computeWindowSize(sampleRate);
 
         m_sampleBufferHandler = std::unique_ptr<SampleBufferHandler>(new SampleBufferHandler(channelCount, sampleRate, m_chunkSampleCount.value())); ///< Create a new sample buffer handler with the given parameters.
-        m_circularBuffer      = std::unique_ptr<CircularBuffer>(new CircularBuffer(m_sampleBufferHandler.get())); ///< Create a new circular buffer, using the sample buffer handler for buffer allocation.
+        {
+            std::lock_guard<std::mutex> lock(m_circularBufferMutex);  // UG fork: see takeBufferStatus()
+            m_circularBuffer = std::unique_ptr<CircularBuffer>(new CircularBuffer(m_sampleBufferHandler.get())); ///< Create a new circular buffer, using the sample buffer handler for buffer allocation.
+        }
         m_driftCalculator     = std::unique_ptr<DriftCalculator>(new DriftCalculator(sampleRate, m_windowSize)); ///< Create a new drift calculator with the given sample rate and window size.
 
         for (auto& w : m_writers) {
@@ -323,14 +393,6 @@ void Acquisition::start()
             m_driftCalculator->setStartTimeAcq(m_lastTimestamps); // Record the start time of the acquisition for drift calculation.
             m_driftCalculator->setStopTimeAcq(0); // Reset the stop time.
 
-            // UG fork: upstream 4.0 measures drift but does not correct it
-            const std::string& policy = m_driftCorrectionPolicy.value();
-            if (policy == "Forced" || (policy == "Let the driver decide" && m_driver->wantsDriftCorrection())) {
-                m_driftCorrector = std::make_unique<DriftCorrector>(m_driver->samplingRate(), m_driver->channelCount(), uint32_t(m_driftTolerance.value()));
-                std::cout << "[Drift] Correcting drift beyond " << m_driftTolerance.value() << " ms" << std::endl;
-            }
-            else { m_driftCorrector.reset(); }
-
             m_threadReader  = std::unique_ptr<thread>(new thread([this] { acquisitionProcessTreadFunction(); })); // Create a thread that continuously reads data from the driver and writes it to the circular buffer.
             m_threadProcess = std::unique_ptr<thread>(new thread([this] { processBufferThreadFunction(); })); // Create a thread that continuously processes buffers from the circular buffer.
             m_threadClean   = std::unique_ptr<thread>(new thread([this] { cleanBuffersThreadFunction(); }));  // Create a thread that continuously cleans up buffers in the circular buffer.
@@ -348,6 +410,8 @@ void Acquisition::start()
  */
 void Acquisition::acquisitionProcessTreadFunction()
 {
+    const RealtimeThread realtime;  // UG fork: the amplifier is read ahead of other work
+
     samplesBuffer* buff = m_circularBuffer->popFreeBuffer(); ///< Get a free buffer from the circular buffer.
 
     m_driver->start(); ///< Start the driver for data acquisition.
@@ -442,15 +506,15 @@ void Acquisition::stop()
         m_threadProcess->join();
         m_threadClean->join();
         m_threadDrift->join();
-        if (m_driftCorrector) {  // UG fork
-            std::cout << "[Drift] Added " << m_driftCorrector->addedCount() << " and removed " << m_driftCorrector->removedCount()
-                      << " samples in " << m_driftCorrector->correctionCount() << " corrections" << std::endl;
-            m_driftCorrector.reset();
-        }
         m_driver->unInit();
         m_state = State::Idle;
+        // UG fork: under the lock, see takeBufferStatus(); and before m_sampleBufferHandler, which the
+        // circular buffer's destructor hands its buffers back to (upstream destroys the handler first)
+        {
+            std::lock_guard<std::mutex> lock(m_circularBufferMutex);
+            m_circularBuffer = nullptr;
+        }
         m_sampleBufferHandler = nullptr;
-        m_circularBuffer      = nullptr;
         m_driftCalculator     = nullptr;
         std::lock_guard<std::mutex> lock(m_driftMutex);
         m_drift = {0, 0, 0, 0};
@@ -505,6 +569,10 @@ void Acquisition::write(samplesBuffer*& buff)
     }
     else
     {
+        // UG fork: an empty buffer was not written to, so it is kept for the next read; upstream sends every empty
+        // read's buffer round the cleaning thread, which keeps the free buffers it shows at zero for a driver that
+        // reads often
+        if (m_bRun) { return; }
         m_circularBuffer->pushBufferToClean(buff); ///< If the buffer is empty, push it to the clean queue.
     }
 
@@ -522,13 +590,23 @@ void Acquisition::write(samplesBuffer*& buff)
  */
 void Acquisition::read(samplesBuffer*& buff)
 {
+    const auto begin = Clock::now();  // UG fork, see below
     m_driver->getData(buff); ///< Get data from the hardware driver.
+    bool gotData = buff->count > 0 || buff->stimCount > 0;
     write(buff); ///< Write the received data to the processing queue.
 
     for (auto& auxDriver : m_auxiliaryDrivers) {
         if (!buff) break; ///< write() may null-out buff when acquisition stops so we need to check for that
         auxDriver->getData(buff); ///< Get data from the auxiliary hardware drivers.
+        gotData = gotData || buff->count > 0 || buff->stimCount > 0;
         write(buff); ///< Write the received data to the processing queue.
+    }
+
+    // UG fork: the reader thread runs at multimedia priority (see RealtimeThread), so a driver that returns at once
+    // with nothing (the generic oscillator, LSL) must not keep it spinning. Drivers that wait for data themselves
+    // (TMSi, eego) take longer than this and are not slowed down.
+    if (!gotData && m_bRun && Clock::now() - begin < std::chrono::microseconds(500)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 
@@ -651,6 +729,18 @@ void Acquisition::canFixInvalidLastTimestamps(uint64_t& timeStamps)
 uint64_t Acquisition::immediateTimestamp()
 {
     return std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
+}
+
+Acquisition::BufferStatus Acquisition::takeBufferStatus()
+{
+    BufferStatus status;
+    std::lock_guard<std::mutex> lock(m_circularBufferMutex);
+    if (!m_bRun || !m_circularBuffer) { return status; }
+
+    status.serverBuffers        = m_circularBuffer->bufferCount();
+    status.minFreeServerBuffers = m_circularBuffer->takeMinFreeCount();
+    if (m_driver) { status.device = m_driver->takeDeviceBuffer(); }
+    return status;
 }
 
 drift_st Acquisition::drift() {

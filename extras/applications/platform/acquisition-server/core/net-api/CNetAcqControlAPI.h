@@ -6,6 +6,7 @@
 #include <utility>
 #include <vector>
 
+#include <condition_variable>
 #include <mutex>
 #include <thread>
 
@@ -58,6 +59,7 @@ private:
     std::unique_ptr<std::thread> m_thread;
 
     std::mutex m_queueMutex;
+    std::condition_variable m_queueChanged;  ///< UG fork: wakes run() for a request, or to stop
     std::queue < std::pair<uint64_t, ControlMsg> > m_requestQueue;
 
     Network::CServer & m_netSrv = OpenViBE::Services::NetService::instance();

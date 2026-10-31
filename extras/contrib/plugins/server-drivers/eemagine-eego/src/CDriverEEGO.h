@@ -17,6 +17,7 @@
 #include <openvibe/parameters/parameterListString.h>
 #include <openvibe/parameters/parameterPath.h>
 
+#include <atomic>
 #include <deque>
 #include <map>
 #include <memory>
@@ -73,12 +74,17 @@ public:
     std::string charmeleonMontage() const override;
     /// Reads the montage again, under its new name if Charmeleon saved it under another one.
     void takeOverCharmeleonMontage(const std::string& path) override;
-    bool wantsDriftCorrection() const override { return true; }
     bool startImpedanceCheck() override;
     int  readImpedances(double* values, size_t count) override;
     bool stopImpedanceCheck() override;
 
     void setChunkSize(uint32_t chunkSize) override;
+
+    /**
+     * The most data a read found waiting (the SDK does not tell how full its buffer is, nor how much it holds), and
+     * the samples lost, counted from gaps in the amplifier's sample counter channel.
+     */
+    DeviceBuffer takeDeviceBuffer() override;
 
     /// BIP1, BIP2, ... for the bipolar channels.
     std::vector<std::string> channelHints() const override;
@@ -129,6 +135,12 @@ private:
 
     /** Copies one stream buffer into m_pending. Returns the number of samples fetched. */
     size_t fetchPending();
+    /**
+     * Counts the samples missing between the sample counter values of the samples just fetched.
+     *
+     * UG fork: for takeDeviceBuffer(). Runs on the reader thread.
+     */
+    void countLostSamples();
 
     // Configurable parameters
     OpenViBE::Parameters::ParameterListString m_paramSamplingRate;
@@ -168,6 +180,18 @@ private:
     size_t              m_pendingOffset   = 0; ///< Index of the next sample to hand out.
 
     int      m_triggerChannel   = -1; ///< Index of the trigger channel in a scan, -1 if absent.
+
+    // UG fork: what takeDeviceBuffer() reports, written on the reader thread
+    int    m_counterChannel = -1;   ///< Index of the sample counter channel in a scan, -1 if absent
+    bool   m_haveCounter    = false; ///< True once m_lastCounter holds a counter value
+    double m_lastCounter    = 0;     ///< Sample counter value of the last sample fetched
+    double m_counterStep    = 0;     ///< How much the counter goes up per sample, learnt from the first samples
+    std::atomic<bool> m_bufferReported{false};    ///< Set while the acquisition runs
+    std::atomic<bool> m_lossCounted{false};       ///< True when the stream has a sample counter
+    std::atomic<uint32_t> m_bufferRate{0};        ///< Sampling rate, in Hz
+    std::atomic<uint64_t> m_peakPending{0};       ///< Most samples one fetch returned since the previous takeDeviceBuffer()
+    std::atomic<uint64_t> m_lostSamples{0};       ///< Samples missing from the counter since start()
+    std::atomic<int64_t> m_lastFetchNs{0};        ///< When the stream was last read, on the steady clock
     uint32_t m_lastTriggerValue = 0;  ///< Previous trigger word, for rising-edge detection.
     uint64_t m_lastSampleTime   = 0;  ///< Timestamp given to the last sample handed over, see getData().
     /// Triggers found by the current read(): stimulation id and index of their sample in the block.

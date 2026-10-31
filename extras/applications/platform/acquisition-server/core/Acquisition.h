@@ -34,7 +34,6 @@
 #include <optional>
 
 class DriftCalculator; ///< Forward declaration of the DriftCalculator class.
-class DriftCorrector; ///< UG fork: drift correction, which upstream 4.0 does not do.
 
 /**
  * @brief Manages the acquisition of data from a hardware driver.
@@ -105,9 +104,6 @@ public:
     void setNbCycles(uint32_t cycles);
 
     OpenViBE::Parameters::ParameterListInt* getChunkSampleCount() { return &m_chunkSampleCount; }
-    // UG fork: the drift correction settings, see DriftCorrector
-    OpenViBE::Parameters::ParameterListString* getDriftCorrectionPolicy() { return &m_driftCorrectionPolicy; }
-    OpenViBE::Parameters::ParameterInt* getDriftTolerance() { return &m_driftTolerance; }
     OpenViBE::Parameters::Parameters getDriverParameters() const { return !m_driver ? OpenViBE::Parameters::Parameters{} : m_driver->getParameters(); }
 
     /// Name of the primary driver, as registered with the AcquisitionManager. Empty when unset.
@@ -134,6 +130,21 @@ public:
 
     drift_st drift();
 
+    /**
+     * @brief How full the buffers between the amplifier and the clients got.
+     *
+     * UG fork: upstream shows the drift instead. Samples are lost only when the amplifier's own buffer overflows,
+     * which happens when the server's buffers have all been taken for longer than that buffer lasts; both are shown.
+     */
+    struct BufferStatus
+    {
+        AbstractDriver::DeviceBuffer device;  ///< The amplifier's buffer, as the driver reports it
+        uint32_t serverBuffers        = 0;    ///< Buffers in the server's pool; 0 while not acquiring
+        uint32_t minFreeServerBuffers = 0;    ///< Fewest of them free since the previous call
+    };
+    /// The buffer status since the previous call, which this resets for the next one. Safe to call from any thread.
+    BufferStatus takeBufferStatus();
+
 protected:
     void write(samplesBuffer*& buff);
 
@@ -155,8 +166,6 @@ private:
     uint64_t m_lastTimestamps; ///< Timestamp of the last processed sample.
 
     OpenViBE::Parameters::ParameterListInt m_chunkSampleCount; ///< Size of output chunks (in samples)
-    OpenViBE::Parameters::ParameterListString m_driftCorrectionPolicy; ///< Whether to add or drop samples to make up for drift (UG fork)
-    OpenViBE::Parameters::ParameterInt m_driftTolerance; ///< Drift left alone, in ms (UG fork)
 
     uint32_t m_nbCycle;
     std::mutex m_driftMutex;
@@ -172,8 +181,8 @@ private:
 
     std::unique_ptr<SampleBufferHandler> m_sampleBufferHandler; ///< Unique pointer to the handler for managing sample buffers.
     std::unique_ptr<CircularBuffer>      m_circularBuffer; ///< Unique pointer to the circular buffer for storing acquired data.
+    std::mutex m_circularBufferMutex; ///< UG fork: held while m_circularBuffer is replaced, and by takeBufferStatus()
     std::unique_ptr<DriftCalculator>     m_driftCalculator; ///< Unique pointer to the object responsible for calculating drift.
-    std::unique_ptr<DriftCorrector>      m_driftCorrector; ///< Set while streaming with drift correction on (UG fork).
 
     DriverPtr m_driver; ///< Owning pointer to the abstract driver instance, released through its builder.
     std::string m_driverName; ///< Registered name of the primary driver, which the driver itself does not carry.

@@ -97,6 +97,7 @@ typedef const char* (__stdcall * PGETERRORCODEMESSAGE)(HANDLE handle, int errorC
 typedef char** (__stdcall * PGETDEVICELIST)(HANDLE handle, int* nFrontEnds);
 typedef void (__stdcall * PFREEDEVICELIST)(HANDLE handle, int nFrontEnds, char** deviceList);
 typedef BOOLEAN (__stdcall * PSETREFCALCULATION)(HANDLE handle, int onOrOff);
+typedef BOOLEAN (__stdcall * PGETBUFFERINFO)(HANDLE handle, PULONG overflow, PULONG percentFull);  // UG fork
 
 const char* const TMSI_DLL = "TMSiSDK.dll";
 
@@ -157,6 +158,7 @@ struct TMSiApi
     PGETDEVICELIST getDeviceList             = nullptr;
     PFREEDEVICELIST freeDeviceList           = nullptr;
     PSETREFCALCULATION setRefCalculation     = nullptr;
+    PGETBUFFERINFO getBufferInfo             = nullptr;  ///< UG fork: optional, see noteBufferLevel()
 };
 
 //___________________________________________________________________//
@@ -422,6 +424,8 @@ bool CDriverTMSi::loadLibrary()
     load(m_api->getDeviceList, "GetDeviceList");
     load(m_api->freeDeviceList, "FreeDeviceList");
     load(m_api->setRefCalculation, "SetRefCalculation");
+    // UG fork: only for showing the buffer level, so a library without it is still used
+    m_api->getBufferInfo = reinterpret_cast<PGETBUFFERINFO>(GetProcAddress(module, "GetBufferInfo"));
 
     if (!valid) {
         FreeLibrary(module);
@@ -542,6 +546,8 @@ bool CDriverTMSi::setSignalBuffer(const uint32_t sampling)
     }
 
     m_rawBuffer.assign(size_t(size) * m_nDeviceChannel, 0);
+    m_bufferSamples  = uint32_t(size);
+    m_bufferRate     = sampling;
     m_rawSampleCount = 0;
     m_rawSampleIndex = 0;
     return true;
@@ -665,6 +671,7 @@ bool CDriverTMSi::init()
 
 bool CDriverTMSi::unInit()
 {
+    m_bufferReported = false;
     closeFrontEnd();
     exitLibrary();
 
@@ -693,7 +700,53 @@ bool CDriverTMSi::start()
         return false;
     }
     m_started = true;
+
+    // The SDK resets its overflow count at Start
+    m_bufferPeakPercent = 0;
+    m_bufferOverflows   = 0;
+    m_lastBufferInfo    = {};
+    m_lastReadNs        = std::chrono::steady_clock::now().time_since_epoch().count();
+    m_bufferReported    = true;
     return true;
+}
+
+void CDriverTMSi::noteBufferLevel()
+{
+    m_lastReadNs = std::chrono::steady_clock::now().time_since_epoch().count();
+    if (!m_api->getBufferInfo) { return; }
+
+    // After a stall the first call comes well after the previous one, so the backlog it built up is always seen
+    const auto now = std::chrono::steady_clock::now();
+    if (now - m_lastBufferInfo < std::chrono::milliseconds(20)) { return; }
+    m_lastBufferInfo = now;
+
+    ULONG overflows = 0, percentFull = 0;
+    if (!m_api->getBufferInfo(m_api->handle, &overflows, &percentFull)) { return; }
+
+    if (percentFull > m_bufferPeakPercent) { m_bufferPeakPercent = uint32_t(percentFull); }
+    if (overflows != m_bufferOverflows) {
+        std::cout << "[TMSi] The SDK's sample buffer overflowed (" << overflows << " times since Play): "
+                  << uint64_t(overflows - m_bufferOverflows) * m_bufferSamples << " samples were lost." << std::endl;
+        m_bufferOverflows = uint32_t(overflows);
+    }
+}
+
+AbstractDriver::DeviceBuffer CDriverTMSi::takeDeviceBuffer()
+{
+    DeviceBuffer result;
+    const uint32_t rate = m_bufferRate;
+    if (!m_bufferReported || rate == 0) { return result; }
+
+    result.reported        = true;
+    result.capacitySeconds = double(m_bufferSamples) / rate;
+    result.peakSeconds     = m_bufferPeakPercent.exchange(0) / 100.0 * result.capacitySeconds;
+    // While the reader is held up nothing is read and nothing is measured, but the backlog grows all the same
+    const int64_t sinceRead = std::chrono::steady_clock::now().time_since_epoch().count() - m_lastReadNs;
+    result.peakSeconds      = (std::max)(result.peakSeconds, std::chrono::duration<double>(std::chrono::steady_clock::duration(sinceRead)).count());
+    // Without GetBufferInfo the overflows are not known
+    result.lossCounted = m_api->getBufferInfo != nullptr;
+    result.lostSamples = uint64_t(m_bufferOverflows) * m_bufferSamples;
+    return result;
 }
 
 bool CDriverTMSi::stop()
@@ -712,6 +765,7 @@ int CDriverTMSi::read(sampleType* data, const uint64_t size)
     if (!m_started) { return 0; }
 
     if (m_rawSampleIndex == m_rawSampleCount) {
+        noteBufferLevel();  // UG fork
         const LONG nBytesReceived = m_api->getSamples(m_api->handle, m_rawBuffer.data(), ULONG(m_rawBuffer.size() * sizeof(m_rawBuffer[0])));
         if (nBytesReceived < 0) {
             printError("Can not read data");

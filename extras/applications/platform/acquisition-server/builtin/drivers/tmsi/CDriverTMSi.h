@@ -16,6 +16,8 @@
 #include <openvibe/parameters/parameterPath.h>
 #include <openvibe/parameters/parameterString.h>
 
+#include <atomic>
+#include <chrono>
 #include <deque>
 #include <memory>
 #include <string>
@@ -69,9 +71,11 @@ public:
     std::string charmeleonMontage() const override;
     /// Reads the montage again, under its new name if Charmeleon saved it under another one.
     void takeOverCharmeleonMontage(const std::string& path) override;
-    bool wantsDriftCorrection() const override { return true; }
 
     void setChunkSize(uint32_t chunkSize) override { m_nSamplePerSentBlock = chunkSize; }
+
+    /// The fill level of the SDK's sample buffer (GetBufferInfo), and the samples lost when it overflowed.
+    DeviceBuffer takeDeviceBuffer() override;
 
     /// BIP1, BIP2, AUX1, ... for the bipolar and auxiliary channels, the device name for the other non-EEG channels.
     std::vector<std::string> channelHints() const override;
@@ -161,6 +165,22 @@ private:
     std::vector<bool> m_isChannelActivated;
     int m_triggerChannel        = -1; ///< Device channel carrying the triggers, -1 if none.
     uint32_t m_lastTriggerValue = 0;
+
+    /**
+     * @brief Records how full the SDK's buffer is, at most every 20 ms, just before GetSamples empties it.
+     *
+     * UG fork: for takeDeviceBuffer(). Runs on the reader thread.
+     */
+    void noteBufferLevel();
+
+    // UG fork: the SDK buffer state, written on the reader thread and read by takeDeviceBuffer()
+    std::atomic<bool> m_bufferReported{false};     ///< Set once the acquisition runs
+    std::atomic<uint32_t> m_bufferSamples{0};       ///< Size of the SDK's buffer, in samples (SetSignalBuffer)
+    std::atomic<uint32_t> m_bufferRate{0};          ///< Sampling rate, in Hz
+    std::atomic<uint32_t> m_bufferPeakPercent{0};   ///< Fullest the buffer was since the previous takeDeviceBuffer()
+    std::atomic<uint32_t> m_bufferOverflows{0};     ///< Times the buffer overflowed, losing its contents, since Start
+    std::atomic<int64_t> m_lastReadNs{0};           ///< When GetSamples was last called, on the steady clock
+    std::chrono::steady_clock::time_point m_lastBufferInfo;  ///< When GetBufferInfo was last called
 
     // Raw device buffer, holding what GetSamples returned and read() has not consumed yet
     std::vector<unsigned long> m_rawBuffer;

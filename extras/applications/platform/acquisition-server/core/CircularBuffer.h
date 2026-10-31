@@ -50,6 +50,13 @@ public:
     samplesBuffer* popFreeBuffer();
     samplesBuffer* popBufferToClean();
     samplesBuffer* popBufferToProcess();
+    /**
+     * @brief Waits for a buffer to process and pops it.
+     * @return The buffer, or nullptr once setRunning(false) is called.
+     *
+     * UG fork: upstream polls popBufferToProcess() in a loop, which keeps a CPU core busy for the whole acquisition.
+     */
+    samplesBuffer* waitBufferToProcess();
 
     void pushFreeBuffer (samplesBuffer* buff);
     void pushBufferToClean (samplesBuffer* buff);
@@ -60,7 +67,18 @@ public:
 
     CircularBuffer& operator=(CircularBuffer const&) = delete;
 
-    void setRunning(bool run) { m_bCancel = run; m_condBuffFree.notify_all(); }
+    /**
+     * @brief Starts or ends the acquisition; ending it wakes every thread that waits on this buffer.
+     *
+     * UG fork: sets the flag under each queue's lock, so that a thread that is about to wait cannot miss the wake-up.
+     */
+    void setRunning(bool run);
+
+    // UG fork: the free buffer count, which the server shows to tell how close the acquisition is to stalling
+    /// Number of buffers in the pool.
+    uint32_t bufferCount() const { return m_internalBufferCount; }
+    /// Fewest free buffers there were since the previous call (or since the pool was made), which it then resets.
+    uint32_t takeMinFreeCount();
 
 private:
     /**
@@ -80,6 +98,9 @@ private:
     std::atomic<bool> m_bCancel;
 
     std::condition_variable m_condBuffFree;
+    std::condition_variable m_condBuffToClean;    ///< UG fork: signalled when a buffer is pushed to clean
+    std::condition_variable m_condBuffToProcess;  ///< UG fork: signalled when a buffer is pushed to process
+    uint32_t m_minFreeCount = 0;                  ///< UG fork: see takeMinFreeCount(); guarded by m_mutexBuffFree
     std::mutex m_mutexBuffFree; ///< Mutex to protect access to the free buffer queue.
     std::mutex m_mutexBuffToClean; ///< Mutex to protect access to the buffer-to-clean queue.
     std::mutex m_mutexBuffToProcess; ///< Mutex to protect access to the buffer-to-process queue.

@@ -250,6 +250,7 @@ An electrode is **in use** when it is active and on a channel (`HardwareChannel`
 | "the file is gone, so this is the copy kept from its last use" | Restore the file or choose another montage (section 5.5). |
 | "Play failed: ..." in red | The note says why: e.g. no device connected, the device refuses access because another program (Charmeleon) holds it, or no channel has a name. |
 | Charmeleon opens in demo mode from the impedance button | It could not open the driver's amplifier; its message says why. Is the amplifier on, and not in use by another program? |
+| You need the server's full messages | Everything the server prints, montage messages included, is in `%APPDATA%\OpenVIBE-4.0\log\openvibe-acquisition-server-console.log`; the previous run's is `…console.previous.log`. |
 | Edits in Charmeleon do not reach the server | Is it Charmeleon 2.2 or later? Check **About**. An older one does not report back; save there, then choose the montage file again in the server. |
 
 ---

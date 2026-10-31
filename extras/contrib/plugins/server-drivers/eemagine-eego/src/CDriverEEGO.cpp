@@ -459,6 +459,7 @@ static std::vector<es::channel> toChannelList(const std::vector<std::pair<unsign
 
 bool CDriverEEGO::unInit()
 {
+    m_bufferReported = false;
     m_stream.reset();
     m_amplifier.reset();
 
@@ -551,6 +552,22 @@ bool CDriverEEGO::start()
         });
         if (trigger != channels.end()) { m_triggerChannel = int(trigger - channels.begin()); }
         else { std::cout << "[EEGO] No trigger channel in the stream; no stimulations will be produced." << std::endl; }
+
+        // UG fork: the sample counter shows every sample the amplifier lost on the way
+        const auto counter = std::find_if(channels.begin(), channels.end(), [](const es::channel& chan)
+        {
+            return chan.getType() == es::channel::sample_counter;
+        });
+        m_counterChannel = counter != channels.end() ? int(counter - channels.begin()) : -1;
+        if (m_counterChannel < 0) { std::cout << "[EEGO] No sample counter in the stream; lost samples can not be counted." << std::endl; }
+        m_haveCounter    = false;
+        m_counterStep    = 0;
+        m_lostSamples    = 0;
+        m_peakPending    = 0;
+        m_lossCounted    = m_counterChannel >= 0;
+        m_bufferRate     = uint32_t(rate);
+        m_lastFetchNs    = std::chrono::steady_clock::now().time_since_epoch().count();
+        m_bufferReported = true;
     }
     catch (const std::exception& ex)
     {
@@ -589,6 +606,10 @@ size_t CDriverEEGO::fetchPending()
     m_pendingChannels = data.getChannelCount();
     m_pendingOffset   = 0;
 
+    // UG fork: what waited in the SDK's buffer, see takeDeviceBuffer()
+    m_lastFetchNs = std::chrono::steady_clock::now().time_since_epoch().count();
+    if (m_pendingSamples > m_peakPending) { m_peakPending = m_pendingSamples; }
+
     if (m_pendingSamples == 0) { return 0; }
 
     // eemagine::sdk::buffer stores _data[channel + sample * channel_count], i.e. sample-major --
@@ -596,7 +617,48 @@ size_t CDriverEEGO::fetchPending()
     const size_t total = m_pendingSamples * m_pendingChannels;
     m_pending.assign(data.data(), data.data() + total);
 
+    countLostSamples();
     return m_pendingSamples;
+}
+
+void CDriverEEGO::countLostSamples()
+{
+    if (m_counterChannel < 0 || size_t(m_counterChannel) >= m_pendingChannels) { return; }
+
+    for (size_t sample = 0; sample < m_pendingSamples; ++sample)
+    {
+        const double counter = m_pending[sample * m_pendingChannels + size_t(m_counterChannel)];
+        if (m_haveCounter)
+        {
+            const double step = counter - m_lastCounter;
+            // The first step tells how the counter counts; a step back is the counter wrapping around
+            if (m_counterStep <= 0) { m_counterStep = step > 0 ? step : 0; }
+            else if (step > 1.5 * m_counterStep)
+            {
+                const auto missing = uint64_t(std::llround(step / m_counterStep)) - 1;
+                m_lostSamples += missing;
+                std::cout << "[EEGO] The sample counter skipped " << missing << " samples: they were lost." << std::endl;
+            }
+        }
+        m_lastCounter = counter;
+        m_haveCounter = true;
+    }
+}
+
+AbstractDriver::DeviceBuffer CDriverEEGO::takeDeviceBuffer()
+{
+    DeviceBuffer result;
+    const uint32_t rate = m_bufferRate;
+    if (!m_bufferReported || rate == 0) { return result; }
+
+    result.reported    = true;
+    result.peakSeconds = double(m_peakPending.exchange(0)) / rate;
+    // While the reader is held up nothing is fetched, but the backlog grows all the same
+    const int64_t sinceFetch = std::chrono::steady_clock::now().time_since_epoch().count() - m_lastFetchNs;
+    result.peakSeconds       = (std::max)(result.peakSeconds, std::chrono::duration<double>(std::chrono::steady_clock::duration(sinceFetch)).count());
+    result.lossCounted       = m_lossCounted;
+    result.lostSamples       = m_lostSamples;
+    return result;
 }
 
 int CDriverEEGO::read(sampleType* data, const uint64_t size)

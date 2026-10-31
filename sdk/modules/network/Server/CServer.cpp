@@ -603,8 +603,10 @@ namespace Network
                         }
                     }
                 }
-                d->receivedData[clientId].clear();
             }
+            // UG fork: drops the clients' entries as well; upstream only empties them, so that the wait above returns
+            // at once from then on, and this loop keeps a CPU core busy while a client that sent anything is connected
+            d->receivedData.clear();
         }
     }
 

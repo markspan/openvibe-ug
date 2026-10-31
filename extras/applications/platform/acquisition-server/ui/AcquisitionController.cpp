@@ -79,18 +79,20 @@ struct AcquisitionControllerPrivate {
     OpenViBE::Parameters::ParameterIntObject* m_connectionPort;
     OpenViBE::Parameters::ParameterIntObject* m_tcpTaggingPort;
     OpenViBE::Parameters::ParameterListIntObject* m_sampleCountPerBlock;
-    // UG fork: the drift correction settings
-    OpenViBE::Parameters::ParameterListStringObject* m_driftCorrectionPolicy;
-    OpenViBE::Parameters::ParameterIntObject* m_driftTolerance;
     std::vector<double> m_impedances;
     std::vector<double> m_impedanceBuf;
     QList<ImpedanceItem*> m_impedancesItems;
     QTimer* m_impedanceTimer = nullptr;
 
-    double m_driftLimit = 5.0; ///< Default drift limit in ms.
-    double m_instantDrift = 0.0; ///< Instant drift in ms.
-    double m_globalDrift = 0.0; ///< Global drift in ms.
-    QTimer* m_driftTimer = nullptr;
+    // UG fork: the buffer levels, in place of upstream's drift; see AcquisitionController::buffers()
+    QVariantMap m_buffers;
+    double m_deviceMaxSeconds = 0.0;  ///< Fullest the amplifier's buffer got since Play, in seconds
+    uint32_t m_serverMinFree  = 0;    ///< Fewest free server buffers since Play
+    uint64_t m_lostSamples    = 0;    ///< Samples the amplifier lost since Play, as last logged
+    QTimer* m_bufferTimer     = nullptr;
+
+    /// Reads the buffer levels and logs newly lost samples.
+    void updateBuffers();
 
     Kernel::ILogManager& getLogManager() {
         return m_kernelCtx.getLogManager();
@@ -120,9 +122,6 @@ AcquisitionControllerPrivate::AcquisitionControllerPrivate(const Kernel::IKernel
     wrapDriverChannelNames();
 
     m_sampleCountPerBlock = new OpenViBE::Parameters::ParameterListIntObject(m_acquisition->getChunkSampleCount());
-    // UG fork: the drift correction settings
-    m_driftCorrectionPolicy = new OpenViBE::Parameters::ParameterListStringObject(m_acquisition->getDriftCorrectionPolicy());
-    m_driftTolerance        = new OpenViBE::Parameters::ParameterIntObject(m_acquisition->getDriftTolerance());
 
     m_connectionPort = new OpenViBE::Parameters::ParameterIntObject(m_netSrv.getPortParameter());
     m_tcpTaggingPort = new OpenViBE::Parameters::ParameterIntObject(m_tcpTaggingSrv.getPortParameter());
@@ -130,8 +129,6 @@ AcquisitionControllerPrivate::AcquisitionControllerPrivate(const Kernel::IKernel
     const std::string acquisitionName = m_acquisitionName;
     const auto saveOnChange = [acquisitionName](std::any) { SessionManager::instance().saveCurrent(acquisitionName); };
     m_acquisition->getChunkSampleCount()->connect(saveOnChange);
-    m_acquisition->getDriftCorrectionPolicy()->connect(saveOnChange);  // UG fork
-    m_acquisition->getDriftTolerance()->connect(saveOnChange);
     m_netSrv.getPortParameter()->connect(saveOnChange);
     m_tcpTaggingSrv.getPortParameter()->connect(saveOnChange);
 
@@ -586,17 +583,6 @@ QObject* AcquisitionController::getSampleCountPerBlock() const
     return d->m_sampleCountPerBlock;
 }
 
-// UG fork: the drift correction settings
-QObject* AcquisitionController::driftCorrectionPolicy() const
-{
-    return d->m_driftCorrectionPolicy;
-}
-
-QObject* AcquisitionController::driftTolerance() const
-{
-    return d->m_driftTolerance;
-}
-
 QQmlListProperty<ImpedanceItem> AcquisitionController::impedances()
 {
     return QQmlListProperty<ImpedanceItem>(this, &d->m_impedancesItems);
@@ -644,22 +630,41 @@ void AcquisitionController::setCurrentDriver(const QString& driverName)
     saveSession();
 }
 
-double AcquisitionController::instantDrift()
+QVariantMap AcquisitionController::buffers() const
 {
-    // Return drift in ms
-    return d->m_instantDrift;
+    return d->m_buffers;
 }
 
-double AcquisitionController::globalDrift()
+void AcquisitionControllerPrivate::updateBuffers()
 {
-    // Return drift in ms
-    return d->m_globalDrift;
-}
+    const Acquisition::BufferStatus status = m_acquisition->takeBufferStatus();
+    QVariantMap buffers;
+    buffers["acquiring"] = status.serverBuffers > 0;
+    if (status.serverBuffers > 0) {
+        m_serverMinFree           = (std::min)(m_serverMinFree, status.minFreeServerBuffers);
+        buffers["serverBuffers"]  = status.serverBuffers;
+        buffers["serverFree"]     = status.minFreeServerBuffers;
+        buffers["serverMinFree"]  = m_serverMinFree;
+    }
 
-double AcquisitionController::driftLimit()
-{
-    // Return drift limit in ms
-    return d->m_driftLimit;
+    const AbstractDriver::DeviceBuffer& device = status.device;
+    buffers["deviceReported"] = device.reported;
+    if (device.reported) {
+        m_deviceMaxSeconds          = (std::max)(m_deviceMaxSeconds, device.peakSeconds);
+        buffers["deviceSeconds"]    = device.peakSeconds;
+        buffers["deviceMaxSeconds"] = m_deviceMaxSeconds;
+        buffers["deviceCapacity"]   = device.capacitySeconds;
+        buffers["lossCounted"]      = device.lossCounted;
+        buffers["lostSamples"]      = double(device.lostSamples);
+        if (device.lostSamples > m_lostSamples) {
+            getLogManager() << Kernel::LogLevel_Error << "The amplifier lost " << device.lostSamples - m_lostSamples << " samples ("
+                            << device.lostSamples << " since Play): the server did not read it in time.\n";
+            m_lostSamples = device.lostSamples;
+        }
+    }
+
+    m_buffers = buffers;
+    emit q->buffersChanged();
 }
 
 bool AcquisitionController::connectDevice()
@@ -692,17 +697,15 @@ bool AcquisitionController::startAcquisition()
         d->m_impedanceTimer = nullptr;
     }
 
-    if (!d->m_driftTimer) {
-        d->m_driftTimer = new QTimer(this);
+    // UG fork: the buffer levels, twice a second, each update showing the worst since the previous one
+    d->m_deviceMaxSeconds = 0.0;
+    d->m_serverMinFree    = UINT32_MAX;
+    d->m_lostSamples      = 0;
+    if (!d->m_bufferTimer) {
+        d->m_bufferTimer = new QTimer(this);
+        connect(d->m_bufferTimer, &QTimer::timeout, this, [this]() { d->updateBuffers(); });
     }
-    d->m_driftTimer->stop();
-    d->m_driftTimer->setInterval(1000);
-    connect(d->m_driftTimer, &QTimer::timeout, this, [this]() {
-        d->m_instantDrift = (d->m_acquisition->drift().instantDrift / 1000000.0);
-        d->m_globalDrift = (d->m_acquisition->drift().globalDrift / 1000000.0);
-        emit driftChanged();
-    });
-    d->m_driftTimer->start();
+    d->m_bufferTimer->start(500);
 
     if (d->m_acqManager.startAcquisition(LOCAL_CLIENT_ID, d->m_acquisitionName)) {
         emit isAcquiringChanged();
@@ -722,14 +725,13 @@ bool AcquisitionController::stopAcquisition()
         d->m_impedanceTimer = nullptr;
     }
 
-    if (d->m_driftTimer) {
-        d->m_driftTimer->stop();
-        delete d->m_driftTimer;
-        d->m_driftTimer = nullptr;
+    if (d->m_bufferTimer) {  // UG fork
+        d->m_bufferTimer->stop();
+        delete d->m_bufferTimer;
+        d->m_bufferTimer = nullptr;
     }
-    d->m_instantDrift = 0.0;
-    d->m_globalDrift = 0.0;
-    emit driftChanged();
+    d->m_buffers.clear();
+    emit buffersChanged();
 
     if (d->m_acqManager.stopAcquisition(LOCAL_CLIENT_ID, d->m_acquisitionName)) {
         //the end of a recording is the natural checkpoint: the settings that produced it are worth

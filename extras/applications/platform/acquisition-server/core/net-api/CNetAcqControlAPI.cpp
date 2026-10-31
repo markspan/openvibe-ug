@@ -82,39 +82,47 @@ CNetAcqControlAPI& CNetAcqControlAPI::getInstance()
 
 CNetAcqControlAPI::~CNetAcqControlAPI()
 {
-    m_bRun = false;
+    {
+        std::lock_guard<std::mutex> lock(m_queueMutex);
+        m_bRun = false;
+    }
+    m_queueChanged.notify_all();
     m_thread->join();
 }
 
 void CNetAcqControlAPI::pushRequest(uint64_t id, ControlMsg req)
 {
-    m_requestQueue.push({ id, std::move(req) });
+    // UG fork: under the lock run() takes (upstream pushes without it, from the network thread), and waking it
+    {
+        std::lock_guard<std::mutex> lock(m_queueMutex);
+        m_requestQueue.push({ id, std::move(req) });
+    }
+    m_queueChanged.notify_one();
 }
 
 void CNetAcqControlAPI::run()
 {
-    while (m_bRun)
+    // UG fork: waits for a request; upstream polls the queue without pause, which keeps a CPU core busy for as long
+    // as the server runs, also when no client is connected
+    while (true)
     {
         uint64_t remoteId;
         ControlMsg ctrlMsg;
         ControlMsgResponse ctrlMsgResponse;
 
-        m_queueMutex.lock();
+        {
+            std::unique_lock<std::mutex> lock(m_queueMutex);
+            m_queueChanged.wait(lock, [this] { return !m_requestQueue.empty() || !m_bRun; });
+            if (!m_bRun) { return; }
 
-        if (!m_requestQueue.empty()) {
             auto request = std::move(m_requestQueue.front());
             remoteId = request.first;
             ctrlMsg = std::move(request.second);
             m_requestQueue.pop();
-
-            // Unlock fast
-            m_queueMutex.unlock();
-            // process
-            processControlMessage(remoteId, ctrlMsg, ctrlMsgResponse);
-            m_netSrv.send<ControlMsgResponse>(&ctrlMsgResponse, (int)remoteId);
-        } else {
-            m_queueMutex.unlock();
         }
+
+        processControlMessage(remoteId, ctrlMsg, ctrlMsgResponse);
+        m_netSrv.send<ControlMsgResponse>(&ctrlMsgResponse, (int)remoteId);
     }
 }
 
