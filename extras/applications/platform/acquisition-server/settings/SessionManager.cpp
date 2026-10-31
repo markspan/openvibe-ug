@@ -25,6 +25,7 @@ const char* DRIVER_KEY      = "driver";
 const char* DRIVERS_KEY     = "drivers";
 const char* WRITERS_KEY     = "writers";
 const char* CHUNK_SIZE_KEY  = "chunkSampleCount";
+// UG fork: the drift correction settings, which upstream does not have
 const char* DRIFT_CORRECTION_KEY = "driftCorrectionPolicy";
 // Where the policy was stored while it defaulted to "Let the driver decide"
 const char* OLD_DRIFT_CORRECTION_KEY = "driftCorrection";
@@ -228,6 +229,7 @@ SessionManager::Session SessionManager::readStoredSession()
         session.chunkSampleCount = stored[CHUNK_SIZE_KEY].get<int>();
     }
 
+    // UG fork: the drift correction settings
     if (stored.contains(DRIFT_CORRECTION_KEY) && stored[DRIFT_CORRECTION_KEY].is_string()) {
         session.driftCorrectionPolicy = stored[DRIFT_CORRECTION_KEY].get<std::string>();
     }
@@ -298,7 +300,7 @@ void SessionManager::restoreAll(const std::string& acquisitionName)
         if (session.chunkSampleCount) {
             acquisition->getChunkSampleCount()->setValue(*session.chunkSampleCount);
         }
-        if (session.driftCorrectionPolicy) {
+        if (session.driftCorrectionPolicy) {  // UG fork
             acquisition->getDriftCorrectionPolicy()->setValue(*session.driftCorrectionPolicy);
         }
         if (session.driftToleranceMs) {
@@ -406,7 +408,7 @@ void SessionManager::saveCurrent(const std::string& acquisitionName)
     session.driverChannelNames = m_driverChannelNames;
     session.writerParams       = m_writerParams;
     session.chunkSampleCount   = acquisition->getChunkSampleCount()->value();
-    session.driftCorrectionPolicy = acquisition->getDriftCorrectionPolicy()->value();
+    session.driftCorrectionPolicy = acquisition->getDriftCorrectionPolicy()->value();  // UG fork
     session.driftToleranceMs      = acquisition->getDriftTolerance()->value();
 
     for (const auto& [name, enableParam] : manager.getAcquisitionWritersEnableParam(acquisitionName)) {
@@ -430,7 +432,7 @@ void SessionManager::writeAll(const Session& session) const
     if (session.chunkSampleCount) {
         stored[CHUNK_SIZE_KEY] = *session.chunkSampleCount;
     }
-    if (session.driftCorrectionPolicy) {
+    if (session.driftCorrectionPolicy) {  // UG fork
         stored[DRIFT_CORRECTION_KEY] = *session.driftCorrectionPolicy;
     }
     if (session.driftToleranceMs) {

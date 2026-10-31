@@ -324,11 +324,19 @@ ApplicationWindow {
                   }
                 }
 
+                // UG fork: what the driver has to say about its settings, e.g. what its montage did or why Play failed
+                OV.DriverNote {
+                  Layout.fillWidth: true
+                  text: controller.driverNote
+                  level: controller.driverNoteLevel
+                }
+
                 OV.ChannelRename {
                   id: _channelRename
                   Layout.fillWidth: true
                   channelNames: controller.channelNames
-                  channelHints: controller.channelHints
+                  channelHints: controller.channelHints  // UG fork
+                  channelLocks: controller.channelLocks
 
                   onNameChanged: (index, name) => controller.setChannelName(index, name)
                   onAllNamesChanged: (channelNames) => controller.setChannelNames(channelNames)
@@ -422,6 +430,7 @@ ApplicationWindow {
           param: controller.tcpTaggingPort
         }
 
+        // UG fork: the drift correction settings, which upstream 4.0 does not have
         OV.ListParameter {
           id: _driftCorrectionPolicy
           Layout.fillWidth: true

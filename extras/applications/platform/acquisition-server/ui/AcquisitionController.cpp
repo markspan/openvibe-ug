@@ -4,7 +4,10 @@
  */
 
 #include "AcquisitionController.h"
-#include "Charmeleon.h"
+#include "Charmeleon.h"  // UG fork: impedances in Charmeleon
+
+#include <QWinEventNotifier>
+#include <Windows.h>
 
 #include <QCoreApplication>
 #include <QQmlContext>
@@ -69,9 +72,14 @@ struct AcquisitionControllerPrivate {
     OpenViBE::Parameters::ParameterObjects m_driverParams;
     std::unique_ptr<OpenViBE::Parameters::parameterStringVectorObject> m_channelNamesObj = nullptr;
 
+    // UG fork: the Charmeleon the impedance button started, whose montage the driver takes over when it closes
+    Charmeleon::Launched m_charmeleon;
+    QWinEventNotifier* m_charmeleonWatcher = nullptr;
+
     OpenViBE::Parameters::ParameterIntObject* m_connectionPort;
     OpenViBE::Parameters::ParameterIntObject* m_tcpTaggingPort;
     OpenViBE::Parameters::ParameterListIntObject* m_sampleCountPerBlock;
+    // UG fork: the drift correction settings
     OpenViBE::Parameters::ParameterListStringObject* m_driftCorrectionPolicy;
     OpenViBE::Parameters::ParameterIntObject* m_driftTolerance;
     std::vector<double> m_impedances;
@@ -112,6 +120,7 @@ AcquisitionControllerPrivate::AcquisitionControllerPrivate(const Kernel::IKernel
     wrapDriverChannelNames();
 
     m_sampleCountPerBlock = new OpenViBE::Parameters::ParameterListIntObject(m_acquisition->getChunkSampleCount());
+    // UG fork: the drift correction settings
     m_driftCorrectionPolicy = new OpenViBE::Parameters::ParameterListStringObject(m_acquisition->getDriftCorrectionPolicy());
     m_driftTolerance        = new OpenViBE::Parameters::ParameterIntObject(m_acquisition->getDriftTolerance());
 
@@ -121,7 +130,7 @@ AcquisitionControllerPrivate::AcquisitionControllerPrivate(const Kernel::IKernel
     const std::string acquisitionName = m_acquisitionName;
     const auto saveOnChange = [acquisitionName](std::any) { SessionManager::instance().saveCurrent(acquisitionName); };
     m_acquisition->getChunkSampleCount()->connect(saveOnChange);
-    m_acquisition->getDriftCorrectionPolicy()->connect(saveOnChange);
+    m_acquisition->getDriftCorrectionPolicy()->connect(saveOnChange);  // UG fork
     m_acquisition->getDriftTolerance()->connect(saveOnChange);
     m_netSrv.getPortParameter()->connect(saveOnChange);
     m_tcpTaggingSrv.getPortParameter()->connect(saveOnChange);
@@ -130,6 +139,13 @@ AcquisitionControllerPrivate::AcquisitionControllerPrivate(const Kernel::IKernel
 
 AcquisitionControllerPrivate::~AcquisitionControllerPrivate()
 {
+    // UG fork
+    delete m_charmeleonWatcher;
+    Charmeleon::takeResult(m_charmeleon);  // releases the process handle and the result file
+
+    // The driver may outlive the controller its listener posts to
+    if (m_acquisition) { m_acquisition->setDriverStateListener({}); }
+
     if (m_impedanceTimer) {
         m_impedanceTimer->stop();
         delete m_impedanceTimer;
@@ -156,6 +172,12 @@ void AcquisitionControllerPrivate::wrapDriverChannelNames()
 {
     // The wrapper points into the driver, so it only lives as long as the driver it was built for.
     m_channelNamesObj.reset();
+
+    // UG fork: the driver tells when its note or channel locks change, possibly from the acquisition's thread,
+    // so the signal is queued onto the controller's
+    m_acquisition->setDriverStateListener([controller = q]() {
+        QMetaObject::invokeMethod(controller, [controller]() { emit controller->driverStateChanged(); }, Qt::QueuedConnection);
+    });
 
     auto* param = m_acquisition->getDriverChannelNamesParam();
     if (param) {
@@ -289,6 +311,7 @@ bool AcquisitionController::isCheckingImpedance() {
     return d->m_acquisition && d->m_acquisition->state() == Acquisition::State::ImpedanceCheck;
 }
 
+// UG fork: impedances in Charmeleon, for the drivers that hand them to it
 std::string AcquisitionController::charmeleonExecutable() {
     if (!d->m_acquisition || !d->m_acquisition->usesCharmeleonForImpedance()) { return {}; }
     const CString configured = d->m_kernelCtx.getConfigurationManager().expand("${AcquisitionServer_CharmeleonPath}");
@@ -303,15 +326,23 @@ bool AcquisitionController::toggleImpedanceCheck() {
 
     bool res = false;
 
-    // Charmeleon checks the impedances in its own window; Play closes it again
+    // UG fork: Charmeleon checks the impedances in its own window; Play closes it again
     const std::string charmeleon = charmeleonExecutable();
     if (!charmeleon.empty() && d->m_acquisition->state() == Acquisition::State::Idle) {
         const std::string montage = d->m_acquisition->getCharmeleonMontage();
         d->getLogManager() << Kernel::LogLevel_Info << "Checking impedances with " << charmeleon
                            << (montage.empty() ? std::string() : " and montage " + montage) << "\n";
-        if (!Charmeleon::launch(charmeleon, montage)) {
+        Charmeleon::Launched launched;
+        if (!Charmeleon::launch(charmeleon, montage, d->m_acquisition->getCharmeleonArguments(), &launched)) {
             d->getLogManager() << Kernel::LogLevel_Error << "Could not start " << charmeleon << "\n";
             return false;
+        }
+        // UG fork: once this Charmeleon closes, the driver takes over the montage it saved
+        if (launched.process) {
+            takeOverCharmeleonMontage();  // a previous one that has not been dealt with yet
+            d->m_charmeleon        = launched;
+            d->m_charmeleonWatcher = new QWinEventNotifier(static_cast<HANDLE>(launched.process), this);
+            connect(d->m_charmeleonWatcher, &QWinEventNotifier::activated, this, &AcquisitionController::takeOverCharmeleonMontage);
         }
         return true;
     }
@@ -472,11 +503,54 @@ QStringList AcquisitionController::getChannelNames()
     return d->m_channelNamesObj ? d->m_channelNamesObj->value() : QStringList();
 }
 
+// UG fork: see AbstractDriver::channelHints()
 QStringList AcquisitionController::getChannelHints()
 {
     QStringList hints;
     for (const auto& hint : d->m_acquisition->getDriverChannelHints()) { hints.append(QString::fromStdString(hint)); }
     return hints;
+}
+
+void AcquisitionController::takeOverCharmeleonMontage()
+{
+    if (!d->m_charmeleon.process) { return; }
+    delete d->m_charmeleonWatcher;
+    d->m_charmeleonWatcher = nullptr;
+
+    const Charmeleon::Result result = Charmeleon::takeResult(d->m_charmeleon);
+    if (!result.valid) {
+        d->getLogManager() << Kernel::LogLevel_Info << "Charmeleon closed without saying which montage it ended with (it is older than 2.2, "
+                              "or did not close normally); the driver keeps its montage.\n";
+        return;
+    }
+    if (result.unsaved) { d->getLogManager() << Kernel::LogLevel_Warning << "Charmeleon closed with montage changes that are not saved.\n"; }
+    if (!result.saved || result.file.empty()) { return; }
+
+    d->getLogManager() << Kernel::LogLevel_Info << "Taking over the montage Charmeleon saved: " << result.file << "\n";
+    d->m_acquisition->takeOverCharmeleonMontage(result.file);
+    emit driverParametersChanged();
+    saveSession();
+}
+
+QString AcquisitionController::driverNote() const
+{
+    return QString::fromStdString(d->m_acquisition->getDriverNote().text);
+}
+
+QString AcquisitionController::driverNoteLevel() const
+{
+    switch (d->m_acquisition->getDriverNote().level) {
+        case AbstractDriver::Note::Level::Warning: return "warning";
+        case AbstractDriver::Note::Level::Error: return "error";
+        default: return "info";
+    }
+}
+
+QVariantList AcquisitionController::channelLocks() const
+{
+    QVariantList locks;
+    for (const bool locked : d->m_acquisition->getDriverChannelLocks()) { locks.append(locked); }
+    return locks;
 }
 
 void AcquisitionController::setChannelNames(const QStringList& channelNames)
@@ -512,6 +586,7 @@ QObject* AcquisitionController::getSampleCountPerBlock() const
     return d->m_sampleCountPerBlock;
 }
 
+// UG fork: the drift correction settings
 QObject* AcquisitionController::driftCorrectionPolicy() const
 {
     return d->m_driftCorrectionPolicy;
@@ -562,6 +637,7 @@ void AcquisitionController::setCurrentDriver(const QString& driverName)
     emit driverChanged();
     emit driverParametersChanged();
     emit channelNamesChanged();
+    emit driverStateChanged();
     emit supportsImpedanceCheckChanged();
 
     // Save acquisition state
@@ -602,10 +678,12 @@ bool AcquisitionController::startAcquisition()
 {
     d->getLogManager() << Kernel::LogLevel_Info << "Starting acquisition.\n";
 
-    // Charmeleon holds the amplifier while it runs
+    // UG fork: Charmeleon holds the amplifier while it runs
     if (const int closed = Charmeleon::closeAll(); closed > 0) {
         d->getLogManager() << Kernel::LogLevel_Info << "Closed " << closed << " running Charmeleon instance(s).\n";
     }
+    // UG fork: before the driver starts, so that it records with the montage as Charmeleon saved it on closing
+    takeOverCharmeleonMontage();
 
     // If transitioning from impedance check, stop the polling timer first.
     if (d->m_impedanceTimer) {

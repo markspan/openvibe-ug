@@ -7,6 +7,8 @@
  * @brief Implementation of the DriftCorrector class.
  */
 
+// UG fork: new file, see DriftCorrector.h.
+
 #include "DriftCorrector.h"
 
 #include <algorithm>

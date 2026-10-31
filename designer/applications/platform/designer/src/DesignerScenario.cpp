@@ -575,14 +575,15 @@ QQmlListProperty<LinkObject> DesignerScenario::links()
 
 void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qreal y, bool isOutput)
 {
-    // A second click on a port of the same kind as the first (another output, or the very same port again) starts a new
+    // UG fork: a second click on a port of the same kind as the first (another output, or the very same port again) starts a new
     // link from there, rather than trying to link two outputs, two inputs, or a box to itself
     if(d->linkCreationStarted && isOutput == d->linkCreationSourceIsOutput)
     {
         this->stopLinkCreation();
     }
 
-    // Every way out of the second click ends link creation, so that a failed attempt does not leave it pending
+    // UG fork: every way out of the second click ends link creation, so that a failed attempt does not leave it
+    // pending (upstream left the link dangling after an error)
     if(d->linkCreationStarted)
     {
         for(auto *box : d->boxes)

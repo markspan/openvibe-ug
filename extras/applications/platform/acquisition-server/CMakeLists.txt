@@ -34,7 +34,7 @@ list(APPEND APP_SOURCES
     core/Api.cpp
     core/CircularBuffer.cpp
     core/DriftCalculator.cpp
-    core/DriftCorrector.cpp
+    core/DriftCorrector.cpp   # UG fork
     core/SampleBufferHandler.cpp
     core/Thread.cpp
 	core/net-api/CNetAcqControlAPI.cpp
@@ -64,7 +64,7 @@ list(APPEND APP_PRIVATE_HEADERS
     core/Api.h
     core/CircularBuffer.h
     core/DriftCalculator.h
-    core/DriftCorrector.h
+    core/DriftCorrector.h     # UG fork
     core/SampleBufferHandler.h
     core/Thread.h
     #core/Bridges/CBridgesCollection.h
@@ -108,6 +108,7 @@ if(WIN32 AND BIOSEMI_FOUND)
     )
 endif()
 
+# UG fork: the TMSi driver, which upstream 4.0 does not have.
 # TMSiSDK.dll is loaded at runtime, so the driver needs no SDK at build time
 if(WIN32)
     list(APPEND APP_SOURCES
@@ -157,13 +158,14 @@ qt_add_qml_module(${TARGET_NAME}
         ui/qml/Main.qml
         ui/qml/Impedances.qml
         ui/qml/ChannelRename.qml
+        ui/qml/DriverNote.qml     # UG fork
         ui/qml/DriftBar.qml
         ui/qml/DriftControl.qml
     SOURCES
         ui/AcquisitionController.h
         ui/AcquisitionController.cpp
-        ui/Charmeleon.h
-        ui/Charmeleon.cpp
+        ui/Charmeleon.h           # UG fork
+        ui/Charmeleon.cpp         # UG fork
         ui/ImpedanceItem.h
     RESOURCES
         ${OV_ICON_FILE}

@@ -30,6 +30,7 @@ class AcquisitionController : public QObject
     Q_PROPERTY(QObject* connectionPort READ connectionPort CONSTANT) // Pointer is constant although value may change
     Q_PROPERTY(QObject* tcpTaggingPort READ tcpTaggingPort CONSTANT) // Pointer is constant although value may change
     Q_PROPERTY(QObject* sampleCountPerBlock READ getSampleCountPerBlock CONSTANT)
+    // UG fork: the drift correction settings
     Q_PROPERTY(QObject* driftCorrectionPolicy READ driftCorrectionPolicy CONSTANT)
     Q_PROPERTY(QObject* driftTolerance READ driftTolerance CONSTANT)
     Q_PROPERTY(QQmlListProperty<ImpedanceItem> impedances READ impedances NOTIFY impedancesChanged)
@@ -37,7 +38,14 @@ class AcquisitionController : public QObject
     Q_PROPERTY(double instantDrift READ instantDrift NOTIFY driftChanged)
     Q_PROPERTY(double globalDrift READ globalDrift NOTIFY driftChanged)
     Q_PROPERTY(QStringList channelNames READ getChannelNames NOTIFY channelNamesChanged)
-    Q_PROPERTY(QStringList channelHints READ getChannelHints NOTIFY channelNamesChanged)
+    Q_PROPERTY(QStringList channelHints READ getChannelHints NOTIFY channelNamesChanged)  // UG fork
+    // UG fork: what the driver says about its settings (e.g. what its montage did, why Play failed) and the
+    // channel names it decides itself; upstream shows neither
+    Q_PROPERTY(QString driverNote READ driverNote NOTIFY driverStateChanged)
+    /// "info", "warning" or "error"
+    Q_PROPERTY(QString driverNoteLevel READ driverNoteLevel NOTIFY driverStateChanged)
+    /// One flag per channel name, true for an entry the driver decides; empty when the user decides them all
+    Q_PROPERTY(QVariantList channelLocks READ channelLocks NOTIFY driverStateChanged)
 
 public:
     AcquisitionController();
@@ -76,6 +84,16 @@ public:
     Q_INVOKABLE void configureDeviceDriver();
     Q_INVOKABLE QStringList getChannelNames();
     Q_INVOKABLE QStringList getChannelHints();
+    /**
+     * @brief Hands the montage the Charmeleon this server started saved to the driver, once it has closed.
+     *
+     * UG fork: called when that Charmeleon ends, and before an acquisition starts; does nothing when there is
+     * no such Charmeleon, or it saved nothing.
+     */
+    void takeOverCharmeleonMontage();
+    QString driverNote() const;
+    QString driverNoteLevel() const;
+    QVariantList channelLocks() const;
     Q_INVOKABLE void setChannelNames(const QStringList& channelNames);
     Q_INVOKABLE void setChannelName(int index, const QString& name);
 
@@ -91,6 +109,8 @@ signals:
     void impedancesChanged(void);
     void impedanceRequested(void);
     void channelNamesChanged();
+    /// The driver's note or channel locks changed
+    void driverStateChanged();
 
 protected:
     /// Path of Charmeleon.exe when the current driver hands impedance checking to it and it is installed, else empty.

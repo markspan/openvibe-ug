@@ -168,7 +168,10 @@ CDriverTMSi::CDriverTMSi()
       m_paramDevice("DeviceIdentifier", "Device", {FIRST_DEVICE}, FIRST_DEVICE),
       m_paramTriggerChannel("TriggerChannel", "Trigger channel (device name; empty = the first digital channel that is not the sawtooth)", ""),
       m_paramCommonModeRejection("CommonModeRejection", "Common mode rejection (common average reference)", true),
-      m_paramMontage("Montage", "Charmeleon montage, names the EEG channels by hardware channel; EEG channels it leaves out are not recorded", "",
+      m_paramMontage("Montage",
+                     "Charmeleon montage (a .json file, or the name of one in Charmeleon's library): names the channels, and decides which EEG "
+                     "channels are recorded",
+                     "",
                      OpenViBE::Parameters::Read, {"Charmeleon montage (*.json)", "Any File (*)"})
 {
     m_samplingRate = 512;
@@ -204,6 +207,11 @@ OpenViBE::Parameters::Parameters CDriverTMSi::getParameters()
         devices.insert(devices.end(), m_devices.begin(), m_devices.end());
         m_paramDevice.setAvailableValues(devices);
         if (queryLayout()) { fitNamesToLayout(); }
+        else if (m_channelNames.value().size() == size_t(m_channelCount.value())) {
+            // No device: the montage still names the list, provisionally, and says what it did
+            std::vector<std::string> names = m_channelNames.value();
+            if (applyMontage(names)) { m_channelNames.setValue(names); }
+        }
     }
     return AbstractDriver::getParameters();
 }
@@ -264,52 +272,73 @@ bool CDriverTMSi::fitNamesToLayout()
     return ok;
 }
 
-bool CDriverTMSi::applyMontage(std::vector<std::string>& names) const
+std::vector<MontageChannelKind> CDriverTMSi::layoutKinds() const
 {
-    if (m_paramMontage.value().empty()) { return true; }
+    std::vector<MontageChannelKind> kinds;
+    kinds.reserve(m_layout.size());
+    for (const auto& channel : m_layout) {
+        switch (channel.type) {
+            case CHANNELTYPE_EXG: kinds.push_back(MontageChannelKind::EEG); break;
+            case CHANNELTYPE_BIP: kinds.push_back(MontageChannelKind::Bipolar); break;
+            case CHANNELTYPE_AUX: kinds.push_back(MontageChannelKind::Auxiliary); break;
+            default: kinds.push_back(MontageChannelKind::Other); break;
+        }
+    }
+    return kinds;
+}
 
+bool CDriverTMSi::applyMontage(std::vector<std::string>& names)
+{
+    // UG fork: the montage rules live in CharmeleonMontage, shared with the eego driver; this only feeds them the
+    // device's channel kinds and shows the outcome under the settings
+    if (trim(m_paramMontage.value()).empty()) {
+        m_montageNote = {};
+        clearNote();
+        setChannelLocks({});
+        return true;
+    }
+
+    MontageApplication application;
     std::string error;
-    std::vector<std::string> warnings;
-    const std::map<int, std::string> montage = loadCharmeleonMontage(m_paramMontage.value(), error, warnings);
-    for (const auto& warning : warnings) { std::cout << "[TMSi] Montage: " << warning << std::endl; }
-    if (montage.empty()) {
-        std::cout << "[TMSi] Montage: " << error << std::endl;
+    if (!applyCharmeleonMontageSetting(m_paramMontage.value(), layoutKinds(), names, application, error)) {
+        report(error);
+        m_montageNote = {Note::Level::Error, error};
+        setNote(m_montageNote.level, m_montageNote.text);
+        setChannelLocks({});
         return false;
     }
 
-    // Charmeleon only knows the EEG channels: its HardwareChannel n is the n-th EXG channel, wherever the device lists it
-    // Other channels keep the names the user gave them, except a montage electrode's name: that is left from a montage
-    // put on them before, when HardwareChannel counted all device channels
-    // Without the device the driver does not know which channels are EEG: it takes them all to be, as they come first
-    // in the device's list, until init() puts the names where they belong
-    const bool layoutKnown = !m_layout.empty();
-    std::vector<size_t> eegChannels;
-    for (size_t i = 0; i < names.size(); ++i) {
-        if (!layoutKnown || (i < m_layout.size() && m_layout[i].type == CHANNELTYPE_EXG)) {
-            eegChannels.push_back(i);
-            names[i].clear();
-        }
-        else if (std::any_of(montage.begin(), montage.end(), [&](const auto& electrode) { return electrode.second == trim(names[i]); })) {
-            names[i].clear();
-        }
-    }
-
-    std::string ignored;
-    for (const auto& [hardwareChannel, name] : montage) {
-        if (size_t(hardwareChannel) > eegChannels.size()) {
-            ignored += (ignored.empty() ? "" : ", ") + name + " (" + std::to_string(hardwareChannel) + ")";
-            continue;
-        }
-        names[eegChannels[hardwareChannel - 1]] = name;
-    }
-    if (!ignored.empty() && layoutKnown) {
-        std::cout << "[TMSi] Montage: the device has " << eegChannels.size() << " EEG channels, so these electrodes are not recorded: " << ignored
-                  << std::endl;
-    }
-    else if (!ignored.empty()) {
-        std::cout << "[TMSi] Montage: the list has " << names.size() << " channels, so these electrodes are not on it: " << ignored << std::endl;
-    }
+    std::cout << "[TMSi] " << application.summary << std::endl;
+    names         = std::move(application.names);
+    m_montageNote = {application.warning ? Note::Level::Warning : Note::Level::Info, application.summary};
+    setNote(m_montageNote.level, m_montageNote.text);
+    setChannelLocks(std::move(application.locked));
     return true;
+}
+
+std::vector<std::string> CDriverTMSi::charmeleonArguments() const
+{
+    // Charmeleon 2.2 and later; an older one opens the first amplifier it finds, eego before TMSi
+    std::vector<std::string> arguments{"--amplifier", "tmsi", "--protocol", m_paramProtocol.value()};
+    if (m_paramDevice.value() != FIRST_DEVICE) {
+        arguments.push_back("--device");
+        arguments.push_back(m_paramDevice.value());
+    }
+    return arguments;
+}
+
+std::string CDriverTMSi::charmeleonMontage() const
+{
+    const MontageLocation location = locateCharmeleonMontage(m_paramMontage.value());
+    return location.source == MontageLocation::Source::NotFound ? m_paramMontage.value() : location.path;
+}
+
+void CDriverTMSi::takeOverCharmeleonMontage(const std::string& path)
+{
+    const std::string setting = montageSettingAfterSave(m_paramMontage.value(), path);
+    // A new value applies itself, through onMontageChanged(); the same one has to be read again explicitly
+    if (setting != m_paramMontage.value()) { m_paramMontage.setValue(setting); }
+    else { onMontageChanged(); }
 }
 
 void CDriverTMSi::onMontageChanged()
@@ -318,12 +347,12 @@ void CDriverTMSi::onMontageChanged()
     if (m_opened || (!m_layout.empty() && m_channelNames.value().size() != m_layout.size())) { return; }
 
     std::vector<std::string> names = m_channelNames.value();
-    if (m_paramMontage.value().empty()) {
+    if (!applyMontage(names)) { return; }
+    if (trim(m_paramMontage.value()).empty()) {
         // Without the device there are no device names to go back to
         if (m_layout.empty()) { return; }
         for (size_t i = 0; i < m_layout.size(); ++i) { if (m_layout[i].type == CHANNELTYPE_EXG) { names[i] = m_layout[i].name; } }
     }
-    else if (!applyMontage(names)) { return; }
     m_channelNames.setValue(names);
 }
 
@@ -336,8 +365,8 @@ bool CDriverTMSi::loadLibrary()
 
     HMODULE module = LoadLibraryA(TMSI_DLL);
     if (!module) {
-        std::cout << "[TMSi] Can not load " << TMSI_DLL << ", windows error = " << GetLastError()
-                  << ". Copy it next to openvibe-acquisition-server.exe." << std::endl;
+        report(std::string("Can not load ") + TMSI_DLL + " (Windows error " + std::to_string(GetLastError())
+               + "). Copy it next to openvibe-acquisition-server.exe.");
         return false;
     }
 
@@ -345,7 +374,7 @@ bool CDriverTMSi::loadLibrary()
     auto load  = [&](auto& fp, const char* name) {
         fp = reinterpret_cast<std::remove_reference_t<decltype(fp)>>(GetProcAddress(module, name));
         if (!fp) {
-            std::cout << "[TMSi] Can not load method " << name << std::endl;
+            report(std::string(TMSI_DLL) + " has no function " + name + "; it may be another version.");
             valid = false;
         }
     };
@@ -388,7 +417,7 @@ bool CDriverTMSi::initLibrary()
     int error     = 0;
     HANDLE handle = m_api->libraryInit(connection, &error);
     if (error != 0 || handle == nullptr || handle == INVALID_HANDLE_VALUE) {
-        std::cout << "[TMSi] Can not initialize TMSi library on [" << m_paramProtocol.value() << "], errorcode = " << error << std::endl;
+        report("Can not start the TMSi library on " + m_paramProtocol.value() + " (TMSi error " + std::to_string(error) + ").");
         return false;
     }
     m_api->handle = handle;
@@ -397,7 +426,7 @@ bool CDriverTMSi::initLibrary()
     char** deviceList = m_api->getDeviceList(m_api->handle, &nDevices);
     if (nDevices == 0) {
         error = m_api->getErrorCode(m_api->handle);
-        if (error == 0) { std::cout << "[TMSi] No TMSi devices connected" << std::endl; }
+        if (error == 0) { report("No TMSi device connected (" + m_paramProtocol.value() + ")."); }
         else { printError("Could not list TMSi devices"); }
         return true;
     }
@@ -422,8 +451,8 @@ bool CDriverTMSi::openFrontEnd(const std::string& deviceID)
     if (!m_api->open(m_api->handle, deviceID.c_str())) {
         const int error = m_api->getErrorCode(m_api->handle);
         if (error == 10061) {
-            std::cout << "[TMSi] The device " << deviceID << " is present but refuses access. "
-                         "It might be connected to another program. Restarting the device might help." << std::endl;
+            report("The device " + deviceID + " is present but refuses access. It might be connected to another program, e.g. Charmeleon. "
+                   "Restarting the device might help.");
         }
         else { printError("Device " + deviceID + " is present but can not be opened. Restarting the device might help"); }
         return false;
@@ -479,8 +508,8 @@ bool CDriverTMSi::setSignalBuffer(const uint32_t sampling)
         return false;
     }
     if (samplingFrequency != sampling * 1000) {
-        std::cout << "[TMSi] Device does not support a sampling rate of " << sampling << " Hz (it proposes "
-                  << samplingFrequency / 1000 << " Hz)" << std::endl;
+        report("The device does not support a sampling rate of " + std::to_string(sampling) + " Hz; it proposes "
+               + std::to_string(samplingFrequency / 1000) + " Hz.");
         return false;
     }
 
@@ -493,8 +522,22 @@ bool CDriverTMSi::setSignalBuffer(const uint32_t sampling)
 void CDriverTMSi::printError(const std::string& what) const
 {
     const int error = m_api->getErrorCode(m_api->handle);
-    std::cout << "[TMSi] " << what << ", errorcode = " << error << ", message = \"" << m_api->getErrorCodeMessage(m_api->handle, error) << "\""
-              << std::endl;
+    const char* message = m_api->getErrorCodeMessage(m_api->handle, error);
+    report(what + " (TMSi error " + std::to_string(error) + (message && *message ? std::string(": ") + message : std::string()) + ")");
+}
+
+void CDriverTMSi::report(const std::string& message) const
+{
+    std::cout << "[TMSi] " << message << std::endl;
+    m_lastError = message;
+}
+
+bool CDriverTMSi::failInit(const std::string& message)
+{
+    if (!message.empty()) { report(message); }
+    // UG fork: upstream drivers only print why they could not start; the server shows this under the settings
+    setNote(Note::Level::Error, "Play failed: " + (m_lastError.empty() ? std::string("the TMSi device could not be started.") : m_lastError));
+    return false;
 }
 
 std::string CDriverTMSi::channelName(const size_t index) const { return index < m_layout.size() ? m_layout[index].name : ""; }
@@ -524,8 +567,8 @@ std::string CDriverTMSi::channelType(const size_t index) const
 
 bool CDriverTMSi::init()
 {
-    if (!initLibrary()) { return false; }
-    if (m_devices.empty()) { return false; }
+    m_lastError.clear();
+    if (!initLibrary() || m_devices.empty()) { return failInit(); }
 
     const std::string deviceID = selectedDevice();
     if (m_paramDevice.value() != FIRST_DEVICE && deviceID != m_paramDevice.value()) {
@@ -533,24 +576,24 @@ bool CDriverTMSi::init()
     }
     std::cout << "[TMSi] Opening device " << deviceID << std::endl;
 
-    if (!openFrontEnd(deviceID)) { return false; }
+    if (!openFrontEnd(deviceID)) { return failInit(); }
 
     if (!m_api->setRefCalculation(m_api->handle, m_paramCommonModeRejection.value() ? 1 : 0)) {
         printError("Can not set common mode rejection");
         closeFrontEnd();
-        return false;
+        return failInit();
     }
 
     if (!readSignalFormat() || !setSignalBuffer(uint32_t(m_samplingRate.value()))) {
         closeFrontEnd();
-        return false;
+        return failInit();
     }
     m_layoutDevice = deviceID;
 
     // Record the channels that have a name, under that name
     if (!fitNamesToLayout()) {
         closeFrontEnd();
-        return false;
+        return failInit();
     }
     m_configuredNames = m_channelNames.value();
     m_isChannelActivated.assign(m_nDeviceChannel, false);
@@ -562,10 +605,9 @@ bool CDriverTMSi::init()
         recordedNames.push_back(name);
     }
     if (recordedNames.empty()) {
-        std::cout << "[TMSi] No channel has a name, so there is nothing to record" << std::endl;
         m_configuredNames.clear();
         closeFrontEnd();
-        return false;
+        return failInit("No channel has a name, so there is nothing to record. Name the channels, or choose a montage.");
     }
     std::cout << "[TMSi] Recording " << recordedNames.size() << " of the " << m_nDeviceChannel << " channels" << std::endl;
 
@@ -584,8 +626,11 @@ bool CDriverTMSi::init()
     else { std::cout << "[TMSi] No digital channel found, no triggers" << std::endl; }
 
     // For the duration of the acquisition the channel count and names describe the recorded channels only; unInit() restores the full list
+    m_configuredLocks = channelLocks();
+    setChannelLocks({});
     m_channelCount.setValue(int(recordedNames.size()));
     m_channelNames.setValue(recordedNames);
+    setNote(m_montageNote.level, m_montageNote.text);
 
     return true;
 }
@@ -599,6 +644,8 @@ bool CDriverTMSi::unInit()
         m_channelCount.setValue(int(m_configuredNames.size()));
         m_channelNames.setValue(m_configuredNames);
         m_configuredNames.clear();
+        setChannelLocks(std::move(m_configuredLocks));
+        m_configuredLocks.clear();
     }
     return true;
 }

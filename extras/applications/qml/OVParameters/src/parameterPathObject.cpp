@@ -82,6 +82,7 @@ void ParameterPathObject::setValue(QString value)
     }
 }
 
+// UG fork: setValue() ignores an unchanged value; this notifies the listeners regardless
 void ParameterPathObject::choose(QString value)
 {
     m_path->setValue(decode(value).toStdString());

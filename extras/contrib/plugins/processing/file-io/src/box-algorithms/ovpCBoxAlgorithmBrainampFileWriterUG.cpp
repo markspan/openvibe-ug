@@ -9,9 +9,16 @@
  * You should have received a copy of the GNU General Public License along with Brain Invaders. If not, see http://www.gnu.org/licenses/.
  */
 
+// UG fork: new in this fork, see ovpCBoxAlgorithmBrainampFileWriterUG.h.
+
 #include "ovpCBoxAlgorithmBrainampFileWriterUG.h"
 
+#include <nlohmann/json.hpp>
+
+#include <cctype>
+#include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <string>
 #include <iostream>
@@ -20,6 +27,72 @@
 namespace OpenViBE {
 namespace Plugins {
 namespace FileIO {
+
+namespace {
+
+/// The index of the Montage setting, which boxes saved before it existed do not have
+constexpr size_t MONTAGE_SETTING = 3;
+
+std::string lowercase(std::string s)
+{
+    for (auto& c : s) { c = char(std::tolower(static_cast<unsigned char>(c))); }
+    return s;
+}
+
+}  // namespace
+
+CBoxAlgorithmBrainampFileWriterUG::SphericalPosition CBoxAlgorithmBrainampFileWriterUG::toBrainVision(const double theta, const double azimuth)
+{
+    // BrainVision measures phi from the right (T8) towards the front, as Charmeleon does, but within -90..90: a
+    // position on the left half of the head is written with a negative theta and phi turned by 180 degrees,
+    // e.g. Fp1 (theta 90, azimuth 108) as -90,-72
+    double phi = std::fmod(azimuth, 360.0);
+    if (phi > 180.0) { phi -= 360.0; }
+    if (phi <= -180.0) { phi += 360.0; }
+    if (theta == 0.0) { return {0.0, 0.0}; }
+    if (phi > 90.0 + 1e-9 || phi < -90.0 - 1e-9) {
+        phi += phi > 0 ? -180.0 : 180.0;
+        return {-theta, phi};
+    }
+    return {theta, phi};
+}
+
+std::map<std::string, CBoxAlgorithmBrainampFileWriterUG::SphericalPosition> CBoxAlgorithmBrainampFileWriterUG::readMontagePositions(
+    const std::string& path, std::string& error)
+{
+    std::map<std::string, SphericalPosition> positions;
+    std::ifstream file(std::filesystem::u8path(path));
+    if (!file.is_open()) {
+        error = "can not open " + path;
+        return positions;
+    }
+    const nlohmann::json json = nlohmann::json::parse(file, nullptr, false);
+    if (json.is_discarded() || !json.is_object()) {
+        error = path + " is not a Charmeleon montage";
+        return positions;
+    }
+
+    const auto number = [](const nlohmann::json& entry, const char* key, double& value) {
+        if (!entry.contains(key) || !entry[key].is_number()) { return false; }
+        value = entry[key].get<double>();
+        return true;
+    };
+    for (const auto& entry : json) {
+        if (!entry.is_object() || !entry.contains("LabelText") || !entry["LabelText"].is_string()) { continue; }
+        if (entry.contains("IsActive") && entry["IsActive"].is_boolean() && !entry["IsActive"].get<bool>()) { continue; }
+
+        // Exact when Charmeleon knew it (Theta, Phi); else from the head map, on which the rings are 22.5 degrees
+        // apart: ring 4 (Fpz, T7, Oz) lies on the equator, as in the 10-20 system
+        double theta = 0.0, phi = 0.0, angle = 0.0, radius = 0.0;
+        if (!(number(entry, "Theta", theta) && number(entry, "Phi", phi))) {
+            if (!(number(entry, "Angle", angle) && number(entry, "Radius", radius))) { continue; }  // an other channel (EOG, ...)
+            theta = 22.5 * radius;
+            phi   = angle;
+        }
+        positions.emplace(lowercase(entry["LabelText"].get<std::string>()), toBrainVision(theta, phi));
+    }
+    return positions;
+}
 
 
 //documentation Appendix B EEG file format: http://tsgdoc.socsci.ru.nl/images/d/d1/BrainVision_Recorder_UM.pdf
@@ -92,6 +165,22 @@ bool CBoxAlgorithmBrainampFileWriterUG::initialize()
     {
         this->getLogManager() << Kernel::LogLevel_Error << "Could not open data file [" << m_dataFilename << "]\n";
         return false;
+    }
+
+    // UG fork: electrode positions from the Charmeleon montage, for the header's [Coordinates]; optional, and
+    // missing from boxes saved before the setting existed
+    m_montageFilename.clear();
+    m_positions.clear();
+    if (this->getStaticBoxContext().getSettingCount() > MONTAGE_SETTING) {
+        const CString montage = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), MONTAGE_SETTING);
+        m_montageFilename     = montage.toASCIIString();
+    }
+    if (!m_montageFilename.empty()) {
+        std::string error;
+        m_positions = readMontagePositions(m_montageFilename, error);
+        if (!error.empty()) {
+            this->getLogManager() << Kernel::LogLevel_Warning << "Electrode positions are not recorded: " << error << "\n";
+        }
     }
 
     m_markerFilename = m_headerFilename.substr(0, m_headerFilename.length() - 5) + std::string(".vmrk");
@@ -295,6 +384,29 @@ bool CBoxAlgorithmBrainampFileWriterUG::writeHeaderFile()
 
     m_headerFile << std::endl;
 
+    // UG fork: where the electrodes sat, so that EEGLAB, MNE and BrainVision Analyzer load the layout with the data.
+    // Radius 1 on a unit sphere; 0,0,0 for a channel the montage does not place (EOG, ECG, ...)
+    size_t nPlaced = 0;
+    if (!m_positions.empty())
+    {
+        m_headerFile << "[Coordinates]" << std::endl
+                << "; Each entry: Ch<Channel number>=<Radius>,<Theta>,<Phi>, in degrees; Theta is negative on the left" << std::endl;
+        for (size_t i = 0; i < nChannel; ++i)
+        {
+            const auto it = m_positions.find(lowercase(m_matrix->getDimensionLabel(0, i)));
+            if (it == m_positions.end()) { m_headerFile << "Ch" << (i + 1) << "=0,0,0" << std::endl; }
+            else
+            {
+                ++nPlaced;
+                m_headerFile << "Ch" << (i + 1) << "=1," << std::defaultfloat << std::setprecision(6) << it->second.theta << ","
+                        << it->second.phi << std::endl;
+            }
+        }
+        m_headerFile << std::endl;
+        this->getLogManager() << Kernel::LogLevel_Info << "Electrode positions of " << nPlaced << " of the " << nChannel
+                << " channels recorded, from " << m_montageFilename << "\n";
+    }
+
     m_headerFile << "[Comment]" << std::endl << std::endl
             << "A m p l i f i e r  S e t u p" << std::endl
             << "============================" << std::endl
@@ -302,6 +414,11 @@ bool CBoxAlgorithmBrainampFileWriterUG::writeHeaderFile()
             << "Sampling Rate [Hz]: " << m_sampling << std::endl
             << "Interval [µS]: " << std::fixed << std::setprecision(5) << samplingInterval << std::endl
             << std::endl;
+    if (!m_montageFilename.empty())
+    {
+        m_headerFile << "Montage: " << getShortName(m_montageFilename) << " (electrode positions of " << nPlaced << " channels)" << std::endl
+                << std::endl;
+    }
 
     return true;
 }

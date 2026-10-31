@@ -8,7 +8,7 @@
 // @BEGIN GIPSA
 #include "box-algorithms/ovpCBoxAlgorithmBrainampFileWriterGipsa.h"
 // @END GIPSA
-// @BEGIN UG
+// @BEGIN UG (UG fork: the UG BrainVision writer)
 #include "box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h"
 // @END UG
 

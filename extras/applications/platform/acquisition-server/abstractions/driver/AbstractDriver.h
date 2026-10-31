@@ -17,7 +17,11 @@
 
 #include <OVAcquisitionAbstractions_Export.h>
 
+#include <functional>
 #include <memory>
+#include <mutex>
+#include <string>
+#include <vector>
 
  /**
   * @brief Abstract base class for hardware drivers.
@@ -145,16 +149,30 @@ public:
      * Returns true if Charmeleon, when installed, should check impedances for this driver's
      * amplifiers instead of startImpedanceCheck() and friends.
      */
-    virtual bool usesCharmeleonForImpedance() const { return false; }
+    virtual bool usesCharmeleonForImpedance() const { return false; }  // UG fork
 
+    /**
+     * @brief Command-line arguments that make Charmeleon open the amplifier this driver uses, e.g.
+     *        {"--amplifier", "tmsi", "--protocol", "USB", "--device", "..."}; empty to let it choose.
+     *
+     * UG fork: upstream has no Charmeleon.
+     */
+    virtual std::vector<std::string> charmeleonArguments() const { return {}; }
     /** Path of the Charmeleon montage the driver uses, which Charmeleon then opens; empty for none. */
-    virtual std::string charmeleonMontage() const { return {}; }
+    virtual std::string charmeleonMontage() const { return {}; }  // UG fork
+    /**
+     * @brief Takes over the montage Charmeleon saved, e.g. after editing it: the driver reads it again, and uses
+     *        @p path from now on when it is another file than its own (Charmeleon's Save As).
+     *
+     * UG fork: upstream has no Charmeleon.
+     */
+    virtual void takeOverCharmeleonMontage(const std::string& /*path*/) {}
 
     /**
      * Returns true if the server should correct this driver's drift when the drift correction setting
      * leaves the choice to the driver.
      */
-    virtual bool wantsDriftCorrection() const { return false; }
+    virtual bool wantsDriftCorrection() const { return false; }  // UG fork: see DriftCorrector
 
     /** Enter impedance measurement mode. Called after init(), before start(). */
     virtual bool startImpedanceCheck() { return false; }
@@ -203,7 +221,36 @@ public:
      * @brief Hints the channel names list shows in entries left empty, e.g. which device channel an entry stands for.
      * @return One hint per channel name (an empty one for none), or an empty vector for no hints at all.
      */
-    virtual std::vector<std::string> channelHints() const { return {}; }
+    virtual std::vector<std::string> channelHints() const { return {}; }  // UG fork
+
+    /// A message for the user about the driver's settings or its last attempt to start, shown under the settings.
+    /// UG fork: upstream drivers can only print to the console.
+    struct Note
+    {
+        enum class Level { Info, Warning, Error };
+
+        Level level = Level::Info;
+        std::string text;  ///< Empty for no note
+
+        bool operator==(const Note& other) const { return level == other.level && text == other.text; }
+        bool operator!=(const Note& other) const { return !(*this == other); }
+    };
+
+    /// The driver's current note; its text is empty when there is nothing to say.
+    Note note() const;
+
+    /**
+     * @brief The channel names entries the driver decides itself, e.g. from a montage.
+     * @return One flag per channel name, or an empty vector when the user decides them all.
+     */
+    std::vector<bool> channelLocks() const;
+
+    /**
+     * @brief Sets the function called when the note or the channel locks change.
+     *
+     * It may be called on any thread, e.g. the acquisition's while a driver starts.
+     */
+    void setStateListener(std::function<void()> listener);
 
     /**
      * @brief Sets the chunk size for the driver.
@@ -224,6 +271,13 @@ public:
     bool isAuxiliaryDriver() const { return m_bAuxiliaryDriver; }
 
 protected:
+    /// Sets the note, see note(); an empty @p text clears it.
+    void setNote(Note::Level level, const std::string& text);
+    void clearNote() { setNote(Note::Level::Info, {}); }
+
+    /// Sets the channel locks, see channelLocks().
+    void setChannelLocks(std::vector<bool> locks);
+
     /**
      * @brief The sampling rate for the driver.
      */
@@ -249,6 +303,14 @@ protected:
 	 * @brief Flag indicating whether the driver is an auxiliary driver.
 	 */
 	bool m_bAuxiliaryDriver = false;
+
+private:
+    void notifyStateChanged();
+
+    mutable std::mutex m_stateMutex;  ///< Guards the note, the locks and the listener
+    Note m_note;
+    std::vector<bool> m_channelLocks;
+    std::function<void()> m_stateListener;
 };
 
 class AbstractDriverBuilder; ///< Forward declaration; the complete type is only needed by the deleter's implementation.

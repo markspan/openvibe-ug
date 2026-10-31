@@ -208,7 +208,8 @@ bool CSignalDisplay::process()
                 const uint64_t id   = stimSet->getId(s);
                 const uint64_t date = stimSet->getDate(s);
 
-                // Hardware triggers arrive as OVTK_StimulationId_Label(value): show the trigger value itself
+                // UG fork: hardware triggers arrive as OVTK_StimulationId_Label(value): show the trigger value itself
+                // instead of the label's name
                 CString name;
                 if (id > OVTK_StimulationId_LabelStart && id <= OVTK_StimulationId_LabelEnd) {
                     name = CString(std::to_string(id - OVTK_StimulationId_LabelStart).c_str());

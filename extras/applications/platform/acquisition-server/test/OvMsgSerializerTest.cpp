@@ -1,5 +1,9 @@
 /**
  * SPDX-License-Identifier: AGPL-3.0-only
+ *
+ * @file OvMsgSerializerTest.cpp
+ * @brief Tests of the acquisition messages on the wire, the channel names among them.
+ *        UG fork: new file, not in upstream OpenViBE.
  */
 
 #include <cstdint>

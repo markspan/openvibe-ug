@@ -85,7 +85,8 @@ Control {
     modality: Qt.ApplicationModal
 
     onAccepted: {
-        // choose() rather than value, so that picking the file that is already set reloads it
+        // UG fork: choose() rather than value, so that picking the file that is already set reloads it (e.g. a
+        // montage edited in Charmeleon); upstream ignores the choice when the path has not changed
         _control.param.choose(decodeURIComponent(_fileDialog.file));
     }
   }

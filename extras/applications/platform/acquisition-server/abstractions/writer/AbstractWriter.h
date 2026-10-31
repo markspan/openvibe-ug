@@ -83,7 +83,7 @@ public:
     * @param channelCount Number of channels.
     * @param sampleRate   Sampling rate (in Hz).
     * @param sampleChunk  Number of samples per chunk.
-    * @param channelNames Names of the channels; missing ones are sent empty.
+    * @param channelNames Names of the channels; missing ones are sent empty. UG fork: upstream sends no names.
     * @param clientId     Target client identifier, or @c -1 to broadcast to all clients.
     * @return Number of bytes sent.
     */

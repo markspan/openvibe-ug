@@ -53,8 +53,8 @@ struct ovMsg
             uint32_t channelCount; ///< Number of channels.  
             uint32_t sampleRate; ///< Sample rate.  
             uint32_t sampleChunk; ///< Number of samples in a chunk.
-            const char* channelNames;  ///< Channel names, each ended by a '\0' (may be nullptr when channelNamesSize == 0).
-            uint32_t channelNamesSize; ///< Size of channelNames in bytes.
+            const char* channelNames;  ///< Channel names, each ended by a '\0' (may be nullptr when channelNamesSize == 0). UG fork.
+            uint32_t channelNamesSize; ///< Size of channelNames in bytes. UG fork.
         }acquisitionConfigStruct;
     }msgData;
 }; ///< Define a structure for messages sent to the OPENVIBE.  

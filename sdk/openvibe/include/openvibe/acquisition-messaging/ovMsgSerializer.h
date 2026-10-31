@@ -24,6 +24,7 @@
  *   OV_MSG_DRIFT:              [msgType:u32][startLatency:u64][globalLatency:u64][currentLatency:u64][endLatency:u64]
  *   OV_MSG_ACQUISITION_CONFIG: [msgType:u32][msgSize:u32][channelCount:u32][sampleRate:u32][sampleChunk:u32][channelNames: msgSize - 5*u32]
  *                              The channel names, each ended by a '\0', are absent when the server predates them.
+ *                              UG fork: upstream sends the first four fields only, and no msgSize.
  *
  * @note For OV_MSG_SAMPLES, msgSize must be set correctly by the caller before serializing.
  *       samplesBytes is back-calculated as: msgSize - 4*u32 - count*u64 - stimCount*sizeof(ovStimulation)
@@ -69,6 +70,7 @@ inline std::pair<size_t, void*> serializeOvMsg(const ovMsg& msg)
 
         case ovMsg::OV_MSG_ACQUISITION_CONFIG:
         {
+            // UG fork: field by field, with the channel names; upstream copies the struct, pointer and all
             const auto& c = msg.msgData.acquisitionConfigStruct;
             const uint32_t size = 5 * sizeof(uint32_t) + c.channelNamesSize;
 
@@ -158,6 +160,7 @@ inline ovMsg deserializeOvMsg(const uint8_t* data, size_t dataSize)
 
         case ovMsg::OV_MSG_ACQUISITION_CONFIG:
         {
+            // UG fork: field by field, with the channel names, which a server before them does not send
             auto& c = msg.msgData.acquisitionConfigStruct;
             std::memcpy(&c.channelCount, ptr, sizeof(uint32_t)); ptr += sizeof(uint32_t);
             std::memcpy(&c.sampleRate,   ptr, sizeof(uint32_t)); ptr += sizeof(uint32_t);

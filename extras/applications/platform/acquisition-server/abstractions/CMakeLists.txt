@@ -27,7 +27,7 @@ project(${TARGET_NAME} VERSION ${OPENVIBE_MAJOR_VERSION}.${OPENVIBE_MINOR_VERSIO
 ## ############################################################################
 list(APPEND DLL_SOURCES
 	driver/AbstractDriver.cpp
-	driver/CharmeleonMontage.cpp
+	driver/CharmeleonMontage.cpp  # UG fork
 	writer/AbstractWriter.cpp
 )
 
@@ -35,7 +35,7 @@ list(APPEND DLL_PUBLIC_HEADERS
 	samplesBuffer.h
 	driver/AbstractDriver.h
 	driver/AbstractDriverBuilder.h
-	driver/CharmeleonMontage.h
+	driver/CharmeleonMontage.h  # UG fork
 	writer/AbstractWriter.h
 	writer/AbstractWriterBuilder.h
 )
@@ -74,6 +74,10 @@ target_include_directories(${TARGET_NAME}
 target_link_libraries(${TARGET_NAME} PUBLIC
 	openvibe
 )
+if(WIN32)
+	# UG fork: CharmeleonMontage reads Charmeleon's install folder from the registry
+	target_link_libraries(${TARGET_NAME} PRIVATE Advapi32)
+endif()
 
 #############################
 # Dll export header handling
@@ -100,7 +104,7 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/samplesBuffer.h
         DESTINATION ${DIST_INCLUDEDIR}/openvibe/acquisition-server/)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/driver/AbstractDriver.h
               ${CMAKE_CURRENT_SOURCE_DIR}/driver/AbstractDriverBuilder.h
-              ${CMAKE_CURRENT_SOURCE_DIR}/driver/CharmeleonMontage.h
+              ${CMAKE_CURRENT_SOURCE_DIR}/driver/CharmeleonMontage.h  # UG fork
         DESTINATION ${DIST_INCLUDEDIR}/openvibe/acquisition-server/driver/)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/writer/AbstractWriter.h
               ${CMAKE_CURRENT_SOURCE_DIR}/writer/AbstractWriterBuilder.h

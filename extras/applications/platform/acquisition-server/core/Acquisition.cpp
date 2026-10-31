@@ -15,7 +15,7 @@
 
 #include "Acquisition.h"
 #include "DriftCalculator.h" // for DriftCalculator
-#include "DriftCorrector.h"
+#include "DriftCorrector.h"  // UG fork: drift correction, which upstream 4.0 does not do
 
 #include <chrono> // for high_resolution_clock
 #include <iostream>
@@ -37,6 +37,7 @@ Acquisition::Acquisition() : m_bRun(false),
                                                 "Number of samples required to send a block",
                                                 {4, 8, 16, 32, 64, 128, 256, 512},
                                                 32),
+                             // UG fork: the drift correction settings, see DriftCorrector
                              m_driftCorrectionPolicy("Drift correction",
                                                      "Repeat or drop samples when the amplifier's clock drifts away from the computer's, as the 3.x server did",
                                                      {"Let the driver decide", "Forced", "Disabled"},
@@ -59,7 +60,7 @@ void Acquisition::processBuffer()
     {
         if (buff->count > 0) {
             interpolateTimestamps(buff, m_lastTimestamps); ///< Fill in any invalid timestamps in the buffer.
-            if (m_driftCorrector) { m_driftCorrector->process(buff); }
+            if (m_driftCorrector) { m_driftCorrector->process(buff); }  // UG fork: repeats or drops samples to follow the PC's clock
             m_lastTimestamps = buff->timestampsBuff[buff->count - 1]; ///< Update the timestamp of the last processed sample.
 
             if (!m_bFirstbufferProcessed)
@@ -224,6 +225,8 @@ bool Acquisition::supportsImpedanceCheck() const
 /**
  * @brief Checks if the driver hands impedance checking to Charmeleon when it is installed.
  * @return True if Charmeleon should check impedances for this driver, false otherwise.
+ *
+ * UG fork: upstream has no Charmeleon.
  */
 bool Acquisition::usesCharmeleonForImpedance() const
 {
@@ -320,6 +323,7 @@ void Acquisition::start()
             m_driftCalculator->setStartTimeAcq(m_lastTimestamps); // Record the start time of the acquisition for drift calculation.
             m_driftCalculator->setStopTimeAcq(0); // Reset the stop time.
 
+            // UG fork: upstream 4.0 measures drift but does not correct it
             const std::string& policy = m_driftCorrectionPolicy.value();
             if (policy == "Forced" || (policy == "Let the driver decide" && m_driver->wantsDriftCorrection())) {
                 m_driftCorrector = std::make_unique<DriftCorrector>(m_driver->samplingRate(), m_driver->channelCount(), uint32_t(m_driftTolerance.value()));
@@ -438,7 +442,7 @@ void Acquisition::stop()
         m_threadProcess->join();
         m_threadClean->join();
         m_threadDrift->join();
-        if (m_driftCorrector) {
+        if (m_driftCorrector) {  // UG fork
             std::cout << "[Drift] Added " << m_driftCorrector->addedCount() << " and removed " << m_driftCorrector->removedCount()
                       << " samples in " << m_driftCorrector->correctionCount() << " corrections" << std::endl;
             m_driftCorrector.reset();
@@ -555,6 +559,7 @@ void Acquisition::addClient(uint64_t clientId)
 {
     // Prepare ovMsg with acquisition config and send to client before adding it to the list and stream starts going
     for (auto& w : m_writers) {
+        // UG fork: with the channel names, see AbstractWriter::writeAcquisitionConfig()
         w->writeAcquisitionConfig(m_driver->channelCount(), m_driver->samplingRate(), m_chunkSampleCount.value(), m_driver->channelNames().value(), clientId);
     }
     m_clientsList.push_back(clientId);

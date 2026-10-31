@@ -15,6 +15,7 @@
 #include <cstdint>
 #include <chrono>
 #include <any>
+#include <utility>
 
 /**
  * @brief Releases a driver through the builder that created it.
@@ -28,6 +29,58 @@ void DriverDeleter::operator()(AbstractDriver* driver) const
 {
     if (builder) { builder->destroyDriver(driver); }
     else { delete driver; }
+}
+
+// UG fork: the note and channel locks, which upstream drivers do not have; see AbstractDriver.h
+
+AbstractDriver::Note AbstractDriver::note() const
+{
+    std::lock_guard<std::mutex> lock(m_stateMutex);
+    return m_note;
+}
+
+std::vector<bool> AbstractDriver::channelLocks() const
+{
+    std::lock_guard<std::mutex> lock(m_stateMutex);
+    return m_channelLocks;
+}
+
+void AbstractDriver::setStateListener(std::function<void()> listener)
+{
+    std::lock_guard<std::mutex> lock(m_stateMutex);
+    m_stateListener = std::move(listener);
+}
+
+void AbstractDriver::setNote(const Note::Level level, const std::string& text)
+{
+    {
+        std::lock_guard<std::mutex> lock(m_stateMutex);
+        const Note note{text.empty() ? Note::Level::Info : level, text};
+        if (note == m_note) { return; }
+        m_note = note;
+    }
+    notifyStateChanged();
+}
+
+void AbstractDriver::setChannelLocks(std::vector<bool> locks)
+{
+    {
+        std::lock_guard<std::mutex> lock(m_stateMutex);
+        if (locks == m_channelLocks) { return; }
+        m_channelLocks = std::move(locks);
+    }
+    notifyStateChanged();
+}
+
+void AbstractDriver::notifyStateChanged()
+{
+    std::function<void()> listener;
+    {
+        std::lock_guard<std::mutex> lock(m_stateMutex);
+        listener = m_stateListener;
+    }
+    // Outside the lock, so that the listener can read the state back
+    if (listener) { listener(); }
 }
 
 AbstractDriver::AbstractDriver()

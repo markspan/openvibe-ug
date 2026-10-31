@@ -11,8 +11,11 @@ Control {
     id: _control
 
     required property var channelNames
-    // Shown greyed out in an empty entry, e.g. which device channel it stands for
+    // UG fork: shown greyed out in an empty entry, e.g. which device channel it stands for
     property var channelHints: []
+    // UG fork: one flag per entry, true for an entry the driver decides itself (e.g. from a montage), which is
+    // shown read-only; empty when the user decides them all
+    property var channelLocks: []
 
     property bool collapsed: true
 
@@ -24,7 +27,7 @@ Control {
     onChannelNamesChanged: _syncNames(channelNames)
     Component.onCompleted: _syncNames(channelNames)
 
-    // The rows are updated in place, so editing a name keeps the list where it is and the
+    // UG fork: the rows are updated in place, so editing a name keeps the list where it is and the
     // focus in it; the list is only rebuilt when the number of channels changes.
     ListModel { id: _namesModel }
 
@@ -45,8 +48,14 @@ Control {
         return names
     }
 
-    // Scrolls the row into view and edits it; false when there is no such row
-    function _focusRow(row) {
+    function _isLocked(row) {
+        return row >= 0 && row < channelLocks.length && channelLocks.length === _namesModel.count && channelLocks[row] === true
+    }
+
+    // Scrolls to the nearest row from @p row on, in the direction of @p step, that can be edited, and edits it;
+    // false when there is none
+    function _focusRow(row, step) {
+        while (row >= 0 && row < _namesModel.count && _isLocked(row)) { row += step }
         if (row < 0 || row >= _namesModel.count) { return false }
         _listView.positionViewAtIndex(row, ListView.Contain)
         var item = _listView.itemAtIndex(row)
@@ -119,6 +128,7 @@ Control {
                     id: _row
                     required property int index
                     required property string channelName
+                    readonly property bool locked: _control._isLocked(index)
 
                     function edit() {
                         _field.forceActiveFocus()
@@ -139,17 +149,31 @@ Control {
                         text: _row.channelName
                         placeholderText: _row.index < _control.channelHints.length ? _control.channelHints[_row.index] : ""
                         placeholderTextColor: DS.Theme.textTertiary
+                        // An entry the montage decides: change it in the montage (Charmeleon), not here
+                        readOnly: _row.locked
+                        activeFocusOnTab: !_row.locked
+                        color: _row.locked ? DS.Theme.textSecondary : DS.Theme.textPrimary
+                        defaultBackgorundColor: _row.locked ? DS.Theme.disabled : DS.Theme.textInputBackground
+                        Accessible.description: _row.locked ? "Named by the montage" : ""
+
+                        HoverHandler { id: _lockHover; enabled: _row.locked }
+                        DS.ToolTip {
+                            visible: _lockHover.hovered
+                            text: _row.channelName.length > 0 ? "Named by the montage; change it in Charmeleon"
+                                                              : "Not recorded: the montage leaves this EEG channel out"
+                        }
+
                         onEditingFinished: {
                             if (displayText === _row.channelName) { return }
                             _namesModel.setProperty(_row.index, "channelName", displayText)
                             _control.nameChanged(_row.index, displayText)
                         }
-                        // Enter and Tab go on to the next name, Shift+Tab back to the previous one
+                        // UG fork: Enter and Tab go on to the next name, Shift+Tab back to the previous one
                         Keys.onPressed: (event) => {
                             var step = 0
                             if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Tab) { step = 1 }
                             else if (event.key === Qt.Key_Backtab) { step = -1 }
-                            if (step !== 0 && _control._focusRow(_row.index + step)) { event.accepted = true }
+                            if (step !== 0 && _control._focusRow(_row.index + step, step)) { event.accepted = true }
                         }
                     }
                 }
@@ -195,7 +219,8 @@ Control {
                 var entries = fileContent.split("\n")
                 var newNames = _control._names()
                 for (var i = 0; i < entries.length && i < newNames.length; i++) {
-                    newNames[i] = entries[i]
+                    // The entries the montage decides keep its names
+                    if (!_control._isLocked(i)) { newNames[i] = entries[i] }
                 }
                 _control._syncNames(newNames)
                 _control.allNamesChanged(newNames)

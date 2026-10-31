@@ -34,7 +34,8 @@ namespace OpenViBE {
 namespace Kernel {
 
 namespace {
-/// The user's Documents folder, wherever it was moved to (OneDrive, a network share), with / as separator
+/// The user's Documents folder, wherever it was moved to (OneDrive, a network share), with / as separator.
+/// UG fork: for the Path_Documents token, which upstream does not have
 std::string getUserDocumentsDir()
 {
 #if defined TARGET_OS_Windows
@@ -97,7 +98,7 @@ bool CKernelContext::initialize(const char* const* tokenList, size_t nToken)
     m_configManager->createConfigurationToken("Path_Lib", Directories::getLibDir());
     m_configManager->createConfigurationToken("Path_Bin", Directories::getBinDir());
     m_configManager->createConfigurationToken("Path_Data", Directories::getDataDir());
-    m_configManager->createConfigurationToken("Path_Documents", getUserDocumentsDir().c_str());
+    m_configManager->createConfigurationToken("Path_Documents", getUserDocumentsDir().c_str());  // UG fork
 
 #if defined TARGET_OS_Windows
     m_configManager->createConfigurationToken("OperatingSystem", "Windows");
@@ -171,7 +172,7 @@ bool CKernelContext::initialize(const char* const* tokenList, size_t nToken)
     m_typeManager->registerType(OV_TypeId_Float, "Float");
     m_typeManager->registerType(OV_TypeId_String, "String");
     m_typeManager->registerType(OV_TypeId_Filename, "Filename");
-    m_typeManager->registerType(OV_TypeId_Foldername, "Foldername");
+    m_typeManager->registerType(OV_TypeId_Foldername, "Foldername");  // UG fork: settings that pick a folder
     m_typeManager->registerType(OV_TypeId_Script, "Script");
     m_typeManager->registerType(OV_TypeId_Color, "Color");
     m_typeManager->registerType(OV_TypeId_ColorGradient, "Color Gradient");

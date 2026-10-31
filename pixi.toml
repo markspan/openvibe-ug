@@ -96,6 +96,7 @@ xorg-libx11 = "1.8.6.*"
 libxcb = "*"
 
 [tasks]
+# UG fork: any CMake and Ninja, and the build through CMake, so that the build finds Qt from CMAKE_PREFIX_PATH.
 # On Windows, point CMake at your Qt install with a user environment variable, e.g.
 #   setx CMAKE_PREFIX_PATH D:\Qt\6.9.3\msvc2022_64
 configure = "cmake -G Ninja -S . -B build"

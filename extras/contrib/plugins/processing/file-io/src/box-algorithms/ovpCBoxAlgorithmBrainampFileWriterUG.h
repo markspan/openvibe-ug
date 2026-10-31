@@ -8,6 +8,10 @@
  * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
  * You should have received a copy of the GNU General Public License along with Brain Invaders. If not, see http://www.gnu.org/licenses/.*/
 
+// UG fork: new in this fork, from the UG-lab plugins for OpenViBE 3.x. Unlike upstream's BrainVision writer it
+// writes hardware triggers as BrainVision stimulus markers ("S  1"), only those, and electrode positions from a
+// Charmeleon montage.
+
 #pragma once
 
 #include "../ovp_defines.h"
@@ -15,6 +19,7 @@
 #include <toolkit/ovtk_all.h>
 
 #include <fstream>
+#include <map>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 
@@ -93,6 +98,36 @@ protected:
     size_t m_stimulationCounter = 2;     //because the first is outputed manually
 
     bool m_isVmrkHeaderFileWritten = false; //Is the beginning of the .vmrk (file with stimulations is written)
+
+    /// A position on a unit sphere, as BrainVision's [Coordinates] has it: theta from the vertex, negative on the
+    /// left half of the head, and phi from the right towards the front, between -90 and 90; in degrees.
+    struct SphericalPosition
+    {
+        double theta = 0.0;
+        double phi   = 0.0;
+    };
+
+public:
+    /**
+     * @brief Converts a position as a Charmeleon montage gives it to BrainVision's convention.
+     * @param theta   Angle from the vertex, 0 to 180 degrees.
+     * @param azimuth Angle from the right ear towards the nose, in degrees (0 = right, 90 = front).
+     *
+     * UG fork: upstream records no electrode positions.
+     */
+    static SphericalPosition toBrainVision(double theta, double azimuth);
+
+    /**
+     * @brief Reads the electrode positions of a Charmeleon montage, by lower-case electrode name.
+     *
+     * The active electrodes on the head only: from Theta and Phi when the montage has them, else from the head-map
+     * Angle and Radius. Sets @p error, and returns nothing, when the file can not be read.
+     */
+    static std::map<std::string, SphericalPosition> readMontagePositions(const std::string& path, std::string& error);
+
+protected:
+    std::string m_montageFilename;                       ///< The montage the positions come from, empty for none
+    std::map<std::string, SphericalPosition> m_positions;  ///< By lower-case electrode name
 };
 
 class CBoxAlgorithmBrainampFileWriterUGListener final : public Toolkit::TBoxListener<IBoxListener>
@@ -116,11 +151,12 @@ public:
     CString getDetailedDescription() const override
     {
         return
-                "Writes the header file .vhdr to the output directory, which is created if needed; a header filename with a full path ignores the directory. The .eeg and .vmrk files will be created with the same name and in the same folder. Hardware triggers are saved in the .vmrk file as BrainVision stimulus markers: trigger 1 as \"S  1\", trigger 233 as \"S233\".";
+                "Writes the header file .vhdr to the output directory, which is created if needed; a header filename with a full path ignores the directory. The .eeg and .vmrk files will be created with the same name and in the same folder. Hardware triggers are saved in the .vmrk file as BrainVision stimulus markers: trigger 1 as \"S  1\", trigger 233 as \"S233\". "
+                "With a Charmeleon montage, the header also records where the electrodes sat ([Coordinates]), matched to the channels by name.";
     }
 
     CString getCategory() const override { return "File reading and writing/BrainVision Format"; }
-    CString getVersion() const override { return "1.2"; }
+    CString getVersion() const override { return "1.3"; }
     CString getStockItemName() const override { return "gtk-save"; }
 
     CIdentifier getCreatedClass() const override { return OVP_ClassId_BoxAlgorithm_BrainampFileWriterUG; }
@@ -136,6 +172,8 @@ public:
         prototype.addSetting("Output directory", OV_TypeId_Foldername, "${Path_Documents}/data");
         prototype.addSetting("Header filename", OV_TypeId_Filename, "record-[$core{date}-$core{time}].vhdr");
         prototype.addSetting("Binary format", OVP_TypeId_BinaryFormat, "IEEE_FLOAT_32");
+        // UG fork: the Charmeleon montage whose electrode positions go into the header; empty for none
+        prototype.addSetting("Montage (electrode positions)", OV_TypeId_Filename, "");
 
         return true;
     }

@@ -6,6 +6,8 @@
 /**
  * @file DriftCorrector.h
  * @brief Keeps the number of samples sent in line with the elapsed time, as the 3.x server did.
+ *
+ * UG fork: new file. Upstream OpenViBE 4.0 measures drift (DriftCalculator) but does not correct it.
  */
 
 #include "samplesBuffer.h"

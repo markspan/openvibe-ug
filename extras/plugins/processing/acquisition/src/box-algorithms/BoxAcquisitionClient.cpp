@@ -240,7 +240,7 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
           const uint64_t chunkStartTime = m_startTime + m_chunkQueue.size() * chunkDuration;
 
           for (size_t i = 0; i < payload.stimCount; ++i) {
-            // The last sample stamped at or before the stimulation. Of samples sharing a stamp, which is how drift
+            // UG fork: the last sample stamped at or before the stimulation. Of samples sharing a stamp, which is how drift
             // correction stamps the samples it repeats, the first: the original that the stimulation was dated with.
             const uint64_t date = payload.stimulations[i].date;
             size_t idx = 0;
@@ -258,7 +258,7 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
         break;
       case ovMsg::msgTypeEnum::OV_MSG_ACQUISITION_CONFIG:
         {
-          std::lock_guard<std::mutex> lock(m_signalMutex);
+          std::lock_guard<std::mutex> lock(m_signalMutex);  // UG fork: the matrix is also read by process()
           if (! m_acquisitionConfigured) {
             auto& payload = msg.msgData.acquisitionConfigStruct;
             m_channelCount = payload.channelCount;
@@ -266,7 +266,8 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
             m_sampleChunk = payload.sampleChunk;
             m_signalMatrix->resize(m_channelCount, m_sampleChunk);
 
-            // The server sends one name per channel, each ended by a '\0'; a channel without one is numbered from 1
+            // UG fork: the server sends one name per channel, each ended by a '\0'; a channel without one is numbered
+            // from 1. Upstream leaves the channels unnamed
             const char* name = payload.channelNames;
             const char* end  = payload.channelNames + payload.channelNamesSize;
             for (size_t i = 0; i < m_channelCount; ++i) {
@@ -291,7 +292,8 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
         break;
     }
 
-    // deserializeOvMsg() allocates the arrays it fills, and the data has been copied out of them
+    // UG fork: deserializeOvMsg() allocates the arrays it fills, and the data has been copied out of them; upstream
+    // leaked them
     if (msg.msgType == ovMsg::msgTypeEnum::OV_MSG_SAMPLES) {
       delete[] msg.msgData.samplesStruct.timestamp;
       delete[] msg.msgData.samplesStruct.samples;

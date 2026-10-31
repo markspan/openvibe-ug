@@ -1,11 +1,18 @@
 /**
  * @file Charmeleon.cpp
  * @brief Implementation of the Charmeleon launcher.
+ *
+ * UG fork: new file, not in upstream OpenViBE.
  */
 
 #include "Charmeleon.h"
 
+#include <CharmeleonMontage.h>
+
 #include <filesystem>
+#include <fstream>
+
+#include <nlohmann/json.hpp>
 #include <vector>
 
 #if defined(_WIN32)
@@ -32,20 +39,6 @@ bool isFile(const std::filesystem::path& path)
 #if defined(_WIN32)
 
 const wchar_t* const EXE_NAME = L"Charmeleon.exe";
-
-/// Install directory the Inno Setup installer recorded, for an all-users or a per-user install.
-std::filesystem::path installLocationFromRegistry()
-{
-    const wchar_t* const key = L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Charmeleon_is1";
-    for (HKEY root : {HKEY_LOCAL_MACHINE, HKEY_CURRENT_USER}) {
-        wchar_t value[MAX_PATH] = {};
-        DWORD size              = sizeof(value);
-        if (RegGetValueW(root, key, L"InstallLocation", RRF_RT_REG_SZ, nullptr, value, &size) == ERROR_SUCCESS && value[0] != 0) {
-            return std::filesystem::path(value);
-        }
-    }
-    return {};
-}
 
 std::vector<DWORD> runningInstances()
 {
@@ -93,7 +86,8 @@ std::string findExecutable(const std::string& configuredPath)
     }
 
 #if defined(_WIN32)
-    const std::filesystem::path installed = installLocationFromRegistry();
+    // Where its installer put it; the montage reader looks for Charmeleon's montage library there as well
+    const std::filesystem::path installed = std::filesystem::u8path(charmeleonInstallFolder());
     if (!installed.empty() && isFile(installed / EXE_NAME)) { return toUtf8(installed / EXE_NAME); }
 
     wchar_t programFiles[MAX_PATH] = {};
@@ -105,7 +99,7 @@ std::string findExecutable(const std::string& configuredPath)
     return {};
 }
 
-bool launch(const std::string& executable, const std::string& montage)
+bool launch(const std::string& executable, const std::string& montage, const std::vector<std::string>& arguments, Launched* launched)
 {
 #if defined(_WIN32)
     const std::vector<DWORD> running = runningInstances();
@@ -128,6 +122,21 @@ bool launch(const std::string& executable, const std::string& montage)
         commandLine += L" \"" + (ec ? std::filesystem::u8path(montage) : path).wstring() + L"\"";
     }
 
+    // UG fork: the amplifier the driver uses, so that Charmeleon does not open another one
+    for (const auto& argument : arguments) { commandLine += L" \"" + std::filesystem::u8path(argument).wstring() + L"\""; }
+
+    // UG fork: Charmeleon saves the montage when Play closes it, and says which file it ended with, so that the
+    // driver can take the edits over. Not ".json", which a Charmeleon before 2.2 would take for the montage.
+    std::filesystem::path resultFile;
+    if (launched) {
+        std::error_code ec;
+        const std::filesystem::path temp = std::filesystem::temp_directory_path(ec);
+        if (!ec) {
+            resultFile = temp / (L"charmeleon-" + std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(GetTickCount64()) + L".result");
+            commandLine += L" --save-on-close --result \"" + resultFile.wstring() + L"\"";
+        }
+    }
+
     STARTUPINFOW startupInfo        = {};
     startupInfo.cb                  = sizeof(startupInfo);
     PROCESS_INFORMATION processInfo = {};
@@ -135,13 +144,47 @@ bool launch(const std::string& executable, const std::string& montage)
         return false;
     }
     CloseHandle(processInfo.hThread);
-    CloseHandle(processInfo.hProcess);
+    if (launched && !resultFile.empty()) {
+        launched->process    = processInfo.hProcess;
+        launched->resultFile = toUtf8(resultFile);
+    }
+    else { CloseHandle(processInfo.hProcess); }
     return true;
 #else
     (void)executable;
     (void)montage;
+    (void)arguments;
+    (void)launched;
     return false;
 #endif
+}
+
+Result takeResult(Launched& launched)
+{
+    Result result;
+#if defined(_WIN32)
+    if (launched.process) { CloseHandle(static_cast<HANDLE>(launched.process)); }
+#endif
+    launched.process = nullptr;
+    if (launched.resultFile.empty()) { return result; }
+
+    const std::filesystem::path path = std::filesystem::u8path(launched.resultFile);
+    launched.resultFile.clear();
+    {
+        std::ifstream file(path);
+        if (file.is_open()) {
+            const nlohmann::json json = nlohmann::json::parse(file, nullptr, false);
+            if (json.is_object()) {
+                result.valid   = true;
+                result.file    = json.contains("File") && json["File"].is_string() ? json["File"].get<std::string>() : std::string();
+                result.saved   = json.contains("Saved") && json["Saved"].is_boolean() && json["Saved"].get<bool>();
+                result.unsaved = json.contains("Unsaved") && json["Unsaved"].is_boolean() && json["Unsaved"].get<bool>();
+            }
+        }
+    }
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+    return result;
 }
 
 int closeAll(const unsigned long timeoutMs)

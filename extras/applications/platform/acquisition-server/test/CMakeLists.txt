@@ -10,7 +10,7 @@ file(GLOB TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*Test.cpp)
 # Only add a class here once its dependencies are confirmed test-binary-safe (no Qt/NetService pulled in).
 set(TESTED_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../core/DriftCalculator.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../core/DriftCorrector.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../core/DriftCorrector.cpp  # UG fork
     ${CMAKE_CURRENT_SOURCE_DIR}/../core/Acquisition.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../core/CircularBuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../core/SampleBufferHandler.cpp

@@ -3,11 +3,16 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  *
  * Ported from the eego acquisition driver originally written by Steffen Heimes (eemagine GmbH).
+ *
+ * UG fork: upstream ships this driver's source but does not build it; this fork builds it, and reworked it: the
+ * channel list is read from the amplifier instead of the EEGMask/BIPMask settings, Charmeleon montages name and
+ * select the channels, Charmeleon checks impedances, every sample is timestamped, and errors are shown in the server.
  */
 #pragma once
 
 #include <AbstractDriver.h>
 #include <AbstractDriverBuilder.h>
+#include <CharmeleonMontage.h>
 
 #include <openvibe/parameters/parameterListString.h>
 #include <openvibe/parameters/parameterPath.h>
@@ -32,10 +37,12 @@ class stream;
  *
  * The amplifier's channels are called EEG1..EEGn (referential) and BIP1..BIPm (bipolar). The channel
  * names list has one entry per amplifier channel, read from the amplifier, and only channels with a name
- * are recorded, in amplifier order. EEG channels start out with their name (EEG1, ...), or, when a
- * Charmeleon montage is set, with the name it gives their HardwareChannel, which counts EEG channels only;
- * EEG channels the montage leaves out are not recorded. Bipolar channels start out empty: giving one a
- * name records it under that name. The stream always carries a trigger and a sample-counter channel on top.
+ * are recorded, in amplifier order. EEG channels start out with their name (EEG1, ...). A Charmeleon
+ * montage, applied by the rules in CharmeleonMontage, names them instead: its HardwareChannel n is the n-th
+ * referential channel, and EEG channels it leaves out are not recorded; it can also name bipolar channels
+ * ("Channel": "BIP1"). On eego the cap fixes which electrode is on which referential channel, so a montage
+ * mostly mirrors the cap. Bipolar channels start out empty: giving one a name records it under that name.
+ * The stream always carries a trigger and a sample-counter channel on top.
  * The trigger channel is published as a signal channel *and* flank-decoded into stimulations, as it
  * was before the port.
  *
@@ -60,7 +67,12 @@ public:
 
     bool supportsImpedanceCheck() const override { return true; }
     bool usesCharmeleonForImpedance() const override { return true; }
-    std::string charmeleonMontage() const override { return m_paramMontage.value(); }
+    /// Makes Charmeleon open an eego amplifier, as this driver does.
+    std::vector<std::string> charmeleonArguments() const override;
+    /// The montage file, found as locateCharmeleonMontage() finds it, so that Charmeleon opens the file the driver reads.
+    std::string charmeleonMontage() const override;
+    /// Reads the montage again, under its new name if Charmeleon saved it under another one.
+    void takeOverCharmeleonMontage(const std::string& path) override;
     bool wantsDriftCorrection() const override { return true; }
     bool startImpedanceCheck() override;
     int  readImpedances(double* values, size_t count) override;
@@ -96,9 +108,19 @@ private:
     bool queryLayout();
     /** Gives the channel names list one entry per amplifier channel, see the class description. */
     bool fitNamesToLayout();
-    /** Names the EEG channels after the montage, if one is set, and clears those it leaves out. */
-    bool applyMontage(std::vector<std::string>& names) const;
+    /** The montage kind of each channel in m_layout. */
+    std::vector<MontageChannelKind> layoutKinds() const;
+    /**
+     * Applies the montage, if one is set, to \p names, and shows the outcome: a note and the locked entries.
+     * Returns false when the montage is set but can not be used; \p names is then left as it was.
+     */
+    bool applyMontage(std::vector<std::string>& names);
+    /** Applies a newly chosen montage to the channel names list, or restores the amplifier names when it is cleared. */
     void onMontageChanged();
+    /** Prints \p message and keeps it as the reason the last attempt to start failed. */
+    void report(const std::string& message);
+    /** Ends a failed init(): reports \p message, if any, and shows why Play failed under the settings. Returns false. */
+    bool failInit(const std::string& message = {});
     /**
      * Reads the channel list from the acquired amplifier and picks the channels with a name, into
      * m_selectedChannels; m_channelCount / m_channelNames then describe those, plus the status channels.
@@ -118,6 +140,12 @@ private:
     std::vector<DeviceChannel> m_layout;
     /// The full channel names list, one entry per amplifier channel, while only the recorded ones are shown. Restored in unInit().
     std::vector<std::string> m_configuredNames;
+    /// The channel locks that go with m_configuredNames.
+    std::vector<bool> m_configuredLocks;
+    /// What the montage did, shown again once an acquisition has started.
+    Note m_montageNote;
+    /// Why the last attempt to start failed, see report().
+    std::string m_lastError;
     /// Channels to record, as SDK channel index and type, in amplifier order.
     std::vector<std::pair<unsigned int, int>> m_selectedChannels;
 

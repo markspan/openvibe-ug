@@ -1,5 +1,8 @@
 /**
  * SPDX-License-Identifier: AGPL-3.0-only
+ *
+ * @file DriftCorrectorTest.cpp
+ * @brief Tests of the drift correction. UG fork: new file, not in upstream OpenViBE.
  */
 
 #include <cstdint>

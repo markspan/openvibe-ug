@@ -26,7 +26,7 @@ public:
 
     QString value() const;
     void setValue(QString value);
-    /// Sets the value even when it does not change, so that choosing the same file again reloads it.
+    /// Sets the value even when it does not change, so that choosing the same file again reloads it. UG fork.
     Q_INVOKABLE void choose(QString value);
 
     QStringList filters() const;

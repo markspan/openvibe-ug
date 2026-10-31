@@ -34,7 +34,7 @@
 #include <optional>
 
 class DriftCalculator; ///< Forward declaration of the DriftCalculator class.
-class DriftCorrector;
+class DriftCorrector; ///< UG fork: drift correction, which upstream 4.0 does not do.
 
 /**
  * @brief Manages the acquisition of data from a hardware driver.
@@ -95,7 +95,7 @@ public:
 
 	// Impedance check block
     bool supportsImpedanceCheck() const;
-    bool usesCharmeleonForImpedance() const;
+    bool usesCharmeleonForImpedance() const;  ///< UG fork: see AbstractDriver::usesCharmeleonForImpedance().
     bool startImpedanceCheck();
     bool stopImpedanceCheck();
     int  readImpedances(double* values, size_t count);
@@ -105,6 +105,7 @@ public:
     void setNbCycles(uint32_t cycles);
 
     OpenViBE::Parameters::ParameterListInt* getChunkSampleCount() { return &m_chunkSampleCount; }
+    // UG fork: the drift correction settings, see DriftCorrector
     OpenViBE::Parameters::ParameterListString* getDriftCorrectionPolicy() { return &m_driftCorrectionPolicy; }
     OpenViBE::Parameters::ParameterInt* getDriftTolerance() { return &m_driftTolerance; }
     OpenViBE::Parameters::Parameters getDriverParameters() const { return !m_driver ? OpenViBE::Parameters::Parameters{} : m_driver->getParameters(); }
@@ -114,8 +115,18 @@ public:
 
     std::vector<std::string> getDriverChannelNames() const { return !m_driver ? std::vector<std::string>{} : m_driver->channelNames().value(); }
     void setDriverChannelNames(const std::vector<std::string>& names) { if (m_driver) m_driver->channelNames().setValue(names); }
+    // UG fork: channel hints and Charmeleon, which upstream does not have; see the AbstractDriver methods of the same names
     std::vector<std::string> getDriverChannelHints() const { return !m_driver ? std::vector<std::string>{} : m_driver->channelHints(); }
     std::string getCharmeleonMontage() const { return !m_driver ? std::string{} : m_driver->charmeleonMontage(); }
+    /// The arguments that make Charmeleon open the driver's amplifier; see AbstractDriver::charmeleonArguments().
+    std::vector<std::string> getCharmeleonArguments() const { return !m_driver ? std::vector<std::string>{} : m_driver->charmeleonArguments(); }
+    /// Hands the montage Charmeleon saved to the driver; see AbstractDriver::takeOverCharmeleonMontage().
+    void takeOverCharmeleonMontage(const std::string& path) { if (m_driver) { m_driver->takeOverCharmeleonMontage(path); } }
+    // UG fork: what the driver has to tell the user, and the channel names it decides itself, see AbstractDriver::note()
+    AbstractDriver::Note getDriverNote() const { return !m_driver ? AbstractDriver::Note{} : m_driver->note(); }
+    std::vector<bool> getDriverChannelLocks() const { return !m_driver ? std::vector<bool>{} : m_driver->channelLocks(); }
+    /// Sets the function the driver calls when its note or channel locks change; see AbstractDriver::setStateListener().
+    void setDriverStateListener(std::function<void()> listener) { if (m_driver) { m_driver->setStateListener(std::move(listener)); } }
 
     OpenViBE::Parameters::ParameterStringVector* getDriverChannelNamesParam() { return m_driver ? &m_driver->channelNames() : nullptr; }
 
@@ -144,8 +155,8 @@ private:
     uint64_t m_lastTimestamps; ///< Timestamp of the last processed sample.
 
     OpenViBE::Parameters::ParameterListInt m_chunkSampleCount; ///< Size of output chunks (in samples)
-    OpenViBE::Parameters::ParameterListString m_driftCorrectionPolicy; ///< Whether to add or drop samples to make up for drift
-    OpenViBE::Parameters::ParameterInt m_driftTolerance; ///< Drift left alone, in ms
+    OpenViBE::Parameters::ParameterListString m_driftCorrectionPolicy; ///< Whether to add or drop samples to make up for drift (UG fork)
+    OpenViBE::Parameters::ParameterInt m_driftTolerance; ///< Drift left alone, in ms (UG fork)
 
     uint32_t m_nbCycle;
     std::mutex m_driftMutex;
@@ -162,7 +173,7 @@ private:
     std::unique_ptr<SampleBufferHandler> m_sampleBufferHandler; ///< Unique pointer to the handler for managing sample buffers.
     std::unique_ptr<CircularBuffer>      m_circularBuffer; ///< Unique pointer to the circular buffer for storing acquired data.
     std::unique_ptr<DriftCalculator>     m_driftCalculator; ///< Unique pointer to the object responsible for calculating drift.
-    std::unique_ptr<DriftCorrector>      m_driftCorrector; ///< Set while streaming with drift correction on.
+    std::unique_ptr<DriftCorrector>      m_driftCorrector; ///< Set while streaming with drift correction on (UG fork).
 
     DriverPtr m_driver; ///< Owning pointer to the abstract driver instance, released through its builder.
     std::string m_driverName; ///< Registered name of the primary driver, which the driver itself does not carry.
