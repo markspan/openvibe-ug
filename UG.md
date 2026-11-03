@@ -24,9 +24,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 22 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 23 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 56 files, about 5,830 lines added and 530 removed |
+| Size | 57 files, about 5,890 lines added and 550 removed |
 
 To regenerate the list of changes:
 
@@ -56,7 +56,7 @@ Everything outside the files listed here is identical to upstream.
 | Trigger timing | Triggers dated at the block they arrive in | Every sample is timestamped; each trigger is dated at its own sample |
 | Hardware triggers | n/a (TMSi) / flank-decoded (eego) | Sent as `OVTK_StimulationId_Label(value)`, value 1–255, not inverted |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
-| Signal display | Trigger shown by stimulation name or `Id 33025` | Hardware trigger shown as its value (`1`, `12`, …) |
+| Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
 | Kernel tokens | no `Path_Documents`; the Foldername setting type is unregistered | `${Path_Documents}` added; `Foldername` setting type registered |
 | Designer | Clicking two outputs could try to link a box to itself and wedge link creation | Second click on a port of the same kind restarts the link; failures end link creation |
@@ -377,11 +377,16 @@ Behaviour:
 
 ### 2.11 Signal display shows trigger values
 
-**File:** `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp`
+**Files:** `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp`, `extras/plugins/processing/simple-visualization/qml/StimulationOverlay.qml`
 
 **What it does:** stimulations in the label range (`OVTK_StimulationId_Label(1..255)`) are shown with their trigger value. Other stimulations keep their name or `Id …`.
 
-**Consequence:** a hardware trigger shows as `1`, `12`, `233`. Upstream shows `OVTK_StimulationId_Label_01`, or a raw ID.
+The label sits in a flag at the top of the marker line:
+- The background is the marker's colour, the contour a darker shade of it, and the text bold and black. Black has a contrast of at least 6.8:1 on every colour of the palette.
+- Flags that would cover each other's code step down, over up to 4 rows.
+- At the right edge, a flag slides back so that its code stays visible.
+
+**Consequence:** a hardware trigger shows as `1`, `12`, `233`. Upstream shows `OVTK_StimulationId_Label_01`, or a raw ID, as small rotated text. A long stimulation name makes a long flag, which covers more of the top channels.
 
 ### 2.12 Designer link creation fix
 
