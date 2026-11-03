@@ -17,6 +17,8 @@ git grep -n "UG fork"
 
 **Logs.** Neither application opens a console window; what they print is in `%APPDATA%\OpenVIBE-4.0\log\` (see 2.17).
 
+**The P300 speller** has its own how-to: [speller.md](speller.md). It covers the task, setting it up and running it, the port of its display to Qt, and the setup with Python scripts.
+
 **Montages** have their own how-to: [montages.md](montages.md). It covers why TMSi montages are tailor-made and eego montages semi-fixed, how to make one in Charmeleon, and how the server and the BrainVision writer use it.
 
 ## Base and scope
@@ -24,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 23 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 24 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 57 files, about 5,890 lines added and 550 removed |
+| Size | 100 files, about 22,900 lines added and 940 removed |
 
 To regenerate the list of changes:
 
@@ -54,10 +56,13 @@ Everything outside the files listed here is identical to upstream.
 | Drift correction | Settings declared in the UI code, never shown and never applied | None; the settings are gone |
 | Console windows | The server opens one; Designer uses that of whatever started it | None; output goes to a log file |
 | Trigger timing | Triggers dated at the block they arrive in | Every sample is timestamped; each trigger is dated at its own sample |
+| TCP Tagging timing | Markers dated when the server reads them, and sent with the next chunk | Dated at the time in the tag, and sent with the chunk that holds their sample |
 | Hardware triggers | n/a (TMSi) / flank-decoded (eego) | Sent as `OVTK_StimulationId_Label(value)`, value 1–255, not inverted |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
+| P300 speller | Display box not ported to Qt and not built, so 6 of the 11 speller scenarios can not run; the Lua online scripts also stop with an error | Ported, and the error repaired; markers are sent once the flash is on screen; also a set of scenarios with Python scripts |
+| Player timing | Designer's player runs in rounds with a 50 ms sleep between them, so stimuli can be up to about 60 ms off | 1 ms sleep |
 | Kernel tokens | no `Path_Documents`; the Foldername setting type is unregistered | `${Path_Documents}` added; `Foldername` setting type registered |
 | Designer | Clicking two outputs could try to link a box to itself and wedge link creation | Second click on a port of the same kind restarts the link; failures end link creation |
 | Path parameters | Re-choosing the same file in the file dialog does nothing | Re-choosing the same file applies it again (reloads an edited montage) |
@@ -482,6 +487,30 @@ The label sits in a flag at the top of the marker line:
 - After a recording that went wrong, the previous run's messages are still there.
 - Started from a terminal, the applications print nothing there; read the log file, or redirect the output.
 
+### 2.18 P300 speller display, ported to Qt (new)
+
+[`speller.md`](speller.md) is the how-to, and has the details of the port: the task, the setup, the code, the timing and what has been tested.
+
+**Files**
+- `speller.md` (new)
+- `extras/plugins/processing/simple-visualization/`: the box, `CP300SpellerView` and `P300SpellerState` (new), `qml/P300SpellerVisualization.qml` (new), the tests
+- `designer/applications/platform/designer/src/PlayerBridge.cpp`
+- `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TaggingDriver.cpp`, `TagDate.h` (new), `abstractions/writer/AbstractWriter.cpp`, `test/TcpTagTimingTest.cpp` (new)
+- `extras/applications/demos/p300/bci-examples/p300-speller-python/` and `p300-speller-xDAWN-python/` (new: scenarios and scripts)
+- `extras/contrib/plugins/processing/python3/share/ovstimulationbox.py` (new)
+
+**What it does**
+- The display box was GTK code, left out of upstream's build. It now runs on Qt, with the same box ID and settings, so the speller scenarios open as they are. The Identifier Card and Magic Card displays are still not ported.
+- Designer's player sleeps 1 ms between rounds instead of 50 ms. A stimulus can only change at the start of a round.
+- Next to the Lua scenarios there is a set that uses Python scripts.
+- `OVTK_StimulationId_LabelEnd` is added to the Lua and Python stimulation codes. Upstream's P300 Lua scripts use it, and stopped with an error without it: the online scenarios at the first flash.
+
+**Consequences**
+- **Every scenario in Designer now runs in shorter rounds.** Flashes come within about a frame of the time asked for, where they could be up to 60 ms off. Measured without a window, the CPU use hardly changes. A normal recording with this change has not been tested.
+- **A TCP Tagging marker is dated at the time it carries.** Upstream's `TaggingDriver` drops it, and dates a marker when it reads it. A marker that gets to the server before its sample waits for the chunk that holds that sample (`AbstractWriter`). This holds for every program that sends tags. A tag whose time can't be from this PC is dated on arrival, as before.
+- Drag the box into the scenario's Window Manager before Play, as for any visualization in this Designer: the layout is not saved with the scenario.
+- Hardware triggers use the same codes as the speller's rows and columns, so keep them out of a speller session.
+
 ---
 
 ## 3. All modified files
@@ -491,6 +520,7 @@ The label sits in a flag at the top of the marker line:
 | Status | File | Section |
 |---|---|---|
 | M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12 |
+| M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18 |
 | M | `designer/applications/platform/designer/src/main.cpp` | 2.17 |
 | M | `extras/applications/platform/acquisition-server/CMakeLists.txt` | 2.1, 2.4, 2.6, 2.17 |
 | M | `extras/applications/platform/acquisition-server/abstractions/CMakeLists.txt` | 2.3 |
@@ -537,7 +567,32 @@ The label sits in a flag at the top of the marker line:
 | M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7 |
 | M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7 |
 | M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7 |
+| M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.18 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TagDate.h` | 2.18 |
+| M | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TaggingDriver.cpp` | 2.18 |
+| A | `extras/applications/platform/acquisition-server/test/TcpTagTimingTest.cpp` | 2.18 |
+| A | `extras/applications/demos/p300/bci-examples/p300-speller-python/` (5 scripts, 5 scenarios and a README) | 2.18 |
+| A | `extras/applications/demos/p300/bci-examples/p300-speller-xDAWN-python/` (6 scenarios, and a README) | 2.18 |
+| M | `extras/contrib/plugins/processing/python3/share/StimulationsCodes.py` | 2.18 |
+| A | `extras/contrib/plugins/processing/python3/share/ovstimulationbox.py` | 2.18 |
+| M | `extras/plugins/processing/stimulation/share/lua-stimulator-stim-codes.lua` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_P300SpellerVisualization.dox-part` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/qml/P300SpellerVisualization.qml` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.cpp` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.hpp` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.cpp` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.h` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.cpp` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.h` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/src/main.cpp` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/test/CMakeLists.txt` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/test/P300SpellerStateTest.cpp` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-lua-test.xml` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-check.py` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-test.xml` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-test.xml` | 2.18 |
 | M | `pixi.lock` | 2.15 |
 | M | `pixi.toml` | 2.15 |
 | M | `sdk/kernel/src/kernel/ovkCKernelContext.cpp` | 2.10 |
@@ -548,6 +603,7 @@ The label sits in a flag at the top of the marker line:
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsgSerializer.h` | 2.7 |
 | A | `UG.md` | this document |
 | A | `montages.md` | 2.3: the montage how-to |
+| A | `speller.md` | 2.18: the speller how-to |
 
 ---
 
@@ -569,18 +625,19 @@ The label sits in a flag at the top of the marker line:
 
   New files (TMSi driver, Charmeleon, UG writer, buffer display) merge cleanly.
 - **Charmeleon.** The montage round trip and the choice of amplifier need Charmeleon 2.2 (see 2.6). Charmeleon is a separate repository and installer.
-- **Tests.** The acquisition server unit tests (`test-acquisition-server-core`, 46 tests) pass. They include new tests for the circular buffer, the config message and the montage rules.
+- **Tests.** The acquisition server unit tests (`test-acquisition-server-core`, 53 tests) pass. They include new tests for the circular buffer, the config message and the montage rules. So do the P300 speller tests (`test-p300-speller`, 12 tests), for the letter grid, what the display shows and when a frame showed it.
 - **Tested without an amplifier:**
   - the montage note and locked entries;
   - the error under the settings when Play fails;
   - the round trip with Charmeleon 2.2 in demo mode: the server starts it, it saves on closing, and the driver takes the montage over;
   - the fallback for an older Charmeleon;
   - the buffers panel and the server's CPU use, with the generic oscillator;
-  - both applications starting without a console window and writing their log files.
+  - both applications starting without a console window and writing their log files;
+  - the P300 speller display in Designer: the stimulator's flashes, targets and selections on screen, and the markers reaching a stand-in for TCP Tagging (see [speller.md](speller.md)).
 - **Not yet verified on hardware:**
   - the TMSi and eego channel lists, montage mapping, channel hints, and channel names in the Signal display;
   - Charmeleon opening the driver's device;
   - TMSi impedances on BIP and AUX channels;
   - the TMSi buffer level and overflow count, and the eego sample-counter check.
-- **Not yet verified end to end:** a Designer recording through the changed network server (2.4).
+- **Not yet verified end to end:** a Designer recording through the changed network server (2.4), and a P300 speller session: recording, training and online spelling with an amplifier and the real acquisition server (2.18).
 - **Not yet run in Designer:** the montage name and electrode positions the UG writer writes, now that they come from the server (2.7, 2.9). The message format and the montage reading have unit tests.

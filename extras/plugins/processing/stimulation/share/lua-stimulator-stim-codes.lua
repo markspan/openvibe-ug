@@ -282,6 +282,8 @@ OVTK_StimulationId_Label_FC                           = 0x000081fc
 OVTK_StimulationId_Label_FD                           = 0x000081fd
 OVTK_StimulationId_Label_FE                           = 0x000081fe
 OVTK_StimulationId_Label_FF                           = 0x000081ff
+-- UG fork: the P300 scripts compare against this one, and stopped with an error without it
+OVTK_StimulationId_LabelEnd                           = 0x000081ff
 
 OVTK_StimulationId_NumberStart                        = 0x00000000
 OVTK_StimulationId_Number_00                          = 0x00000000

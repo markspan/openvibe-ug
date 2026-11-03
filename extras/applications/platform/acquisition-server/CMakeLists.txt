@@ -72,6 +72,7 @@ list(APPEND APP_PRIVATE_HEADERS
     builtin/drivers/generic-oscillator/ovasCDriverGenericOscillator.h
     builtin/drivers/stubs/DummyDriver.h
     builtin/drivers/tagging/TaggingDriver.h
+    builtin/drivers/tagging/TagDate.h # UG fork
     builtin/drivers/labstreaminglayer/CDriverLabStreamingLayer.h
     builtin/writers/net-writer/NetWriter.h
     builtin/writers/lsl-output/LSLOutputWriter.h

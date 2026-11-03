@@ -18,6 +18,7 @@ set(TESTED_SOURCES
 
 add_executable(${PROJECT_NAME} ${TEST_SOURCES} ${TESTED_SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../core)
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../abstractions/writer ${CMAKE_CURRENT_SOURCE_DIR}/../abstractions)  # UG fork: TcpTagTimingTest
 set_property(TARGET ${PROJECT_NAME} PROPERTY FOLDER ${TESTS_FOLDER})
 target_link_libraries(${PROJECT_NAME} PRIVATE
     openvibe

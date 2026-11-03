@@ -15,6 +15,13 @@ set(SRC_FILES
     src/box-algorithms/CBoxAlgorithmErpPlot.h
     src/box-algorithms/CBoxAlgorithmLevelMeasure.cpp
     src/box-algorithms/CBoxAlgorithmLevelMeasure.h
+    # UG fork: the P300 speller display, ported to Qt
+    src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.cpp
+    src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.hpp
+    src/box-algorithms/CP300SpellerView.cpp
+    src/box-algorithms/CP300SpellerView.h
+    src/box-algorithms/P300SpellerState.cpp
+    src/box-algorithms/P300SpellerState.h
 	src/box-algorithms/CDisplayCueImage.cpp
 	src/box-algorithms/CDisplayCueImage.h
     src/box-algorithms/CGraphWindow.cpp
@@ -61,6 +68,7 @@ qt_add_resources(${PROJECT_NAME} "resourcesSimpleVisualization"
       qml/CGrazVisuWindow.qml
       qml/CGrazMultiVisuWindow.qml
       qml/LevelMeasureWindow.qml
+      qml/P300SpellerVisualization.qml  # UG fork
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -75,6 +83,7 @@ target_link_libraries(${PROJECT_NAME}
                       openvibe-module-system
                       openvibe-parameters-object
                       openvibe-visualization-toolkit
+                      tinyxml2::tinyxml2 # UG fork: reads the P300 speller's grid file
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES

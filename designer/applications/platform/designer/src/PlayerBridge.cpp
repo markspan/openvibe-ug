@@ -86,7 +86,8 @@ void PlayerBridge::looping() {
             return;
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        // UG fork: 1 ms instead of 50. The player runs in rounds, and a stimulus shown by a box can only change at the start of one.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }
 

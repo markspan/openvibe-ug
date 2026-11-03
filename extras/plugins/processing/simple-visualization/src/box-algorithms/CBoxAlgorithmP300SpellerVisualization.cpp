@@ -2,6 +2,7 @@
 /// 
 /// \file CBoxAlgorithmP300SpellerVisualization.cpp
 /// \brief Classes implementation for the Box P300 Speller Visualization.
+/// UG fork: ported from GTK to Qt. The stimulation logic is unchanged, the display is CP300SpellerView.
 /// \author Yann Renard (INRIA).
 /// \version 1.0.
 /// \copyright Copyright (C) 2022 Inria
@@ -21,65 +22,66 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
-// @todo for clarity, the StimulusSender related code blocks should be pushed inside the class and away from here
-
 #include "CBoxAlgorithmP300SpellerVisualization.hpp"
-#include "../utils.hpp"
+#include "CP300SpellerView.h"
+
+#include <system/ovCTime.h>
 #include <tcptagging/IStimulusSender.h>
+#include <visualization-toolkit/ovviz_all.h>
 
 #include <algorithm>
-#include <list>
+#include <array>
+#include <sstream>
 #include <string>
-#include <vector>
 
 namespace OpenViBE {
 namespace Plugins {
 namespace SimpleVisualization {
 
-static void ToggleButtonShowHideCB(GtkToggleToolButton* button, gpointer data)
+namespace {
+
+// A color setting: red, green and blue in percent
+QColor parseColor(const CString& setting)
 {
-    if (gtk_toggle_tool_button_get_active(button)) { gtk_widget_show(GTK_WIDGET(data)); }
-    else { gtk_widget_hide(GTK_WIDGET(data)); }
+    std::stringstream ss(setting.toASCIIString());
+    int r = 0, g = 0, b = 0;
+    char c;
+    ss >> r >> c >> g >> c >> b;
+    return QColor::fromRgbF(float(r) / 100, float(g) / 100, float(b) / 100);
 }
 
-// This callback flushes all accumulated stimulations to the TCP Tagging 
-// after the rendering has completed.
-static gboolean FlushCB(gpointer data)
-{
-    (static_cast<CBoxAlgorithmP300SpellerVisualization*>(data))->FlushQueue();
+}  // namespace
 
-    return false;   // Only run once
-}
+CBoxAlgorithmP300SpellerVisualization::CBoxAlgorithmP300SpellerVisualization()  = default;
+CBoxAlgorithmP300SpellerVisualization::~CBoxAlgorithmP300SpellerVisualization() = default;
 
 bool CBoxAlgorithmP300SpellerVisualization::initialize()
 {
-    const Kernel::IBox& boxContext = this->getStaticBoxContext();
-
-    m_mainWidgetInterface    = nullptr;
-    m_toolbarWidgetInterface = nullptr;
-    m_flashFontDesc          = nullptr;
-    m_noFlashFontDesc        = nullptr;
-    m_targetFontDesc         = nullptr;
-    m_selectedFontDesc       = nullptr;
-
-    // ----------------------------------------------------------------------------------------------------------------------------------------------------------
-
     m_interfaceFilename     = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0);
     m_rowStimulationBase    = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1);
     m_columnStimulationBase = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 2);
 
-    m_flashBgColor     = CGdkcolorAutoCast(boxContext, this->getConfigurationManager(), 3);
-    m_flashFgColor     = CGdkcolorAutoCast(boxContext, this->getConfigurationManager(), 4);
-    m_flashFontSize    = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 5);
-    m_noFlashBgColor   = CGdkcolorAutoCast(boxContext, this->getConfigurationManager(), 6);
-    m_noFlashFgColor   = CGdkcolorAutoCast(boxContext, this->getConfigurationManager(), 7);
-    m_noFlashFontSize  = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 8);
-    m_targetBgColor    = CGdkcolorAutoCast(boxContext, this->getConfigurationManager(), 9);
-    m_targetFgColor    = CGdkcolorAutoCast(boxContext, this->getConfigurationManager(), 10);
-    m_targetFontSize   = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 11);
-    m_selectedBgColor  = CGdkcolorAutoCast(boxContext, this->getConfigurationManager(), 12);
-    m_selectedFgColor  = CGdkcolorAutoCast(boxContext, this->getConfigurationManager(), 13);
-    m_selectedFontSize = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 14);
+    // Three settings for each look: background, foreground and font size
+    const std::array<EP300CellStyle, 4> settingOrder = {EP300CellStyle::Flash, EP300CellStyle::NoFlash, EP300CellStyle::Target, EP300CellStyle::Selected};
+    SP300SpellerLook look;
+    for (size_t i = 0; i < settingOrder.size(); ++i) {
+        const auto style         = size_t(settingOrder[i]);
+        const CString background = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 3 + 3 * i);
+        const CString foreground = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 4 + 3 * i);
+        look.background[style]   = parseColor(background);
+        look.foreground[style]   = parseColor(foreground);
+        look.fontSize[style]     = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 5 + 3 * i);
+    }
+
+    SP300SpellerLayout layout;
+    std::string error;
+    if (!loadP300SpellerLayout(m_interfaceFilename.toASCIIString(), layout, error)) {
+        this->getLogManager() << Kernel::LogLevel_Error << "Could not load the letter grid: " << error << "\n";
+        return false;
+    }
+    m_nRow  = uint64_t(layout.rows);
+    m_nCol  = uint64_t(layout.columns);
+    m_state = std::make_unique<CP300SpellerState>(layout);
 
     // ----------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -118,74 +120,30 @@ bool CBoxAlgorithmP300SpellerVisualization::initialize()
     m_lastTime = 0;
 
     m_stimulusSender = nullptr;
-
-    m_idleFuncTag = 0;
     m_stimuliQueue.clear();
+    m_heldStimuli.clear();
+    m_lastUpdate    = 0;
+    m_lastTagTime   = 0;
+    m_warnedNoFrame = false;
 
-    m_mainWidgetInterface = gtk_builder_new(); // glade_xml_new(m_interfaceFilename.toASCIIString(), "p300-speller-main", nullptr);
-    if (!gtk_builder_add_from_file(m_mainWidgetInterface, m_interfaceFilename.toASCIIString(), nullptr)) {
-        this->getLogManager() << Kernel::LogLevel_ImportantWarning << "Could not load interface file [" << m_interfaceFilename << "]\n";
-        this->getLogManager() << Kernel::LogLevel_ImportantWarning <<
-                "The file may be missing. However, the interface files now use gtk-builder instead of glade. Did you update your files ?\n";
+    const CIdentifier windowManagerID(getConfigurationManager().lookUpConfigurationTokenValue("VisualizationContext_WindowManagerID").toASCIIString());
+    auto* visualizationCtx = dynamic_cast<VisualizationToolkit::IVisualizationContext*>(this->createPluginObject(OVP_ClassId_Plugin_VisualizationCtx));
+    if (!visualizationCtx) {
+        this->getLogManager() << Kernel::LogLevel_Error << "Could not get visualization context\n";
         return false;
     }
 
-    m_toolbarWidgetInterface = gtk_builder_new(); // glade_xml_new(m_interfaceFilename.toASCIIString(), "p300-speller-toolbar", nullptr);
-    gtk_builder_add_from_file(m_toolbarWidgetInterface, m_interfaceFilename.toASCIIString(), nullptr);
+    m_view = std::make_unique<CP300SpellerView>(this->getLogManager(), visualizationCtx->getWindowManager(windowManagerID)->getQmlEngine(), layout, look);
+    if (!m_view->visualItem()) {
+        // Handing a null item to the window manager crashes it; fail the box instead.
+        this->getLogManager() << Kernel::LogLevel_Error << "Failed to build the speller view\n";
+        this->releasePluginObject(visualizationCtx);
+        return false;
+    }
 
-    m_mainWindow    = GTK_WIDGET(gtk_builder_get_object(m_mainWidgetInterface, "p300-speller-main"));
-    m_toolbarWidget = GTK_WIDGET(gtk_builder_get_object(m_toolbarWidgetInterface, "p300-speller-toolbar"));
-    m_table         = GTK_TABLE(gtk_builder_get_object(m_mainWidgetInterface, "p300-speller-table"));
-    m_result        = GTK_LABEL(gtk_builder_get_object(m_mainWidgetInterface, "label-result"));
-    m_target        = GTK_LABEL(gtk_builder_get_object(m_mainWidgetInterface, "label-target"));
-
-    gtk_builder_connect_signals(m_mainWidgetInterface, nullptr);
-    gtk_builder_connect_signals(m_toolbarWidgetInterface, nullptr);
-
-    g_signal_connect(gtk_builder_get_object(m_toolbarWidgetInterface, "toolbutton-show_target_text"), "toggled", G_CALLBACK(ToggleButtonShowHideCB),
-                     gtk_builder_get_object(m_mainWidgetInterface, "label-target"));
-    g_signal_connect(gtk_builder_get_object(m_toolbarWidgetInterface, "toolbutton-show_target_text"), "toggled", G_CALLBACK(ToggleButtonShowHideCB),
-                     gtk_builder_get_object(m_mainWidgetInterface, "label-target-title"));
-    g_signal_connect(gtk_builder_get_object(m_toolbarWidgetInterface, "toolbutton-show_result_text"), "toggled", G_CALLBACK(ToggleButtonShowHideCB),
-                     gtk_builder_get_object(m_mainWidgetInterface, "label-result"));
-    g_signal_connect(gtk_builder_get_object(m_toolbarWidgetInterface, "toolbutton-show_result_text"), "toggled", G_CALLBACK(ToggleButtonShowHideCB),
-                     gtk_builder_get_object(m_mainWidgetInterface, "label-result-title"));
-
-    m_visualizationCtx = dynamic_cast<VisualizationToolkit::IVisualizationContext*>(this->createPluginObject(OVP_ClassId_Plugin_VisualizationCtx));
-    m_visualizationCtx->setWidget(*this, m_mainWindow);
-    m_visualizationCtx->setToolbar(*this, m_toolbarWidget);
-
-    guint nRow = 0, nCol = 0;
-    g_object_get(m_table, "n-rows", &nRow, nullptr);
-    g_object_get(m_table, "n-columns", &nCol, nullptr);
-
-    m_nRow = nRow;
-    m_nCol = nCol;
-
-    PangoFontDescription* maxFontDesc = pango_font_description_copy(pango_context_get_font_description(gtk_widget_get_pango_context(m_mainWindow)));
-    m_flashFontDesc                   = pango_font_description_copy(pango_context_get_font_description(gtk_widget_get_pango_context(m_mainWindow)));
-    m_noFlashFontDesc                 = pango_font_description_copy(pango_context_get_font_description(gtk_widget_get_pango_context(m_mainWindow)));
-    m_targetFontDesc                  = pango_font_description_copy(pango_context_get_font_description(gtk_widget_get_pango_context(m_mainWindow)));
-    m_selectedFontDesc                = pango_font_description_copy(pango_context_get_font_description(gtk_widget_get_pango_context(m_mainWindow)));
-
-    uint64_t maxSize = 0;
-    maxSize          = std::max(maxSize, m_flashFontSize);
-    maxSize          = std::max(maxSize, m_noFlashFontSize);
-    maxSize          = std::max(maxSize, m_targetFontSize);
-    maxSize          = std::max(maxSize, m_selectedFontSize);
-
-    pango_font_description_set_size(maxFontDesc, gint(maxSize * PANGO_SCALE));
-    pango_font_description_set_size(m_flashFontDesc, gint(m_flashFontSize * PANGO_SCALE));
-    pango_font_description_set_size(m_noFlashFontDesc, gint(m_noFlashFontSize * PANGO_SCALE));
-    pango_font_description_set_size(m_targetFontDesc, gint(m_targetFontSize * PANGO_SCALE));
-    pango_font_description_set_size(m_selectedFontDesc, gint(m_selectedFontSize * PANGO_SCALE));
-
-    this->cacheBuildFromTable(m_table);
-    this->cacheForEach(&CBoxAlgorithmP300SpellerVisualization::cacheChangeBackgroundCB, &m_noFlashBgColor);
-    this->cacheForEach(&CBoxAlgorithmP300SpellerVisualization::cacheChangeForegroundCB, &m_noFlashFgColor);
-    this->cacheForEach(&CBoxAlgorithmP300SpellerVisualization::cacheChangeFontCB, maxFontDesc);
-
-    pango_font_description_free(maxFontDesc);
+    CIdentifier boxID(getStaticBoxContext().getIdentifier());
+    visualizationCtx->getWindowManager(windowManagerID)->setVisualizationItem(boxID, m_view->visualItem());
+    this->releasePluginObject(visualizationCtx);
 
     m_lastTargetRow = -1;
     m_lastTargetCol = -1;
@@ -200,53 +158,30 @@ bool CBoxAlgorithmP300SpellerVisualization::initialize()
         this->getLogManager() << Kernel::LogLevel_Warning << "Unable to connect to AS TCP Tagging, stimuli wont be forwarded.\n";
     }
 
-    m_tableInitialized = false;
-
     return true;
 }
 
 bool CBoxAlgorithmP300SpellerVisualization::uninitialize()
 {
-    if (m_idleFuncTag) {
-        m_stimuliQueue.clear();
-        g_source_remove(m_idleFuncTag);
-        m_idleFuncTag = 0;
-    }
+    m_stimuliQueue.clear();
+    m_heldStimuli.clear();
 
     if (m_stimulusSender) {
         delete m_stimulusSender;
         m_stimulusSender = nullptr;
     }
 
-    if (m_selectedFontDesc) {
-        pango_font_description_free(m_selectedFontDesc);
-        m_selectedFontDesc = nullptr;
+    if (m_view) {
+        const CIdentifier windowManagerID(getConfigurationManager().lookUpConfigurationTokenValue("VisualizationContext_WindowManagerID").toASCIIString());
+        auto* visualizationCtx = dynamic_cast<VisualizationToolkit::IVisualizationContext*>(this->createPluginObject(OVP_ClassId_Plugin_VisualizationCtx));
+        if (visualizationCtx) {
+            CIdentifier boxID(getStaticBoxContext().getIdentifier());
+            visualizationCtx->getWindowManager(windowManagerID)->clearVisualizationItem(boxID);
+            this->releasePluginObject(visualizationCtx);
+        }
+        m_view.reset();
     }
-
-    if (m_targetFontDesc) {
-        pango_font_description_free(m_targetFontDesc);
-        m_targetFontDesc = nullptr;
-    }
-
-    if (m_noFlashFontDesc) {
-        pango_font_description_free(m_noFlashFontDesc);
-        m_noFlashFontDesc = nullptr;
-    }
-
-    if (m_flashFontDesc) {
-        pango_font_description_free(m_flashFontDesc);
-        m_flashFontDesc = nullptr;
-    }
-
-    if (m_toolbarWidgetInterface) {
-        g_object_unref(m_toolbarWidgetInterface);
-        m_toolbarWidgetInterface = nullptr;
-    }
-
-    if (m_mainWidgetInterface) {
-        g_object_unref(m_mainWidgetInterface);
-        m_mainWidgetInterface = nullptr;
-    }
+    m_state.reset();
 
     m_targetFlaggingStimulationSet.uninitialize();
     m_targetFlaggingMemoryBuffer.uninitialize();
@@ -287,24 +222,12 @@ bool CBoxAlgorithmP300SpellerVisualization::uninitialize()
         m_sequenceStimulationDecoder = nullptr;
     }
 
-    if (m_visualizationCtx) {
-        this->releasePluginObject(m_visualizationCtx);
-        m_sequenceStimulationDecoder = nullptr;
-    }
-
     return true;
 }
 
 bool CBoxAlgorithmP300SpellerVisualization::processInput(const size_t /*index*/)
 {
     this->getBoxAlgorithmContext()->markAlgorithmAsReadyToProcess();
-
-    if (!m_tableInitialized) {
-        this->cacheForEach(&CBoxAlgorithmP300SpellerVisualization::cacheChangeBackgroundCB, &m_noFlashBgColor);
-        this->cacheForEach(&CBoxAlgorithmP300SpellerVisualization::cacheChangeForegroundCB, &m_noFlashFgColor);
-        this->cacheForEach(&CBoxAlgorithmP300SpellerVisualization::cacheChangeFontCB, m_noFlashFontDesc);
-        m_tableInitialized = true;
-    }
 
     return true;
 }
@@ -351,22 +274,14 @@ bool CBoxAlgorithmP300SpellerVisualization::process()
                 }
                 if (id == OVTK_StimulationId_VisualStimulationStop) {
                     this->getLogManager() << Kernel::LogLevel_Debug << "Received OVTK_StimulationId_VisualStimulationStop - resets grid\n";
-                    this->cacheForEach(&CBoxAlgorithmP300SpellerVisualization::cacheChangeBackgroundCB, &m_noFlashBgColor);
-                    this->cacheForEach(&CBoxAlgorithmP300SpellerVisualization::cacheChangeForegroundCB, &m_noFlashFgColor);
-                    this->cacheForEach(&CBoxAlgorithmP300SpellerVisualization::cacheChangeFontCB, m_noFlashFontDesc);
+                    m_state->clearCells();
                 }
                 if (id == OVTK_StimulationId_Reset) {
-                    gtk_label_set_text(m_target, "");
-                    gtk_label_set_text(m_result, "");
+                    m_state->clearText();
                 }
 
                 if (flash) {
-                    this->cacheForEachIf(row, col, &CBoxAlgorithmP300SpellerVisualization::cacheChangeBackgroundCB,
-                                         &CBoxAlgorithmP300SpellerVisualization::cacheChangeBackgroundCB, &m_flashBgColor, &m_noFlashBgColor);
-                    this->cacheForEachIf(row, col, &CBoxAlgorithmP300SpellerVisualization::cacheChangeForegroundCB,
-                                         &CBoxAlgorithmP300SpellerVisualization::cacheChangeForegroundCB, &m_flashFgColor, &m_noFlashFgColor);
-                    this->cacheForEachIf(row, col, &CBoxAlgorithmP300SpellerVisualization::cacheChangeFontCB,
-                                         &CBoxAlgorithmP300SpellerVisualization::cacheChangeFontCB, m_flashFontDesc, m_noFlashFontDesc);
+                    m_state->flash(row, col);
 
                     // We now know if this flash corresponds to the current target or not, merge this to the outgoing stimulation stream
                     if (isTarget) {
@@ -421,17 +336,6 @@ bool CBoxAlgorithmP300SpellerVisualization::process()
 
                     if (target && m_targetRow != -1 && m_targetCol != -1) {
                         this->getLogManager() << Kernel::LogLevel_Debug << "Displays Target Cell\n";
-                        this->cacheForEachIf(m_targetRow, m_targetCol, &CBoxAlgorithmP300SpellerVisualization::cacheChangeBackgroundCB,
-                                             &CBoxAlgorithmP300SpellerVisualization::cacheChangeNullCB, &m_targetBgColor, nullptr);
-                        this->cacheForEachIf(m_targetRow, m_targetCol, &CBoxAlgorithmP300SpellerVisualization::cacheChangeForegroundCB,
-                                             &CBoxAlgorithmP300SpellerVisualization::cacheChangeNullCB, &m_targetFgColor, nullptr);
-                        this->cacheForEachIf(m_targetRow, m_targetCol, &CBoxAlgorithmP300SpellerVisualization::cacheChangeFontCB,
-                                             &CBoxAlgorithmP300SpellerVisualization::cacheChangeNullCB, m_targetFontDesc, nullptr);
-
-                        std::vector<GtkWidget*> widgets;
-                        this->cacheForEachIf(m_targetRow, m_targetCol, &CBoxAlgorithmP300SpellerVisualization::cacheCollectChildWidgetCB,
-                                             &CBoxAlgorithmP300SpellerVisualization::cacheCollectChildWidgetCB, &widgets, nullptr);
-
                         // Merge the current target into the stimulation stream. It can be differentiated
                         // from a 'flash' spec because it IS between OVTK_StimulationId_RestStart and
                         // OVTK_StimulationId_RestStop stimulations in the P300 timeline.
@@ -440,23 +344,7 @@ bool CBoxAlgorithmP300SpellerVisualization::process()
                             m_stimuliQueue.push_back(m_targetCol + m_columnStimulationBase);
                         }
 
-                        if (widgets.size() == 1) {
-                            if (GTK_IS_LABEL(widgets[0])) {
-                                std::string label;
-                                label = gtk_label_get_text(m_target);
-                                label += gtk_label_get_text(GTK_LABEL(widgets[0]));
-                                gtk_label_set_text(m_target, label.c_str());
-                            }
-                            else {
-                                this->getLogManager() << Kernel::LogLevel_Warning << "Expected label class widget... could not find a valid text to append\n";
-                            }
-                        }
-                        else {
-                            this->getLogManager() << Kernel::LogLevel_Warning << "Did not find a unique widget at row:" << size_t(m_targetRow) << " column:" <<
-                                    size_t(m_targetCol) << "\n";
-                        }
-
-                        m_targetHistory.emplace_back(m_targetRow, m_targetCol);
+                        m_state->showTarget(m_targetRow, m_targetCol);
                         m_lastTargetRow = m_targetRow;
                         m_lastTargetCol = m_targetCol;
                         m_targetRow     = -1;
@@ -497,7 +385,7 @@ bool CBoxAlgorithmP300SpellerVisualization::process()
                             m_selectedRow = int(id - m_rowStimulationBase);
                             selected      = true;
                         }
-                        if (id >= m_columnStimulationBase && id < m_columnStimulationBase + m_nRow) {
+                        if (id >= m_columnStimulationBase && id < m_columnStimulationBase + m_nCol) {
                             this->getLogManager() << Kernel::LogLevel_Debug << "Received Selected Column " << id << "\n";
                             m_selectedCol = int(id - m_columnStimulationBase);
                             selected      = true;
@@ -510,51 +398,11 @@ bool CBoxAlgorithmP300SpellerVisualization::process()
                         if (selected && m_selectedRow != -1 && m_selectedCol != -1) {
                             if (m_selectedRow >= 0 && m_selectedCol >= 0) {
                                 this->getLogManager() << Kernel::LogLevel_Debug << "Displays Selected Cell\n";
-                                this->cacheForEachIf(m_selectedRow, m_selectedCol, &CBoxAlgorithmP300SpellerVisualization::cacheChangeBackgroundCB,
-                                                     &CBoxAlgorithmP300SpellerVisualization::cacheChangeNullCB, &m_selectedBgColor, nullptr);
-                                this->cacheForEachIf(m_selectedRow, m_selectedCol, &CBoxAlgorithmP300SpellerVisualization::cacheChangeForegroundCB,
-                                                     &CBoxAlgorithmP300SpellerVisualization::cacheChangeNullCB, &m_selectedFgColor, nullptr);
-                                this->cacheForEachIf(m_selectedRow, m_selectedCol, &CBoxAlgorithmP300SpellerVisualization::cacheChangeFontCB,
-                                                     &CBoxAlgorithmP300SpellerVisualization::cacheChangeNullCB, m_selectedFontDesc, nullptr);
-
-                                std::vector<GtkWidget*> widgets;
-                                this->cacheForEachIf(m_selectedRow, m_selectedCol, &CBoxAlgorithmP300SpellerVisualization::cacheCollectChildWidgetCB,
-                                                     &CBoxAlgorithmP300SpellerVisualization::cacheCollectChildWidgetCB, &widgets, nullptr);
-
-                                if (widgets.size() == 1) {
-                                    if (GTK_IS_LABEL(widgets[0])) {
-                                        std::string label;
-                                        label = gtk_label_get_text(GTK_LABEL(widgets[0]));
-                                        if (!m_targetHistory.empty()) {
-                                            auto it          = m_targetHistory.begin();
-                                            bool correct     = (it->first == m_selectedRow && it->second == m_selectedCol);
-                                            bool halfCorrect = (it->first == m_selectedRow || it->second == m_selectedCol);
-                                            m_targetHistory.pop_front();
-                                            std::string tmp;
-                                            if (correct) { tmp = "<span color=\"darkgreen\">"; }
-                                            else if (halfCorrect) { tmp = "<span color=\"darkorange\">"; }
-                                            else { tmp = "<span color=\"darkred\">"; }
-                                            label = tmp.append(label).append("</span>");
-                                        }
-                                        label = std::string(gtk_label_get_label(m_result)).append(label);
-                                        gtk_label_set_markup(m_result, label.c_str());
-                                    }
-                                    else {
-                                        this->getLogManager() << Kernel::LogLevel_Warning <<
-                                                "Expected label class widget... could not find a valid text to append\n";
-                                    }
-                                }
-                                else {
-                                    this->getLogManager() << Kernel::LogLevel_Warning << "Did not find a unique widget at row : " << size_t(m_selectedRow) <<
-                                            " column : " << size_t(m_selectedCol) << "\n";
-                                }
+                                m_state->showSelected(m_selectedRow, m_selectedCol);
                             }
                             else {
                                 this->getLogManager() << Kernel::LogLevel_Trace << "Selection Rejected !\n";
-                                std::string label;
-                                label = gtk_label_get_text(m_result);
-                                label += "*";
-                                gtk_label_set_text(m_result, label.c_str());
+                                m_state->rejectSelection();
                             }
 
                             m_selectedRow = -1;
@@ -569,115 +417,55 @@ bool CBoxAlgorithmP300SpellerVisualization::process()
         }
     }
 
-    // After any possible rendering, we flush the accumulated stimuli. The default idle func is low priority, so it should be run after rendering by gtk.
-    if (m_idleFuncTag == 0) { m_idleFuncTag = g_idle_add(FlushCB, this); }
+    // What changed goes to the GUI. The stimulations of this round are sent once it is on screen, see processClock().
+    if (m_state->takeChanged()) { m_lastUpdate = m_view->show(*m_state); }
+    else if (m_heldStimuli.empty()) {
+        // Nothing to draw and nothing being drawn
+        const uint64_t now = System::Time::zgetTimeRaw(false);
+        for (const uint64_t stimulation : m_stimuliQueue) { sendTag(stimulation, now); }
+        m_stimuliQueue.clear();
+    }
+
+    // Behind what is being drawn, to keep the stimuli in order at the server
+    const uint64_t queuedAt = System::Time::zgetTimeRaw(false);
+    for (const uint64_t stimulation : m_stimuliQueue) { m_heldStimuli.push_back({stimulation, m_lastUpdate, queuedAt}); }
+    m_stimuliQueue.clear();
 
     return true;
 }
 
-// _________________________________________________________________________________________________________________________________________________________
-//
-
-void CBoxAlgorithmP300SpellerVisualization::cacheBuildFromTable(GtkTable* table)
+bool CBoxAlgorithmP300SpellerVisualization::processClock(Kernel::CMessageClock& /*msg*/)
 {
-    if (table) {
-        const GdkColor white = InitGDKColor(65535, 65535, 65535, 65535);
-
-        for (GList* list = table->children; list; list = list->next) {
-            const GtkTableChild* child = static_cast<GtkTableChild*>(list->data);
-
-            for (size_t i = child->top_attach; i < child->bottom_attach; ++i) {
-                for (size_t j = child->left_attach; j < child->right_attach; ++j) {
-                    widget_style_t& style = m_cache[i][j];
-                    style.widget          = child->widget;
-                    style.childWidget     = gtk_bin_get_child(GTK_BIN(child->widget));
-                    style.bgColor         = white;
-                    style.fgColor         = white;
-                    style.fontDesc        = nullptr;
-                }
-            }
+    uint64_t update = 0;
+    uint64_t time   = 0;
+    while (m_view->takeDisplayed(update, time)) {
+        while (!m_heldStimuli.empty() && m_heldStimuli.front().update <= update) {
+            sendTag(m_heldStimuli.front().stimulation, time);
+            m_heldStimuli.pop_front();
         }
     }
-}
 
-void CBoxAlgorithmP300SpellerVisualization::cacheForEach(const cache_callback callback, void* data)
-{
-    for (auto i = m_cache.begin(); i != m_cache.end(); ++i) {
-        for (auto j = i->second.begin(); j != i->second.end(); ++j) { (this->*callback)(j->second, data); }
-    }
-}
-
-void CBoxAlgorithmP300SpellerVisualization::cacheForEachIf(const int iLine, const int iColumn, const cache_callback ifCB, const cache_callback elseCB,
-                                                           void* ifUserData, void* elseUserData)
-{
-    for (auto i = m_cache.begin(); i != m_cache.end(); ++i) {
-        for (auto j = i->second.begin(); j != i->second.end(); ++j) {
-            const bool line   = (iLine != -1);
-            const bool column = (iColumn != -1);
-            bool inLine       = false;
-            bool inCol        = false;
-            bool first;
-
-            if (line && size_t(iLine) == i->first) { inLine = true; }
-            if (column && size_t(iColumn) == j->first) { inCol = true; }
-
-            if (line && column) { first = inLine && inCol; }
-            else { first = inLine || inCol; }
-
-            if (first) { (this->*ifCB)(j->second, ifUserData); }
-            else { (this->*elseCB)(j->second, elseUserData); }
+    // Tags are worth more late than lost, e.g. when the panel of the box is out of sight and draws nothing
+    const uint64_t now = System::Time::zgetTimeRaw(false);
+    if (!m_heldStimuli.empty() && CTime(now - m_heldStimuli.front().queuedAt).toSeconds() > MAX_FRAME_WAIT_SECONDS) {
+        if (!m_warnedNoFrame) {
+            this->getLogManager() << Kernel::LogLevel_Warning << "No frame drawn for the speller: stimuli are sent without knowing when they were on screen\n";
+            m_warnedNoFrame = true;
         }
+        for (const SHeldStimulus& held : m_heldStimuli) { sendTag(held.stimulation, now); }
+        m_heldStimuli.clear();
     }
+    return true;
 }
 
-void CBoxAlgorithmP300SpellerVisualization::cacheChangeNullCB(widget_style_t& /*rWidgetStyle*/, void* /*data*/) { }
-
-void CBoxAlgorithmP300SpellerVisualization::cacheChangeBackgroundCB(widget_style_t& style, void* data)
+// The time goes with the tag: that of the frame, if there is one, and the acquisition server dates the marker with it.
+// A sender refuses a time before its last one.
+void CBoxAlgorithmP300SpellerVisualization::sendTag(const uint64_t stimulation, const uint64_t time)
 {
-    const GdkColor color = *static_cast<GdkColor*>(data);
-    if (memcmp(&style.bgColor, &color, sizeof(GdkColor)) != 0) {
-        gtk_widget_modify_bg(style.widget, GTK_STATE_NORMAL, &color);
-        style.bgColor = color;
-    }
+    m_lastTagTime = std::max(m_lastTagTime, time);
+    m_stimulusSender->sendStimulation(stimulation, m_lastTagTime, TCPTagging::IStimulusSender::Flag_Fptime);
 }
 
-void CBoxAlgorithmP300SpellerVisualization::cacheChangeForegroundCB(widget_style_t& style, void* data)
-{
-    const GdkColor color = *static_cast<GdkColor*>(data);
-    if (memcmp(&style.fgColor, &color, sizeof(GdkColor)) != 0) {
-        gtk_widget_modify_fg(style.childWidget, GTK_STATE_NORMAL, &color);
-        style.fgColor = color;
-    }
-}
-
-void CBoxAlgorithmP300SpellerVisualization::cacheChangeFontCB(widget_style_t& style, void* data)
-{
-    auto* fontDescription = static_cast<PangoFontDescription*>(data);
-    if (style.fontDesc != fontDescription) {
-        gtk_widget_modify_font(style.childWidget, fontDescription);
-        style.fontDesc = fontDescription;
-    }
-}
-
-void CBoxAlgorithmP300SpellerVisualization::cacheCollectWidgetCB(widget_style_t& style, void* data)
-{
-    if (data) { (static_cast<std::vector<GtkWidget*>*>(data))->push_back(style.widget); }
-}
-
-void CBoxAlgorithmP300SpellerVisualization::cacheCollectChildWidgetCB(widget_style_t& style, void* data)
-{
-    if (data) { (static_cast<std::vector<GtkWidget*>*>(data))->push_back(style.childWidget); }
-}
-
-// Note that we don't need concurrency control here as gtk callbacks run in the main thread
-void CBoxAlgorithmP300SpellerVisualization::FlushQueue()
-{
-    for (const auto& stimulation : m_stimuliQueue) { m_stimulusSender->sendStimulation(stimulation); }
-    m_stimuliQueue.clear();
-
-    // This function will be automatically removed after completion, so set to 0
-    m_idleFuncTag = 0;
-}
 }  // namespace SimpleVisualization
 }  // namespace Plugins
 }  // namespace OpenViBE

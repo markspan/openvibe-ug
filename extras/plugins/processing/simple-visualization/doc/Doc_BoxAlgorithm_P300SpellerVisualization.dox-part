@@ -13,9 +13,11 @@ to cause an evoked potential in the user's brain activity. This evoked potential
 detected and used to find which line and which column the user was focused on, thus resulting
 in the ability to write text.
 
-This box relies on a gtk builder interface that contains the actual letters & numbers. This glade
-interface can be freely adpated if you need for example more than 6 lines or 6 columns, or
-if you need something else than letters & words (e.g. words).
+The letters & numbers come from an interface file. It can be freely adapted if you need for example more
+than 6 lines or 6 columns, or if you need something else than letters & numbers (e.g. words).
+
+Drag the box into the window manager of the scenario before pressing Play, as for any visualization.
+Right-click the display to show or hide the target and result text.
 
 \image html Doc_BoxAlgorithm_P300SpellerVisualization_Snapshot.png "The P300 Speller Visualization in action"
  * |OVP_DocEnd_BoxAlgorithm_P300SpellerVisualization_Description|
@@ -85,10 +87,10 @@ __________________________________________________________________
  * |OVP_DocEnd_BoxAlgorithm_P300SpellerVisualization_Settings|
 
  * |OVP_DocBegin_BoxAlgorithm_P300SpellerVisualization_Setting1|
-This is the gtk builder interface to use for the GUI. This file can be adapted depending on your needs, for example
-if you want to replace the letters / numbers by e.g. words or symbols, or if you want to add more lines / columns.
-However, the structure of the GUI is important (wee need some specific hierarchies to allow flash/selection coloring
-to work). So please, respect this structure.
+This is the file with the letter grid: a gtk builder file, of which only the table named p300-speller-table is read.
+Its number of rows and columns and the label of each cell make up the grid. This file can be adapted depending on your
+needs, for example if you want to replace the letters / numbers by e.g. words or symbols, or if you want to add more
+lines / columns.
  * |OVP_DocEnd_BoxAlgorithm_P300SpellerVisualization_Setting1|
 
  * |OVP_DocBegin_BoxAlgorithm_P300SpellerVisualization_Setting2|

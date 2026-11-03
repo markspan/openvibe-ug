@@ -9,4 +9,19 @@ add_validation_test_visualization(scenarios-tests Multimodal-Graz-visualization)
 #    add_validation_test_visualization(scenarios-tests Power-Spectrum)
 #    add_validation_test_visualization(scenarios-tests Topography)
 # endif()
+add_validation_test_visualization(scenarios-tests P300-speller)  # UG fork
+# UG fork: the speller's scripts, in Lua and in Python, all the way to the letters. They pass only when their check box says so.
+foreach(LANGUAGE lua python)
+    add_validation_test_visualization(scenarios-tests P300-speller-${LANGUAGE})
+    set_tests_properties(run_P300-speller-${LANGUAGE} PROPERTIES PASS_REGULAR_EXPRESSION "P300 speller scripts: 2 letters, as expected")
+endforeach()
 add_validation_test_visualization(scenarios-tests Simple-visualization)
+
+# UG fork: the part of the P300 speller display that needs neither Qt nor the player
+add_executable(test-p300-speller P300SpellerStateTest.cpp ../src/box-algorithms/P300SpellerState.cpp)
+target_include_directories(test-p300-speller PRIVATE ../src/box-algorithms)
+set_property(TARGET test-p300-speller PROPERTY FOLDER ${TESTS_FOLDER})
+target_link_libraries(test-p300-speller PRIVATE tinyxml2::tinyxml2 GTest::GTest GTest::Main)
+
+include(GoogleTest)
+gtest_discover_tests(test-p300-speller)

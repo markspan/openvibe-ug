@@ -24,7 +24,6 @@
 //Presentation
 #include "box-algorithms/CBoxAlgorithmP300IdentifierCardVisualization.hpp"
 #include "box-algorithms/CBoxAlgorithmP300MagicCardVisualization.hpp"
-#include "box-algorithms/CBoxAlgorithmP300SpellerVisualization.hpp"
 */
 
 //2D plugins
@@ -37,6 +36,7 @@
 #include "box-algorithms/CBoxAlgorithmErpPlot.h"
 #include "box-algorithms/CGrazVisualization.h"
 #include "box-algorithms/CGrazMultiVisualization.h"
+#include "box-algorithms/CBoxAlgorithmP300SpellerVisualization.hpp"  // UG fork: ported to Qt
 
 namespace OpenViBE {
 namespace Plugins {
@@ -69,9 +69,9 @@ OVP_Declare_Begin()
     OVP_Declare_New(CGrazVisualizationDesc)
     OVP_Declare_New(CGrazMultiVisualizationDesc)
     OVP_Declare_New(CBoxAlgorithmLevelMeasureDesc)
+    OVP_Declare_New(CBoxAlgorithmP300SpellerVisualizationDesc)  // UG fork: ported to Qt
     /*
 
-    OVP_Declare_New(CBoxAlgorithmP300SpellerVisualizationDesc)
     OVP_Declare_New(CBoxAlgorithmP300IdentifierCardVisualizationDesc)
     OVP_Declare_New(CBoxAlgorithmP300MagicCardVisualizationDesc)
 

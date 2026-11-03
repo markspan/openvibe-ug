@@ -4,10 +4,15 @@
  */
 
 #include "AbstractWriter.h"
+#include <algorithm>
 #include <utility>
 #include <iostream>
 
 static constexpr uint32_t MAX_PENDING_STIM_COUNT = 128;
+
+// UG fork: how far after a chunk's last sample a stimulation can be dated and still wait for its own sample. Beyond this, the
+// date does not come from the clock of the samples, and its sample would never come.
+static constexpr timestampType MAX_STIM_WAIT_NS = 1000000000ULL;
 
 AbstractWriter::AbstractWriter(const std::string& writerName) : m_name(writerName)
 {
@@ -117,6 +122,25 @@ size_t AbstractWriter::writeSamples(samplesBuffer* buffer)
             }
         };
 
+        // UG fork: a TCP tag can get here before the samples of its moment, which are still on their way from the amplifier.
+        // It stays pending for the chunk that holds its sample: the client places a stimulation within the chunk it comes with.
+        // Upstream sends every pending stimulation with the next chunk. Moves those to send to the front, and returns their number.
+        auto stimsDue = [&](timestampType chunkLastTs)
+        {
+            ovStimulation* first = m_msg.msgData.samplesStruct.stimulations;
+            ovStimulation* last  = first + pendingStimCount;
+            return uint32_t(std::stable_partition(first, last, [chunkLastTs](const ovStimulation& stim)
+            {
+                return stim.date <= chunkLastTs || stim.date - chunkLastTs > MAX_STIM_WAIT_NS;
+            }) - first);
+        };
+        auto keepStimsNotDue = [&](uint32_t due)
+        {
+            ovStimulation* first = m_msg.msgData.samplesStruct.stimulations;
+            std::move(first + due, first + pendingStimCount, first);
+            pendingStimCount -= due;
+        };
+
         if (buffer->count > 0) {
             while (buffer->count - bufferOffset > 0)
             {
@@ -134,11 +158,12 @@ size_t AbstractWriter::writeSamples(samplesBuffer* buffer)
                     msg.msgData.samplesStruct.timestamp    = buffer->timestampsBuff + bufferOffset;
                     msg.msgData.samplesStruct.samples      = buffer->samplesBuff + (bufferOffset * m_channelCount);
                     msg.msgData.samplesStruct.count        = samplesToWriteOrCopy;
+                    const uint32_t due = stimsDue(chunkLastTs);
                     msg.msgData.samplesStruct.stimulations = m_msg.msgData.samplesStruct.stimulations;
-                    msg.msgData.samplesStruct.stimCount    = pendingStimCount;
-                    msg.msgSize = computeMsgSize(samplesToWriteOrCopy, m_channelCount, pendingStimCount);
+                    msg.msgData.samplesStruct.stimCount    = due;
+                    msg.msgSize = computeMsgSize(samplesToWriteOrCopy, m_channelCount, due);
                     send(&msg);
-                    pendingStimCount = 0;
+                    keepStimsNotDue(due);
                 }
                 else
                 {
@@ -156,10 +181,14 @@ size_t AbstractWriter::writeSamples(samplesBuffer* buffer)
 
                     if (currentMsgCount == m_chunkSamplesCount)
                     {
-                        m_msg.msgSize = computeMsgSize(m_chunkSamplesCount, m_channelCount, pendingStimCount);
+                        const uint32_t pending = pendingStimCount;
+                        const uint32_t due     = stimsDue(chunkLastTs);
+                        pendingStimCount = due;
+                        m_msg.msgSize = computeMsgSize(m_chunkSamplesCount, m_channelCount, due);
                         send(&m_msg);
                         currentMsgCount  = 0;
-                        pendingStimCount = 0;
+                        pendingStimCount = pending;
+                        keepStimsNotDue(due);
                     }
                 }
 
