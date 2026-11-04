@@ -9,12 +9,8 @@
         <Box>
             <Identifier>(0x000029b8, 0x00004235)</Identifier>
             <Name>Acquisition client</Name>
-            <AlgorithmClassIdentifier>(0x35d225cb, 0x3e6e3a5f)</AlgorithmClassIdentifier>
+            <AlgorithmClassIdentifier>(0x35d225cc, 0x3e6e3a60)</AlgorithmClassIdentifier>
             <Outputs>
-                <Output>
-                    <TypeIdentifier>(0x403488e7, 0x565d70b6)</TypeIdentifier>
-                    <Name>Experiment information</Name>
-                </Output>
                 <Output>
                     <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
                     <Name>Signal stream</Name>
@@ -22,14 +18,6 @@
                 <Output>
                     <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
                     <Name>Stimulations</Name>
-                </Output>
-                <Output>
-                    <TypeIdentifier>(0x013df452, 0xa3a8879a)</TypeIdentifier>
-                    <Name>Channel localisation</Name>
-                </Output>
-                <Output>
-                    <TypeIdentifier>(0x6ab26b81, 0x0f8c02f3)</TypeIdentifier>
-                    <Name>Channel units</Name>
                 </Output>
             </Outputs>
             <Settings>
@@ -43,8 +31,8 @@
                 <Setting>
                     <TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
                     <Name>Acquisition server port</Name>
-                    <DefaultValue>1024</DefaultValue>
-                    <Value>1024</Value>
+                    <DefaultValue>8088</DefaultValue>
+                    <Value>8088</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
             </Settings>
@@ -142,14 +130,14 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Horizontal ruler</Name>
+                    <Name>Bottom ruler</Name>
                     <DefaultValue>true</DefaultValue>
                     <Value>true</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Vertical ruler</Name>
+                    <Name>Left ruler</Name>
                     <DefaultValue>false</DefaultValue>
                     <Value>false</Value>
                     <Modifiability>false</Modifiability>
@@ -203,7 +191,7 @@
             <Identifier>(0x000019c2, 0x00003e36)</Identifier>
             <Source>
                 <BoxIdentifier>(0x000029b8, 0x00004235)</BoxIdentifier>
-                <BoxOutputIndex>1</BoxOutputIndex>
+                <BoxOutputIndex>0</BoxOutputIndex>
             </Source>
             <Target>
                 <BoxIdentifier>(0x000044d9, 0x0000415f)</BoxIdentifier>
@@ -211,21 +199,10 @@
             </Target>
         </Link>
         <Link>
-            <Identifier>(0x00002352, 0x00007dcd)</Identifier>
-            <Source>
-                <BoxIdentifier>(0x000029b8, 0x00004235)</BoxIdentifier>
-                <BoxOutputIndex>4</BoxOutputIndex>
-            </Source>
-            <Target>
-                <BoxIdentifier>(0x000044d9, 0x0000415f)</BoxIdentifier>
-                <BoxInputIndex>2</BoxInputIndex>
-            </Target>
-        </Link>
-        <Link>
             <Identifier>(0x00005ba9, 0x00007356)</Identifier>
             <Source>
                 <BoxIdentifier>(0x000029b8, 0x00004235)</BoxIdentifier>
-                <BoxOutputIndex>2</BoxOutputIndex>
+                <BoxOutputIndex>1</BoxOutputIndex>
             </Source>
             <Target>
                 <BoxIdentifier>(0x000044d9, 0x0000415f)</BoxIdentifier>

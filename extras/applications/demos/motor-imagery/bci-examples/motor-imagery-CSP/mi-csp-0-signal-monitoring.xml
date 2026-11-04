@@ -69,14 +69,14 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Horizontal ruler</Name>
+                    <Name>Bottom ruler</Name>
                     <DefaultValue>true</DefaultValue>
                     <Value>true</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Vertical ruler</Name>
+                    <Name>Left ruler</Name>
                     <DefaultValue>false</DefaultValue>
                     <Value>false</Value>
                     <Modifiability>false</Modifiability>
@@ -260,14 +260,14 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Horizontal ruler</Name>
+                    <Name>Bottom ruler</Name>
                     <DefaultValue>true</DefaultValue>
                     <Value>true</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Vertical ruler</Name>
+                    <Name>Left ruler</Name>
                     <DefaultValue>false</DefaultValue>
                     <Value>false</Value>
                     <Modifiability>false</Modifiability>
@@ -314,12 +314,8 @@
         <Box>
             <Identifier>(0x00005792, 0x00005c0c)</Identifier>
             <Name>Acquisition client</Name>
-            <AlgorithmClassIdentifier>(0x35d225cb, 0x3e6e3a5f)</AlgorithmClassIdentifier>
+            <AlgorithmClassIdentifier>(0x35d225cc, 0x3e6e3a60)</AlgorithmClassIdentifier>
             <Outputs>
-                <Output>
-                    <TypeIdentifier>(0x403488e7, 0x565d70b6)</TypeIdentifier>
-                    <Name>Experiment information</Name>
-                </Output>
                 <Output>
                     <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
                     <Name>Signal stream</Name>
@@ -327,14 +323,6 @@
                 <Output>
                     <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
                     <Name>Stimulations</Name>
-                </Output>
-                <Output>
-                    <TypeIdentifier>(0x013df452, 0xa3a8879a)</TypeIdentifier>
-                    <Name>Channel localisation</Name>
-                </Output>
-                <Output>
-                    <TypeIdentifier>(0x6ab26b81, 0x0f8c02f3)</TypeIdentifier>
-                    <Name>Channel units</Name>
                 </Output>
             </Outputs>
             <Settings>
@@ -348,8 +336,8 @@
                 <Setting>
                     <TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
                     <Name>Acquisition server port</Name>
-                    <DefaultValue>1024</DefaultValue>
-                    <Value>1024</Value>
+                    <DefaultValue>8088</DefaultValue>
+                    <Value>8088</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
             </Settings>
@@ -386,7 +374,7 @@
             <Identifier>(0x00000063, 0x000030a7)</Identifier>
             <Source>
                 <BoxIdentifier>(0x00005792, 0x00005c0c)</BoxIdentifier>
-                <BoxOutputIndex>1</BoxOutputIndex>
+                <BoxOutputIndex>0</BoxOutputIndex>
             </Source>
             <Target>
                 <BoxIdentifier>(0x000007a2, 0x000015ab)</BoxIdentifier>
@@ -397,7 +385,7 @@
             <Identifier>(0x00001e34, 0x00002326)</Identifier>
             <Source>
                 <BoxIdentifier>(0x00005792, 0x00005c0c)</BoxIdentifier>
-                <BoxOutputIndex>2</BoxOutputIndex>
+                <BoxOutputIndex>1</BoxOutputIndex>
             </Source>
             <Target>
                 <BoxIdentifier>(0x000007a2, 0x000015ab)</BoxIdentifier>
@@ -419,7 +407,7 @@
             <Identifier>(0x00006aaa, 0x000062f7)</Identifier>
             <Source>
                 <BoxIdentifier>(0x00005792, 0x00005c0c)</BoxIdentifier>
-                <BoxOutputIndex>1</BoxOutputIndex>
+                <BoxOutputIndex>0</BoxOutputIndex>
             </Source>
             <Target>
                 <BoxIdentifier>(0x00000ad5, 0x00000048)</BoxIdentifier>
@@ -430,7 +418,7 @@
             <Identifier>(0x00006b7c, 0x0000022d)</Identifier>
             <Source>
                 <BoxIdentifier>(0x00005792, 0x00005c0c)</BoxIdentifier>
-                <BoxOutputIndex>2</BoxOutputIndex>
+                <BoxOutputIndex>1</BoxOutputIndex>
             </Source>
             <Target>
                 <BoxIdentifier>(0x00001a86, 0x00007cb2)</BoxIdentifier>

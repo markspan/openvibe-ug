@@ -137,14 +137,14 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Horizontal ruler</Name>
+                    <Name>Bottom ruler</Name>
                     <DefaultValue>true</DefaultValue>
                     <Value>true</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Vertical ruler</Name>
+                    <Name>Left ruler</Name>
                     <DefaultValue>false</DefaultValue>
                     <Value>false</Value>
                     <Modifiability>false</Modifiability>
@@ -255,14 +255,14 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Horizontal ruler</Name>
+                    <Name>Bottom ruler</Name>
                     <DefaultValue>true</DefaultValue>
                     <Value>true</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Vertical ruler</Name>
+                    <Name>Left ruler</Name>
                     <DefaultValue>false</DefaultValue>
                     <Value>false</Value>
                     <Modifiability>false</Modifiability>
@@ -373,14 +373,14 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Horizontal ruler</Name>
+                    <Name>Bottom ruler</Name>
                     <DefaultValue>true</DefaultValue>
                     <Value>true</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Vertical ruler</Name>
+                    <Name>Left ruler</Name>
                     <DefaultValue>false</DefaultValue>
                     <Value>false</Value>
                     <Modifiability>false</Modifiability>
@@ -559,14 +559,14 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Horizontal ruler</Name>
+                    <Name>Bottom ruler</Name>
                     <DefaultValue>true</DefaultValue>
                     <Value>true</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Vertical ruler</Name>
+                    <Name>Left ruler</Name>
                     <DefaultValue>false</DefaultValue>
                     <Value>false</Value>
                     <Modifiability>false</Modifiability>
@@ -749,14 +749,14 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Horizontal ruler</Name>
+                    <Name>Bottom ruler</Name>
                     <DefaultValue>true</DefaultValue>
                     <Value>true</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Vertical ruler</Name>
+                    <Name>Left ruler</Name>
                     <DefaultValue>false</DefaultValue>
                     <Value>false</Value>
                     <Modifiability>false</Modifiability>
@@ -935,14 +935,14 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Horizontal ruler</Name>
+                    <Name>Bottom ruler</Name>
                     <DefaultValue>true</DefaultValue>
                     <Value>true</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Vertical ruler</Name>
+                    <Name>Left ruler</Name>
                     <DefaultValue>false</DefaultValue>
                     <Value>false</Value>
                     <Modifiability>false</Modifiability>
@@ -1238,14 +1238,14 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Horizontal ruler</Name>
+                    <Name>Bottom ruler</Name>
                     <DefaultValue>true</DefaultValue>
                     <Value>true</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier>
-                    <Name>Vertical ruler</Name>
+                    <Name>Left ruler</Name>
                     <DefaultValue>false</DefaultValue>
                     <Value>false</Value>
                     <Modifiability>false</Modifiability>

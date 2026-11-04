@@ -187,21 +187,12 @@ namespace Network
                 // Graceful shutdown
                 m_bRun = false;
             }
-            else
+            else if (!NETWORK_ERROR_TIMEOUT)
             {
-/*                // Error handling
-                int err = WSAGetLastError(); //TODO: cross-platform error retrieval
-
-                // Check if it's just a Timeout (keep alive) or a real error
-#ifdef _WIN32
-                if (err != WSAETIMEDOUT)
-#else
-                if (err != EWOULDBLOCK && err != EAGAIN)
-#endif
-                {*/
-                    m_bRun = false;
-                //}
-                // If it is a timeout, we loop again (checking m_bRun)
+                // UG fork: a timeout only means the client had nothing to say, and we loop again (checking m_bRun).
+                // Upstream stops reading at any error, so a client silent for 5 s was never heard again: a TCP tagging
+                // client, such as the P300 speller, lost every tag after a pause of that length.
+                m_bRun = false;
             }
         }
 

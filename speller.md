@@ -119,7 +119,7 @@ The Python versions are in `p300-speller-python/` and `p300-speller-xDAWN-python
 2. **Leave the server's TCP Tagging port at 15361.** It's the default, and the server shows it among its settings. If the box can't connect, the log says `Unable to connect to AS TCP Tagging, stimuli wont be forwarded`. The display then still runs, **but the recording has no markers and can't be used for training.**
 3. **Choose the driver and the montage in the server.** Check that it names the channels you need, see [montages.md](montages.md).
 4. **Keep hardware triggers out of it.** Disconnect any trigger line from the amplifier during the speller. The amplifier's triggers arrive as `Label(1)` to `Label(255)`, the same codes as the speller's rows and columns. During a trial, a trigger would be counted as a flash and shift the votes.
-5. **Set the server's connection port to 1024.** The Acquisition client box in all the speller scenarios, Lua and Python, connects on 1024, and the server's default is 8088. Otherwise, the log says `Could not connect to server localhost:1024`. The server remembers the setting. You can also change the **Acquisition server port** setting of the box, in each scenario.
+5. **Leave the server's connection port at 8088.** It's the default, and the Acquisition client box in all the speller scenarios, Lua and Python, connects there. If you change it in the server, change it in that box too.
 6. Press **Connect** and then **Play** in the server, before Play in Designer.
 
 ### 2.3 Set up the display
@@ -188,7 +188,8 @@ If you change the size, also change the rows and columns in the stimulator. If y
 | What you see | Likely cause |
 |---|---|
 | No window opens on Play | The box isn't in the Window Manager, see [2.3](#23-set-up-the-display) |
-| `Could not connect to server localhost:1024` in the log | The server isn't playing, or its connection port isn't 1024, see [2.2](#22-set-up-the-pc-and-the-server) |
+| `Could not connect to server localhost:8088` in the log | The server isn't running, or its connection port isn't 8088, see [2.2](#22-set-up-the-pc-and-the-server) |
+| No signal and no markers, with no error | A scenario of your own with the box `Acquisition client (Legacy)`, which connects but gets nothing from this server: replace it with `Acquisition client`, see [3.6](#36-the-scenarios-and-the-server) |
 | `Unable to connect to AS TCP Tagging` in the log | Server not running, or its TCP Tagging port isn't 15361 |
 | Training finds no targets, or fails | No markers in the recording: the connection above, or a recording made without the server |
 | Decimation error at Play | The sampling rate isn't a multiple of 4 |
@@ -273,7 +274,7 @@ Two things then decide which sample a marker lands on, as the Acquisition client
 | **Before its sample**, which is on its way from the amplifier | It waits for the chunk that holds its sample, in `AbstractWriter`, and lands on the sample stamped at or before its date. Upstream sent it with the next chunk, whichever that was. |
 | **After its sample's chunk has gone** | It lands on the first sample of the next chunk: late, by at most the marker's age. It can't go back, as boxes such as the Lua and Python filters drop a stimulation dated before the chunk they last sent. |
 
-A marker reached the server about 11 ms after its frame at the median (1.4–12.6 ms), in one run through the real server. Samples from an amplifier that come in blocks will often take longer than that, which makes the second case rare, but this has not been measured with TMSi or eego.
+**Measured** with the server's Generic Oscillator, at 256 Hz in chunks of 32 samples (125 ms), in the full runs of [3.5](#35-what-has-been-tested). A flash marker reached the server about 25 ms after its frame at the median (3â€“33 ms). **About a quarter of the flash markers (181 of 720) came after their chunk had gone**, and landed on the first sample of the next chunk: late by 9 to 17 ms at the median, depending on the run, and by 30 ms at most. The others landed within about 4 ms of their date, which is about one sample at this rate. An amplifier may differ, as its samples come in blocks of their own, and this has not been measured with TMSi or eego. The share of late markers goes with the marker's age against the length of a chunk, so a short chunk makes it larger. Epochs that start late by up to 30 ms blur the average a little, and this is worth knowing when reading latencies from a recording.
 
 **Other programs.** This holds for every program that sends TCP tags. One that stamps its tags when sending them is now dated at the moment it sends, and not on arrival. A tag whose time can't be from this PC, from another PC's clock for instance, is dated on arrival, as before.
 
@@ -291,19 +292,48 @@ A marker reached the server about 11 ms after its frame at the median (1.4–12.6 
 **Tested on the development PC, without an amplifier:**
 - `test-p300-speller`, 12 unit tests: the grid file, the display's state, and the frame tracking.
 - `test-acquisition-server-core`, with 7 new tests (`TcpTagTimingTest.cpp`): a tag's date from its age, tags with a time that means nothing here, a marker waiting for its sample, and triggers staying with their own sample.
-- The speller, in a real window, with the real server's tag service reading the markers. The server read them all, about 11 ms old.
+- `test_tcptagging-service`, with a new step: a tag sent after 6 s of silence still arrives. It failed before the fix in [3.6](#36-the-scenarios-and-the-server).
+- **The whole task through the real server, in a real window, in Lua and in Python**, using test code that started the server's Generic Oscillator, placed the box in the Window Manager and logged each marker, and has since been removed:
+  - Recording, 3 letters of 6 repetitions, with the scenario's own 20 s before the start: 920 markers sent, 920 read by the server, 920 placed on a sample by the Acquisition client. Every kind of marker in the table in [1.4](#14-the-markers-in-the-data) came through, and `ExperimentStop` from the server ended the scenario.
+  - Training on that recording: the classifier got all 36 `Target` and 180 `NonTarget` epochs. The signal was noise, so its accuracy says nothing.
+  - Online, 2 letters of 6 repetitions: 614 markers, all three counts equal. The votes reached the display, and two letters were selected.
+  - Replay of that recording: the flashes and targets came out of the file, and two letters were selected.
 - `run_P300-speller`: the scenario runs without errors, with no window. `run_Display-cue-image`, `run_ERP-plot`, `run_Multimodal-Graz-visualization` and `run_Simple-visualization` still pass with the 1 ms sleep.
 - In a real window, once, using test code that placed the box in the Window Manager and has since been removed:
   - images of the grid, showing a flashing row, and `ug` on both text lines, in green;
   - 214 markers at a program standing in for the TCP Tagging port, in order, with 8 `Target` and 40 `NonTarget`.
 
 **Not tested:**
-- **A marker's way from the server to a recording.** The test code could start the real server's oscillator and its tag service, but Designer got no samples from it that way, so no marker has been seen on a sample from the real server. The step is covered by the unit tests only. This is the first thing to check in the lab: a recording of the `1-acquisition` scenario should have its `Target` and `NonTarget` markers, 240 and 1,200.
-- Any step with an amplifier, or training on real data.
+- The xDAWN sets through the whole task. They take the same markers from the same boxes. Their monitoring and recording scenarios got a signal from the server. Their online scenarios stopped at the missing spatial filter, as nothing had been trained, so those were not run.
+- Any step with an amplifier, or training on real data, so whether the speller spells letters correctly has not been seen.
 - Dragging the box into the Window Manager by hand, and the right-click menu.
 - Showing the grid on a second monitor.
 - A normal recording with the 1 ms sleep, which is worth doing, as it applies to all scenarios.
 - The light from the screen, against a photodiode.
+
+### 3.6 The scenarios and the server
+
+Two faults kept the speller from getting anything from this server. Neither showed an error.
+
+**The scenarios used the old client box.** All the speller scenarios, like 19 others of upstream's, used `Acquisition client (Legacy)`. It speaks the protocol of the previous server, so it connects to this one and gets nothing. These 31 scenarios now use the current `Acquisition client`:
+
+| | Legacy box | Current box |
+|---|---|---|
+| Outputs | Experiment information, signal, stimulations, channel localisation, channel units | Signal, stimulations |
+| Port | 1024 | 8088, the default of the server |
+
+The links from signal and stimulations moved along. The links from the outputs that are gone were removed: mostly to the first input of the Generic stream writer, and in `erp-1-monitor-signal` and `network-acquisition` to the channel units of the Signal display. A recording therefore has no experiment information, and on replay the Generic stream reader logs `No free output connector` for that stream. Training and replay don't use it, and they ran normally.
+
+All 31 were opened with the current box against the real server, for about 10 s each. Of these, 24 got a signal from it. The errors in those were expected in this test: no trained classifier, and channels that the oscillator doesn't have. The other 7 stopped before the box could connect, for reasons that have nothing to do with it:
+
+| Scenario | Why it stops |
+|---|---|
+| `p300-magic-card-1-acquisition`, `-3-online` | The Magic Card display isn't ported to Qt |
+| `cue-image`, `sound-player` | The Keyboard stimulator isn't ported to Qt |
+| `p300-xdawn-4-online`, `p300-xdawn-python-4-online` | No trained spatial filter yet |
+| `filter-bank-CSP/0-monitoring` | Designer can't open the file (`invalid stod argument`), as before this change |
+
+**The server stopped listening to a quiet connection.** Sockets have a 5 s timeout, and the server took a timeout for a lost connection and stopped reading, without closing it. The speller connects at Play and sends its first marker 20 s later, so without this fix every marker of a session was lost, while the sender saw no error. Now `ConnectedClient::readLoop()` keeps reading after a timeout, and `CClient` does the same, as it closed its connection when the server had sent nothing for 5 s.
 
 ---
 
@@ -396,7 +426,7 @@ On purpose, in cases where the Lua script goes wrong:
 - Flash timing with the Python scripts in a real window. The scripts run on the player's thread, between the flashes. The CPU use is below.
 - Pressing Play a second time without closing Designer.
 
-**CPU**, in % of one core, for Designer without a window, over 12 s of the test scenarios, three runs each: Lua 0.5–2.0%, Python 0.7–2.3%. That's no measurable difference, on so few runs.
+**CPU**, in % of one core, for Designer without a window, over 12 s of the test scenarios, three runs each: Lua 0.5â€“2.0%, Python 0.7â€“2.3%. That's no measurable difference, on so few runs.
 
 ---
 

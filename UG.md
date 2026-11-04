@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 24 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 26 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 100 files, about 22,900 lines added and 940 removed |
+| Size | 155 files, about 23,200 lines added and 1,720 removed |
 
 To regenerate the list of changes:
 
@@ -67,6 +67,8 @@ Everything outside the files listed here is identical to upstream.
 | Designer | Clicking two outputs could try to link a box to itself and wedge link creation | Second click on a port of the same kind restarts the link; failures end link creation |
 | Path parameters | Re-choosing the same file in the file dialog does nothing | Re-choosing the same file applies it again (reloads an edited montage) |
 | Client memory | Acquisition client leaked every received message's arrays | Arrays freed |
+| Client box in scenarios | 31 scenarios, among them all of the speller, use the legacy box, which gets nothing from this server | They use the current `Acquisition client`, on port 8088 |
+| Quiet connections | A client silent for 5 s is no longer read; a server silent for 5 s loses its client | They keep the connection |
 | Build | Fixed CMake 3.25 / Ninja 1.10 versions, `ninja -C build` | Any CMake ≥ 3.20 and any Ninja, `cmake --build build`; Qt located through `CMAKE_PREFIX_PATH` |
 
 ---
@@ -393,6 +395,8 @@ The label sits in a flag at the top of the marker line:
 
 **Consequence:** a hardware trigger shows as `1`, `12`, `233`. Upstream shows `OVTK_StimulationId_Label_01`, or a raw ID, as small rotated text. A long stimulation name makes a long flag, which covers more of the top channels.
 
+**Older scenarios.** Upstream renamed the box's settings `Horizontal ruler` and `Vertical ruler` to `Bottom ruler` and `Left ruler`, but 35 of its own scenarios, with 67 of these boxes, still had the earlier names, and failed on Play with `Missing setting 'Bottom ruler'`. Those scenarios now have the new names. A scenario of your own from before the rename fails in the same way: replace the two names in its file, or delete the box and add it again.
+
 ### 2.12 Designer link creation fix
 
 **File:** `designer/applications/platform/designer/src/DesignerScenario.cpp`
@@ -511,6 +515,26 @@ The label sits in a flag at the top of the marker line:
 - Drag the box into the scenario's Window Manager before Play, as for any visualization in this Designer: the layout is not saved with the scenario.
 - Hardware triggers use the same codes as the speller's rows and columns, so keep them out of a speller session.
 
+### 2.19 Scenarios on the current Acquisition client; quiet connections
+
+[`speller.md`, 3.6](speller.md#36-the-scenarios-and-the-server) has the details.
+
+**Files**
+- 31 demo and tutorial scenarios (`*.xml`) with an Acquisition client box
+- `sdk/modules/network/Server/ConnectedClient.cpp`, `sdk/modules/network/Client/CClient.cpp`
+- `extras/plugins/server-extensions/tcp-tagging-service/test/test_tcptaggingservice.cpp`
+
+**What it does**
+- All 31 scenarios with `Acquisition client (Legacy)`, which connects to this server and gets nothing, without an error, now have the current `Acquisition client`, on port 8088. Links from its two remaining outputs moved along, and links from the other three are gone.
+- The network library no longer takes a socket's 5 s timeout for a lost connection, in the server's read loop and in the client's. Upstream's server stopped reading a client after 5 s of silence, so a TCP tagging client that paused that long, as the speller does before its first marker, lost all its tags. Upstream's client closed the connection after 5 s without data, so a scenario started before the server stayed without a signal.
+
+**Consequences**
+- A scenario of your own with the legacy box needs the same change: delete the box and add `Acquisition client`, then make its links again. The legacy box is still there, for a server of the previous kind.
+- The Signal display in `erp-1-monitor-signal` and `network-acquisition` no longer gets channel units from the box, which has no such output.
+- New recordings have no experiment information.
+- A client that stops playing is now heard when it asks to stop its stream, where the server had stopped reading it.
+- Only the speller's Lua and Python sets have run through the whole task, without an amplifier. Of the 31, 24 got a signal when opened against the server; the other 7 stop for other reasons, listed in `speller.md`: unported boxes, no trained filter, and one file Designer can't open, as before.
+
 ---
 
 ## 3. All modified files
@@ -584,6 +608,9 @@ The label sits in a flag at the top of the marker line:
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.h` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11 |
+| M | 35 demo and tutorial scenarios (`*.xml`) with a Signal display | 2.11 |
+| M | 31 demo and tutorial scenarios (`*.xml`) with an Acquisition client box | 2.19 |
+| M | `extras/plugins/server-extensions/tcp-tagging-service/test/test_tcptaggingservice.cpp` | 2.19 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.h` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/main.cpp` | 2.18 |
@@ -596,7 +623,9 @@ The label sits in a flag at the top of the marker line:
 | M | `pixi.lock` | 2.15 |
 | M | `pixi.toml` | 2.15 |
 | M | `sdk/kernel/src/kernel/ovkCKernelContext.cpp` | 2.10 |
+| M | `sdk/modules/network/Client/CClient.cpp` | 2.19 |
 | M | `sdk/modules/network/Server/CServer.cpp` | 2.4 |
+| M | `sdk/modules/network/Server/ConnectedClient.cpp` | 2.19 |
 | A | `sdk/openvibe/include/openvibe/ConsoleLog.hpp` | 2.17 |
 | A | `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h` | 2.7 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsg.h` | 2.7 |

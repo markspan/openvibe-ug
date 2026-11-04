@@ -168,6 +168,20 @@ TEST(TcpTaggingServiceTest, EndToEndScenario)
         closesocket(s);
     }
 
+    // UG fork: a program connects at Play and may send its first tag long after; the P300 speller does, 20 s after
+    {
+        SOCKET s = connectClient(TEST_PORT);
+        EXPECT_NE(s, INVALID_SOCKET) << "connect for quiet connection test";
+        std::this_thread::sleep_for(std::chrono::seconds(6)); // Longer than the 5 s socket timeout
+        Tag sent; sent.flags = FLAG_FPTIME; sent.identifier = 77; sent.timestamp = 555ULL;
+        EXPECT_TRUE(sendTag(s, sent)) << "send a tag after a silence";
+        Tag received;
+        const bool got = waitForTag(service, received);
+        EXPECT_TRUE(got) << "popTag() receives a tag sent after a silence";
+        if (got) { EXPECT_EQ(received.identifier, sent.identifier); }
+        closesocket(s);
+    }
+
     {
         SOCKET s = connectClient(TEST_PORT);
         Tag sent; sent.flags = FLAG_AUTOSTAMP_SERVERSIDE; sent.identifier = 55; sent.timestamp = 4242ULL;

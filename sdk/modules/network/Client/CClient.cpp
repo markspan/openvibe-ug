@@ -451,8 +451,10 @@ namespace Network
             {
                 break; // Client close connection
             }
-            else
+            else if (!NETWORK_ERROR_TIMEOUT)
             {
+                // UG fork: a timeout only means the server had nothing to send, e.g. it isn't playing yet. Upstream closes
+                // the connection then, so a scenario started before the server stayed without a signal, with no error.
                 //fprintf(stderr, "recv failed: %d\n", WSAGetLastError());
                 break;
             }

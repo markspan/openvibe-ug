@@ -391,12 +391,8 @@
         <Box>
             <Identifier>(0x00005760, 0x000043ee)</Identifier>
             <Name>Acquisition client</Name>
-            <AlgorithmClassIdentifier>(0x35d225cb, 0x3e6e3a5f)</AlgorithmClassIdentifier>
+            <AlgorithmClassIdentifier>(0x35d225cc, 0x3e6e3a60)</AlgorithmClassIdentifier>
             <Outputs>
-                <Output>
-                    <TypeIdentifier>(0x403488e7, 0x565d70b6)</TypeIdentifier>
-                    <Name>Experiment information</Name>
-                </Output>
                 <Output>
                     <TypeIdentifier>(0x5ba36127, 0x195feae1)</TypeIdentifier>
                     <Name>Signal stream</Name>
@@ -404,14 +400,6 @@
                 <Output>
                     <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
                     <Name>Stimulations</Name>
-                </Output>
-                <Output>
-                    <TypeIdentifier>(0x013df452, 0xa3a8879a)</TypeIdentifier>
-                    <Name>Channel localisation</Name>
-                </Output>
-                <Output>
-                    <TypeIdentifier>(0x6ab26b81, 0x0f8c02f3)</TypeIdentifier>
-                    <Name>Channel units</Name>
                 </Output>
             </Outputs>
             <Settings>
@@ -425,8 +413,8 @@
                 <Setting>
                     <TypeIdentifier>(0x007deef9, 0x2f3e95c6)</TypeIdentifier>
                     <Name>Acquisition server port</Name>
-                    <DefaultValue>1024</DefaultValue>
-                    <Value>1024</Value>
+                    <DefaultValue>8088</DefaultValue>
+                    <Value>8088</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
             </Settings>
@@ -471,7 +459,7 @@
             <Identifier>(0x00000c5b, 0x00000d31)</Identifier>
             <Source>
                 <BoxIdentifier>(0x00005760, 0x000043ee)</BoxIdentifier>
-                <BoxOutputIndex>1</BoxOutputIndex>
+                <BoxOutputIndex>0</BoxOutputIndex>
             </Source>
             <Target>
                 <BoxIdentifier>(0x000039c5, 0x00003d32)</BoxIdentifier>
@@ -482,7 +470,7 @@
             <Identifier>(0x00003bc6, 0x00005ab0)</Identifier>
             <Source>
                 <BoxIdentifier>(0x00005760, 0x000043ee)</BoxIdentifier>
-                <BoxOutputIndex>2</BoxOutputIndex>
+                <BoxOutputIndex>1</BoxOutputIndex>
             </Source>
             <Target>
                 <BoxIdentifier>(0x000039c5, 0x00003d32)</BoxIdentifier>
@@ -515,7 +503,7 @@
             <Identifier>(0x000063f2, 0x00002eeb)</Identifier>
             <Source>
                 <BoxIdentifier>(0x00005760, 0x000043ee)</BoxIdentifier>
-                <BoxOutputIndex>2</BoxOutputIndex>
+                <BoxOutputIndex>1</BoxOutputIndex>
             </Source>
             <Target>
                 <BoxIdentifier>(0x00001596, 0x00001900)</BoxIdentifier>
