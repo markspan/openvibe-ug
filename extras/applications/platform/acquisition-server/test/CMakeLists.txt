@@ -30,3 +30,5 @@ SET_BUILD_PLATFORM()
 
 include(GoogleTest)
 gtest_discover_tests(${PROJECT_NAME})
+
+add_subdirectory(lsl-output)  # UG fork

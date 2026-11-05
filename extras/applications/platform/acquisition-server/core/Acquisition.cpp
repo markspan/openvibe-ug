@@ -314,7 +314,7 @@ void Acquisition::initAcquisition()
         m_channelInfo = describeChannels(*m_driver);
         for (auto& w : m_writers) {
             w->init(m_chunkSampleCount.value(), channelCount);
-            w->onAcquisitionSetup(sampleRate, m_driver->channelNames().value());
+            w->onAcquisitionSetup(sampleRate, m_channelInfo);  // UG fork: the montage too; upstream passes the names
         }
     }
 }

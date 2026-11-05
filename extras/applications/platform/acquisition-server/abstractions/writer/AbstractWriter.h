@@ -69,9 +69,9 @@ public:
     * Override if needed, to perform setup that requires the sample rate or channel names
     *
     * @param sampleRate   Sampling rate reported by the driver (in Hz).
-    * @param channelNames Names of the acquired channels.
+    * @param channels     Names of the acquired channels, and the montage that named them. UG fork: upstream passes the names.
     */
-   virtual void onAcquisitionSetup(uint32_t /*sampleRate*/, const std::vector<std::string>& /*channelNames*/) {}
+   virtual void onAcquisitionSetup(uint32_t /*sampleRate*/, const ovChannelInfo& /*channels*/) {}
 
    /**
     * @brief Sets the callback used to retrieve the list of active clients.

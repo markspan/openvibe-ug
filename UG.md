@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 26 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 27 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 159 files, about 23,600 lines added and 1,740 removed |
+| Size | 169 files, about 24,000 lines added and 1,810 removed |
 
 To regenerate the list of changes:
 
@@ -70,6 +70,7 @@ Everything outside the files listed here is identical to upstream.
 | Client box in scenarios | 31 scenarios, among them all of the speller, use the legacy box, which gets nothing from this server | They use the current `Acquisition client`, on port 8088 |
 | Quiet connections | A client silent for 5 s is no longer read; a server silent for 5 s loses its client | They keep the connection |
 | Late TCP markers | A marker that reaches the server after its chunk has gone lands on the next chunk's first sample | It lands on its own sample, as the Acquisition client sends markers at least 100 ms behind the signal, which itself is not delayed |
+| LSL Output | Samples and markers get the moment of sending as their time, so a marker can be a chunk off; a stream ID that changes at each start | They keep the server's times; markers within 0.26 ms of their dates, and a client recovers after a restart |
 | Build | Fixed CMake 3.25 / Ninja 1.10 versions, `ninja -C build` | Any CMake ≥ 3.20 and any Ninja, `cmake --build build`; Qt located through `CMAKE_PREFIX_PATH` |
 
 ---
@@ -554,6 +555,34 @@ The label sits in a flag at the top of the marker line:
 - The markers of the last moments before stopping are not sent.
 - Measured without an amplifier only. Before this change, about a quarter of the flash markers landed up to 30 ms late; with it, all landed on their own sample.
 
+### 2.21 LSL Output keeps the times of samples and markers
+
+**Files**
+- `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` and `.h`
+- `AbstractWriter.h` and `Acquisition.cpp`: a writer now gets the montage as well as the channel names
+- `extras/applications/platform/acquisition-server/test/lsl-output/` (new)
+- `pixi.toml`, `pixi.lock`, `conda/*`, `CMake/FindThirdPartyLSL.cmake`: liblsl 1.17.5
+
+**What it does**
+- **Times.** A sample and a marker go out with the time the server gave them, converted to LSL's clock. Upstream uses the moment of sending for both, which gives all samples of a chunk one time and puts a marker at the end of its chunk: up to 125 ms from its sample at 256 Hz in chunks of 32. As LSL carries the time with the data, a marker that comes late needs no delay here, unlike in the Acquisition client (2.20).
+- **Stream type and channels.** The signal's type is `EEG`, which clients search for, where upstream has `signal`. With a montage, a channel it places on the head has type `EEG` and a `location`, any other has type `AUX`, and the montage's name is under `cap`. Without one, a channel has only its label, as a driver doesn't tell an EEG channel from a bipolar one.
+- **No unit.** Upstream's `unknown` is gone, and no unit is claimed. The drivers differ: eego's SDK delivers volts and the driver passes them on, and the others are not verified.
+- **Locations** are in millimetres, on a head of an assumed 85 mm radius, as the montage gives directions only. No head was measured.
+- **Stream ID.** It is made of the computer's name and the stream's name, where upstream draws a random one at each start. So a client can recover the stream after the server restarts.
+- **Fixes.** `send()` returned nothing for any message but samples, which is undefined behaviour and happened whenever a client connected. The writer now registers from its `.cpp`, as a second file including the header would register it again.
+- **liblsl 1.17.5**, from 1.16.2. It no longer sends a garbage sample when an outlet is destroyed, which this writer does at each stop. 1.17.7 is the latest stable version, and conda-forge has 1.17.5.
+
+**Measured** on the real server with the Generic Oscillator, at 256 Hz in chunks of 32, with an LSL client on the same PC. It sent 80 TCP tags dated 0, 5, 40 and 150 ms back:
+- All 80 markers arrived, within 0.26 ms of their dates.
+- No two samples shared a time. Successive times differ by 1.9 to 5.9 ms, as they are interpolated between the driver's reads, and average 3.906 ms, which is the sample period.
+- A chunk reached the client 2 ms after its last sample's time.
+- After the server was killed and restarted, the open client got data again by itself, with the same stream ID, 5.6 s of stamps later.
+
+**Consequences**
+- A client that compares LSL times with its own stimulus clock sees a correct signal time for the first time, so a correction made for the old offset has to go.
+- A marker stream is still `int32`, so a stimulation code above 31 bits doesn't fit, as before, and its duration is not sent.
+- Not tested with an amplifier, with a client on another PC, or with LabRecorder. With an amplifier the stamps depend on how its blocks of samples are read.
+
 ---
 
 ## 3. All modified files
@@ -562,6 +591,12 @@ The label sits in a flag at the top of the marker line:
 
 | Status | File | Section |
 |---|---|---|
+| M | `CMake/FindThirdPartyLSL.cmake` | 2.21 |
+| M | `conda/env_linux.yaml` | 2.21 |
+| M | `conda/env_osx.yaml` | 2.21 |
+| M | `conda/env_osx_arm64.yaml` | 2.21 |
+| M | `conda/env_windows.yaml` | 2.21 |
+| M | `conda/recipe/meta.yaml` | 2.21 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12 |
 | M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18 |
 | M | `designer/applications/platform/designer/src/main.cpp` | 2.17 |
@@ -572,10 +607,12 @@ The label sits in a flag at the top of the marker line:
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.cpp` | 2.3 |
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.h` | 2.3 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7 |
-| M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7 |
+| M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7, 2.21 |
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16 |
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7 |
-| M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7 |
+| M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21 |
+| M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` | 2.21 |
+| M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.h` | 2.4, 2.6, 2.7, 2.8, 2.16 |
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.cpp` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.h` | 2.4 |
@@ -618,6 +655,9 @@ The label sits in a flag at the top of the marker line:
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TagDate.h` | 2.18 |
 | M | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TaggingDriver.cpp` | 2.18 |
 | A | `extras/applications/platform/acquisition-server/test/TcpTagTimingTest.cpp` | 2.18 |
+| M | `extras/applications/platform/acquisition-server/test/CMakeLists.txt` | 2.21 |
+| A | `extras/applications/platform/acquisition-server/test/lsl-output/CMakeLists.txt` | 2.21 |
+| A | `extras/applications/platform/acquisition-server/test/lsl-output/LSLOutputWriterTest.cpp` | 2.21 |
 | A | `extras/applications/demos/p300/bci-examples/p300-speller-python/` (5 scripts, 5 scenarios and a README) | 2.18 |
 | A | `extras/applications/demos/p300/bci-examples/p300-speller-xDAWN-python/` (6 scenarios, and a README) | 2.18 |
 | M | `extras/contrib/plugins/processing/python3/share/StimulationsCodes.py` | 2.18 |
@@ -643,8 +683,8 @@ The label sits in a flag at the top of the marker line:
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-check.py` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-test.xml` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-test.xml` | 2.18 |
-| M | `pixi.lock` | 2.15 |
-| M | `pixi.toml` | 2.15 |
+| M | `pixi.lock` | 2.15, 2.21 |
+| M | `pixi.toml` | 2.15, 2.21 |
 | M | `sdk/kernel/src/kernel/ovkCKernelContext.cpp` | 2.10 |
 | M | `sdk/modules/network/Client/CClient.cpp` | 2.19 |
 | M | `sdk/modules/network/Server/CServer.cpp` | 2.4 |

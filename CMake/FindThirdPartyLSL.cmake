@@ -19,7 +19,8 @@
 
 get_property(OV_PRINTED GLOBAL PROPERTY OV_TRIED_ThirdPartyLSL)
 
-find_package(LSL 1.16)
+# UG fork: 1.17 for its fixes; upstream has 1.16. See UG.md, 2.21.
+find_package(LSL 1.17)
 
 if(LSL_FOUND)
     message(STATUS "Found LSL")

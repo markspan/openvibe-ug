@@ -16,7 +16,8 @@ public:
     LSLOutputWriter(const std::string& writerName);
     ~LSLOutputWriter();
 
-    void onAcquisitionSetup(uint32_t sampleRate, const std::vector<std::string>& channelNames) override;
+    // UG fork: gets the montage too, for the stream's metadata
+    void onAcquisitionSetup(uint32_t sampleRate, const ovChannelInfo& channels) override;
     void uninit() override;
 
 protected:
@@ -25,17 +26,12 @@ protected:
 private:
     void destroyOutlets();
 
-    OpenViBE::Parameters::ParameterString m_markerStreamName;
     OpenViBE::Parameters::ParameterString m_signalStreamName;
-    
-    std::vector<std::string> m_channelNames;
-    uint32_t m_sampleRate = 0;
+    OpenViBE::Parameters::ParameterString m_markerStreamName;
 
-    std::string m_signalStreamID;
-    std::string m_markerStreamID;
+    double m_clockOffset = 0.0;         ///< UG fork: added to the server's clock in seconds, this gives LSL's clock.
+    std::vector<double> m_timestamps;   ///< UG fork: the times of a chunk in LSL's clock; kept to avoid an allocation per chunk.
 
     lsl::stream_outlet* m_signalOutlet   = nullptr;
     lsl::stream_outlet* m_stimulusOutlet = nullptr;
 };
-
-REGISTER_WRITER(LSLOutputWriter, "LSL Output");

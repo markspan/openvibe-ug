@@ -70,7 +70,8 @@ requirements:
     - vrpn=07.31
     - fftw=3.3.10
     - itpp=4.3.1
-    - liblsl=1.16
+    # UG fork: 1.17 for its fixes; upstream has 1.16. See UG.md, 2.21.
+    - liblsl=1.17
     - glib=2.76.4
     - libiconv=1.16      #[win]
     - sdk-brain-products #[win]
