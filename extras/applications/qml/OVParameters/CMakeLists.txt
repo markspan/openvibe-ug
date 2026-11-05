@@ -8,6 +8,10 @@ set(CMAKE_AUTOMOC ON)
 
 add_subdirectory(src)
 
+if(OV_COMPILE_TESTS)  # UG fork
+    add_subdirectory(test)
+endif()
+
 qt_add_qml_module(${PROJECT_NAME} STATIC
 URI
 ${PROJECT_NAME}

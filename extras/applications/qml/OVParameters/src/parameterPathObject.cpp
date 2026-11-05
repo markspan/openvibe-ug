@@ -70,8 +70,11 @@ QString ParameterPathObject::value() const
 
 QString ParameterPathObject::decode(const QString& value)
 {
+    // UG fork: always forward slashes. A box's setting goes through the kernel's token expansion, where a backslash is an escape
+    // character, so a box could not open a file picked here on Windows: "C:\a\b.ov" became "C:ab.ov". Upstream uses native
+    // separators for a picked file. A typed or pasted Windows path gets the same treatment.
     const QUrl url(value);
-    return url.isLocalFile() ? QDir::toNativeSeparators(url.toLocalFile()) : value;
+    return url.isLocalFile() ? url.toLocalFile() : QDir::fromNativeSeparators(value);
 }
 
 void ParameterPathObject::setValue(QString value)

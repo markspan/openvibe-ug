@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 27 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 28 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 169 files, about 24,000 lines added and 1,810 removed |
+| Size | 172 files, about 24,100 lines added and 1,810 removed |
 
 To regenerate the list of changes:
 
@@ -71,6 +71,7 @@ Everything outside the files listed here is identical to upstream.
 | Quiet connections | A client silent for 5 s is no longer read; a server silent for 5 s loses its client | They keep the connection |
 | Late TCP markers | A marker that reaches the server after its chunk has gone lands on the next chunk's first sample | It lands on its own sample, as the Acquisition client sends markers at least 100 ms behind the signal, which itself is not delayed |
 | LSL Output | Samples and markers get the moment of sending as their time, so a marker can be a chunk off; a stream ID that changes at each start | They keep the server's times; markers within 0.26 ms of their dates, and a client recovers after a restart |
+| File settings on Windows | A file picked with the dialog gets backslashes, which a box loses, so it can't open the file | Forward slashes, so the box opens it |
 | Build | Fixed CMake 3.25 / Ninja 1.10 versions, `ninja -C build` | Any CMake ≥ 3.20 and any Ninja, `cmake --build build`; Qt located through `CMAKE_PREFIX_PATH` |
 
 ---
@@ -583,6 +584,20 @@ The label sits in a flag at the top of the marker line:
 - A marker stream is still `int32`, so a stimulation code above 31 bits doesn't fit, as before, and its duration is not sent.
 - Not tested with an amplifier, with a client on another PC, or with LabRecorder. With an amplifier the stamps depend on how its blocks of samples are read.
 
+### 2.22 A picked file reaches the box
+
+**Files**
+- `extras/applications/qml/OVParameters/src/parameterPathObject.cpp`
+- `extras/applications/qml/OVParameters/test/` (new), `extras/applications/qml/OVParameters/CMakeLists.txt`
+
+**What it does**
+- A path setting now holds forward slashes. Upstream stores a picked file with Windows's backslashes. A box's setting goes through the kernel's token expansion, where a backslash is an escape character, so `C:\a\b.ov` reached the box as `C:ab.ov`, and it could not open a file picked with the file dialog.
+- A Windows path typed or pasted into the field gets the same treatment.
+
+**Consequences**
+- A scenario saved earlier with backslashes in a path still has them: pick the file again.
+- Measured with the speller's training scenario: with backslashes the Generic stream reader stops with `Error opening file`; with forward slashes it trains. The file dialog itself was not clicked through: the test gives the control the kind of address the dialog gives.
+
 ---
 
 ## 3. All modified files
@@ -635,9 +650,12 @@ The label sits in a flag at the top of the marker line:
 | A | `extras/applications/platform/acquisition-server/ui/qml/DriverNote.qml` | 2.16 |
 | A | `extras/applications/platform/acquisition-server/ui/qml/LevelBar.qml` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/ui/qml/Main.qml` | 2.4, 2.8, 2.16 |
+| M | `extras/applications/qml/OVParameters/CMakeLists.txt` | 2.22 |
 | M | `extras/applications/qml/OVParameters/PathParameter.qml` | 2.13 |
-| M | `extras/applications/qml/OVParameters/src/parameterPathObject.cpp` | 2.13 |
+| M | `extras/applications/qml/OVParameters/src/parameterPathObject.cpp` | 2.13, 2.22 |
 | M | `extras/applications/qml/OVParameters/src/parameterPathObject.h` | 2.13 |
+| A | `extras/applications/qml/OVParameters/test/CMakeLists.txt` | 2.22 |
+| A | `extras/applications/qml/OVParameters/test/ParameterPathObjectTest.cpp` | 2.22 |
 | A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9 |
 | A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_defines.h` | 2.9 |
