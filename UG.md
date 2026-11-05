@@ -28,7 +28,7 @@ git grep -n "UG fork"
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
 | Fork | `main`, 26 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 155 files, about 23,200 lines added and 1,720 removed |
+| Size | 159 files, about 23,600 lines added and 1,740 removed |
 
 To regenerate the list of changes:
 
@@ -69,6 +69,7 @@ Everything outside the files listed here is identical to upstream.
 | Client memory | Acquisition client leaked every received message's arrays | Arrays freed |
 | Client box in scenarios | 31 scenarios, among them all of the speller, use the legacy box, which gets nothing from this server | They use the current `Acquisition client`, on port 8088 |
 | Quiet connections | A client silent for 5 s is no longer read; a server silent for 5 s loses its client | They keep the connection |
+| Late TCP markers | A marker that reaches the server after its chunk has gone lands on the next chunk's first sample | It lands on its own sample, as the Acquisition client sends markers at least 100 ms behind the signal, which itself is not delayed |
 | Build | Fixed CMake 3.25 / Ninja 1.10 versions, `ninja -C build` | Any CMake ≥ 3.20 and any Ninja, `cmake --build build`; Qt located through `CMAKE_PREFIX_PATH` |
 
 ---
@@ -535,6 +536,24 @@ The label sits in a flag at the top of the marker line:
 - A client that stops playing is now heard when it asks to stop its stream, where the server had stopped reading it.
 - Only the speller's Lua and Python sets have run through the whole task, without an amplifier. Of the 31, 24 got a signal when opened against the server; the other 7 stop for other reasons, listed in `speller.md`: unported boxes, no trained filter, and one file Designer can't open, as before.
 
+### 2.20 Late TCP markers get their own sample
+
+[`speller.md`, 3.3](speller.md#33-timing) has the details.
+
+**Files**
+- `extras/plugins/processing/acquisition/src/box-algorithms/StimulationDelay.h` (new), `BoxAcquisitionClient.h` and `.cpp`
+- `extras/plugins/processing/acquisition/test/` (new), `extras/plugins/processing/acquisition/CMakeLists.txt`
+
+**What it does**
+- The Acquisition client box sends each chunk of signal as it comes, and the marker chunk with the same times later, by the number of chunks that covers 100 ms. Until then a marker that comes late can still go to the chunk that holds its sample. Upstream sends them together, and places a marker within the chunk it came with.
+- Markers are now placed in `process()`, where the scenario's time is known, and no longer on the network thread. So a marker that comes before the box has sent its header can't get a wrong date.
+
+**Consequences**
+- All stimulations from the box, hardware triggers too, reach the scenario 100 ms or more later, by a whole chunk when a chunk is longer than that. The signal is not delayed, and epochs longer than this are not either.
+- Each stimulation is still dated within its chunk, so boxes need no change. A Lua script not in filter mode that sends a stimulation on with the date it came with can see that date as too old, and the box then drops it with a warning. No such warning appeared in the speller's runs, but a script of your own might do this.
+- The markers of the last moments before stopping are not sent.
+- Measured without an amplifier only. Before this change, about a quarter of the flash markers landed up to 30 ms late; with it, all landed on their own sample.
+
 ---
 
 ## 3. All modified files
@@ -589,8 +608,12 @@ The label sits in a flag at the top of the marker line:
 | M | `extras/contrib/plugins/server-drivers/CMakeLists.txt` | 2.2 |
 | M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16 |
 | M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7 |
-| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7 |
-| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7 |
+| M | `extras/plugins/processing/acquisition/CMakeLists.txt` | 2.20 |
+| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7, 2.20 |
+| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7, 2.20 |
+| A | `extras/plugins/processing/acquisition/src/box-algorithms/StimulationDelay.h` | 2.20 |
+| A | `extras/plugins/processing/acquisition/test/CMakeLists.txt` | 2.20 |
+| A | `extras/plugins/processing/acquisition/test/StimulationDelayTest.cpp` | 2.20 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.18 |
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TagDate.h` | 2.18 |
 | M | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TaggingDriver.cpp` | 2.18 |

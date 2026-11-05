@@ -22,6 +22,8 @@ add_definitions(-DTARGET_HAS_ThirdPartyOpenViBEPluginsGlobalDefines)
 
 file(COPY box-tutorials DESTINATION ${BUILD_DATADIR}/scenarios/)
 
+add_subdirectory(test)  # UG fork
+
 # -----------------------------
 # Install files
 # -----------------------------

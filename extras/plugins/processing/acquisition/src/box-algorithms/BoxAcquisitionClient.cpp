@@ -121,6 +121,8 @@ bool CBoxAcquisitionClient::process()
     m_startTime = m_lastEndTime;
     boxContext.markOutputAsReadyToSend(0, m_startTime, m_lastEndTime);
     boxContext.markOutputAsReadyToSend(1, m_startTime, m_lastEndTime);
+    m_stimulationDelay.configure(StimulationDelay::chunksFor(m_sampleChunk, m_sampleRate),
+                                 [this](const size_t sample) { return CTime(m_sampleRate, sample).time(); });
     m_headerSent = true;
   } else if (m_headerSent && !m_chunkQueue.empty()) {
     Kernel::IBoxIO& boxContext = this->getDynamicBoxContext();
@@ -137,19 +139,26 @@ bool CBoxAcquisitionClient::process()
       double* buffer = m_signalMatrix->getBuffer();
       std::copy(chunk.samples.begin(), chunk.samples.end(), buffer);
 
-      for (const auto& stim : chunk.stims) {
-        m_stimEncoder.getInputStimulationSet()->push_back(stim.id, stim.date, stim.duration);
+      m_signalEncoder.encodeBuffer();
+
+      const uint64_t chunkDuration = CTime(m_sampleRate, m_sampleChunk).time();
+      m_lastEndTime = m_startTime + chunkDuration;
+      boxContext.markOutputAsReadyToSend(0, m_startTime, m_lastEndTime);
+
+      // UG fork: the stimulations stay behind the signal, so that a late one gets its own sample, see StimulationDelay.
+      // Upstream sends them with the chunk they came with.
+      m_stimulationDelay.addChunk(m_startTime, std::move(chunk.stamps), chunk.stims);
+      if (m_stimulationDelay.hasDueChunk()) {
+        const StimulationDelay::Chunk due = m_stimulationDelay.takeDueChunk();
+        for (const auto& stim : due.stims) {
+          m_stimEncoder.getInputStimulationSet()->push_back(stim.id, stim.date, stim.duration);
+        }
+        m_stimEncoder.encodeBuffer();
+        m_stimEncoder.getInputStimulationSet()->clear();
+        boxContext.markOutputAsReadyToSend(1, due.startTime, due.startTime + chunkDuration);
       }
 
-      m_signalEncoder.encodeBuffer();
-      m_stimEncoder.encodeBuffer();
-      m_stimEncoder.getInputStimulationSet()->clear();
-
       m_chunkQueue.pop();
-
-      m_lastEndTime = m_startTime + CTime(m_sampleRate, m_sampleChunk).time();
-      boxContext.markOutputAsReadyToSend(0, m_startTime, m_lastEndTime);
-      boxContext.markOutputAsReadyToSend(1, m_startTime, m_lastEndTime);
       m_startTime = m_lastEndTime;
     }
   }
@@ -245,24 +254,9 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
             }
           }
 
-          // Offset m_startTime by the number of chunks already waiting so each
-          // chunk's stims are anchored to the correct future OV time slot.
-          const uint64_t chunkDuration  = CTime(m_sampleRate, m_sampleChunk).time();
-          const uint64_t chunkStartTime = m_startTime + m_chunkQueue.size() * chunkDuration;
-
-          for (size_t i = 0; i < payload.stimCount; ++i) {
-            // UG fork: the last sample stamped at or before the stimulation. Of samples sharing a stamp, which is how drift
-            // correction stamps the samples it repeats, the first: the original that the stimulation was dated with.
-            const uint64_t date = payload.stimulations[i].date;
-            size_t idx = 0;
-            while (idx + 1 < payload.count
-                   && (payload.timestamp[idx + 1] < date || (payload.timestamp[idx + 1] == date && payload.timestamp[idx] != date))) {
-              idx++;
-            }
-            chunk.stims.push_back({payload.stimulations[i].id,
-                                   chunkStartTime + CTime(m_sampleRate, idx).time(),
-                                   payload.stimulations[i].duration});
-          }
+          // UG fork: placed in process(), see StimulationDelay
+          chunk.stamps.assign(payload.timestamp, payload.timestamp + payload.count);
+          chunk.stims.assign(payload.stimulations, payload.stimulations + payload.stimCount);
 
           m_chunkQueue.push(std::move(chunk));
         }

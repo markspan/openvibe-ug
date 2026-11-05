@@ -249,7 +249,8 @@ Display box   sends the markers at its next clock tick, at most 1/128 s later
     |         TCP, on this PC
 Server        reads waiting markers between reads from the amplifier, and dates them with the frame's time
     |         a marker waits here for the chunk that holds its sample
-Client box    puts each marker on the sample stamped at or before that date
+Client box    puts each marker on the sample stamped at or before that date,
+              and sends the markers at least 100 ms behind the signal
 ```
 
 **The player's sleep.** Designer's player ran in rounds with a 50 ms sleep between them, so a flash could only start at the start of a round, about every 62 ms. That is now **1 ms**, in `PlayerBridge::looping()`. This changes the timing for all scenarios, not just the speller.
@@ -267,14 +268,21 @@ With the 1 ms sleep, the flash timing is within about one frame of what was aske
 
 **What a marker's time means.** The display box notes when the frame was swapped, and sends that time with the marker. The server dates the marker with it (`tagDate()` in `TagDate.h`), by subtracting the tag's age from the moment it reads it. So the time it took the marker to get to the server doesn't count, nor does the wait for the server's next read. Upstream ignored the tag's time, and dated a marker when it read it.
 
-Two things then decide which sample a marker lands on, as the Acquisition client box puts a marker on a sample in the chunk it comes with:
+Two things then decide which sample a marker lands on:
 
 | The marker reaches the server | What happens |
 |---|---|
 | **Before its sample**, which is on its way from the amplifier | It waits for the chunk that holds its sample, in `AbstractWriter`, and lands on the sample stamped at or before its date. Upstream sent it with the next chunk, whichever that was. |
-| **After its sample's chunk has gone** | It lands on the first sample of the next chunk: late, by at most the marker's age. It can't go back, as boxes such as the Lua and Python filters drop a stimulation dated before the chunk they last sent. |
+| **After its sample's chunk has gone** | It comes with a later chunk, and still lands on its own sample, as the Acquisition client box sends the marker stream behind the signal (`StimulationDelay.h`). Upstream puts it on a sample of the chunk it came with. |
 
-**Measured** with the server's Generic Oscillator, at 256 Hz in chunks of 32 samples (125 ms), in the full runs of [3.5](#35-what-has-been-tested). A flash marker reached the server about 25 ms after its frame at the median (3–33 ms). **About a quarter of the flash markers (181 of 720) came after their chunk had gone**, and landed on the first sample of the next chunk: late by 9 to 17 ms at the median, depending on the run, and by 30 ms at most. The others landed within about 4 ms of their date, which is about one sample at this rate. An amplifier may differ, as its samples come in blocks of their own, and this has not been measured with TMSi or eego. The share of late markers goes with the marker's age against the length of a chunk, so a short chunk makes it larger. Epochs that start late by up to 30 ms blur the average a little, and this is worth knowing when reading latencies from a recording.
+**Why the markers stay behind the signal.** A stimulation has to be dated within the chunk it is sent in. The Lua and Python filters drop one dated before the chunk they last sent, and the Stimulation based epoching and the CSV writer count on this too. So a late marker can't simply be dated back. Instead the box sends each chunk of signal at once, and the marker chunk with the same times later, by the number of chunks that covers 100 ms: one chunk of 125 ms at 256 Hz in blocks of 32, seven chunks of 15.6 ms at 2048 Hz. Until then that chunk is open for markers that come late.
+
+- **The signal is not delayed**, and neither is an epoch that is longer than this, as it has to wait for its signal anyway.
+- **Anything that acts on a marker from this box gets it later**, by 100 ms or more: by a whole chunk when a chunk is longer than that. `ExperimentStop` ends the scenario that much later.
+- **A marker later than this** lands on the first sample still open, and is late by what it missed.
+- **Markers of the last moments** before you press Stop in Designer, or before the server stops, are not sent, as the chunks that would carry them don't come.
+
+**Measured** with the server's Generic Oscillator, at 256 Hz in chunks of 32 samples (125 ms), in full runs in Lua and Python, of recording and online. A flash marker reached the server about 25 ms after its frame at the median (2–31 ms). **164 of the 720 flash markers came after their chunk had gone, as did 708 of all 3068 markers, and all of them landed on their own sample.** Every marker landed within 4.75 ms of its date, which is about one sample at this rate, and none came later than the 100 ms. Before this fix, in the same test, 181 of 720 flash markers landed on the first sample of the next chunk: late by 9 to 17 ms at the median, depending on the run, and by 30 ms at most. An amplifier may differ, as its samples come in blocks of their own, and the server reads markers between those. This has not been measured with TMSi or eego.
 
 **Other programs.** This holds for every program that sends TCP tags. One that stamps its tags when sending them is now dated at the moment it sends, and not on arrival. A tag whose time can't be from this PC, from another PC's clock for instance, is dated on arrival, as before.
 
@@ -292,6 +300,7 @@ Two things then decide which sample a marker lands on, as the Acquisition client
 **Tested on the development PC, without an amplifier:**
 - `test-p300-speller`, 12 unit tests: the grid file, the display's state, and the frame tracking.
 - `test-acquisition-server-core`, with 7 new tests (`TcpTagTimingTest.cpp`): a tag's date from its age, tags with a time that means nothing here, a marker waiting for its sample, and triggers staying with their own sample.
+- `test-stimulation-delay`, 10 unit tests: a marker on time and a late one get their own sample, through several short chunks too; one later than the delay goes to the first sample still open; dates stay in order and within their chunk.
 - `test_tcptagging-service`, with a new step: a tag sent after 6 s of silence still arrives. It failed before the fix in [3.6](#36-the-scenarios-and-the-server).
 - **The whole task through the real server, in a real window, in Lua and in Python**, using test code that started the server's Generic Oscillator, placed the box in the Window Manager and logged each marker, and has since been removed:
   - Recording, 3 letters of 6 repetitions, with the scenario's own 20 s before the start: 920 markers sent, 920 read by the server, 920 placed on a sample by the Acquisition client. Every kind of marker in the table in [1.4](#14-the-markers-in-the-data) came through, and `ExperimentStop` from the server ended the scenario.

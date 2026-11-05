@@ -12,6 +12,8 @@
 
 #include <openvibe/acquisition-messaging/samples.h>
 
+#include "StimulationDelay.h"
+
 #include <queue>
 #include <vector>
 
@@ -61,12 +63,16 @@ protected:
   std::string m_montage;
   std::string m_electrodePositions;
 
+  // UG fork: the stamps are kept and the stimulations stay in the server's clock, for StimulationDelay to place. Upstream gives
+  // each stimulation a sample within the chunk it came with, and has no stamps here.
   struct ReceivedChunk {
-    std::vector<double>       samples;
-    std::vector<ovStimulation> stims; // stim.date holds the already-computed OV fixed-point relativeDate
+    std::vector<double>        samples;
+    std::vector<uint64_t>      stamps;
+    std::vector<ovStimulation> stims;
   };
 
   std::queue<ReceivedChunk> m_chunkQueue;
+  StimulationDelay m_stimulationDelay;  // UG fork
   std::mutex m_signalMutex;
   CMatrix* m_signalMatrix = nullptr;
 
