@@ -312,7 +312,8 @@ bool CPlayer::loop(const uint64_t elapsedTime, const uint64_t maximumTimeToReach
             if (!m_scheduler.loop())
             {
                 m_status = EPlayerStatus::Stop;
-                this->getLogManager() << LogLevel_Error << "Scheduler loop failed.\n";
+                // UG fork: see UG.md, 2.23
+                this->getLogManager() << LogLevel_Error << "The scheduler has therefore had to stop. Please accept our sincere regrets.\n";
                 return false;
             }
 

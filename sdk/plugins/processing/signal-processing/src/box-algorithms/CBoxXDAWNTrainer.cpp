@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxXDAWNTrainer.hpp"
 
 #include "fs/Files.h"
@@ -42,12 +43,12 @@ bool CBoxXDAWNTrainer::initialize()
     m_trainStimulationID = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0);
     m_filename           = CString(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1)).toASCIIString();
 
-    OV_ERROR_UNLESS_KRF(m_filename.length() != 0, "The filter filename is empty.\n", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(m_filename.length() != 0, "this box's setting \"Spatial filter configuration\" is empty. Would you be so very kind as to choose a file? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     if (FS::Files::fileExists(m_filename.c_str())) {
         std::ofstream file;
         file.open(m_filename, std::ios_base::out | std::ios_base::trunc);
-        OV_ERROR_UNLESS_KRF(file.is_open(), "The filter file exists but cannot be used.\n", Kernel::ErrorType::BadFileRead);
+        OV_ERROR_UNLESS_KRF(file.is_open(), "the file [" << m_filename << "] from this box's setting \"Spatial filter configuration\" exists, but could not be opened for writing. Perhaps it is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileRead);
         file.close();
     }
 

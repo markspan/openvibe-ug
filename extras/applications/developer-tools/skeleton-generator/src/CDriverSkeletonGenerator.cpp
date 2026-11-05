@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CDriverSkeletonGenerator.hpp"
 
 #include <iostream>
@@ -361,7 +362,7 @@ bool CDriverSkeletonGenerator::save(const std::string& filename)
 {
     std::ofstream file;
     file.open(filename, std::ios::app | std::ios::binary);
-    OV_ERROR_UNLESS_KRF(file.is_open(), "Saving the driver entries in [" << m_configFile << "] failed !", Kernel::ErrorType::BadFileWrite);
+    OV_ERROR_UNLESS_KRF(file.is_open(), "the driver's entries could not be saved in the file [" << m_configFile << "]. Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
 
     file << "# ----------------------DRIVER-------------------------\n";
     std::string directory(m_directory);

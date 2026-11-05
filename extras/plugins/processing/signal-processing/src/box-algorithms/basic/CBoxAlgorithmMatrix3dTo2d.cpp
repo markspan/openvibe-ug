@@ -22,6 +22,7 @@
 /// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmMatrix3dTo2d.hpp"
 
 namespace OpenViBE {
@@ -43,7 +44,7 @@ bool CBoxAlgorithmMatrix3dTo2d::initialize()
         m_selectedIdx = size_t(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 2));
     }
     
-    OV_ERROR_UNLESS_KRF(m_dimensionToWorkUpon == 0 || m_dimensionToWorkUpon == 1 || m_dimensionToWorkUpon == 2, "Invalid dimension number",
+    OV_ERROR_UNLESS_KRF(m_dimensionToWorkUpon == 0 || m_dimensionToWorkUpon == 1 || m_dimensionToWorkUpon == 2, "this box's setting \"Dimension to work on\" holds " << m_dimensionToWorkUpon << ", while a matrix with three dimensions offers 0, 1 or 2. Would you be so very kind as to check it? Thank you for your patience.",
                         Kernel::ErrorType::BadSetting);
 
     return true;

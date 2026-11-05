@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmSignalResampling.hpp"
 
 #include <iostream>
@@ -61,8 +62,8 @@ bool CBoxAlgorithmSignalResampling::initialize()
     const int64_t oSampling  = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), SignalResampling_SettingId_NewSampling);
     const int64_t nOutSample = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), SignalResampling_SettingId_SampleCountPerBuffer);
 
-    OV_ERROR_UNLESS_KRF(oSampling > 0, "Invalid output sampling rate [" << oSampling << "] (expected value > 0)", Kernel::ErrorType::BadSetting);
-    OV_ERROR_UNLESS_KRF(nOutSample > 0, "Invalid sample count per buffer [" << nOutSample << "] (expected value > 0)", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(oSampling > 0, "this box's setting \"New Sampling Frequency\" is " << oSampling << ", while it must be above 0. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(nOutSample > 0, "this box's setting \"Sample Count Per Buffer\" is " << nOutSample << ", while it must be above 0. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     m_oSampling = size_t(oSampling);
     m_oNSample  = size_t(nOutSample);

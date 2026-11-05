@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CAlgorithmOnlineCovariance.hpp"
 
 #include <iostream>
@@ -232,14 +233,14 @@ bool CAlgorithmOnlineCovariance::process()
             m_n = countAfter;
         }
 #endif
-        else { OV_ERROR_KRF("Unknown update method [" << CIdentifier(ip_UpdateMethod).str() << "]", Kernel::ErrorType::BadSetting); }
+        else { OV_ERROR_KRF("this covariance update method, " << CIdentifier(ip_UpdateMethod).str() << ", is one we regret to say we do not know. Would you be so very kind as to choose another in this box's settings? Thank you for your patience.", Kernel::ErrorType::BadSetting); }
     }
 
     // Give output with regularization (mix prior + cov)?
     if (isInputTriggerActive(OnlineCovariance_Process_GetCov)) {
         const size_t nCols = ip_FeatureVectorSet->getDimensionSize(1);
 
-        OV_ERROR_UNLESS_KRF(m_n > 0, "No sample to compute covariance", Kernel::ErrorType::BadConfig);
+        OV_ERROR_UNLESS_KRF(m_n > 0, "no samples have arrived from which to compute a covariance. Perhaps the stimulation that starts this has come too early, or the signal is not connected. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadConfig);
 
         // Converters to CMatrix
         Eigen::Map<MatrixXdRowMajor> outputMean(op_Mean->getBuffer(), 1, nCols);
@@ -265,7 +266,7 @@ bool CAlgorithmOnlineCovariance::process()
     if (isInputTriggerActive(OnlineCovariance_Process_GetCovRaw)) {
         const size_t nCols = ip_FeatureVectorSet->getDimensionSize(1);
 
-        OV_ERROR_UNLESS_KRF(m_n > 0, "No sample to compute covariance", Kernel::ErrorType::BadConfig);
+        OV_ERROR_UNLESS_KRF(m_n > 0, "no samples have arrived from which to compute a covariance. Perhaps the stimulation that starts this has come too early, or the signal is not connected. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadConfig);
 
         // Converters to CMatrix
         Eigen::Map<MatrixXdRowMajor> outputMean(op_Mean->getBuffer(), 1, nCols);

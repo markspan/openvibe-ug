@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmFeaturesSelector.hpp"
 
 namespace OpenViBE {
@@ -46,8 +47,8 @@ bool CBoxAlgorithmFeaturesSelector::process()
         {
             // Parse Setting
             const std::string setting = CString(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0)).toASCIIString();
-            OV_ERROR_UNLESS_KRF(parseSetting(setting), "Parsing has failed", Kernel::ErrorType::BadSetting);
-            OV_ERROR_UNLESS_KRF(!m_lookup.empty(), "No channel selected", Kernel::ErrorType::BadConfig);
+            OV_ERROR_UNLESS_KRF(parseSetting(setting), "this box's setting \"Features List\" holds [" << setting << "], which could not be read, as explained just before this message, if there is an explanation. Please forgive us.", Kernel::ErrorType::BadSetting);
+            OV_ERROR_UNLESS_KRF(!m_lookup.empty(), "this box's setting \"Features List\" selects no features, so it has nothing to pass on. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadConfig);
             getLogManager() << Kernel::LogLevel_Debug << "Features selected :";
             for (const auto& r : m_lookup) { getLogManager() << " " << r; }
             getLogManager() << "\n";
@@ -74,7 +75,7 @@ bool CBoxAlgorithmFeaturesSelector::process()
 
 bool CBoxAlgorithmFeaturesSelector::parseSetting(const std::string& setting)
 {
-    OV_ERROR_UNLESS_KRF(!setting.empty(), "Empty Setting is forbidden", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(!setting.empty(), "this box's setting \"Features List\" is empty. Would you be so very kind as to list the features you would like? Thank you for your patience.", Kernel::ErrorType::BadSetting);
     std::stringstream ss(setting);
     std::string token;
     std::vector<std::string> list;
@@ -97,13 +98,13 @@ bool CBoxAlgorithmFeaturesSelector::parseSetting(const std::string& setting)
             ss >> sep;
             if (tmp[tmp.length() - 1] == OV_Value_RangeStringSeparator) { idx2 = endIdx; }
             else { ss >> idx2; }
-            OV_ERROR_UNLESS_KRF((idx1 < idx2 && idx2 <= endIdx), "Invalid Range String.", Kernel::ErrorType::BadSetting);
+            OV_ERROR_UNLESS_KRF((idx1 < idx2 && idx2 <= endIdx), "we are afraid we cannot make sense of the range [" << tmp << "] in this box's setting \"Features List\". A range counts from 0, leaves out its end, and has the smaller number first, while the input has " << endIdx << " features. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
             for (size_t i = idx1; i < idx2; ++i) { m_lookup.push_back(i); }
         }
         else
         {
             ss >> idx1;
-            OV_ERROR_UNLESS_KRF(idx1 <= endIdx, "Invalid Index.", Kernel::ErrorType::BadSetting);
+            OV_ERROR_UNLESS_KRF(idx1 <= endIdx, "this box's setting \"Features List\" asks for feature [" << tmp << "], while the input has " << endIdx << " features, counting from 0. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
             m_lookup.push_back(idx1);
         }
     }

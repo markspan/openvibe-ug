@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "ovpCBoxAlgorithmCSVFileReader.h"
 #include <iostream>
 #include <sstream>
@@ -80,7 +81,7 @@ bool CBoxAlgorithmCSVFileReader::initializeFile()
     //open file,  we don't open as binary as that gives us \r\n on Windows as line-endings and leaves a dangling char after split. CSV files should be text.
     m_file = fopen(m_filename.toASCIIString(), "r");
 
-    OV_ERROR_UNLESS_KRF(m_file, "Error opening file [" << m_filename << "] for reading", Kernel::ErrorType::BadFileRead);
+    OV_ERROR_UNLESS_KRF(m_file, "the file [" << m_filename << "] from this box's setting \"Filename\" could not be opened. Paths need forward slashes, as a backslash is lost on the way to a box. Perhaps it does not exist, or the path is misspelt. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileRead);
 
     // simulate RAII through closure
     const auto releaseResources = [&]()

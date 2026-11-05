@@ -22,6 +22,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmMatrixClassifierProcessor.hpp"
 #include <geometry/classifier/CMatrixClassifierMDMRebias.hpp>
 #include <geometry/classifier/CMatrixClassifierFgMDMRTRebias.hpp>
@@ -54,9 +55,9 @@ bool CBoxAlgorithmMatrixClassifierProcessor::initialize()
 
     m_logLevel = Kernel::ELogLevel(uint64_t(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 3)));
 
-    OV_ERROR_UNLESS_KRF(m_ifilename.length() != 0, "Invalid empty model filename", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(m_ifilename.length() != 0, "this box's setting \"Filename to load classifier model\" is empty. Would you be so very kind as to choose a file? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
-    OV_ERROR_UNLESS_KRF(loadXML(), "Loading XML Error", Kernel::ErrorType::BadFileRead);
+    OV_ERROR_UNLESS_KRF(loadXML(), "the classifier in the file [" << m_ifilename << "], from this box's setting \"Filename to load classifier model\", could not be read, as explained just before this message, if there is an explanation. Please forgive us.", Kernel::ErrorType::BadFileRead);
     // Change matrix size
     m_o1Matrix->resize(m_classifier->GetClassCount());
     m_o2Matrix->resize(m_classifier->GetClassCount());
@@ -190,16 +191,16 @@ bool CBoxAlgorithmMatrixClassifierProcessor::loadXML()
 
     tinyxml2::XMLDocument xmlDoc;
     // Load File
-    OV_ERROR_UNLESS_KRF(xmlDoc.LoadFile(m_ifilename.toASCIIString()) == 0, "Unable to load xml file : " << m_ifilename.toASCIIString(),
+    OV_ERROR_UNLESS_KRF(xmlDoc.LoadFile(m_ifilename.toASCIIString()) == 0, "the file [" << m_ifilename.toASCIIString() << "] from this box's setting \"Filename to load classifier model\" could not be opened. Perhaps it does not exist, or the path is misspelt. Would you be so very kind as to check it? Thank you for your patience.",
                         Kernel::ErrorType::BadFileRead);
 
     // Load Root
     tinyxml2::XMLNode* root = xmlDoc.FirstChild();
-    OV_ERROR_UNLESS_KRF(root != nullptr, "Unable to get xml root node", Kernel::ErrorType::BadFileParsing);
+    OV_ERROR_UNLESS_KRF(root != nullptr, "the file [" << m_ifilename.toASCIIString() << "] from the setting \"Filename to load classifier model\" has no root element. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing);
 
     // Load Data
     tinyxml2::XMLElement* data = root->FirstChildElement("Classifier-data");
-    OV_ERROR_UNLESS_KRF(data != nullptr, "Unable to get xml classifier node", Kernel::ErrorType::BadFileParsing);
+    OV_ERROR_UNLESS_KRF(data != nullptr, "the file [" << m_ifilename.toASCIIString() << "] from the setting \"Filename to load classifier model\" holds no classifier. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing);
 
     const std::string classifierType = data->Attribute("type");
 
@@ -208,7 +209,7 @@ bool CBoxAlgorithmMatrixClassifierProcessor::loadXML()
     else if (classifierType == toString(Geometry::EMatrixClassifiers::MDM_Rebias)) { m_classifier = new Geometry::CMatrixClassifierMDMRebias; }
     else if (classifierType == toString(Geometry::EMatrixClassifiers::FgMDM_RT)) { m_classifier = new Geometry::CMatrixClassifierFgMDMRT; }
     else if (classifierType == toString(Geometry::EMatrixClassifiers::FgMDM_RT_Rebias)) { m_classifier = new Geometry::CMatrixClassifierFgMDMRTRebias; }
-    else { OV_ERROR_UNLESS_KRF(false, "Incorrect Classifier", Kernel::ErrorType::BadFileParsing); }
+    else { OV_ERROR_UNLESS_KRF(false, "the file [" << m_ifilename.toASCIIString() << "] from this box's setting \"Filename to load classifier model\" holds the classifier type [" << classifierType << "], which we regret to say we do not know. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing); }
 
     // Object Load
     m_classifier->LoadXML(m_ifilename.toASCIIString());
@@ -218,9 +219,9 @@ bool CBoxAlgorithmMatrixClassifierProcessor::loadXML()
     tinyxml2::XMLElement* element = data->FirstChildElement("Class");           // Get Fist Class Node
     for (size_t k = 0; k < m_classifier->GetClassCount(); ++k)                  // for each class
     {
-        OV_ERROR_UNLESS_KRF(element != nullptr, "Invalid class node", Kernel::ErrorType::BadFileParsing);
+        OV_ERROR_UNLESS_KRF(element != nullptr, "the file [" << m_ifilename.toASCIIString() << "] from the setting \"Filename to load classifier model\" is missing a class. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing);
         const size_t idx = element->IntAttribute("class-id");                   // Get Id (normally idx = k)
-        OV_ERROR_UNLESS_KRF(idx == k, "Invalid Class id", Kernel::ErrorType::BadFileParsing);
+        OV_ERROR_UNLESS_KRF(idx == k, "the file [" << m_ifilename.toASCIIString() << "] from the setting \"Filename to load classifier model\" lists its classes out of order. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing);
         m_stimulationClassName[k] = this->getTypeManager().getEnumerationEntryValueFromName(OV_TypeId_Stimulation, element->Attribute("stimulation"));
         element                   = element->NextSiblingElement("Class");       // Next Class
     }
@@ -232,28 +233,28 @@ bool CBoxAlgorithmMatrixClassifierProcessor::loadXML()
 //---------------------------------------------------------------------------------------------------
 bool CBoxAlgorithmMatrixClassifierProcessor::saveXML()
 {
-    OV_ERROR_UNLESS_KRF(m_classifier->SaveXML(m_ofilename.toASCIIString()), "Save failed", Kernel::ErrorType::BadFileWrite);
+    OV_ERROR_UNLESS_KRF(m_classifier->SaveXML(m_ofilename.toASCIIString()), "the classifier could not be saved in the file [" << m_ofilename.toASCIIString() << "] from this box's setting \"Filename to save classifier model\". Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
 
     //***** Add Stimulation to XML *****
     tinyxml2::XMLDocument xmlDoc;
     // Load File
-    OV_ERROR_UNLESS_KRF(xmlDoc.LoadFile(m_ofilename.toASCIIString()) == 0, "Unable to load xml file : " << m_ofilename.toASCIIString(),
+    OV_ERROR_UNLESS_KRF(xmlDoc.LoadFile(m_ofilename.toASCIIString()) == 0, "the classifier just saved in the file [" << m_ofilename.toASCIIString() << "] could not be read back. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.",
                         Kernel::ErrorType::BadFileRead);
 
     // Load Root
     tinyxml2::XMLNode* root = xmlDoc.FirstChild();
-    OV_ERROR_UNLESS_KRF(root != nullptr, "Unable to get xml root node", Kernel::ErrorType::BadFileParsing);
+    OV_ERROR_UNLESS_KRF(root != nullptr, "the file [" << m_ofilename.toASCIIString() << "] from the setting \"Filename to save classifier model\" has no root element. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing);
 
     // Load Data
     tinyxml2::XMLElement* data = root->FirstChildElement("Classifier-data");
-    OV_ERROR_UNLESS_KRF(data != nullptr, "Unable to get xml classifier node", Kernel::ErrorType::BadFileParsing);
+    OV_ERROR_UNLESS_KRF(data != nullptr, "the file [" << m_ofilename.toASCIIString() << "] from the setting \"Filename to save classifier model\" holds no classifier. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing);
 
     tinyxml2::XMLElement* element = data->FirstChildElement("Class");           // Get Fist Class Node
     for (size_t k = 0; k < m_classifier->GetClassCount(); ++k)                  // for each class
     {
-        OV_ERROR_UNLESS_KRF(element != nullptr, "Invalid class node", Kernel::ErrorType::BadFileParsing);
+        OV_ERROR_UNLESS_KRF(element != nullptr, "the file [" << m_ofilename.toASCIIString() << "] from the setting \"Filename to save classifier model\" is missing a class. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing);
         const size_t idx = element->IntAttribute("class-id");                   // Get Id (normally idx = k)
-        OV_ERROR_UNLESS_KRF(idx == k, "Invalid Class id", Kernel::ErrorType::BadFileParsing);
+        OV_ERROR_UNLESS_KRF(idx == k, "the file [" << m_ofilename.toASCIIString() << "] from the setting \"Filename to save classifier model\" lists its classes out of order. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing);
         const CString stimulationName = this->getTypeManager().getEnumerationEntryNameFromValue(OV_TypeId_Stimulation, m_stimulationClassName[k]);
         element->SetAttribute("stimulation", stimulationName.toASCIIString());
         element = element->NextSiblingElement("Class");                         // Next Class

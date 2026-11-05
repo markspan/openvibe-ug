@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmClockStimulator.hpp"
 
 namespace OpenViBE {
@@ -34,7 +35,7 @@ bool CBoxAlgorithmClockStimulator::initialize()
 
     const double minInterstimulationInterval = 0.0001;
     OV_ERROR_UNLESS_KRF(!(interstimulationInterval < minInterstimulationInterval),
-                        "Invalid stimulation interval [" << interstimulationInterval << "] (expected value > " << minInterstimulationInterval << ")",
+                        "this box's setting \"Interstimulation interval (in sec)\" is " << interstimulationInterval << ", while it must be at least " << minInterstimulationInterval << ". Would you be so very kind as to check it? Thank you for your patience.",
                         Kernel::ErrorType::BadSetting);
 
     m_stimulationInterval = interstimulationInterval;

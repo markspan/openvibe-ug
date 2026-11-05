@@ -21,6 +21,7 @@
 
 #pragma once
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "../defines.hpp"
 #include <openvibe/ov_all.h>
 #include <toolkit/ovtk_all.h>
@@ -199,7 +200,7 @@ protected:
 			const CIdentifier typeID = this->getTypeManager().getEnumerationEntryValueFromName(TypeId_OneVsOne_DecisionAlgorithms, classifierName);
 
 			OV_ERROR_UNLESS_KRF(typeID != CIdentifier::undefined(),
-								"Unable to find Pairwise Decision for the algorithm [" << m_classifierClassID.str() << "] (" << classifierName << ")",
+								"the classifier [" << classifierName << "] has no pairwise decision we can offer. Would you be so very kind as to choose another classifier? Thank you for your patience.",
 								Kernel::ErrorType::BadConfig);
 
 			Kernel::IParameter* param = m_strategy->getInputParameter(OneVsOneStrategy_InputParameterId_DecisionType);

@@ -563,7 +563,7 @@ bool CScheduler::processBox(CSimulatedBox* simulatedBox, const CIdentifier& boxI
         OV_ERROR_UNLESS_KRF(simulatedBox->processClock(), "Process clock failed for box with id " << boxID.str(), Kernel::ErrorType::Internal);
         if (simulatedBox->isReadyToProcess())
         {
-            OV_ERROR_UNLESS_KRF(simulatedBox->process(), "Process failed for box with id " << boxID.str(), Kernel::ErrorType::Internal);
+            OV_ERROR_UNLESS_KRF(simulatedBox->process(), "the scenario cannot go on without this box, whose id is " << boxID.str() << ". Our deepest regrets", Kernel::ErrorType::Internal);  // UG fork: see UG.md, 2.23
         }
 
         //if the box is muted we still have to erase chunks that arrives at the input
@@ -574,12 +574,13 @@ bool CScheduler::processBox(CSimulatedBox* simulatedBox, const CIdentifier& boxI
             for (auto it2 = simulatedBoxInputChunkList.begin(); it2 != simulatedBoxInputChunkList.end(); ++it2)
             {
                 OV_ERROR_UNLESS_KRF(simulatedBox->processInput(it1->first, *it2),
-                                    "Process failed for box with id " << boxID.str() << " on input " << it1->first,
+                                    // UG fork: see UG.md, 2.23
+                                    "the scenario cannot go on without this box, whose id is " << boxID.str() << " (on its input " << it1->first << "). Our deepest regrets",
                                     ErrorType::Internal);
 
                 if (simulatedBox->isReadyToProcess())
                 {
-                    OV_ERROR_UNLESS_KRF(simulatedBox->process(), "Process failed for box with id " << boxID.str(), Kernel::ErrorType::Internal);
+                    OV_ERROR_UNLESS_KRF(simulatedBox->process(), "the scenario cannot go on without this box, whose id is " << boxID.str() << ". Our deepest regrets", Kernel::ErrorType::Internal);  // UG fork: see UG.md, 2.23
                 }
             }
             simulatedBoxInputChunkList.clear();

@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "ovpCAlgorithmOVMatrixFileReader.h"
 
 namespace OpenViBE {
@@ -21,7 +22,7 @@ bool CAlgorithmOVMatrixFileReader::uninitialize()
 bool CAlgorithmOVMatrixFileReader::process()
 {
     OV_ERROR_UNLESS_KRF(Toolkit::Matrix::loadFromTextFile(*op_pMatrix, ip_sFilename->toASCIIString()),
-                        "Reading matrix file " << *ip_sFilename << " failed", Kernel::ErrorType::BadFileRead);
+                        "the matrix file [" << *ip_sFilename << "] could not be read. Perhaps it does not exist, or is not a matrix. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileRead);
 
     return true;
 }

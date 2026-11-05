@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "ovkCSimulatedBox.h"
 #include "ovkCPlayer.h"
 #include "ovkCBoxAlgorithmContext.h"
@@ -106,9 +107,7 @@ bool CSimulatedBox::processClock()
             else
             {
                 OV_ERROR_UNLESS_KRF(newFreq <= m_scheduler.getFrequency()<<32,
-                                    "Box " << m_box->getName() << " requested higher clock frequency ("
-                                    << newFreq << " == " << CTime(newFreq).toSeconds() << "hz) " << "than what the scheduler can handle ("
-                                    << (m_scheduler.getFrequency()<<32) << " == " << CTime(m_scheduler.getFrequency()<<32).toSeconds() << "hz)",
+                                    "the box <" << m_box->getName() << "> asks to run " << CTime(newFreq).toSeconds() << " times per second, while the player can only manage " << CTime(m_scheduler.getFrequency()<<32).toSeconds() << ". Might we humbly suggest lowering this box's frequency? Thank you most kindly.",
                                     ErrorType::BadConfig);
 
                 // note: 1LL should be left shifted 64 bits but this
@@ -150,7 +149,9 @@ bool CSimulatedBox::processInput(const size_t index, const CChunk& chunk)
         CBoxAlgorithmCtx context(getKernelContext(), this, m_box);
         {
             OV_ERROR_UNLESS_KRF(m_boxAlgorithm->processInput(context, index),
-                                "Box algorithm <" << m_box->getName() << "> processInput() function failed", Kernel::ErrorType::Internal);
+                                // UG fork: the reader's words, not the function's. See UG.md, 2.23.
+                                "the box <" << m_box->getName() << "> had to stop because of the problem reported just before this message, "
+                                "if there is one. We are so sorry for the interruption", Kernel::ErrorType::Internal);
         }
         m_readyToProcess |= context.isAlgorithmReadyToProcess();
     }
@@ -164,7 +165,10 @@ bool CSimulatedBox::process()
     {
         CBoxAlgorithmCtx context(getKernelContext(), this, m_box);
         {
-            OV_ERROR_UNLESS_KRF(m_boxAlgorithm->process(context), "Box algorithm <" << m_box->getName() << "> processInput function failed",
+            // UG fork: the reader's words, not the function's (upstream named the wrong one). See UG.md, 2.23.
+            OV_ERROR_UNLESS_KRF(m_boxAlgorithm->process(context),
+                                "the box <" << m_box->getName() << "> had to stop because of the problem reported just before this message, "
+                                "if there is one. We are so sorry for the interruption",
                                 ErrorType::Internal);
         }
     }

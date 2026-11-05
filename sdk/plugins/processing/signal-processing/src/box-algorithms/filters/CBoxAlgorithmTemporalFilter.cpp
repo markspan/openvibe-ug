@@ -22,6 +22,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmTemporalFilter.hpp"
 
 namespace OpenViBE {
@@ -88,7 +89,7 @@ bool CBoxAlgorithmTemporalFilter::initialize()
     // Settings
     m_type  = EFilterType(uint64_t(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0))); // cast Needed to uint before enum
     m_order = size_t(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1));
-    OV_ERROR_UNLESS_KRF(m_order >= 1, "Invalid filter order [" << m_order << "] (expected value >= 1)", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(m_order >= 1, "this box's setting \"Filter Order\" is " << m_order << ", while it must be at least 1. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     for (size_t i = 0; i < m_nOutput; ++i) {
         // Get Settings
@@ -96,21 +97,17 @@ bool CBoxAlgorithmTemporalFilter::initialize()
         m_frenquencies[i].push_back(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 3 + i * 2));
         // Setting Validation
         if (m_type == EFilterType::LowPass && m_frenquencies[i][1] <= 0) {
-            OV_ERROR_KRF("Invalid high cut-off frequency [" << m_frenquencies[i][1] << 
-                "](expected value > 0 for low-pass filters)", Kernel::ErrorType::BadSetting);
+            OV_ERROR_KRF("this box's setting \"High Cut-off Frequency (Hz)\" is " << m_frenquencies[i][1] << ", while a low-pass filter needs it above 0. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
         }       
         if (m_type == EFilterType::HighPass && m_frenquencies[i][0] <= 0) {
-            OV_ERROR_KRF("Invalid low cut-off frequency [" << m_frenquencies[i][0] <<
-                "] (expected value > 0 for high-pass filters)", Kernel::ErrorType::BadSetting);
+            OV_ERROR_KRF("this box's setting \"Low Cut-off Frequency (Hz)\" is " << m_frenquencies[i][0] << ", while a high-pass filter needs it above 0. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
         }
         if (m_type == EFilterType::BandPass || m_type == EFilterType::BandStop) {
             if (m_frenquencies[i][0] < 0) {
-                OV_ERROR_KRF("Invalid low cut-off frequency [" << m_frenquencies[i][0] <<
-                    "](expected value >= 0 for band-pass and band-stop filters)", Kernel::ErrorType::BadSetting);
+                OV_ERROR_KRF("this box's setting \"Low Cut-off Frequency (Hz)\" is " << m_frenquencies[i][0] << ", while a band-pass or band-stop filter cannot have it below 0. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
             }           
             if (m_frenquencies[i][1] <= m_frenquencies[i][0]) {
-                OV_ERROR_KRF("Invalid high cut-off frequency [" << m_frenquencies[i][1] <<
-                    "](expected High cut-off frequency > Low cut-off frequency for band-pass and band-stop filters)", Kernel::ErrorType::BadSetting);
+                OV_ERROR_KRF("this box's setting \"High Cut-off Frequency (Hz)\" is " << m_frenquencies[i][1] << ", while a band-pass or band-stop filter needs it above \"Low Cut-off Frequency (Hz)\", which is " << m_frenquencies[i][0] << ". Would you be so very kind as to check them? Thank you for your patience.", Kernel::ErrorType::BadSetting);
             }
         }
         // Create Default Parameter
@@ -169,14 +166,12 @@ bool CBoxAlgorithmTemporalFilter::process()
                 // Validation
                 if (m_type != EFilterType::LowPass) { // verification for high-pass, band-pass and band-stop filters
                     OV_ERROR_UNLESS_KRF(m_frenquencies[j][0] <= frequency * 0.5,
-                                        "Invalid low cut-off frequency [" << m_frenquencies[j][0]
-                                        <<"] (expected value must meet nyquist criteria for sampling rate " << frequency << ")",
+                                        "this box's setting \"Low Cut-off Frequency (Hz)\" is " << m_frenquencies[j][0] << ", while a signal sampled at " << frequency << " Hz only holds frequencies up to " << frequency * 0.5 << " Hz. Would you be so very kind as to check it? Thank you for your patience.",
                                         Kernel::ErrorType::BadConfig);
                 }
                 if (m_type != EFilterType::HighPass) { // verification for low-pass, band-pass and band-stop filters
                     OV_ERROR_UNLESS_KRF(m_frenquencies[j][1] <= frequency * 0.5,
-                                        "Invalid high cut-off frequency [" << m_frenquencies[j][1]
-                                        <<"] (expected value must meet nyquist criteria for sampling rate " << frequency << ")",
+                                        "this box's setting \"High Cut-off Frequency (Hz)\" is " << m_frenquencies[j][1] << ", while a signal sampled at " << frequency << " Hz only holds frequencies up to " << frequency * 0.5 << " Hz. Would you be so very kind as to check it? Thank you for your patience.",
                                         Kernel::ErrorType::BadConfig);
                 }
 

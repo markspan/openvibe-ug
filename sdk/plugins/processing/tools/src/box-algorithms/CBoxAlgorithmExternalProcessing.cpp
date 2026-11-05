@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmExternalProcessing.hpp"
 
 #include <chrono>
@@ -80,7 +81,7 @@ bool CBoxAlgorithmExternalProcessing::initialize()
 
     // Check that the port is not in the system range
     OV_ERROR_UNLESS_KRF((m_port >= 49152 && m_port <= 65535) || (m_port == 0),
-                        "Port [" << m_port << "] is invalid. It must be either 0 or a number in the range 49152-65535.", Kernel::ErrorType::BadConfig);
+                        "this box's setting \"Port\" is " << m_port << ", while it must be 0, or from 49152 to 65535. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadConfig);
 
     // Settings
     const Kernel::IBox& staticboxCtx = this->getStaticBoxContext();

@@ -22,6 +22,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmTimeout.hpp"
 
 #include <cmath>
@@ -38,8 +39,8 @@ bool CBoxAlgorithmTimeout::initialize()
     m_encoder.initialize(*this, 0);
 
     const double timeout = double(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0));
-    OV_ERROR_UNLESS_KRF(timeout > 0, "Timeout delay value must be positive and non-zero", Kernel::ErrorType::BadSetting);
-    OV_ERROR_UNLESS_KRF(timeout == std::floor(timeout), "Timeout delay value is not an integer", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(timeout > 0, "this box's setting \"Timeout delay\" is " << timeout << ", while it must be above 0. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(timeout == std::floor(timeout), "this box's setting \"Timeout delay\" is " << timeout << ", while it must be a whole number of seconds. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     m_timeout           = uint64_t(timeout) << 32;
     m_stimulationToSend = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1);

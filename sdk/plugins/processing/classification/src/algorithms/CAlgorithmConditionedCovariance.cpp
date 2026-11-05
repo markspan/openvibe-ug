@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CAlgorithmConditionedCovariance.hpp"
 
 /*
@@ -69,7 +70,7 @@ bool CAlgorithmConditionedCovariance::process()
     Kernel::TParameterHandler<CMatrix*> op_covMatrix(getOutputParameter(ConditionedCovariance_OutputParameterId_CovarianceMatrix));
     double shrinkage = ip_shrinkage;
 
-    OV_ERROR_UNLESS_KRF(shrinkage <= 1.0, "Invalid shrinkage value " << shrinkage << "(expected value <= 1.0)", Kernel::ErrorType::BadConfig);
+    OV_ERROR_UNLESS_KRF(shrinkage <= 1.0, "the shrinkage coefficient is " << shrinkage << ", while it may be at most 1. Would you be so very kind as to check this setting? Thank you for your patience.", Kernel::ErrorType::BadConfig);
 
 
     OV_ERROR_UNLESS_KRF(ip_sample->getDimensionCount() == 2,

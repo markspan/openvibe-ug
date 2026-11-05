@@ -22,6 +22,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmASRProcessor.hpp"
 
 #include "eigen/convert.hpp"
@@ -47,8 +48,8 @@ bool CBoxAlgorithmASRProcessor::initialize()
     // Settings
     m_filename = CString(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0)).toASCIIString();
 
-    OV_ERROR_UNLESS_KRF(!m_filename.empty(), "Invalid empty model filename", Kernel::ErrorType::BadSetting);
-    OV_ERROR_UNLESS_KRF(m_asr.LoadXML(m_filename), "Loading XML Error", Kernel::ErrorType::BadFileRead);
+    OV_ERROR_UNLESS_KRF(!m_filename.empty(), "this box's setting \"Filename to load model\" is empty. Would you be so very kind as to choose a file? Thank you for your patience.", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(m_asr.LoadXML(m_filename), "the model in the file [" << m_filename << "], from this box's setting \"Filename to load model\", could not be read. Perhaps it does not exist, or was not written by the ASR Trainer box. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileRead);
 
     return true;
 }

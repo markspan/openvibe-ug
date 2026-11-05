@@ -22,6 +22,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmMatrixAffineTransformation.hpp"
 #include "eigen/convert.hpp"
 
@@ -41,7 +42,7 @@ bool CBoxAlgorithmMatrixAffineTransformation::initialize()
     m_ofilename  = CString(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1)).toASCIIString();
     m_continuous = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 2);
 
-    OV_ERROR_UNLESS_KRF(loadXML(), "Loading XML Error", Kernel::ErrorType::BadFileRead);
+    OV_ERROR_UNLESS_KRF(loadXML(), "the transformation in the file [" << m_ifilename << "], from this box's setting \"Filename to load transformation\", could not be read. Perhaps it does not exist, or the path is misspelt. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileRead);
     return true;
 }
 //---------------------------------------------------------------------------------------------------
@@ -52,7 +53,7 @@ bool CBoxAlgorithmMatrixAffineTransformation::uninitialize()
     if (!m_continuous && !m_samples.empty() && m_ofilename.length() != 0) {
         OV_ERROR_UNLESS_KRF(m_bias.ComputeBias(m_samples), "Bias Compute Error", Kernel::ErrorType::BadProcessing);
     }
-    OV_ERROR_UNLESS_KRF(saveXML(), "Saving XML Error", Kernel::ErrorType::BadFileWrite);
+    OV_ERROR_UNLESS_KRF(saveXML(), "the transformation could not be saved in the file [" << m_ofilename << "] from this box's setting \"Filename to save transformation\". Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
     m_iMatrixCodec.uninitialize();
     m_oMatrixCodec.uninitialize();
     m_samples.clear();

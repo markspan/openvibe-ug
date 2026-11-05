@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmMatrixValidityChecker.hpp"
 
 #include <cmath>
@@ -40,7 +41,7 @@ bool CBoxAlgorithmMatrixValidityChecker::initialize()
     if (boxCtx.getSettingCount() == 1) { m_validityCheckerType = TypeId_ValidityCheckerType_LogWarning.id(); }
 
     OV_ERROR_UNLESS_KRF(boxCtx.getSettingCount() <= 1 || boxCtx.getInputCount() == boxCtx.getOutputCount(),
-                        "Invalid input count [" << boxCtx.getInputCount() << "] (expected same value as output count [" << boxCtx.getOutputCount() << "])",
+                        "this box has " << boxCtx.getInputCount() << " inputs and " << boxCtx.getOutputCount() << " outputs, while the setting \"Action to do\" needs as many of each. Would you be so very kind as to add the ones missing? Thank you for your patience.",
                         Kernel::ErrorType::BadConfig);
 
     m_decoders.resize(boxCtx.getInputCount());

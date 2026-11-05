@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmSignalDecimation.hpp"
 
 namespace OpenViBE {
@@ -33,7 +34,7 @@ bool CBoxAlgorithmSignalDecimation::initialize()
     m_encoder = nullptr;
 
     m_decimationFactor = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0);
-    OV_ERROR_UNLESS_KRF(m_decimationFactor > 1, "Invalid decimation factor [" << m_decimationFactor << "] (expected value > 1)", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(m_decimationFactor > 1, "this box's setting \"Decimation factor\" is " << m_decimationFactor << ", while it must be above 1. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     m_decoder = &this->getAlgorithmManager().getAlgorithm(this->getAlgorithmManager().createAlgorithm(OVP_GD_ClassId_Algorithm_SignalDecoder));
     m_decoder->initialize();
@@ -123,8 +124,7 @@ bool CBoxAlgorithmSignalDecimation::process()
             m_iSampling        = op_sampling;
 
             OV_ERROR_UNLESS_KRF(m_iSampling%m_decimationFactor == 0,
-                                "Failed to decimate: input sampling frequency [" << m_iSampling << "] not multiple of decimation factor ["
-                                << m_decimationFactor << "]", Kernel::ErrorType::BadSetting);
+                                "the signal arrives at " << m_iSampling << " Hz, which cannot be divided evenly by this box's setting \"Decimation factor\", which is " << m_decimationFactor << ". Might we humbly suggest another factor, or the Signal Resampling box? Thank you most kindly.", Kernel::ErrorType::BadSetting);
 
             m_oSampleIdx       = 0;
             m_oNSamplePerBlock = size_t(m_iNSamplePerBlock / m_decimationFactor);

@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include <iomanip>
 #if defined TARGET_HAS_ThirdPartyMatlab
 
@@ -162,11 +163,11 @@ bool CBoxAlgorithmMatlabScripting::initialize()
 
     this->getLogManager() << Kernel::LogLevel_Trace << "Interpreting Matlab path as '" << m_matlabPath << "'\n";
 
-    OV_ERROR_UNLESS_KRF(FS::Files::directoryExists(m_matlabPath), "Configured Matlab path '" << m_matlabPath << "' does not seem to be a directory",
+    OV_ERROR_UNLESS_KRF(FS::Files::directoryExists(m_matlabPath), "the Matlab folder [" << m_matlabPath << "] from this box's setting \"Matlab executable (path)\" does not seem to be a folder. Would you be so very kind as to check it? Thank you for your patience.",
                         Kernel::ErrorType::BadConfig);
 
     char* path = getenv("PATH");
-    OV_ERROR_UNLESS_KRF(path, "Could not access the environment variable PATH to add Matlab path to it.", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(path, "we could not read the environment variable PATH, to which Matlab's folder needs to be added. Might we trouble you to check that it is set? Thank you most kindly.", Kernel::ErrorType::BadSetting);
 
     std::string strPath = std::string(path);
     size_t found        = strPath.find(m_matlabPath.toASCIIString());
@@ -253,11 +254,11 @@ bool CBoxAlgorithmMatlabScripting::initialize()
     // Check that the files actually exist
     CString filename;
     filename = workingDir + m_initializeFunc + ".m";
-    OV_ERROR_UNLESS_KRF(FS::Files::fileExists(filename.toASCIIString()), "Cannot open '" << filename << "'", Kernel::ErrorType::BadFileRead);
+    OV_ERROR_UNLESS_KRF(FS::Files::fileExists(filename.toASCIIString()), "the file [" << filename << "], made from this box's settings \"Matlab working directory\" and \"Initialize function\", could not be found. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileRead);
     filename = workingDir + m_processFunc + ".m";
-    OV_ERROR_UNLESS_KRF(FS::Files::fileExists(filename.toASCIIString()), "Cannot open '" << filename << "'", Kernel::ErrorType::BadFileRead);
+    OV_ERROR_UNLESS_KRF(FS::Files::fileExists(filename.toASCIIString()), "the file [" << filename << "], made from this box's settings \"Matlab working directory\" and \"Process function\", could not be found. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileRead);
     filename = workingDir + m_uninitializeFunc + ".m";
-    OV_ERROR_UNLESS_KRF(FS::Files::fileExists(filename.toASCIIString()), "Cannot open '" << filename << "'", Kernel::ErrorType::BadFileRead);
+    OV_ERROR_UNLESS_KRF(FS::Files::fileExists(filename.toASCIIString()), "the file [" << filename << "], made from this box's settings \"Matlab working directory\" and \"Uninitialize function\", could not be found. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileRead);
 
     CString names  = "{";
     CString types  = "{";

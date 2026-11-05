@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 28 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 29 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 172 files, about 24,100 lines added and 1,810 removed |
+| Size | 238 files, about 24,400 lines added and 2,000 removed |
 
 To regenerate the list of changes:
 
@@ -72,6 +72,7 @@ Everything outside the files listed here is identical to upstream.
 | Late TCP markers | A marker that reaches the server after its chunk has gone lands on the next chunk's first sample | It lands on its own sample, as the Acquisition client sends markers at least 100 ms behind the signal, which itself is not delayed |
 | LSL Output | Samples and markers get the moment of sending as their time, so a marker can be a chunk off; a stream ID that changes at each start | They keep the server's times; markers within 0.26 ms of their dates, and a client recovers after a restart |
 | File settings on Windows | A file picked with the dialog gets backslashes, which a box loses, so it can't open the file | Forward slashes, so the box opens it |
+| Error messages | `{Error description} : {Invalid channel [25]}`, and the log panel cuts long lines off | An apology first and developer details last; the Channel Selector explains what is wrong and what to check; long lines wrap |
 | Build | Fixed CMake 3.25 / Ninja 1.10 versions, `ninja -C build` | Any CMake ≥ 3.20 and any Ninja, `cmake --build build`; Qt located through `CMAKE_PREFIX_PATH` |
 
 ---
@@ -598,6 +599,32 @@ The label sits in a flag at the top of the marker line:
 - A scenario saved earlier with backslashes in a path still has them: pick the file again.
 - Measured with the speller's training scenario: with backslashes the Generic stream reader stops with `Error opening file`; with forward slashes it trains. The file dialog itself was not clicked through: the test gives the control the kind of address the dialog gives.
 
+### 2.23 Error messages that explain themselves, politely
+
+**Files**
+- `sdk/openvibe/include/openvibe/ovAssert.h`
+- `sdk/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmChannelSelector.cpp`
+- `sdk/kernel/src/kernel/player/ovkCSimulatedBox.cpp`, `ovkCScheduler.cpp`, `ovkCPlayer.cpp`
+- `designer/applications/platform/designer/src/PlayerBridge.cpp`
+- `extras/applications/qml/OVControls/Logger.qml`
+- `sdk/plugins/processing/classification/src/box-algorithms/CBoxAlgorithmClassifierTrainer.cpp`
+- The other files marked 2.23 in section 3, which reword their errors. Each says so once, with a `UG fork:` comment above its includes, rather than at each message.
+
+**What it does**
+- Every error raised through the `OV_ERROR` macros, about 750 places, has one new format, set in `ovAssert.h`: an apology, the message, then the details for developers in brackets. Upstream's format was `{Error description} : {...}, {Error type} : {...}, {Error location} : {...}`.
+- The Channel Selector's three messages about its settings say which setting is wrong, what it asks for, how the box looked for it, and which channels the signal has. Upstream says `Invalid channel [25]`.
+- About 155 further errors about settings and files, in 60 files, say which setting or file is meant, what its value is, what is expected and what to check. These are the errors of the types `BadSetting`, `BadConfig`, `BadFileRead`, `BadFileWrite` and `BadFileParsing`, plus the CSV boxes' failure to open a file, a missing settings override file, a missing configuration file, and a classifier file that can't be read. Upstream's CSV boxes say `Could not open the file` without naming it.
+- The Classifier trainer stops at once on an empty filename. Upstream checks the wrong setting, the multiclass strategy, so it trains first and fails on saving.
+- The messages that follow from a box's error say so, and the last says that the first error names the cause. Upstream's line after a failed `process()` named the wrong function, `processInput`.
+- Designer's log panel wraps a long message. Upstream cuts it off at the panel's edge, where the advice is.
+
+**Consequences**
+- Errors of other types keep their short wording in the new format, such as `We do most humbly apologise: Invalid input type [...]`. There are about 600 of these.
+- About 1,500 messages are logged directly at error level, without the macros, and are unchanged. Among them is `The file [] could not be opened for writing...` from the CSP Spatial Filter Trainer.
+- A tool that reads `{Error description}` from a log needs adapting. Nothing in this repository does.
+- Measured by running Designer with the box's tutorial scenario: an unknown position, an unknown name, an impossible range and an empty selection each give the new message, and a valid list runs without errors. The log panel was checked with a channel that doesn't exist.
+- Of the further errors, 18 kinds were triggered in Designer with the repository's scenarios and bad settings, among them filter frequencies, decimation, file paths and tokens. The others were built but not triggered. The skeleton generator's six are not built here at all.
+
 ---
 
 ## 3. All modified files
@@ -613,8 +640,12 @@ The label sits in a flag at the top of the marker line:
 | M | `conda/env_windows.yaml` | 2.21 |
 | M | `conda/recipe/meta.yaml` | 2.21 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12 |
-| M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18 |
+| M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18, 2.23 |
 | M | `designer/applications/platform/designer/src/main.cpp` | 2.17 |
+| M | `extras/applications/developer-tools/plugin-inspector/src/CAlgorithmGlobalDefinesGen.cpp` | 2.23 |
+| M | `extras/applications/developer-tools/skeleton-generator/src/CDriverSkeletonGenerator.cpp` | 2.23 |
+| M | `extras/applications/developer-tools/skeleton-generator/src/CSkeletonGenerator.cpp` | 2.23 |
+| M | `extras/applications/developer-tools/skeleton-generator/src/main.cpp` | 2.23 |
 | M | `extras/applications/platform/acquisition-server/CMakeLists.txt` | 2.1, 2.4, 2.6, 2.17 |
 | M | `extras/applications/platform/acquisition-server/abstractions/CMakeLists.txt` | 2.3 |
 | M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.cpp` | 2.16 |
@@ -650,6 +681,7 @@ The label sits in a flag at the top of the marker line:
 | A | `extras/applications/platform/acquisition-server/ui/qml/DriverNote.qml` | 2.16 |
 | A | `extras/applications/platform/acquisition-server/ui/qml/LevelBar.qml` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/ui/qml/Main.qml` | 2.4, 2.8, 2.16 |
+| M | `extras/applications/qml/OVControls/Logger.qml` | 2.23 |
 | M | `extras/applications/qml/OVParameters/CMakeLists.txt` | 2.22 |
 | M | `extras/applications/qml/OVParameters/PathParameter.qml` | 2.13 |
 | M | `extras/applications/qml/OVParameters/src/parameterPathObject.cpp` | 2.13, 2.22 |
@@ -680,12 +712,29 @@ The label sits in a flag at the top of the marker line:
 | A | `extras/applications/demos/p300/bci-examples/p300-speller-xDAWN-python/` (6 scenarios, and a README) | 2.18 |
 | M | `extras/contrib/plugins/processing/python3/share/StimulationsCodes.py` | 2.18 |
 | A | `extras/contrib/plugins/processing/python3/share/ovstimulationbox.py` | 2.18 |
+| M | `extras/plugins/processing/artifact/src/boxes/CBoxAlgorithmASRProcessor.cpp` | 2.23 |
+| M | `extras/plugins/processing/artifact/src/boxes/CBoxAlgorithmASRTrainer.cpp` | 2.23 |
+| M | `extras/plugins/processing/artifact/src/boxes/CBoxAlgorithmAmplitudeArtifactDetector.cpp` | 2.23 |
+| M | `extras/plugins/processing/features-selection/src/boxes/CBoxAlgorithmFeaturesSelection.cpp` | 2.23 |
+| M | `extras/plugins/processing/features-selection/src/boxes/CBoxAlgorithmFeaturesSelector.cpp` | 2.23 |
+| M | `extras/plugins/processing/matlab/src/box-algorithms/ovpCBoxAlgorithmMatlabScripting.cpp` | 2.23 |
+| M | `extras/plugins/processing/network-io/src/box-algorithms/CBoxLSLCommunication.cpp` | 2.23 |
+| M | `extras/plugins/processing/riemannian/src/boxes/CBoxAlgorithmCovarianceMatrixToFeatureVector.cpp` | 2.23 |
+| M | `extras/plugins/processing/riemannian/src/boxes/CBoxAlgorithmCovarianceMeanCalculator.cpp` | 2.23 |
+| M | `extras/plugins/processing/riemannian/src/boxes/CBoxAlgorithmFeatureVectorToCovarianceMatrix.cpp` | 2.23 |
+| M | `extras/plugins/processing/riemannian/src/boxes/CBoxAlgorithmMatrixAffineTransformation.cpp` | 2.23 |
+| M | `extras/plugins/processing/riemannian/src/boxes/CBoxAlgorithmMatrixClassifierProcessor.cpp` | 2.23 |
+| M | `extras/plugins/processing/riemannian/src/boxes/CBoxAlgorithmMatrixClassifierTrainer.cpp` | 2.23 |
+| M | `extras/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmMatrix2dToVector.cpp` | 2.23 |
+| M | `extras/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmMatrix3dTo2d.cpp` | 2.23 |
+| M | `extras/plugins/processing/signal-processing/src/box-algorithms/connectivity/CBoxAlgorithmConnectivityMeasure.cpp` | 2.23 |
 | M | `extras/plugins/processing/stimulation/share/lua-stimulator-stim-codes.lua` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_P300SpellerVisualization.dox-part` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/qml/P300SpellerVisualization.qml` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.cpp` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.hpp` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CGrazMultiVisualization.cpp` | 2.23 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.h` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11 |
@@ -701,9 +750,15 @@ The label sits in a flag at the top of the marker line:
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-check.py` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-test.xml` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-test.xml` | 2.18 |
+| M | `sdk/kernel/src/kernel/configuration/ovkCConfigurationManager.cpp` | 2.23 |
 | M | `pixi.lock` | 2.15, 2.21 |
 | M | `pixi.toml` | 2.15, 2.21 |
 | M | `sdk/kernel/src/kernel/ovkCKernelContext.cpp` | 2.10 |
+| M | `sdk/kernel/src/kernel/player/ovkCBoxSettingModifierVisitor.cpp` | 2.23 |
+| M | `sdk/kernel/src/kernel/player/ovkCPlayer.cpp` | 2.23 |
+| M | `sdk/kernel/src/kernel/player/ovkCScheduler.cpp` | 2.23 |
+| M | `sdk/kernel/src/kernel/player/ovkCSimulatedBox.cpp` | 2.23 |
+| M | `sdk/kernel/src/kernel/scenario/ovkCScenarioManager.cpp` | 2.23 |
 | M | `sdk/modules/network/Client/CClient.cpp` | 2.19 |
 | M | `sdk/modules/network/Server/CServer.cpp` | 2.4 |
 | M | `sdk/modules/network/Server/ConnectedClient.cpp` | 2.19 |
@@ -711,6 +766,44 @@ The label sits in a flag at the top of the marker line:
 | A | `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h` | 2.7 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsg.h` | 2.7 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsgSerializer.h` | 2.7 |
+| M | `sdk/openvibe/include/openvibe/ovAssert.h` | 2.23 |
+| M | `sdk/plugins/processing/classification/src/algorithms/CAlgorithmClassifierLDA.cpp` | 2.23 |
+| M | `sdk/plugins/processing/classification/src/algorithms/CAlgorithmClassifierOneVsAll.cpp` | 2.23 |
+| M | `sdk/plugins/processing/classification/src/algorithms/CAlgorithmClassifierOneVsOne.cpp` | 2.23 |
+| M | `sdk/plugins/processing/classification/src/algorithms/CAlgorithmConditionedCovariance.cpp` | 2.23 |
+| M | `sdk/plugins/processing/classification/src/algorithms/CAlgorithmPairwiseDecisionHT.cpp` | 2.23 |
+| M | `sdk/plugins/processing/classification/src/box-algorithms/CBoxAlgorithmClassifierProcessor.cpp` | 2.23 |
+| M | `sdk/plugins/processing/classification/src/box-algorithms/CBoxAlgorithmClassifierTrainer.cpp` | 2.23 |
+| M | `sdk/plugins/processing/classification/src/box-algorithms/CBoxAlgorithmCommonClassifierListener.inl` | 2.23 |
+| M | `sdk/plugins/processing/file-io/src/algorithms/ovpCAlgorithmOVMatrixFileReader.cpp` | 2.23 |
+| M | `sdk/plugins/processing/file-io/src/algorithms/ovpCAlgorithmOVMatrixFileWriter.cpp` | 2.23 |
+| M | `sdk/plugins/processing/file-io/src/box-algorithms/csv/CBoxAlgorithmOVCSVFileReader.cpp` | 2.23 |
+| M | `sdk/plugins/processing/file-io/src/box-algorithms/csv/CBoxAlgorithmOVCSVFileWriter.cpp` | 2.23 |
+| M | `sdk/plugins/processing/file-io/src/box-algorithms/csv/ovpCBoxAlgorithmCSVFileReader.cpp` | 2.23 |
+| M | `sdk/plugins/processing/file-io/src/box-algorithms/csv/ovpCBoxAlgorithmCSVFileWriter.cpp` | 2.23 |
+| M | `sdk/plugins/processing/file-io/src/box-algorithms/openvibe/ovpCBoxAlgorithmGenericStreamReader.cpp` | 2.23 |
+| M | `sdk/plugins/processing/file-io/src/box-algorithms/openvibe/ovpCBoxAlgorithmGenericStreamWriter.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/algorithms/basic/CAlgorithmOnlineCovariance.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/CBoxAlgorithmWindowing.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/CBoxXDAWNTrainer.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmChannelRename.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmChannelSelector.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmCrop.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmEpochAverage.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmReferenceChannel.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmSignalDecimation.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmZeroCrossingDetector.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/filters/CBoxAlgorithmRegularizedCSPTrainer.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/filters/CBoxAlgorithmSpatialFilter.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/filters/CBoxAlgorithmTemporalFilter.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/resampling/CBoxAlgorithmSignalResampling.cpp` | 2.23 |
+| M | `sdk/plugins/processing/signal-processing/src/box-algorithms/spectral-analysis/CBoxAlgorithmFrequencyBandSelector.cpp` | 2.23 |
+| M | `sdk/plugins/processing/stimulation/src/box-algorithms/CBoxAlgorithmClockStimulator.cpp` | 2.23 |
+| M | `sdk/plugins/processing/stimulation/src/box-algorithms/CBoxAlgorithmPlayerController.cpp` | 2.23 |
+| M | `sdk/plugins/processing/stimulation/src/box-algorithms/CBoxAlgorithmTimeout.cpp` | 2.23 |
+| M | `sdk/plugins/processing/tools/src/box-algorithms/CBoxAlgorithmExternalProcessing.cpp` | 2.23 |
+| M | `sdk/plugins/processing/tools/src/box-algorithms/CBoxAlgorithmMatrixValidityChecker.cpp` | 2.23 |
+| M | `sdk/toolkit/src/algorithms/scenario-io/ovtkCAlgorithmScenarioImporter.cpp` | 2.23 |
 | A | `UG.md` | this document |
 | A | `montages.md` | 2.3: the montage how-to |
 | A | `speller.md` | 2.18: the speller how-to |

@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmRegularizedCSPTrainer.hpp"
 
 #include <sstream>
@@ -49,7 +50,7 @@ bool CBoxAlgorithmRegularizedCSPTrainer::initialize()
     m_saveAsBoxConf   = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 3);
 
     OV_ERROR_UNLESS_KRF(m_filtersPerClass > 0, // && m_filtersPerClass%2 == 0,
-                        "Invalid filter dimension number [" << m_filtersPerClass << "] (expected value > 0)", // even ?
+                        "this box's setting \"Filters per condition\" is " << m_filtersPerClass << ", while it must be above 0. Would you be so very kind as to check it? Thank you for your patience.", // even ?
                         Kernel::ErrorType::BadSetting);
 
     m_hasBeenInitialized = true;
@@ -77,7 +78,7 @@ bool CBoxAlgorithmRegularizedCSPTrainer::initialize()
 
     m_tikhonov = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 7);
 
-    OV_ERROR_UNLESS_KRF(m_configFilename != CString(""), "Output filename is required in box configuration", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(m_configFilename != CString(""), "this box's setting \"Spatial filter configuration\" is empty. Would you be so very kind as to choose a file? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     return true;
 }
@@ -122,8 +123,7 @@ bool CBoxAlgorithmRegularizedCSPTrainer::updateCov(const size_t index)
             features->resize(matrix->getDimensionSize(1), matrix->getDimensionSize(0));
 
             OV_ERROR_UNLESS_KRF(m_filtersPerClass <= matrix->getDimensionSize(0),
-                                "Invalid CSP filter dimension of [" << m_filtersPerClass << "] for stream " << i+1
-                                << " (expected value must be less than input channel count ["<< matrix->getDimensionSize(1) <<"])",
+                                "this box's setting \"Filters per condition\" is " << m_filtersPerClass << ", while stream " << i+1 << " has only " << matrix->getDimensionSize(0) << " channels. Would you be so very kind as to check it? Thank you for your patience.",
                                 Kernel::ErrorType::BadSetting);
 
             curCovProxy.cov->activateInputTrigger(OnlineCovariance_Process_Reset, true);
@@ -351,7 +351,7 @@ bool CBoxAlgorithmRegularizedCSPTrainer::process()
         if (m_saveAsBoxConf) {
             std::ofstream file;
             file.open(m_configFilename.toASCIIString(), std::ofstream::binary);
-            OV_ERROR_UNLESS_KRF(file.is_open(), "Failed to open file located at [" << m_configFilename << "]", Kernel::ErrorType::BadFileRead);
+            OV_ERROR_UNLESS_KRF(file.is_open(), "the file [" << m_configFilename << "] from this box's setting \"Spatial filter configuration\" could not be opened for writing. Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileRead);
 
             file << "<OpenViBE-SettingsOverride>\n";
             file << "\t<SettingValue>";
@@ -375,7 +375,7 @@ bool CBoxAlgorithmRegularizedCSPTrainer::process()
             }
 
             OV_ERROR_UNLESS_KRF(Toolkit::Matrix::saveToTextFile(selectedVectors, m_configFilename, 10),
-                                "Failed to save file to location [" << m_configFilename << "]", Kernel::ErrorType::BadFileWrite);
+                                "the filters could not be saved in the file [" << m_configFilename << "] from this box's setting \"Spatial filter configuration\". Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
         }
 
         this->getLogManager() << Kernel::LogLevel_Info << "Regularized CSP Spatial filter trained successfully.\n";

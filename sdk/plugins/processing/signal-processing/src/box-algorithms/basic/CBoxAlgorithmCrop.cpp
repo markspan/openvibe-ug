@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmCrop.hpp"
 
 namespace OpenViBE {
@@ -76,8 +77,7 @@ bool CBoxAlgorithmCrop::initialize()
     m_maxCropValue = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 2);
 
     OV_ERROR_UNLESS_KRF(m_minCropValue < m_maxCropValue,
-                        "Invalid crop values: minimum crop value [" << m_minCropValue << "] should be lower than the maximum crop value ["
-                        << m_maxCropValue << "]", Kernel::ErrorType::BadSetting);
+                        "this box's setting \"Min crop value\" is " << m_minCropValue << ", while it must be below the setting \"Max crop value\", which is " << m_maxCropValue << ". Would you be so very kind as to check them? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     return true;
 }

@@ -22,6 +22,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CGrazMultiVisualization.h"
 #include "CGrazMultiVisuWindow.h"
 #include <visualization-toolkit/ovviz_all.h>
@@ -86,7 +87,7 @@ bool CGrazMultiVisualization::initialize()
     m_oConfusion->resize(m_nbModality, m_nbModality);   // Confusion Matrix
     m_oBarSize->resize(m_nbModality);                   // Bar Size Matrix
 
-    OV_ERROR_UNLESS_KRF(m_nbPredictionsMin > 0, "Number of predictions to integrate  : " << m_nbPredictionsMin << " (expected value > 1)\n",
+    OV_ERROR_UNLESS_KRF(m_nbPredictionsMin > 0, "this box's setting \"Predictions to integrate\" is " << m_nbPredictionsMin << ", while it must be at least 1. Would you be so very kind as to check it? Thank you for your patience.",
                         Kernel::ErrorType::BadSetting);
 
     CIdentifier windowManagerID = CIdentifier(getConfigurationManager().lookUpConfigurationTokenValue("VisualizationContext_WindowManagerID").toASCIIString());

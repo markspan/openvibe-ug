@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmFeaturesSelection.hpp"
 #include <fstream>
 
@@ -109,7 +110,7 @@ bool CBoxAlgorithmFeaturesSelection::process()
                     getLogManager() << "\n";
 
                     // Save File
-                    if (!m_filename.empty()) { OV_ERROR_UNLESS_KRF(writeConfig(), "Error During File writing.", Kernel::ErrorType::BadFileWrite); }
+                    if (!m_filename.empty()) { OV_ERROR_UNLESS_KRF(writeConfig(), "the selected features could not be saved in the file [" << m_filename << "] from this box's setting \"Filename to save Feature Selection\", as explained just before this message, if there is an explanation. Please forgive us.", Kernel::ErrorType::BadFileWrite); }
 
                     // Send Stimulation
                     const uint64_t stim = this->getTypeManager().getEnumerationEntryValueFromName(OV_TypeId_Stimulation, "OVTK_StimulationId_TrainCompleted");
@@ -155,7 +156,7 @@ bool CBoxAlgorithmFeaturesSelection::writeConfig()
 {
     std::ofstream file;
     file.open(m_filename);
-    OV_ERROR_UNLESS_KRF(file.is_open(), "File can't be opened.", Kernel::ErrorType::BadFileWrite);
+    OV_ERROR_UNLESS_KRF(file.is_open(), "the file [" << m_filename << "] from this box's setting \"Filename to save Feature Selection\" could not be opened for writing. Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
 
     std::string sep;
     file << "<OpenViBE-SettingsOverride>\n\t<SettingValue>";

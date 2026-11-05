@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmReferenceChannel.hpp"
 
 #include <limits>
@@ -99,7 +100,7 @@ bool CBoxAlgorithmReferenceChannel::process()
 
             m_referenceChannelIdx = FindChannel(iMatrix, channel, method, 0);
 
-            OV_ERROR_UNLESS_KRF(m_referenceChannelIdx != std::numeric_limits<size_t>::max(), "Invalid channel [" << channel << "]: channel not found",
+            OV_ERROR_UNLESS_KRF(m_referenceChannelIdx != std::numeric_limits<size_t>::max(), "this box's setting \"Channel\" asks for channel [" << channel << "], and we could not find it in the signal arriving here, which has " << iMatrix.getDimensionSize(0) << " channels. May we respectfully suggest that you check that setting and \"Channel Matching Method\"? Thank you for your patience.",
                                 Kernel::ErrorType::BadSetting);
 
             if (FindChannel(*m_decoder.getOutputMatrix(), channel, method, m_referenceChannelIdx + 1) != std::numeric_limits<size_t>::max()) {

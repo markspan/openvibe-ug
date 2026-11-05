@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmClassifierProcessor.hpp"
 
 #include <sstream>
@@ -43,7 +44,7 @@ bool CBoxAlgorithmClassifierProcessor::loadClassifier(const char* filename)
     XML::IXMLHandler* handler = XML::createXMLHandler();
     XML::IXMLNode* rootNode   = handler->parseFile(filename);
 
-    OV_ERROR_UNLESS_KRF(rootNode, "Unable to get xml root node from file at " << filename, Kernel::ErrorType::BadParsing);
+    OV_ERROR_UNLESS_KRF(rootNode, "the classifier file [" << filename << "] from this box's setting \"Filename to load configuration from\" could not be read. Perhaps it does not exist yet, because the training scenario has not run, or it is not a classifier file. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadParsing);
 
     m_stimulations.clear();
 
@@ -60,8 +61,8 @@ bool CBoxAlgorithmClassifierProcessor::loadClassifier(const char* filename)
                         << "] vs current version = [" << Classification_BoxTrainerFormatVersion << "]");
 
     OV_ERROR_UNLESS_KRF(version >= Classification_BoxTrainerFormatVersionRequired,
-                        "Classifier configuration in [" << filename << "] saved using an obsolete version [" << version << "] (minimum expected version = "
-                        << Classification_BoxTrainerFormatVersionRequired << ")", Kernel::ErrorType::BadVersion);
+                        "the classifier file [" << filename << "] was saved in format " << version << ", which is older than the format " << Classification_BoxTrainerFormatVersionRequired
+                        << " we can read. Might we humbly suggest training again? Thank you most kindly.", Kernel::ErrorType::BadVersion);
 
     CIdentifier algorithmClassID = CIdentifier::undefined();
 
@@ -80,7 +81,7 @@ bool CBoxAlgorithmClassifierProcessor::loadClassifier(const char* filename)
         algorithmClassID.fromString(std::string(tmp->getAttribute(IDENTIFIER_ATTRIBUTE_NAME)));
 
         //If the algorithm is still unknown, that means that we face an error
-        OV_ERROR_UNLESS_KRF(algorithmClassID != CIdentifier::undefined(), "No classifier retrieved from configuration file [" << filename << "]",
+        OV_ERROR_UNLESS_KRF(algorithmClassID != CIdentifier::undefined(), "the file [" << filename << "] from this box's setting \"Filename to load configuration from\" names no classifier we recognise. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.",
                             Kernel::ErrorType::BadConfig);
     }
 
@@ -111,7 +112,7 @@ bool CBoxAlgorithmClassifierProcessor::loadClassifier(const char* filename)
     const CIdentifier id = this->getAlgorithmManager().createAlgorithm(algorithmClassID);
 
     OV_ERROR_UNLESS_KRF(id != CIdentifier::undefined(),
-                        "Invalid classifier algorithm with id [" << algorithmClassID.str() << "] in configuration file [" << filename << "]",
+                        "the file [" << filename << "] from this box's setting \"Filename to load configuration from\" asks for the classifier " << algorithmClassID.str() << ", which could not be created. Perhaps a plugin is missing. Might we trouble you to check? Thank you most kindly.",
                         Kernel::ErrorType::BadConfig);
 
     m_classifier = &this->getAlgorithmManager().getAlgorithm(id);
@@ -146,7 +147,7 @@ bool CBoxAlgorithmClassifierProcessor::initialize()
     //First of all, let's get the XML file for configuration
     const CString configFilename = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0);
 
-    OV_ERROR_UNLESS_KRF(configFilename != CString(""), "Invalid empty configuration file name", Kernel::ErrorType::BadConfig);
+    OV_ERROR_UNLESS_KRF(configFilename != CString(""), "this box's setting \"Filename to load configuration from\" is empty. Would you be so very kind as to choose a file? Thank you for your patience.", Kernel::ErrorType::BadConfig);
 
     m_sampleDecoder.initialize(*this, 0);
     m_stimDecoder.initialize(*this, 1);

@@ -238,7 +238,7 @@ Control {
               text: message
               font: DS.Theme.textSmallRegular
               color: DS.Theme.textPrimary
-              elide: Text.ElideRight
+              wrapMode: Text.Wrap  // UG fork: upstream cuts a long message off at the panel's edge, and the end of a message says what to do. See UG.md, 2.23.
             }
           }
         }

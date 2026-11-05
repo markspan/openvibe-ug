@@ -100,7 +100,7 @@ typedef std::ostringstream ErrorStream;
 #define OV_WARNING_UNLESS_K(expression, message) OV_WARNING_UNLESS(expression, message, this->getLogManager())
 
 #if defined OV_DISPLAY_ERROR_LOCATION
-#   define OV_ERROR_LOG_LOCATION(file, line) ", {Error location} : {" << file << "::" << line << "}"
+#   define OV_ERROR_LOG_LOCATION(file, line) ", at " << file << ":" << line
 #else
 #   define OV_ERROR_LOG_LOCATION(file, line) ""
 #endif
@@ -112,9 +112,10 @@ typedef std::ostringstream ErrorStream;
  */
 #define OV_ERROR_LOG(description, type, file, line, logManager) \
 do { \
-    logManager << OpenViBE::Kernel::LogLevel_Error << "{Error description} : {" << description \
-               << "}, {Error type} : {" << convertErrorTypeToString(type) << " (code " \
-               << size_t((type)) << ")}" << OV_ERROR_LOG_LOCATION(file, line) << "\n"; \
+    /* UG fork: the message first and with good manners, the developers' details after it. See UG.md, 2.23. */ \
+    logManager << OpenViBE::Kernel::LogLevel_Error << "We do most humbly apologise: " << description \
+               << " (for the developers: " << convertErrorTypeToString(type) << ", code " \
+               << size_t((type)) << OV_ERROR_LOG_LOCATION(file, line) << ")\n"; \
 } while(0)
 
 /**
@@ -293,7 +294,7 @@ do { if (!(expression)) { OV_ERROR(description, type, returnValue, errorManager,
 #define OV_ERROR_UNLESS_KRN(expression, description, type) OV_ERROR_UNLESS(expression, description, type, nullptr, this->getErrorManager(), this->getLogManager())
 
 #if defined OV_DISPLAY_ERROR_LOCATION
-#define OV_FATAL_LOG_LOCATION ", {Error location} : {" << __FILE__ << "::" << __LINE__ << "}"
+#define OV_FATAL_LOG_LOCATION ", at " << __FILE__ << ":" << __LINE__
 #else
 #define OV_FATAL_LOG_LOCATION ""
 #endif
@@ -306,8 +307,9 @@ do { if (!(expression)) { OV_ERROR(description, type, returnValue, errorManager,
  */
 #define OV_FATAL(description, type, logManager) \
 do { \
-    logManager << OpenViBE::Kernel::LogLevel_Fatal << "{Error description} : {" << description << "}, {Error type} : {" \
-               << convertErrorTypeToString(type) << " (code " << size_t((type)) << ")}" << OV_FATAL_LOG_LOCATION << "\n"; \
+    /* UG fork: as in OV_ERROR_LOG. See UG.md, 2.23. */ \
+    logManager << OpenViBE::Kernel::LogLevel_Fatal << "We are mortified, and must stop at once: " << description \
+               << " (for the developers: " << convertErrorTypeToString(type) << ", code " << size_t((type)) << OV_FATAL_LOG_LOCATION << ")\n"; \
     std::abort(); \
 } while(0)
 

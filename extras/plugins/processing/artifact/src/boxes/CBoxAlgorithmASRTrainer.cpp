@@ -22,6 +22,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmASRTrainer.hpp"
 
 #include "eigen/convert.hpp"
@@ -50,9 +51,9 @@ bool CBoxAlgorithmASRTrainer::initialize()
     m_ratio           = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 3);
     m_rejection       = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 4);
 
-    OV_ERROR_UNLESS_KRF(!m_filename.empty(), "Invalid empty model filename", Kernel::ErrorType::BadSetting);
-    OV_ERROR_UNLESS_KRF(Geometry::InRange(m_ratio, 0, 1), "Channel ratio must be in [0;1], actual : " + std::to_string(m_ratio), Kernel::ErrorType::BadSetting);
-    OV_ERROR_UNLESS_KRF(m_rejection >= 0, "Rejection limit must be positive, actual : " + std::to_string(m_rejection), Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(!m_filename.empty(), "this box's setting \"Filename to save model\" is empty. Would you be so very kind as to choose a file? Thank you for your patience.", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(Geometry::InRange(m_ratio, 0, 1), "this box's setting \"Channel ratio to reconstruct\" is " << m_ratio << ", while it must lie between 0 and 1. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(m_rejection >= 0, "this box's setting \"Rejection limit\" is " << m_rejection << ", while it may not be negative. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     return true;
 }

@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "ovkCScenarioManager.h"
 #include "ovkCScenario.h"
 
@@ -181,7 +182,7 @@ bool CScenarioManager::importScenarioFromFile(CIdentifier& scenarioID, const CSt
 
     OV_ERROR_UNLESS_KRF(
         inputFile,
-        "Can not open scenario file '" << fileName << "'",
+        "the scenario file [" << fileName << "] could not be opened. Perhaps it does not exist, or the path is misspelt. Would you be so very kind as to check it? Thank you for your patience.",
         ErrorType::BadFileRead);
 
     fseek(inputFile, 0, SEEK_END);
@@ -191,7 +192,7 @@ bool CScenarioManager::importScenarioFromFile(CIdentifier& scenarioID, const CSt
     if (fread(reinterpret_cast<char*>(memoryBuffer.getDirectPointer()), size_t(memoryBuffer.getSize()), 1, inputFile) != 1)
     {
         fclose(inputFile);
-        OV_ERROR_KRF("Problem reading scenario file '" << fileName << "'", Kernel::ErrorType::BadFileRead);
+        OV_ERROR_KRF("the scenario file [" << fileName << "] could be opened, but not read to the end. Perhaps it is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileRead);
     }
     fclose(inputFile);
 
@@ -443,7 +444,7 @@ bool CScenarioManager::exportScenarioToFile(const CString& fileName, const CIden
 
     OV_ERROR_UNLESS_KRF(
         outputFileStream.good(),
-        "Failed to open file " << fileName,
+        "the scenario could not be saved in the file [" << fileName << "]. Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.",
         ErrorType::BadFileRead);
 
     outputFileStream.write(reinterpret_cast<const char*>(memoryBuffer.getDirectPointer()), long(memoryBuffer.getSize()));

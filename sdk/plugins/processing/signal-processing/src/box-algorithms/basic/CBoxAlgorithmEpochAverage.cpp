@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmEpochAverage.hpp"
 
 #include "../../algorithms/basic/CAlgorithmMatrixAverage.hpp"
@@ -80,7 +81,7 @@ bool CBoxAlgorithmEpochAverage::initialize()
     m_encoder->getInputParameter(OVP_GD_Algorithm_StreamedMatrixEncoder_InputParameterId_Matrix)->setReferenceTarget(
         m_matrixAverage->getOutputParameter(MatrixAverage_OutputParameterId_AveragedMatrix));
 
-    OV_ERROR_UNLESS_KRF(ip_matrixCount > 0, "Invalid number of epochs (expected value > 0)", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(ip_matrixCount > 0, "this box's setting \"Epoch count\" must be above 0, or there is nothing to average. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     return true;
 }

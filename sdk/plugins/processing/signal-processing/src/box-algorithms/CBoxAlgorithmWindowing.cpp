@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmWindowing.hpp"
 #include <cmath>
 
@@ -35,7 +36,7 @@ bool CBoxAlgorithmWindowing::initialize()
 
     if (m_windowMethod != EWindowMethod::None && m_windowMethod != EWindowMethod::Hamming && m_windowMethod != EWindowMethod::Hanning
         && m_windowMethod != EWindowMethod::Hann && m_windowMethod != EWindowMethod::Blackman && m_windowMethod != EWindowMethod::Triangular
-        && m_windowMethod != EWindowMethod::SquareRoot) { OV_ERROR_KRF("No valid windowing method set.\n", Kernel::ErrorType::BadSetting); }
+        && m_windowMethod != EWindowMethod::SquareRoot) { OV_ERROR_KRF("this box's setting \"Window method\" holds a method we regret to say we do not know. Would you be so very kind as to choose another? Thank you for your patience.", Kernel::ErrorType::BadSetting); }
 
     m_decoder.initialize(*this, 0);
     m_encoder.initialize(*this, 0);
@@ -114,7 +115,7 @@ bool CBoxAlgorithmWindowing::process()
                 }
             }
             else if (m_windowMethod == EWindowMethod::None) { for (size_t k = 0; k < n; ++k) { m_windowCoefs[k] = 1; } }
-            else { OV_ERROR_KRF("The windows method chosen is not supported.\n", Kernel::ErrorType::BadSetting); }
+            else { OV_ERROR_KRF("this box's setting \"Window method\" holds a method we regret to say we do not know. Would you be so very kind as to choose another? Thank you for your patience.", Kernel::ErrorType::BadSetting); }
 
             m_encoder.encodeHeader();
         }

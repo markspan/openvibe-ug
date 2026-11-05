@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CAlgorithmClassifierOneVsAll.hpp"
 
 #include <map>
@@ -67,7 +68,7 @@ bool CAlgorithmClassifierOneVsAll::train(const Toolkit::IFeatureVectorSet& datas
     }
 
     OV_ERROR_UNLESS_KRF(classLabels.size() == nClass,
-                        "Invalid samples count for [" << classLabels.size() << "] classes (expected samples for " << nClass << " classes)",
+                        "we received examples for " << classLabels.size() << " classes, while this box expects " << nClass << ". Perhaps one class never occurred in the recording, or its stimulation is set wrongly. Might we trouble you to check? Thank you most kindly.",
                         Kernel::ErrorType::BadConfig);
 
     //We set the CMatrix fo the first classifier
@@ -198,7 +199,7 @@ bool CAlgorithmClassifierOneVsAll::addNewClassifierAtBack()
     const CIdentifier subClassifierAlgorithm = this->getAlgorithmManager().createAlgorithm(this->m_subClassifierAlgorithmID);
 
     OV_ERROR_UNLESS_KRF(subClassifierAlgorithm != CIdentifier::undefined(),
-                        "Invalid classifier identifier [" << this->m_subClassifierAlgorithmID.str() << "]", Kernel::ErrorType::BadConfig);
+                        "the classifier " << this->m_subClassifierAlgorithmID.str() << " could not be created. Perhaps a plugin is missing. Would you be so very kind as to choose another in the setting \"Algorithm to use\"? Thank you for your patience.", Kernel::ErrorType::BadConfig);
 
     Kernel::IAlgorithmProxy* subClassifier = &this->getAlgorithmManager().getAlgorithm(subClassifierAlgorithm);
     subClassifier->initialize();

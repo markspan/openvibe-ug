@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmClassifierTrainer.hpp"
 #include <system/ovCMath.h>
 
@@ -58,9 +59,10 @@ bool CBoxAlgorithmClassifierTrainer::initialize()
 
     bool isPairing = false;
 
-    const CString configFilename(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 2));
+    // UG fork: setting 1 is the filename. Upstream reads setting 2, the multiclass strategy, so an empty filename went unnoticed until after training.
+    const CString configFilename(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1));
 
-    OV_ERROR_UNLESS_KRF(configFilename != CString(""), "Invalid empty configuration filename", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(configFilename != CString(""), "this box's setting \"Filename to save configuration to\" is empty. Would you be so very kind as to choose a file? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     CIdentifier classifierAlgorithmClassID;
 
@@ -74,7 +76,7 @@ bool CBoxAlgorithmClassifierTrainer::initialize()
         const CIdentifier classifierAlgorithmID = this->getAlgorithmManager().createAlgorithm(classifierAlgorithmClassID);
 
         OV_ERROR_UNLESS_KRF(classifierAlgorithmID != CIdentifier::undefined(),
-                            "Unable to instantiate classifier for class [" << classifierAlgorithmID.str() << "]", Kernel::ErrorType::BadConfig);
+                            "the classifier [" << (*m_parameter)[ALGORITHM_SETTING_NAME] << "] from this box's setting \"Algorithm to use\" could not be created. Perhaps a plugin is missing. Would you be so very kind as to choose another? Thank you for your patience.", Kernel::ErrorType::BadConfig);
 
         m_classifier = &this->getAlgorithmManager().getAlgorithm(classifierAlgorithmID);
         m_classifier->initialize();
@@ -88,7 +90,7 @@ bool CBoxAlgorithmClassifierTrainer::initialize()
 
     const int64_t nPartition = this->getConfigurationManager().expandAsInteger((*m_parameter)[FOLD_SETTING_NAME]);
 
-    OV_ERROR_UNLESS_KRF(nPartition >= 0, "Invalid partition count [" << nPartition << "] (expected value >= 0)", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(nPartition >= 0, "this box's setting \"Number of partitions for k-fold cross-validation test\" is " << nPartition << ", while it may not be negative. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     m_nPartition = uint64_t(nPartition);
 
@@ -107,7 +109,7 @@ bool CBoxAlgorithmClassifierTrainer::initialize()
 
     m_nFeatures.clear();
 
-    OV_ERROR_UNLESS_KRF(boxContext.getInputCount() >= 2, "Invalid input count [" << boxContext.getInputCount() << "] (at least 2 input expected)",
+    OV_ERROR_UNLESS_KRF(boxContext.getInputCount() >= 2, "this box has " << boxContext.getInputCount() << " input, while it needs at least 2: one for the stimulations and one for the features. Would you be so very kind as to add one? Thank you for your patience.",
                         Kernel::ErrorType::BadSetting);
 
     // Provide the number of classes to the classifier
@@ -557,7 +559,7 @@ bool CBoxAlgorithmClassifierTrainer::saveConfig()
 
     if (!handler->writeXMLInFile(*root, configurationFilename.toASCIIString())) {
         cleanup();
-        OV_ERROR_KRF("Failed saving configuration to file [" << configurationFilename << "]", Kernel::ErrorType::BadFileWrite);
+        OV_ERROR_KRF("the trained classifier could not be saved in the file [" << configurationFilename << "] from this box's setting \"Filename to save configuration to\". Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
     }
 
     cleanup();

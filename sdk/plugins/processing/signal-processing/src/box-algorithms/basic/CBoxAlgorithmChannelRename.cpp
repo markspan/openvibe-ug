@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmChannelRename.hpp"
 
 namespace OpenViBE {
@@ -50,7 +51,7 @@ bool CBoxAlgorithmChannelRename::initialize()
         m_decoder = new Toolkit::TSpectrumDecoder<CBoxAlgorithmChannelRename>(*this, 0);
         m_encoder = new Toolkit::TSpectrumEncoder<CBoxAlgorithmChannelRename>(*this, 0);
     }
-    else { OV_ERROR_KRF("Incompatible stream type", Kernel::ErrorType::BadConfig); }
+    else { OV_ERROR_KRF("this box cannot rename the channels of a stream of the type " << m_typeID.str() << ", only of signal, matrix, covariance matrix, time-frequency and spectrum streams. Would you be so very kind as to choose another type for its input? Thank you for your patience.", Kernel::ErrorType::BadConfig); }
 
     ip_Matrix = m_encoder.getInputMatrix();
     op_Matrix = m_decoder.getOutputMatrix();

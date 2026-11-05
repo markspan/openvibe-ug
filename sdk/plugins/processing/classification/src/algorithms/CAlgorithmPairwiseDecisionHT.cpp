@@ -24,6 +24,7 @@
 #define HT_DEBUG 0
 
 #define ALPHA_DELTA 0.01
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CAlgorithmPairwiseDecisionHT.hpp"
 
 #include <iostream>
@@ -51,7 +52,7 @@ bool CAlgorithmPairwiseDecisionHT::Parameterize()
 
 bool CAlgorithmPairwiseDecisionHT::Compute(std::vector<classification_info_t>& classifications, CMatrix* probabilities)
 {
-    OV_ERROR_UNLESS_KRF(m_nClass >= 2, "Pairwise decision HT algorithm needs at least 2 classes [" << m_nClass << "] found", Kernel::ErrorType::BadConfig);
+    OV_ERROR_UNLESS_KRF(m_nClass >= 2, "this pairwise decision needs at least 2 classes to compare, and we found " << m_nClass << ". Might we trouble you to check the recording and its stimulations? Thank you most kindly.", Kernel::ErrorType::BadConfig);
 
     Kernel::TParameterHandler<CMatrix*> ip_Repartition = this->getInputParameter(Classifier_Pairwise_InputParameterId_SetRepartition);
     std::vector<double> probability(m_nClass * m_nClass);

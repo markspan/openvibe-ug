@@ -22,6 +22,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmMatrixClassifierTrainer.hpp"
 #include <geometry/classifier/CMatrixClassifierMDMRebias.hpp>
 #include <geometry/classifier/CMatrixClassifierFgMDMRTRebias.hpp>
@@ -62,7 +63,7 @@ bool CBoxAlgorithmMatrixClassifierTrainer::initialize()
     m_metric          = Geometry::EMetric(uint64_t(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 3)));
     m_logLevel        = Kernel::ELogLevel(uint64_t(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 4)));
 
-    OV_ERROR_UNLESS_KRF(m_filename.length() != 0, "Invalid empty model filename", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(m_filename.length() != 0, "this box's setting \"Filename to save classifier model\" is empty. Would you be so very kind as to choose a file? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     // Printing info
     this->getLogManager() << m_logLevel << "\nNumber of classes : " << m_nbClass << "\nFilename : " << m_filename << "\nMethod : "
@@ -159,7 +160,7 @@ bool CBoxAlgorithmMatrixClassifierTrainer::train()
     else if (m_method == Geometry::EMatrixClassifiers::MDM_Rebias) { matrixClassifier = new Geometry::CMatrixClassifierMDMRebias; }
     else if (m_method == Geometry::EMatrixClassifiers::FgMDM_RT) { matrixClassifier = new Geometry::CMatrixClassifierFgMDMRT; }
     else if (m_method == Geometry::EMatrixClassifiers::FgMDM_RT_Rebias) { matrixClassifier = new Geometry::CMatrixClassifierFgMDMRTRebias; }
-    else { OV_ERROR_UNLESS_KRF(false, "Incorrect Selected Method", Kernel::ErrorType::BadSetting); }
+    else { OV_ERROR_UNLESS_KRF(false, "this box's setting \"Method\" holds a method we regret to say we do not know. Would you be so very kind as to choose another? Thank you for your patience.", Kernel::ErrorType::BadSetting); }
 
     this->getLogManager() << m_logLevel << "Train Beginning...\n";
     OV_ERROR_UNLESS_KRF(matrixClassifier->Train(m_covs), "Train failed", Kernel::ErrorType::BadProcessing);
@@ -175,28 +176,28 @@ bool CBoxAlgorithmMatrixClassifierTrainer::train()
 //---------------------------------------------------------------------------------------------------
 bool CBoxAlgorithmMatrixClassifierTrainer::saveXML(const Geometry::IMatrixClassifier* classifier)
 {
-    OV_ERROR_UNLESS_KRF(classifier->SaveXML(m_filename.toASCIIString()), "Save failed", Kernel::ErrorType::BadFileWrite);
+    OV_ERROR_UNLESS_KRF(classifier->SaveXML(m_filename.toASCIIString()), "the classifier could not be saved in the file [" << m_filename.toASCIIString() << "] from this box's setting \"Filename to save classifier model\". Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
 
     //***** Add Stimulation to XML *****
     tinyxml2::XMLDocument xmlDoc;
     // Load File
-    OV_ERROR_UNLESS_KRF(xmlDoc.LoadFile(m_filename.toASCIIString()) == 0, "Unable to load xml file : " << m_filename.toASCIIString(),
+    OV_ERROR_UNLESS_KRF(xmlDoc.LoadFile(m_filename.toASCIIString()) == 0, "the classifier just saved in the file [" << m_filename.toASCIIString() << "] could not be read back. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.",
                         Kernel::ErrorType::BadFileRead);
 
     // Load Root
     tinyxml2::XMLNode* root = xmlDoc.FirstChild();
-    OV_ERROR_UNLESS_KRF(root != nullptr, "Unable to get xml root node", Kernel::ErrorType::BadFileParsing);
+    OV_ERROR_UNLESS_KRF(root != nullptr, "the file [" << m_filename.toASCIIString() << "] from the setting \"Filename to save classifier model\" has no root element. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing);
 
     // Load Data
     tinyxml2::XMLElement* data = root->FirstChildElement("Classifier-data");
-    OV_ERROR_UNLESS_KRF(data != nullptr, "Unable to get xml classifier node", Kernel::ErrorType::BadFileParsing);
+    OV_ERROR_UNLESS_KRF(data != nullptr, "the file [" << m_filename.toASCIIString() << "] from the setting \"Filename to save classifier model\" holds no classifier. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing);
 
     tinyxml2::XMLElement* element = data->FirstChildElement("Class");       // Get Fist Class Node
     for (size_t k = 0; k < classifier->GetClassCount(); ++k)                // for each class
     {
-        OV_ERROR_UNLESS_KRF(element != nullptr, "Invalid class node", Kernel::ErrorType::BadFileParsing);
+        OV_ERROR_UNLESS_KRF(element != nullptr, "the file [" << m_filename.toASCIIString() << "] from the setting \"Filename to save classifier model\" is missing a class. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing);
         const size_t idx = element->IntAttribute("class-id");               // Get Id (normally idx = k)
-        OV_ERROR_UNLESS_KRF(idx == k, "Invalid Class id", Kernel::ErrorType::BadFileParsing);
+        OV_ERROR_UNLESS_KRF(idx == k, "the file [" << m_filename.toASCIIString() << "] from the setting \"Filename to save classifier model\" lists its classes out of order. Perhaps it was not written by this box, or was damaged. Might we humbly suggest choosing another file, or training again? Thank you most kindly.", Kernel::ErrorType::BadFileParsing);
         const CString stimulationName = this->getTypeManager().getEnumerationEntryNameFromValue(OV_TypeId_Stimulation, m_stimulationClassName[k]);
         element->SetAttribute("stimulation", stimulationName.toASCIIString());
         element = element->NextSiblingElement("Class");                     // Next Class

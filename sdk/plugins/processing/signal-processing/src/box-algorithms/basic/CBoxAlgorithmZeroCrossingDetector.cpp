@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmZeroCrossingDetector.hpp"
 
 #include <vector>
@@ -38,7 +39,7 @@ bool CBoxAlgorithmZeroCrossingDetector::initialize()
     m_hysteresis  = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0);
     m_windowTimeD = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1);
 
-    OV_ERROR_UNLESS_KRF(m_windowTimeD > 0, "Invalid negative number for window length", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(m_windowTimeD > 0, "this box's setting \"Rythm estimation window (in sec)\" is " << m_windowTimeD << ", while it must be above 0. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     m_stimId1 = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 2);
     m_stimId2 = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 3);

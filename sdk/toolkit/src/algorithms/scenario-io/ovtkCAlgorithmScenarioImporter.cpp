@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "ovtkCAlgorithmScenarioImporter.h"
 
 #include <vector>
@@ -187,8 +188,7 @@ bool CAlgorithmScenarioImporter::process()
                 const CIdentifier& type = s->typeID;
                 if (!this->getTypeManager().isRegistered(type) && !(this->getTypeManager().isEnumeration(type)) && (!this->getTypeManager().isBitMask(type)))
                 {
-                    const std::string msg = std::string("The type of the setting ") + s->name.toASCIIString() + " (" + type.str() + ") from box "
-                                            + b->name.toASCIIString() + " cannot be recognized.";
+                    const std::string msg = std::string("the setting [") + s->name.toASCIIString() + "] of the box [" + b->name.toASCIIString() + "] has a type we regret to say we do not recognise, " + type.str() + ". Perhaps this scenario needs a plugin that is missing here. Might we trouble you to check? Thank you most kindly.";
 
                     if (this->getConfigurationManager().expandAsBoolean("${Kernel_AbortScenarioImportOnUnknownSetting}", true))
                     {

@@ -22,6 +22,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmFeatureVectorToCovarianceMatrix.hpp"
 #include "eigen/convert.hpp"
 #include <fstream>
@@ -46,7 +47,7 @@ bool CBoxAlgorithmFeatureVectorToCovarianceMatrix::initialize()
     m_logLevel     = Kernel::ELogLevel(uint64_t(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 2)));
     if (m_tangentSpace) {
         this->getLogManager() << m_logLevel << "Tangent Space\n";
-        OV_ERROR_UNLESS_KRF(initRef(), "Error Reference Matrix Creation", Kernel::ErrorType::BadSetting);
+        OV_ERROR_UNLESS_KRF(initRef(), "the reference matrix from this box's setting \"Filename to Reference Matrix (CSV, empty for Identity)\" could not be prepared, as explained just before this message, if there is an explanation. Please forgive us.", Kernel::ErrorType::BadSetting);
     }
     else { this->getLogManager() << m_logLevel << "Squeeze Upper Matrix\n"; }
     return true;
@@ -125,7 +126,7 @@ bool CBoxAlgorithmFeatureVectorToCovarianceMatrix::initRef()
         return true;
     }
     std::ifstream file(name, std::ifstream::in);
-    OV_ERROR_UNLESS_KRF(file.is_open(), "Error opening file [" << name << "] for reading", Kernel::ErrorType::BadFileRead);
+    OV_ERROR_UNLESS_KRF(file.is_open(), "the file [" << name << "] from this box's setting \"Filename to Reference Matrix (CSV, empty for Identity)\" could not be opened. Perhaps it does not exist, or the path is misspelt. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileRead);
 
     //***** Parse the CSV *****
     std::string line;
@@ -137,7 +138,7 @@ bool CBoxAlgorithmFeatureVectorToCovarianceMatrix::initRef()
     const auto first = data.begin() + 2, last = data.end() - 3;
     const std::vector<std::string> mat(first, last);
     const Eigen::Index n = Eigen::Index(sqrt(mat.size()));
-    OV_ERROR_UNLESS_KRF(size_t(n*n) == mat.size(), "Error Reference Matrix Format", Kernel::ErrorType::BadFileParsing);
+    OV_ERROR_UNLESS_KRF(size_t(n*n) == mat.size(), "the reference matrix in the file [" << name << "] holds " << mat.size() << " values, while a matrix with " << n << " columns needs " << n * n << ". Would you be so very kind as to check the file? Thank you for your patience.", Kernel::ErrorType::BadFileParsing);
     m_ref.resize(n, n);
     Eigen::Index idx = 0;
     for (Eigen::Index i = 0; i < n; ++i) { for (Eigen::Index j = 0; j < n; ++j) { m_ref(i, j) = std::stod(mat[idx++]); } }

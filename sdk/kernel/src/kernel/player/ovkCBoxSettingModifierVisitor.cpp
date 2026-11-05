@@ -145,8 +145,9 @@ bool CBoxSettingModifierVisitor::processBegin(IObjectVisitorContext& visitorCtx,
             {
                 cleanup();
                 OV_ERROR(
-                    "Could not override [" << box.getName() << "] settings because configuration file [" << settingOverrideFilenameFinal <<
-                    "] could not be opened",
+                    // UG fork: says what the file is for, and what to do. See UG.md, 2.23.
+                    "the box <" << box.getName() << "> takes its settings from the file [" << settingOverrideFilenameFinal << "], which could not be opened. "
+                    "Perhaps the scenario that writes this file, usually a training scenario, has not run yet. Might we trouble you to check? Thank you most kindly.",
                     ErrorType::ResourceNotFound, false, m_ObjectVisitorCtx->getErrorManager(), m_ObjectVisitorCtx->getLogManager());
             }
         }

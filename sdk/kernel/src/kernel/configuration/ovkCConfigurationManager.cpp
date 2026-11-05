@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "ovkCConfigurationManager.h"
 
 #include <openvibe/kernel/configuration/ovIConfigurationKeywordExpandCallback.h>
@@ -59,7 +60,7 @@ public:
         std::ifstream file;
         FS::Files::openIFStream(file, rEntry.getName());
 
-        OV_ERROR_UNLESS(file.good(), "Could not open file " << rEntry.getName(), Kernel::ErrorType::ResourceNotFound, false, m_errorManager, m_logManager);
+        OV_ERROR_UNLESS(file.good(), "the configuration file " << rEntry.getName() << " could not be opened. Perhaps it does not exist, or the path is misspelt. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::ResourceNotFound, false, m_errorManager, m_logManager);
         m_logManager << LogLevel_Trace << "Processing configuration file " << rEntry.getName() << "\n";
 
         do
@@ -83,7 +84,7 @@ public:
             if (!line.empty() && line[0] != '\0' && line[0] != '#')
             {
                 OV_ERROR_UNLESS((eq=line.find('=')) != std::string::npos,
-                                "Invalid syntax in configuration file " << CString(rEntry.getName()) << " : " << line,
+                                "the configuration file " << CString(rEntry.getName()) << " has a line without an equals sign: [" << line << "]. Each line reads Name = Value, or starts with # when it is a comment. Would you be so very kind as to correct it? Thank you for your patience.",
                                 ErrorType::BadFileParsing, false, m_errorManager, m_logManager);
 
                 std::string name(reduce(line.substr(0, eq)));
@@ -395,13 +396,13 @@ bool CConfigurationManager::internalExpand(const std::string& sValue, std::strin
 
             case '{':
                 OV_ERROR_UNLESS_KRF(children.top().first == ENodeType::NamePrefix,
-                                    "Could not expand token with syntax error while expanding " << sValue, Kernel::ErrorType::BadFileParsing);
+                                    "the text [" << sValue << "] holds a token that is not written correctly. A token reads ${Name} or $Prefix{Name}. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileParsing);
                 children.push(std::make_pair(ENodeType::NamePostfix, std::string()));
                 break;
 
             case '}':
                 OV_ERROR_UNLESS_KRF(children.top().first == ENodeType::NamePostfix,
-                                    "Could not expand token with syntax error while expanding " << sValue, Kernel::ErrorType::BadFileParsing);
+                                    "the text [" << sValue << "] holds a token that is not written correctly. A token reads ${Name} or $Prefix{Name}. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileParsing);
                 postfix = children.top().second;
                 lowerPostfix.resize(postfix.size());
                 std::transform(postfix.begin(), postfix.end(), lowerPostfix.begin(), ToLower<std::string::value_type>);
@@ -436,7 +437,7 @@ bool CConfigurationManager::internalExpand(const std::string& sValue, std::strin
                     else if (lowerPostfix == "process-id") { value = std::to_string(this->getProcessId()); }
                     else
                     {
-                        OV_ERROR_KRF("Could not expand token with " << prefix << " prefix and " << postfix << " postfix while expanding " << sValue,
+                        OV_ERROR_KRF("in the text [" << sValue << "], the token $" << prefix << "{" << postfix << "} asks for something we regret to say we do not know. Would you be so very kind as to check its spelling? Thank you for your patience.",
                                      ErrorType::BadFileParsing);
                     }
                 }
@@ -447,14 +448,14 @@ bool CConfigurationManager::internalExpand(const std::string& sValue, std::strin
                         CString overridenValue("");
 
                         OV_ERROR_UNLESS_KRF((m_keywordOverrides.find(lowerPrefix.c_str())->second)->expand(CString(postfix.c_str()), overridenValue),
-                                            "Could not expand $" << lowerPrefix << "{" << lowerPostfix << "}",
+                                            "the token $" << lowerPrefix << "{" << lowerPostfix << "} has no value here. Would you be so very kind as to check its spelling? Thank you for your patience.",
                                             ErrorType::BadFileParsing);
 
                         value = overridenValue;
                     }
                     else
                     {
-                        OV_ERROR_UNLESS_KRF(m_parentConfigManager, "Could not expand token with " << prefix << " prefix while expanding " << sValue,
+                        OV_ERROR_UNLESS_KRF(m_parentConfigManager, "in the text [" << sValue << "], a token starts with the prefix $" << prefix << ", which we regret to say we do not know. Would you be so very kind as to check its spelling? Thank you for your patience.",
                                             ErrorType::BadFileParsing);
 
                         std::string keyword = "$" + lowerPrefix + "{" + lowerPostfix + "}";
@@ -464,7 +465,7 @@ bool CConfigurationManager::internalExpand(const std::string& sValue, std::strin
                         if (value == sValue)
                         {
                             value = "";
-                            OV_ERROR_KRF("Could not expand token with " << prefix << " prefix while expanding " << sValue,
+                            OV_ERROR_KRF("in the text [" << sValue << "], a token starts with the prefix $" << prefix << ", which we regret to say we do not know. Would you be so very kind as to check its spelling? Thank you for your patience.",
                                          ErrorType::BadFileParsing);
                         }
                     }
@@ -473,7 +474,7 @@ bool CConfigurationManager::internalExpand(const std::string& sValue, std::strin
                 if (shouldExpand)
                 {
                     OV_ERROR_UNLESS_KRF(this->internalExpand(value, expandedValue),
-                                        "Could not expand " << value << " while expanding " << sValue,
+                                        "the value [" << value << "] could not be worked out while reading the text [" << sValue << "], as explained just before this message, if there is an explanation. Please forgive us.",
                                         ErrorType::BadFileParsing);
 
                     children.top().second += expandedValue;
@@ -484,7 +485,7 @@ bool CConfigurationManager::internalExpand(const std::string& sValue, std::strin
             case '\\':
                 i++;
                 OV_ERROR_UNLESS_KRF(i < sValue.length(),
-                                    "Could not expand token with unterminated string while expanding " << sValue,
+                                    "the text [" << sValue << "] ends in a backslash, which has a special meaning here. Might we suggest forward slashes in a path? Thank you most kindly.",
                                     ErrorType::BadFileParsing);
 
             default:
@@ -509,7 +510,7 @@ bool CConfigurationManager::internalExpand(const std::string& sValue, std::strin
         children.top().second += "$" + topVal;
     }
 
-    OV_ERROR_UNLESS_KRF(children.size() == 1, "Could not expand token with unterminated string while expanding " << sValue,
+    OV_ERROR_UNLESS_KRF(children.size() == 1, "the text [" << sValue << "] holds a token that is never closed: a closing } seems to be missing. Would you be so very kind as to check it? Thank you for your patience.",
                         ErrorType::BadFileParsing);
 
     result = children.top().second;
@@ -542,14 +543,14 @@ bool CConfigurationManager::internalExpandOnlyKeyword(const std::string& sKeywor
 
             case '{':
                 OV_ERROR_UNLESS_KRF(childrens.top().first == ENodeType::NamePrefix,
-                                    "Could not expand token with syntax error while expanding " << sValue,
+                                    "the text [" << sValue << "] holds a token that is not written correctly. A token reads ${Name} or $Prefix{Name}. Would you be so very kind as to check it? Thank you for your patience.",
                                     ErrorType::BadFileParsing);
                 childrens.push(std::make_pair(ENodeType::NamePostfix, std::string()));
                 break;
 
             case '}':
                 OV_ERROR_UNLESS_KRF(childrens.top().first == ENodeType::NamePostfix,
-                                    "Could not expand token with syntax error while expanding " << sValue,
+                                    "the text [" << sValue << "] holds a token that is not written correctly. A token reads ${Name} or $Prefix{Name}. Would you be so very kind as to check it? Thank you for your patience.",
                                     ErrorType::BadFileParsing);
 
                 postfix = childrens.top().second;
@@ -568,13 +569,13 @@ bool CConfigurationManager::internalExpandOnlyKeyword(const std::string& sKeywor
                 if (lowerPrefix == sKeyword)
                 {
                     OV_ERROR_UNLESS_KRF(m_keywordOverrides.count(lowerPrefix.c_str()),
-                                        "Could not expand token with " << prefix << " prefix while expanding " << sValue,
+                                        "in the text [" << sValue << "], a token starts with the prefix $" << prefix << ", which we regret to say we do not know. Would you be so very kind as to check its spelling? Thank you for your patience.",
                                         ErrorType::BadFileParsing);
 
                     CString overridenValue("");
 
                     OV_ERROR_UNLESS_KRF((m_keywordOverrides.find(lowerPrefix.c_str())->second)->expand(CString(postfix.c_str()), overridenValue),
-                                        "Could not expand $" << lowerPrefix << "{" << lowerPostfix << "}",
+                                        "the token $" << lowerPrefix << "{" << lowerPostfix << "} has no value here. Would you be so very kind as to check its spelling? Thank you for your patience.",
                                         ErrorType::BadFileParsing);
 
                     value = overridenValue;
@@ -589,7 +590,7 @@ bool CConfigurationManager::internalExpandOnlyKeyword(const std::string& sKeywor
                 if (shouldExpand)
                 {
                     OV_ERROR_UNLESS_KRF(this->internalExpandOnlyKeyword(sKeyword, value, expandedValue),
-                                        "Could not expand " << value << " while expanding " << sValue,
+                                        "the value [" << value << "] could not be worked out while reading the text [" << sValue << "], as explained just before this message, if there is an explanation. Please forgive us.",
                                         ErrorType::BadFileParsing);
 
                     childrens.top().second += expandedValue;
@@ -601,7 +602,7 @@ bool CConfigurationManager::internalExpandOnlyKeyword(const std::string& sKeywor
                 if (preserveBackslashes) { childrens.top().second += sValue[i]; }
                 i++;
                 OV_ERROR_UNLESS_KRF(i < sValue.length(),
-                                    "Could not expand token with unterminated string while expanding " << sValue,
+                                    "the text [" << sValue << "] ends in a backslash, which has a special meaning here. Might we suggest forward slashes in a path? Thank you most kindly.",
                                     ErrorType::BadFileParsing);
                 childrens.top().second += sValue[i];
                 break;
@@ -612,7 +613,7 @@ bool CConfigurationManager::internalExpandOnlyKeyword(const std::string& sKeywor
         }
     }
 
-    OV_ERROR_UNLESS_KRF(childrens.size() == 1, "Could not expand token with unterminated string while expanding " << sValue,
+    OV_ERROR_UNLESS_KRF(childrens.size() == 1, "the text [" << sValue << "] holds a token that is never closed: a closing } seems to be missing. Would you be so very kind as to check it? Thank you for your patience.",
                         ErrorType::BadFileParsing);
 
     sResult = childrens.top().second;

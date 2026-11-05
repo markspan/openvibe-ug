@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "ovpCBoxAlgorithmGenericStreamWriter.h"
 
 #include <fs/Files.h>
@@ -64,7 +65,7 @@ bool CBoxAlgorithmGenericStreamWriter::generateFileHeader()
 
     FS::Files::openOFStream(m_file, m_filename.toASCIIString(), std::ios::binary | std::ios::trunc);
 
-    OV_ERROR_UNLESS_KRF(m_file.good(), "Error opening file [" << m_filename << "] for writing", Kernel::ErrorType::BadFileWrite);
+    OV_ERROR_UNLESS_KRF(m_file.good(), "the file [" << m_filename << "] from this box's setting \"Filename\" could not be opened for writing. Paths need forward slashes, as a backslash is lost on the way to a box. Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
 
     m_file.write(reinterpret_cast<const char*>(m_swap.getDirectPointer()), std::streamsize(m_swap.getSize()));
 
@@ -114,7 +115,7 @@ bool CBoxAlgorithmGenericStreamWriter::process()
     if (m_swap.getSize() != 0)
     {
         m_file.write(reinterpret_cast<const char*>(m_swap.getDirectPointer()), std::streamsize(m_swap.getSize()));
-        OV_ERROR_UNLESS_KRF(m_file.good(), "Error opening file [" << m_filename << "] for writing", Kernel::ErrorType::BadFileWrite);
+        OV_ERROR_UNLESS_KRF(m_file.good(), "the file [" << m_filename << "] from this box's setting \"Filename\" could not be opened for writing. Paths need forward slashes, as a backslash is lost on the way to a box. Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
     }
 
     return true;

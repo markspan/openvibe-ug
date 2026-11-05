@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "ovpCBoxAlgorithmGenericStreamReader.h"
 
 #include <iostream>
@@ -36,7 +37,7 @@ bool CBoxAlgorithmGenericStreamReader::initializeFile()
 {
     m_file = FS::Files::open(m_filename.toASCIIString(), "rb");
 
-    OV_ERROR_UNLESS_KRF(m_file, "Error opening file [" << m_filename << "] for reading", Kernel::ErrorType::BadFileRead);
+    OV_ERROR_UNLESS_KRF(m_file, "the file [" << m_filename << "] from this box's setting \"Filename\" could not be opened. Paths need forward slashes, as a backslash is lost on the way to a box. Perhaps it does not exist, or the path is misspelt. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileRead);
 
     return true;
 }
@@ -249,7 +250,7 @@ void CBoxAlgorithmGenericStreamReader::closeChild()
         }
 
         // When both outputs and streams were lost, there most probably was a damn mistake
-        OV_ERROR_UNLESS_KRV(!lastOutputs || !lostStreams, "Invalid configuration: missing output for stream(s) and missing stream for output(s)",
+        OV_ERROR_UNLESS_KRV(!lastOutputs || !lostStreams, "the streams in the file do not match this box's outputs: at least one stream has no output, and at least one output has no stream, as the warnings just before this message say. Would you be so very kind as to give the outputs the types of the streams in the file? Thank you for your patience.",
                             Kernel::ErrorType::BadConfig);
     }
 

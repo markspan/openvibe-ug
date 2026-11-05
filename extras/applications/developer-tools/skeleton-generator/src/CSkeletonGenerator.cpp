@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CSkeletonGenerator.hpp"
 
 #include <string>
@@ -37,7 +38,7 @@ bool CSkeletonGenerator::saveCommonParameters(const std::string& filename)
 
     std::ofstream file;
     file.open(filename, std::ios::app | std::ios::binary);
-    OV_ERROR_UNLESS_KRF(file.is_open(), "Saving the common entries in [" << filename << "] failed !", Kernel::ErrorType::BadFileRead);
+    OV_ERROR_UNLESS_KRF(file.is_open(), "the common entries could not be saved in the file [" << filename << "]. Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileRead);
 
 
     // generator selected
@@ -62,7 +63,7 @@ bool CSkeletonGenerator::cleanConfigurationFile(const std::string& filename) con
 {
     std::ofstream file;
     file.open(filename, std::ios::binary);
-    OV_ERROR_UNLESS_KRF(file.is_open(), "Failed to clean [" << filename << "]", Kernel::ErrorType::BadFileRead);
+    OV_ERROR_UNLESS_KRF(file.is_open(), "the file [" << filename << "] could not be emptied. Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileRead);
 
     getLogManager() << Kernel::LogLevel_Info << "Configuration file [" << filename << "] cleaned.\n";
     file.close();
@@ -72,7 +73,7 @@ bool CSkeletonGenerator::cleanConfigurationFile(const std::string& filename) con
 bool CSkeletonGenerator::loadCommonParameters(const std::string& filename)
 {
     OV_ERROR_UNLESS_KRF(m_configFileLoaded || m_kernelCtx.getConfigurationManager().addConfigurationFromFile(filename.c_str()),
-                        "Common: Configuration file [" << filename << "] could not be loaded. \n", Kernel::ErrorType::BadFileRead);
+                        "the configuration file [" << filename << "] could not be loaded. Perhaps it does not exist, or the path is misspelt. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileRead);
 
     GtkWidget* widget = GTK_WIDGET(gtk_builder_get_object(m_builder, "sg-driver-selection-radio-button"));
     gtk_toggle_button_set_active(
@@ -225,7 +226,7 @@ bool CSkeletonGenerator::generate(const std::string& src, const std::string& dst
 
     if (!success) {
         log += "[FAILED] -- " + dst + " cannot be written.\n";
-        OV_ERROR_KRF(" -- " << dst << " cannot be written.", Kernel::ErrorType::BadFileWrite);
+        OV_ERROR_KRF("the file [" << dst << "] could not be written. Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
     }
 
     log += "[   OK   ] -- " + dst + " written.\n";

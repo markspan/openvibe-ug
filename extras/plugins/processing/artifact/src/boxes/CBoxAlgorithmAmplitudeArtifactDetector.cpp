@@ -22,6 +22,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmAmplitudeArtifactDetector.hpp"
 #include <cmath>    // Floor
 #include <sstream>
@@ -50,7 +51,7 @@ bool CBoxAlgorithmAmplitudeArtifactDetector::initialize()
     m_stimId = getTypeManager().getEnumerationEntryValueFromName(OV_TypeId_Stimulation, stim);
 
     //***** Assert *****
-    OV_ERROR_UNLESS_KRF(m_threshold > 0, "Invalid Maximum [" << m_threshold << "] (expected value > 0)\n", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(m_threshold > 0, "this box's setting \"Threshold (mV)\" is " << m_threshold << ", while it must be above 0. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     return true;
 }

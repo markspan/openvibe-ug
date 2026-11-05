@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmSpatialFilter.hpp"
 
 #include <sstream>
@@ -130,11 +131,10 @@ bool CBoxAlgorithmSpatialFilter::initialize()
     const CString filterFile = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 3);
     if (filterFile != CString("")) {
         OV_ERROR_UNLESS_KRF(Toolkit::Matrix::loadFromTextFile(m_filterBank, filterFile),
-                            "Failed to load filter parameters from file at location [" << filterFile << "]", Kernel::ErrorType::BadFileRead);
+                            "the file [" << filterFile << "] from this box's setting \"Filter matrix file\" could not be read. Perhaps it does not exist, or is not a matrix. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadFileRead);
 
         OV_ERROR_UNLESS_KRF(m_filterBank.getDimensionCount() == 2,
-                            "Invalid filter matrix in file " << filterFile << ": found [" << m_filterBank.getDimensionCount()
-                            << "] dimensions (expected 2 dimension)", Kernel::ErrorType::BadConfig);
+                            "the matrix in the file [" << filterFile << "] from this box's setting \"Filter matrix file\" has " << m_filterBank.getDimensionCount() << " dimensions, while a filter needs 2. Would you be so very kind as to check the file? Thank you for your patience.", Kernel::ErrorType::BadConfig);
 
 #if defined(DEBUG)
         Toolkit::Matrix::saveToTextFile(m_filterBank, this->getConfigurationManager().expand("${Path_UserData}/spatialfilter_debug.txt"));
@@ -148,7 +148,7 @@ bool CBoxAlgorithmSpatialFilter::initialize()
         const size_t nCoefs     = loadCoefs(coefs, ' ', OV_Value_EnumeratedStringSeparator, nOChannels, nIChannels);
 
         OV_ERROR_UNLESS_KRF(nCoefs == nOChannels * nIChannels,
-                            "Invalid number of coefficients [" << nCoefs << "] (expected "<< nOChannels * nIChannels << " coefficients)",
+                            "this box's setting \"Spatial Filter Coefficients\" holds " << nCoefs << " numbers, while the settings \"Number of Output Channels\" and \"Number of Input Channels\" ask for " << nOChannels << " x " << nIChannels << " = " << nOChannels * nIChannels << ". Would you be so very kind as to check them? Thank you for your patience.",
                             Kernel::ErrorType::BadConfig);
 
 #if defined(DEBUG)
@@ -196,13 +196,13 @@ bool CBoxAlgorithmSpatialFilter::process()
             const size_t nSampleIn  = iMatrix->getDimensionSize(1);
 
             OV_ERROR_UNLESS_KRF(nChannelIn != 0 && nSampleIn != 0,
-                                "Invalid matrix size with zero dimension on input [" << nChannelIn << " x " << nSampleIn << "]", Kernel::ErrorType::BadConfig);
+                                "the signal arriving here is empty: " << nChannelIn << " channels of " << nSampleIn << " samples. Might we trouble you to check the boxes before this one? Thank you most kindly.", Kernel::ErrorType::BadConfig);
 
             const size_t nChannelFilterIn  = m_filterBank.getDimensionSize(1);
             const size_t nChannelFilterOut = m_filterBank.getDimensionSize(0);
 
             OV_ERROR_UNLESS_KRF(nChannelIn == nChannelFilterIn,
-                                "Invalid input channel count  [" << nChannelIn << "] (expected " << nChannelFilterIn << " channel count)",
+                                "the signal arriving here has " << nChannelIn << " channels, while this box's filter was made for " << nChannelFilterIn << ". Perhaps the montage has changed since the filter was made. Might we humbly suggest checking the settings, or making the filter again? Thank you most kindly.",
                                 Kernel::ErrorType::BadConfig);
 
             CMatrix* oMatrix = static_cast<Toolkit::TStreamedMatrixEncoder<CBoxAlgorithmSpatialFilter>*>(m_encoder)->getInputMatrix();

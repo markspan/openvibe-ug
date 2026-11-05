@@ -22,6 +22,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmCovarianceMeanCalculator.hpp"
 #include <geometry/Mean.hpp>
 #include "eigen/convert.hpp"
@@ -107,7 +108,7 @@ bool CBoxAlgorithmCovarianceMeanCalculator::process()
                                    tEnd   = boxContext.getInputChunkEndTime(0, i);  // Time Code Chunk End
                     m_o0MatrixCodec.encodeBuffer();                                 // Buffer encoded
                     boxContext.markOutputAsReadyToSend(0, tStart, tEnd);            // Makes the output available
-                    OV_ERROR_UNLESS_KRF(saveCSV(), "CSV Writing Error", Kernel::ErrorType::BadFileWrite);
+                    OV_ERROR_UNLESS_KRF(saveCSV(), "the mean could not be saved in the file [" << m_filename << "] from this box's setting \"Filename to save Matrix (CSV, empty to not save)\", as explained just before this message, if there is an explanation. Please forgive us.", Kernel::ErrorType::BadFileWrite);
                 }
             }
         }
@@ -156,7 +157,7 @@ bool CBoxAlgorithmCovarianceMeanCalculator::saveCSV()
 
     std::ofstream file;
     file.open(m_filename.toASCIIString(), std::ios::trunc);
-    OV_ERROR_UNLESS_KRF(file.is_open(), "Error opening file [" << m_filename << "] for writing", Kernel::ErrorType::BadFileWrite);
+    OV_ERROR_UNLESS_KRF(file.is_open(), "the file [" << m_filename << "] from this box's setting \"Filename to save Matrix (CSV, empty to not save)\" could not be opened for writing. Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
 
     // Header
     const size_t s = m_mean.rows();

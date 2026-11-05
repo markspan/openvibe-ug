@@ -78,8 +78,10 @@ bool CBoxAlgorithmOVCSVFileWriter::initialize()
 
     if (!m_appendData) {
         OV_ERROR_UNLESS_KRF(m_writerLib->openFile(filename.toASCIIString(), CSV::EFileAccessMode::Write),
-                            (CSV::ICSVHandler::getLogError(m_writerLib->getLastLogError()) + (m_writerLib->getLastErrorString().empty()
-                                ? "" : "Details: " + m_writerLib->getLastErrorString())).c_str(), Kernel::ErrorType::Internal);
+                            // UG fork: names the file and the setting. See UG.md, 2.23.
+                            "the file [" << filename << "] from this box's setting \"Filename\" could not be opened for writing. Paths need forward slashes, as a backslash is lost on the way to a box. "
+                            "Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly."
+                            << (m_writerLib->getLastErrorString().empty() ? "" : " Details: " + m_writerLib->getLastErrorString()), Kernel::ErrorType::Internal);
         m_writeHeader = true;
     }
     else {
@@ -92,8 +94,10 @@ bool CBoxAlgorithmOVCSVFileWriter::initialize()
         }
 
         OV_ERROR_UNLESS_KRF(m_writerLib->openFile(filename.toASCIIString(), CSV::EFileAccessMode::Append),
-                            (CSV::ICSVHandler::getLogError(m_writerLib->getLastLogError()) + (m_writerLib->getLastErrorString().empty()
-                                ? "" : "Details: " + m_writerLib->getLastErrorString())).c_str(), Kernel::ErrorType::Internal);
+                            // UG fork: names the file and the setting. See UG.md, 2.23.
+                            "the file [" << filename << "] from this box's setting \"Filename\" could not be opened for adding to. Paths need forward slashes, as a backslash is lost on the way to a box. "
+                            "Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly."
+                            << (m_writerLib->getLastErrorString().empty() ? "" : " Details: " + m_writerLib->getLastErrorString()), Kernel::ErrorType::Internal);
     }
 
     return true;

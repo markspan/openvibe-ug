@@ -23,6 +23,8 @@
 
 #include "CBoxAlgorithmChannelSelector.hpp"
 #include <limits>
+#include <sstream>
+#include <string>
 
 namespace OpenViBE {
 namespace Plugins {
@@ -66,6 +68,26 @@ size_t FindChannel(const CMatrix& matrix, const CString& channel, const EMatchMe
     }
 
     return result;
+}
+
+// UG fork: what an error message needs to say about the signal, so the reader can compare it with the setting. See UG.md, 2.23.
+std::string DescribeChannels(const CMatrix& matrix)
+{
+    constexpr size_t MAX_NAMES = 32;
+    const size_t nChannel      = matrix.getDimensionSize(0);
+
+    std::ostringstream ss;
+    ss << nChannel << (nChannel == 1 ? " channel" : " channels");
+    for (size_t i = 0; i < nChannel && i < MAX_NAMES; ++i) { ss << (i == 0 ? ": " : ", ") << matrix.getDimensionLabel(0, i); }
+    if (nChannel > MAX_NAMES) { ss << ", ..."; }
+    return ss.str();
+}
+
+const char* DescribeMatching(const EMatchMethod matchMethod)
+{
+    if (matchMethod == EMatchMethod::Name) { return "by name"; }
+    if (matchMethod == EMatchMethod::Index) { return "by position (counting from 1)"; }
+    return "by name or by position (counting from 1)";
 }
 }  // namespace
 
@@ -193,7 +215,11 @@ bool CBoxAlgorithmChannelSelector::process()
                         // After these corections, if either first or second token were not found, or if start index is greater than start index, consider this an error and invalid range
                         OV_ERROR_UNLESS_KRF(
                             startIdx != std::numeric_limits<size_t>::max() && endIdx != std::numeric_limits<size_t>::max() && startIdx <= endIdx,
-                            "Invalid channel range [" << tokens[j] << "] - splitted as [" << subTokens[0] << "][" << subTokens[1] << "]",
+                            // UG fork: says what is wrong and what the signal has. See UG.md, 2.23.
+                            "we are afraid we cannot make sense of the range [" << tokens[j] << "] in this box's setting \"Channel List\". "
+                            "A range needs positions counting from 1, the smaller one first, and either end may be left empty, "
+                            "while the signal arriving here has " << DescribeChannels(*m_iMatrix) << ". "
+                            "Would you be so very kind as to check that setting? Thank you for your patience.",
                             Kernel::ErrorType::BadSetting);
 
                         // The range is valid so selects all the channels in this range
@@ -215,7 +241,13 @@ bool CBoxAlgorithmChannelSelector::process()
                             this->getLogManager() << Kernel::LogLevel_Debug << "Selected channel [" << index + 1 << "]\n";
                         }
 
-                        OV_ERROR_UNLESS_KRF(found, "Invalid channel [" << tokens[j] << "]", Kernel::ErrorType::BadSetting);
+                        // UG fork: says what is wrong and what the signal has. See UG.md, 2.23.
+                        OV_ERROR_UNLESS_KRF(found,
+                                            "this box's setting \"Channel List\" asks for channel [" << tokens[j] << "], and we could not find it "
+                                            << DescribeMatching(matchMethod) << " in the signal arriving here, which has " << DescribeChannels(*m_iMatrix) << ". "
+                                            "May we respectfully suggest that you check that setting, and that the amplifier and its montage provide "
+                                            "the channels you expect? Thank you for your patience.",
+                                            Kernel::ErrorType::BadSetting);
                     }
                 }
 
@@ -243,7 +275,12 @@ bool CBoxAlgorithmChannelSelector::process()
             // ______________________________________________________________________________________________________________________________________________________
             //
 
-            OV_ERROR_UNLESS_KRF(!m_vLookup.empty(), "No channel selected", Kernel::ErrorType::BadConfig);
+            // UG fork: says what is wrong and what the signal has. See UG.md, 2.23.
+            OV_ERROR_UNLESS_KRF(!m_vLookup.empty(),
+                                "this box's settings leave no channel selected, so it has nothing to pass on, while the signal arriving here has "
+                                << DescribeChannels(*m_iMatrix) << ". Would you be so very kind as to check the settings \"Channel List\" and \"Action\"? "
+                                "Thank you for your patience.",
+                                Kernel::ErrorType::BadConfig);
 
             m_oMatrix->resize(m_vLookup.size(), m_iMatrix->getDimensionSize(1));
             for (size_t j = 0; j < m_vLookup.size(); ++j) {

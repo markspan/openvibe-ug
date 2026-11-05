@@ -1,3 +1,4 @@
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
 
@@ -44,7 +45,7 @@ int main(int argc, char** argv)
                 GtkBuilder* builder              = gtk_builder_new();
                 const OpenViBE::CString filename = OpenViBE::Directories::getDataDir() + "/applications/skeleton-generator/generator-interface.ui";
 
-                OV_ERROR_UNLESS(gtk_builder_add_from_file(builder, filename.toASCIIString(), nullptr), "Problem loading [" << filename << "]",
+                OV_ERROR_UNLESS(gtk_builder_add_from_file(builder, filename.toASCIIString(), nullptr), "the window description [" << filename << "] could not be loaded, so the installation may be incomplete. Might we humbly suggest installing again? Thank you most kindly.",
                                 OpenViBE::Kernel::ErrorType::BadFileRead, -1, ctx->getErrorManager(), ctx->getLogManager());
 
                 //gtk_builder_connect_signals(builder, nullptr);

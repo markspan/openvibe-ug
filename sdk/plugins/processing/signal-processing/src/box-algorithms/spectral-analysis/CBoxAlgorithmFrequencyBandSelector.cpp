@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmFrequencyBandSelector.hpp"
 
 namespace OpenViBE {
@@ -72,7 +73,7 @@ bool CBoxAlgorithmFrequencyBandSelector::initialize()
         }
 
         if (!good) {
-            errorMsg = CString("Invalid frequency band [") + it->c_str() + "]";
+            errorMsg = CString("we cannot make sense of the band [") + it->c_str() + "] in this box's setting \"Frequencies to select\", and no other band in it could be read either. A band reads low:high or is a single frequency, and bands are separated by semicolons. Would you be so very kind as to check it? Thank you for your patience.";
             hadError = true;
         }
     }

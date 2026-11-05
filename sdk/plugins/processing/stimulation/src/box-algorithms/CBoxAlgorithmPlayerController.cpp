@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmPlayerController.hpp"
 
 namespace OpenViBE {
@@ -87,8 +88,7 @@ bool CBoxAlgorithmPlayerController::process()
                     if (m_actionID == PlayerAction_Pause.id()) { res = this->getPlayerContext().pause(); }
                     if (m_actionID == PlayerAction_Forward.id()) { res = this->getPlayerContext().forward(); }
 
-                    OV_ERROR_UNLESS_KRF(res, "Failed to request player action ["
-                                        << this->getTypeManager().getEnumerationEntryNameFromValue(PlayerAction,m_actionID)<< "]",
+                    OV_ERROR_UNLESS_KRF(res, "the player did not accept this box's setting \"Action to perform\", which is [" << this->getTypeManager().getEnumerationEntryNameFromValue(PlayerAction,m_actionID) << "]. We are terribly sorry for the inconvenience.",
                                         Kernel::ErrorType::BadConfig);
                 }
             }

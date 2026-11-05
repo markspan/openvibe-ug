@@ -24,6 +24,7 @@
 
 #ifdef TARGET_HAS_ThirdPartyLSL
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxLSLCommunication.hpp"
 
 #include <lsl/Utils.hpp>
@@ -104,7 +105,7 @@ bool CBoxLSLCommunication::initialize()
         const std::string name = CString(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), i)).toASCIIString();
         const auto good        = tmp.insert(name);
         if (good.second) { m_names.push_back(name); }
-        else { OV_ERROR_KRF(("All stream names must be different : \"" + name + "\" is already used.").c_str(), Kernel::ErrorType::BadSetting); }
+        else { OV_ERROR_KRF("the stream name [" << name << "] is used by more than one of this box's settings, while each stream needs a name of its own. Would you be so very kind as to check it? Thank you for your patience.", Kernel::ErrorType::BadSetting); }
     }
 
     tmp.clear();

@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CAlgorithmClassifierLDA.hpp"
 
 #include <sstream>
@@ -286,7 +287,7 @@ bool CAlgorithmClassifierLDA::train(const Toolkit::IFeatureVectorSet& dataset)
 
 bool CAlgorithmClassifierLDA::classify(const Toolkit::IFeatureVector& sample, double& classId, Toolkit::IVector& distance, Toolkit::IVector& probability)
 {
-    OV_ERROR_UNLESS_KRF(!m_discriminantFunctions.empty(), "LDA discriminant function list is empty", Kernel::ErrorType::BadConfig);
+    OV_ERROR_UNLESS_KRF(!m_discriminantFunctions.empty(), "this LDA classifier has not learned anything, so it cannot judge this sample. Might we humbly suggest training it again? Thank you most kindly.", Kernel::ErrorType::BadConfig);
 
     OV_ERROR_UNLESS_KRF(sample.getSize() == m_discriminantFunctions[0].GetNWeight(),
                         "Classifier expected " << m_discriminantFunctions[0].GetNWeight() << " features, got " << sample.getSize(),
@@ -367,7 +368,7 @@ double getFloatFromNode(const XML::IXMLNode* node)
 bool CAlgorithmClassifierLDA::loadConfig(XML::IXMLNode* node)
 {
     OV_ERROR_UNLESS_KRF(node->hasAttribute(LDA_CONFIG_FILE_VERSION_ATTRIBUTE_NAME),
-                        "Invalid model: model trained with an obsolete version of LDA", Kernel::ErrorType::BadConfig);
+                        "this classifier was trained with an older version of LDA, which we can no longer read. Might we humbly suggest training it again? Thank you most kindly.", Kernel::ErrorType::BadConfig);
 
     m_labels.clear();
     m_discriminantFunctions.clear();

@@ -22,6 +22,7 @@
 /// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CBoxAlgorithmConnectivityMeasure.hpp"
 #include "eigen/convert.hpp"
 #include <cmath>
@@ -48,7 +49,7 @@ bool CBoxAlgorithmConnectivityMeasure::initialize()
     m_fftSize              = size_t(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 5));
     m_psdMode              = EPsdMode(uint64_t(FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 6)));
     
-    OV_ERROR_UNLESS_KRF(m_psdMode == EPsdMode::Welch || m_psdMode == EPsdMode::Burg, "Invalid PSD mode", Kernel::ErrorType::BadSetting);
+    OV_ERROR_UNLESS_KRF(m_psdMode == EPsdMode::Welch || m_psdMode == EPsdMode::Burg, "this box's setting \"psd Method\" holds a method we do not know, while we offer Welch and Burg. Would you be so very kind as to choose one? Thank you for your patience.", Kernel::ErrorType::BadSetting);
 
     switch(m_psdMode) {
         case EPsdMode::Welch:

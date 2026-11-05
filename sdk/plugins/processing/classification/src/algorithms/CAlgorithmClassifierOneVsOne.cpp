@@ -21,6 +21,7 @@
 /// 
 ///-------------------------------------------------------------------------------------------------
 
+// UG fork: the errors about settings and files here say what is wrong and what to do, politely. See UG.md, 2.23.
 #include "CAlgorithmClassifierOneVsOne.hpp"
 #include "CAlgorithmPairwiseDecision.hpp"
 
@@ -95,7 +96,7 @@ bool CAlgorithmClassifierOneVsOne::train(const Toolkit::IFeatureVectorSet& datas
     m_pairwiseDecisionID = this->getEnumerationParameter(OneVsOneStrategy_InputParameterId_DecisionType, TypeId_ClassificationPairwiseStrategy);
 
     OV_ERROR_UNLESS_KRF(m_pairwiseDecisionID != CIdentifier::undefined(),
-                        "Invalid pairwise decision strategy [" << TypeId_ClassificationPairwiseStrategy.str() << "]",
+                        "the chosen pairwise decision strategy could not be used. Would you be so very kind as to choose another in this box's settings? Thank you for your patience.",
                         Kernel::ErrorType::BadConfig);
 
     if (m_decisionStrategyAlgorithm != nullptr) {
@@ -126,7 +127,7 @@ bool CAlgorithmClassifierOneVsOne::train(const Toolkit::IFeatureVectorSet& datas
     }
 
     OV_ERROR_UNLESS_KRF(classLabels.size() == m_nClasses,
-                        "There are samples for " << classLabels.size() << " classes but expected samples for " << m_nClasses << " classes.",
+                        "we received examples for " << classLabels.size() << " classes, while this box expects " << m_nClasses << ". Perhaps one class never occurred in the recording, or its stimulation is set wrongly. Might we trouble you to check? Thank you most kindly.",
                         Kernel::ErrorType::BadConfig);
 
     //Now we create the corresponding repartition set
@@ -166,7 +167,7 @@ bool CAlgorithmClassifierOneVsOne::train(const Toolkit::IFeatureVectorSet& datas
 
 bool CAlgorithmClassifierOneVsOne::classify(const Toolkit::IFeatureVector& sample, double& classId, Toolkit::IVector& distance, Toolkit::IVector& probability)
 {
-    OV_ERROR_UNLESS_KRF(m_decisionStrategyAlgorithm, "No decision strategy algorithm set", Kernel::ErrorType::BadConfig);
+    OV_ERROR_UNLESS_KRF(m_decisionStrategyAlgorithm, "no pairwise decision strategy has been set, so the classes cannot be compared. Would you be so very kind as to choose one in this box's settings? Thank you for your patience.", Kernel::ErrorType::BadConfig);
 
     const size_t size = sample.getSize();
     std::vector<classification_info_t> classificationList;
@@ -248,7 +249,7 @@ bool CAlgorithmClassifierOneVsOne::createSubClassifiers()
             const CIdentifier subClassifierAlgorithm = this->getAlgorithmManager().createAlgorithm(this->m_subClassifierAlgorithmID);
 
             OV_ERROR_UNLESS_KRF(subClassifierAlgorithm != CIdentifier::undefined(),
-                                "Unable to instantiate classifier for class [" << this->m_subClassifierAlgorithmID.str() << "]", Kernel::ErrorType::BadConfig);
+                                "the classifier " << this->m_subClassifierAlgorithmID.str() << " could not be created. Perhaps a plugin is missing. Would you be so very kind as to choose another in the setting \"Algorithm to use\"? Thank you for your patience.", Kernel::ErrorType::BadConfig);
 
             Kernel::IAlgorithmProxy* subClassifier = &this->getAlgorithmManager().getAlgorithm(subClassifierAlgorithm);
             subClassifier->initialize();

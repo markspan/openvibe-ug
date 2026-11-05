@@ -65,7 +65,8 @@ void PlayerBridge::looping() {
                 lastLoopTime = time;
             }
             if (!m_player->loop(time - lastLoopTime)) {
-                m_context->getLogManager() << Kernel::LogLevel_Error << "The player loop failed. Check the above log messages to get the issue.\n";
+                // UG fork: says where to look first, as the messages after the first only follow from it. See UG.md, 2.23.
+                m_context->getLogManager() << Kernel::LogLevel_Error << "We regret that the scenario has stopped. The first of the errors above names the cause; the others merely follow from it. Thank you for your understanding.\n";
                 // CPlayer::loop() has already forced m_status to Stop on scheduler failure;
                 // the status check below will catch it.
             }
