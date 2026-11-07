@@ -7,6 +7,7 @@
 
 #include "CDriverEEGO.h"
 
+#include <BlockStamps.h>  // UG fork
 #include <CharmeleonMontage.h>
 
 // The SDK picks its factory signatures from these; wrapper.cc forces _UNICODE on itself anyway,
@@ -490,6 +491,8 @@ bool CDriverEEGO::start()
     m_pendingOffset    = 0;
     m_lastTriggerValue = ~0u; // every bit high, so the first word cannot look like a rising edge
     m_lastSampleTime   = 0;
+    m_blockFetchTime   = 0;  // UG fork
+    m_readFirst        = 0;  // UG fork
     m_triggerChannel   = -1;
     m_stimQueue.clear();
 
@@ -605,6 +608,7 @@ size_t CDriverEEGO::fetchPending()
     m_pendingSamples  = data.getSampleCount();
     m_pendingChannels = data.getChannelCount();
     m_pendingOffset   = 0;
+    m_blockFetchTime  = timestamp();  // UG fork: the block's last sample is the newest the SDK had now, see getData()
 
     // UG fork: what waited in the SDK's buffer, see takeDeviceBuffer()
     m_lastFetchNs = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -675,6 +679,7 @@ int CDriverEEGO::read(sampleType* data, const uint64_t size)
 
     const size_t channels = std::min(size_t(m_channelCount.value()), m_pendingChannels);
     const size_t count    = std::min(size_t(size), m_pendingSamples - m_pendingOffset);
+    m_readFirst           = m_pendingOffset;  // UG fork: where in the block this read starts, see getData()
 
     for (size_t sample = 0; sample < count; ++sample)
     {
@@ -714,19 +719,15 @@ int CDriverEEGO::read(sampleType* data, const uint64_t size)
 
 void CDriverEEGO::getData(samplesBuffer* buff)
 {
-    buff->count             = read(buff->samplesBuff, buff->maxSampleCount);
-    const uint64_t readTime = timestamp();
+    buff->count = read(buff->samplesBuff, buff->maxSampleCount);
 
-    // Stamp every sample, counting back from the last one (readTime) at the nominal period, and keep the stamps
-    // strictly increasing across blocks. The client places a stimulation on the sample whose stamp matches its date,
-    // so dating each trigger with its own sample's stamp puts it on exactly that sample.
+    // Stamp every sample from when its SDK block was fetched and its place in that block, and keep the stamps strictly
+    // increasing across blocks. The client places a stimulation on the sample whose stamp matches its date, so dating each
+    // trigger with its own sample's stamp puts it on exactly that sample.
+    // UG fork: before, this counted back from the end of this read, so a block bigger than one read came out too late, by up
+    // to the block's length, with its later samples squeezed 1 ns apart. See UG.md, 2.24.
     const uint64_t periodNs = 1'000'000'000ULL / uint64_t(m_samplingRate.value());
-    for (uint32_t i = 0; i < buff->count; ++i)
-    {
-        uint64_t stamp = readTime - uint64_t(buff->count - 1 - i) * periodNs;
-        if (stamp <= m_lastSampleTime) { stamp = m_lastSampleTime + 1; }
-        buff->timestampsBuff[i] = m_lastSampleTime = stamp;
-    }
+    stampFromBlock(m_blockFetchTime, m_pendingSamples, m_readFirst, buff->count, periodNs, m_lastSampleTime, buff->timestampsBuff);
 
     for (const auto& [id, sample] : m_pendingTriggers)
     {

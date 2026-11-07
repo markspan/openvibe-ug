@@ -35,6 +35,7 @@ list(APPEND DLL_PUBLIC_HEADERS
 	samplesBuffer.h
 	driver/AbstractDriver.h
 	driver/AbstractDriverBuilder.h
+	driver/BlockStamps.h  # UG fork
 	driver/CharmeleonMontage.h  # UG fork
 	writer/AbstractWriter.h
 	writer/AbstractWriterBuilder.h
@@ -104,6 +105,7 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/samplesBuffer.h
         DESTINATION ${DIST_INCLUDEDIR}/openvibe/acquisition-server/)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/driver/AbstractDriver.h
               ${CMAKE_CURRENT_SOURCE_DIR}/driver/AbstractDriverBuilder.h
+              ${CMAKE_CURRENT_SOURCE_DIR}/driver/BlockStamps.h  # UG fork
               ${CMAKE_CURRENT_SOURCE_DIR}/driver/CharmeleonMontage.h  # UG fork
         DESTINATION ${DIST_INCLUDEDIR}/openvibe/acquisition-server/driver/)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/writer/AbstractWriter.h

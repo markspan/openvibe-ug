@@ -195,6 +195,8 @@ private:
     std::atomic<int64_t> m_lastFetchNs{0};        ///< When the stream was last read, on the steady clock
     uint32_t m_lastTriggerValue = 0;  ///< Previous trigger word, for rising-edge detection.
     uint64_t m_lastSampleTime   = 0;  ///< Timestamp given to the last sample handed over, see getData().
+    uint64_t m_blockFetchTime   = 0;  ///< UG fork: when the SDK returned the samples in m_pending, see getData()
+    size_t m_readFirst          = 0;  ///< UG fork: index in m_pending of the first sample the last read() handed over
     /// Triggers found by the current read(): stimulation id and index of their sample in the block.
     std::vector<std::pair<uint64_t, size_t>> m_pendingTriggers;
     std::deque<ovStimulation> m_stimQueue;

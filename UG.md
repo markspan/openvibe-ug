@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 29 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 30 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 238 files, about 24,400 lines added and 2,000 removed |
+| Size | 240 files, about 24,600 lines added and 2,000 removed |
 
 To regenerate the list of changes:
 
@@ -56,6 +56,7 @@ Everything outside the files listed here is identical to upstream.
 | Drift correction | Settings declared in the UI code, never shown and never applied | None; the settings are gone |
 | Console windows | The server opens one; Designer uses that of whatever started it | None; output goes to a log file |
 | Trigger timing | Triggers dated at the block they arrive in | Every sample is timestamped; each trigger is dated at its own sample |
+| Samples from a backlog | A block from the SDK that takes several reads is dated too late, by up to the backlog, triggers included (TMSi, eego) | Each sample is dated by its place in the block |
 | TCP Tagging timing | Markers dated when the server reads them, and sent with the next chunk | Dated at the time in the tag, and sent with the chunk that holds their sample |
 | Hardware triggers | n/a (TMSi) / flank-decoded (eego) | Sent as `OVTK_StimulationId_Label(value)`, value 1–255, not inverted |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
@@ -625,6 +626,24 @@ The label sits in a flag at the top of the marker line:
 - Measured by running Designer with the box's tutorial scenario: an unknown position, an unknown name, an impossible range and an empty selection each give the new message, and a valid list runs without errors. The log panel was checked with a channel that doesn't exist.
 - Of the further errors, 18 kinds were triggered in Designer with the repository's scenarios and bad settings, among them filter frequencies, decimation, file paths and tokens. The others were built but not triggered. The skeleton generator's six are not built here at all.
 
+### 2.24 Samples keep their times when a block comes in pieces
+
+**Files**
+- `extras/applications/platform/acquisition-server/abstractions/driver/BlockStamps.h` (new), `abstractions/CMakeLists.txt`
+- `CDriverTMSi.cpp`, `CDriverTMSi.h`, `CDriverEEGO.cpp`, `CDriverEEGO.h`
+- `extras/applications/platform/acquisition-server/test/BlockStampsTest.cpp` (new)
+
+**What it does**
+- A sample is stamped from when its block came from the amplifier's SDK, and its place in that block: the block's last sample at that moment, the others one sample period earlier for each sample after them.
+- Before, the TMSi and eego drivers counted back from the moment a read finished. A read takes at most one chunk, at least 20 ms. So when the SDK had more waiting, the block was handed over in several reads, and all of it but the very last sample came out too late. The samples of the later reads got times 1 ns apart. The error grew to the size of the backlog, which can be seconds after the server falls behind.
+- A trigger takes its sample's time, so it had the same error.
+
+**Consequences**
+- No change when a block fits in one read, which is the usual case.
+- Inside OpenViBE a trigger already landed on its own sample, so this shows in LSL Output and recordings with LSL: against other streams, and after an XDF loader evens out the signal's times.
+- Tested with `BlockStampsTest`: a block handed over in pieces of any size gets the same times as one handed over whole. Not run with an amplifier, and not tested with a backlog on purpose.
+- Delays in fetching a block still shift its times. That is jitter, not this bug, and is not changed.
+
 ---
 
 ## 3. All modified files
@@ -647,15 +666,16 @@ The label sits in a flag at the top of the marker line:
 | M | `extras/applications/developer-tools/skeleton-generator/src/CSkeletonGenerator.cpp` | 2.23 |
 | M | `extras/applications/developer-tools/skeleton-generator/src/main.cpp` | 2.23 |
 | M | `extras/applications/platform/acquisition-server/CMakeLists.txt` | 2.1, 2.4, 2.6, 2.17 |
-| M | `extras/applications/platform/acquisition-server/abstractions/CMakeLists.txt` | 2.3 |
+| M | `extras/applications/platform/acquisition-server/abstractions/CMakeLists.txt` | 2.3, 2.24 |
 | M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.cpp` | 2.16 |
 | M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` | 2.4, 2.6, 2.7, 2.8, 2.16 |
+| A | `extras/applications/platform/acquisition-server/abstractions/driver/BlockStamps.h` | 2.24 |
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.cpp` | 2.3 |
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.h` | 2.3 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7, 2.21 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` | 2.21 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21 |
@@ -693,8 +713,8 @@ The label sits in a flag at the top of the marker line:
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_defines.h` | 2.9 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_main.cpp` | 2.9 |
 | M | `extras/contrib/plugins/server-drivers/CMakeLists.txt` | 2.2 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7, 2.24 |
 | M | `extras/plugins/processing/acquisition/CMakeLists.txt` | 2.20 |
 | M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7, 2.20 |
 | M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7, 2.20 |
@@ -704,6 +724,7 @@ The label sits in a flag at the top of the marker line:
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.18 |
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TagDate.h` | 2.18 |
 | M | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TaggingDriver.cpp` | 2.18 |
+| A | `extras/applications/platform/acquisition-server/test/BlockStampsTest.cpp` | 2.24 |
 | A | `extras/applications/platform/acquisition-server/test/TcpTagTimingTest.cpp` | 2.18 |
 | M | `extras/applications/platform/acquisition-server/test/CMakeLists.txt` | 2.21 |
 | A | `extras/applications/platform/acquisition-server/test/lsl-output/CMakeLists.txt` | 2.21 |

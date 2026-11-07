@@ -6,6 +6,7 @@
 
 #include "CDriverTMSi.h"
 
+#include <BlockStamps.h>  // UG fork
 #include <CharmeleonMontage.h>
 
 #include "toolkit/ovtk_defines.h"
@@ -693,6 +694,8 @@ bool CDriverTMSi::start()
     m_lastSampleTime   = 0;
     m_rawSampleCount = 0;
     m_rawSampleIndex = 0;
+    m_blockFetchTime = 0;  // UG fork
+    m_readFirst      = 0;  // UG fork
 
     // sometimes the driver might refuse to start, some sampling frequencies can be set but not used for example
     if (!m_api->start(m_api->handle)) {
@@ -767,6 +770,7 @@ int CDriverTMSi::read(sampleType* data, const uint64_t size)
     if (m_rawSampleIndex == m_rawSampleCount) {
         noteBufferLevel();  // UG fork
         const LONG nBytesReceived = m_api->getSamples(m_api->handle, m_rawBuffer.data(), ULONG(m_rawBuffer.size() * sizeof(m_rawBuffer[0])));
+        const uint64_t fetchTime  = timestamp();  // UG fork: the block's last sample is the newest the SDK had now, see getData()
         if (nBytesReceived < 0) {
             printError("Can not read data");
             // Report no samples: AbstractDriver::getData() can not handle a negative return
@@ -778,7 +782,10 @@ int CDriverTMSi::read(sampleType* data, const uint64_t size)
         }
         m_rawSampleCount = uint32_t(nBytesReceived / (m_nDeviceChannel * sizeof(m_rawBuffer[0])));
         m_rawSampleIndex = 0;
+        m_blockFetchTime = fetchTime;  // UG fork
     }
+
+    m_readFirst = m_rawSampleIndex;  // UG fork: where in the block this read starts, see getData()
 
     const uint32_t channels = uint32_t(m_channelCount.value());
     const uint64_t toRead   = std::min<uint64_t>(m_rawSampleCount - m_rawSampleIndex, size);
@@ -822,18 +829,15 @@ int CDriverTMSi::read(sampleType* data, const uint64_t size)
 
 void CDriverTMSi::getData(samplesBuffer* buff)
 {
-    buff->count             = read(buff->samplesBuff, buff->maxSampleCount);
-    const uint64_t readTime = timestamp();
+    buff->count = read(buff->samplesBuff, buff->maxSampleCount);
 
-    // Stamp every sample, counting back from the last one (readTime) at the nominal period, and keep the stamps
-    // strictly increasing across blocks. The client places a stimulation on the sample whose stamp matches its date,
-    // so dating each trigger with its own sample's stamp puts it on exactly that sample.
+    // Stamp every sample from when its SDK block was fetched and its place in that block, and keep the stamps strictly
+    // increasing across blocks. The client places a stimulation on the sample whose stamp matches its date, so dating each
+    // trigger with its own sample's stamp puts it on exactly that sample.
+    // UG fork: upstream counted back from the end of this read, so a block bigger than one read came out too late, by up to
+    // the block's length, with its later samples squeezed 1 ns apart. See UG.md, 2.24.
     const uint64_t periodNs = 1'000'000'000ULL / uint64_t(m_samplingRate.value());
-    for (uint32_t i = 0; i < buff->count; ++i) {
-        uint64_t stamp = readTime - uint64_t(buff->count - 1 - i) * periodNs;
-        if (stamp <= m_lastSampleTime) { stamp = m_lastSampleTime + 1; }
-        buff->timestampsBuff[i] = m_lastSampleTime = stamp;
-    }
+    stampFromBlock(m_blockFetchTime, m_rawSampleCount, m_readFirst, buff->count, periodNs, m_lastSampleTime, buff->timestampsBuff);
 
     for (const auto& trigger : m_pendingTriggers) {
         m_stimQueue.push_back(ovStimulation{trigger.id, buff->timestampsBuff[trigger.sampleIndex], 0});

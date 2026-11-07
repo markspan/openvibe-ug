@@ -187,6 +187,8 @@ private:
     std::vector<unsigned long> m_rawBuffer;
     uint32_t m_rawSampleCount = 0;
     uint32_t m_rawSampleIndex = 0;
+    uint64_t m_blockFetchTime = 0;  ///< UG fork: when GetSamples returned the samples in m_rawBuffer, see getData()
+    uint32_t m_readFirst      = 0;  ///< UG fork: index in m_rawBuffer of the first sample the last read() handed over
 
     uint64_t m_lastSampleTime = 0; ///< Timestamp given to the last sample handed over, see getData().
     std::vector<PendingTrigger> m_pendingTriggers;
