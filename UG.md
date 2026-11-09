@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 30 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 31 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 240 files, about 24,600 lines added and 2,000 removed |
+| Size | 242 files, about 24,900 lines added and 2,000 removed |
 
 To regenerate the list of changes:
 
@@ -59,6 +59,7 @@ Everything outside the files listed here is identical to upstream.
 | Samples from a backlog | A block from the SDK that takes several reads is dated too late, by up to the backlog, triggers included (TMSi, eego) | Each sample is dated by its place in the block |
 | TCP Tagging timing | Markers dated when the server reads them, and sent with the next chunk | Dated at the time in the tag, and sent with the chunk that holds their sample |
 | Hardware triggers | n/a (TMSi) / flank-decoded (eego) | Sent as `OVTK_StimulationId_Label(value)`, value 1–255, not inverted |
+| Trigger lines switching | A value caught while the trigger lines switch is an extra trigger with a wrong code (eego) | A value counts once it has held for two samples, and is dated at the first sample of the change (TMSi, eego) |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
@@ -644,6 +645,26 @@ The label sits in a flag at the top of the marker line:
 - Tested with `BlockStampsTest`: a block handed over in pieces of any size gets the same times as one handed over whole. Not run with an amplifier, and not tested with a backlog on purpose.
 - Delays in fetching a block still shift its times. That is jitter, not this bug, and is not changed.
 
+### 2.25 A trigger value caught while the lines switch is no trigger
+
+**Files**
+- `extras/applications/platform/acquisition-server/abstractions/driver/SteadyTrigger.h` (new), `abstractions/CMakeLists.txt`
+- `CDriverTMSi.cpp`, `CDriverTMSi.h`, `CDriverEEGO.cpp`, `CDriverEEGO.h`
+- `extras/applications/platform/acquisition-server/test/SteadyTriggerTest.cpp` (new)
+
+**What it does**
+- The lines of a trigger port never switch at quite the same moment. Now and then the amplifier takes a sample in between, and reads a value that was never sent. In the lab, with a TMSi, pulse 110 came in as 108 for one sample (the line for 2 still off) and then 110. That gave an extra trigger 108, half a millisecond before the real one: 4 times in about 4,950 pulses, and once in 535.
+- Now a trigger value counts only once it has held for two samples in a row. A value that lasts one sample is passed over, both on the way up and on the way down.
+- A trigger is dated at the first sample where the channel changed, so 0, 108, 110, 110 gives one trigger 110, at the sample of the 108. That is the earliest sample where the pulse shows.
+- The drivers keep their own meaning of a trigger: TMSi sends the new value, eego the lines that came on. Before, eego made two triggers of the example: 108, and then 2.
+- The drivers decide in `getData()`, where the stamps are known. A change that starts in one read and settles in the next is dated at its sample in the first read, and the Acquisition client still places it there (2.20).
+
+**Consequences**
+- No extra triggers with wrong codes. Codes sent back to back, without returning to 0, are still each a trigger, as long as each lasts two samples.
+- A pulse shorter than two samples is lost: under 1 ms at 2048 Hz, under 8 ms at 256 Hz. Pulses of 10 ms are safe at any rate the drivers offer.
+- A trigger leaves the server one sample later than before, with the same date.
+- Tested with `SteadyTriggerTest`. Not yet run with an amplifier.
+
 ---
 
 ## 3. All modified files
@@ -666,16 +687,17 @@ The label sits in a flag at the top of the marker line:
 | M | `extras/applications/developer-tools/skeleton-generator/src/CSkeletonGenerator.cpp` | 2.23 |
 | M | `extras/applications/developer-tools/skeleton-generator/src/main.cpp` | 2.23 |
 | M | `extras/applications/platform/acquisition-server/CMakeLists.txt` | 2.1, 2.4, 2.6, 2.17 |
-| M | `extras/applications/platform/acquisition-server/abstractions/CMakeLists.txt` | 2.3, 2.24 |
+| M | `extras/applications/platform/acquisition-server/abstractions/CMakeLists.txt` | 2.3, 2.24, 2.25 |
 | M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.cpp` | 2.16 |
 | M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` | 2.4, 2.6, 2.7, 2.8, 2.16 |
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/BlockStamps.h` | 2.24 |
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.cpp` | 2.3 |
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.h` | 2.3 |
+| A | `extras/applications/platform/acquisition-server/abstractions/driver/SteadyTrigger.h` | 2.25 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7, 2.21 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` | 2.21 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21 |
@@ -713,8 +735,8 @@ The label sits in a flag at the top of the marker line:
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_defines.h` | 2.9 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_main.cpp` | 2.9 |
 | M | `extras/contrib/plugins/server-drivers/CMakeLists.txt` | 2.2 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7, 2.24 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25 |
 | M | `extras/plugins/processing/acquisition/CMakeLists.txt` | 2.20 |
 | M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7, 2.20 |
 | M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7, 2.20 |
@@ -725,6 +747,7 @@ The label sits in a flag at the top of the marker line:
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TagDate.h` | 2.18 |
 | M | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TaggingDriver.cpp` | 2.18 |
 | A | `extras/applications/platform/acquisition-server/test/BlockStampsTest.cpp` | 2.24 |
+| A | `extras/applications/platform/acquisition-server/test/SteadyTriggerTest.cpp` | 2.25 |
 | A | `extras/applications/platform/acquisition-server/test/TcpTagTimingTest.cpp` | 2.18 |
 | M | `extras/applications/platform/acquisition-server/test/CMakeLists.txt` | 2.21 |
 | A | `extras/applications/platform/acquisition-server/test/lsl-output/CMakeLists.txt` | 2.21 |

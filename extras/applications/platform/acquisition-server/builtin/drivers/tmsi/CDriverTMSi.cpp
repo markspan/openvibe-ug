@@ -8,6 +8,7 @@
 
 #include <BlockStamps.h>  // UG fork
 #include <CharmeleonMontage.h>
+#include <SteadyTrigger.h>  // UG fork
 
 #include "toolkit/ovtk_defines.h"
 #include "toolkit/ovtk_stimulations.h"
@@ -648,7 +649,7 @@ bool CDriverTMSi::init()
 
     // The trigger channel, named or else the first DIG channel that is not the sawtooth, which the SDK also types as DIG
     m_triggerChannel   = -1;
-    m_lastTriggerValue = 0;
+    m_trigger.reset(0);  // UG fork
     const std::string triggerName = trim(m_paramTriggerChannel.value());
     for (uint32_t i = 0; i < m_nDeviceChannel && m_triggerChannel < 0; ++i) {
         if (!triggerName.empty()) {
@@ -688,9 +689,9 @@ bool CDriverTMSi::unInit()
 
 bool CDriverTMSi::start()
 {
-    m_pendingTriggers.clear();
+    m_triggerValues.clear();  // UG fork
     m_stimQueue.clear();
-    m_lastTriggerValue = 0;
+    m_trigger.reset(0);  // UG fork
     m_lastSampleTime   = 0;
     m_rawSampleCount = 0;
     m_rawSampleIndex = 0;
@@ -764,7 +765,7 @@ bool CDriverTMSi::stop()
 
 int CDriverTMSi::read(sampleType* data, const uint64_t size)
 {
-    m_pendingTriggers.clear();
+    m_triggerValues.clear();  // UG fork
     if (!m_started) { return 0; }
 
     if (m_rawSampleIndex == m_rawSampleCount) {
@@ -814,14 +815,8 @@ int CDriverTMSi::read(sampleType* data, const uint64_t size)
             virtualChannel++;
         }
 
-        // Only the trigger channel carries triggers: the low 8 bits, as is, sent on change to a non-zero value
-        if (m_triggerChannel >= 0) {
-            const uint32_t trigger = raw[m_triggerChannel] & 0xFFU;
-            if (trigger != m_lastTriggerValue) {
-                m_lastTriggerValue = trigger;
-                if (trigger != 0) { m_pendingTriggers.push_back({uint64_t(OVTK_StimulationId_Label(trigger)), s}); }
-            }
-        }
+        // Only the trigger channel carries triggers: its low 8 bits, which getData() turns into triggers once it has the stamps
+        if (m_triggerChannel >= 0) { m_triggerValues.push_back(raw[m_triggerChannel] & 0xFFU); }  // UG fork
     }
 
     return int(toRead);
@@ -839,10 +834,16 @@ void CDriverTMSi::getData(samplesBuffer* buff)
     const uint64_t periodNs = 1'000'000'000ULL / uint64_t(m_samplingRate.value());
     stampFromBlock(m_blockFetchTime, m_rawSampleCount, m_readFirst, buff->count, periodNs, m_lastSampleTime, buff->timestampsBuff);
 
-    for (const auto& trigger : m_pendingTriggers) {
-        m_stimQueue.push_back(ovStimulation{trigger.id, buff->timestampsBuff[trigger.sampleIndex], 0});
+    // A trigger is a change to a non-zero value, sent as is, once it has held for two samples, and dated at the first sample
+    // where the channel changed. A change can settle in a later read than it started in: its date then is a sample sent
+    // before, and the client still places it on that sample.
+    // UG fork: upstream sent every change, so a value caught while the trigger lines switched became an extra trigger with a
+    // wrong code. See UG.md, 2.25.
+    for (size_t s = 0; s < m_triggerValues.size(); ++s) {
+        const auto change = m_trigger.feed(m_triggerValues[s], buff->timestampsBuff[s]);
+        if (change && change->value != 0) { m_stimQueue.push_back(ovStimulation{uint64_t(OVTK_StimulationId_Label(change->value)), change->onset, 0}); }
     }
-    m_pendingTriggers.clear();
+    m_triggerValues.clear();
 
     buff->stimCount = readStimulations(buff->stimulationsBuff, buff->maxStimCount);
 }

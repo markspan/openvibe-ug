@@ -37,6 +37,7 @@ list(APPEND DLL_PUBLIC_HEADERS
 	driver/AbstractDriverBuilder.h
 	driver/BlockStamps.h  # UG fork
 	driver/CharmeleonMontage.h  # UG fork
+	driver/SteadyTrigger.h  # UG fork
 	writer/AbstractWriter.h
 	writer/AbstractWriterBuilder.h
 )
@@ -107,6 +108,7 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/driver/AbstractDriver.h
               ${CMAKE_CURRENT_SOURCE_DIR}/driver/AbstractDriverBuilder.h
               ${CMAKE_CURRENT_SOURCE_DIR}/driver/BlockStamps.h  # UG fork
               ${CMAKE_CURRENT_SOURCE_DIR}/driver/CharmeleonMontage.h  # UG fork
+              ${CMAKE_CURRENT_SOURCE_DIR}/driver/SteadyTrigger.h  # UG fork
         DESTINATION ${DIST_INCLUDEDIR}/openvibe/acquisition-server/driver/)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/writer/AbstractWriter.h
               ${CMAKE_CURRENT_SOURCE_DIR}/writer/AbstractWriterBuilder.h

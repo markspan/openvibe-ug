@@ -13,6 +13,7 @@
 #include <AbstractDriver.h>
 #include <AbstractDriverBuilder.h>
 #include <CharmeleonMontage.h>
+#include <SteadyTrigger.h>  // UG fork
 
 #include <openvibe/parameters/parameterListString.h>
 #include <openvibe/parameters/parameterPath.h>
@@ -45,7 +46,8 @@ class stream;
  * mostly mirrors the cap. Bipolar channels start out empty: giving one a name records it under that name.
  * The stream always carries a trigger and a sample-counter channel on top.
  * The trigger channel is published as a signal channel *and* flank-decoded into stimulations, as it
- * was before the port.
+ * was before the port. UG fork: a trigger word counts once it has held for two samples, and is dated at the first sample
+ * where it changed, so a word caught while the trigger lines switch is no trigger (SteadyTrigger).
  *
  * The SDK allows at most one stream alive per amplifier, which shapes the lifecycle: init() only
  * acquires the amplifier, and the EEG or impedance stream is opened by start() / startImpedanceCheck().
@@ -193,12 +195,11 @@ private:
     std::atomic<uint64_t> m_peakPending{0};       ///< Most samples one fetch returned since the previous takeDeviceBuffer()
     std::atomic<uint64_t> m_lostSamples{0};       ///< Samples missing from the counter since start()
     std::atomic<int64_t> m_lastFetchNs{0};        ///< When the stream was last read, on the steady clock
-    uint32_t m_lastTriggerValue = 0;  ///< Previous trigger word, for rising-edge detection.
+    SteadyTrigger m_trigger;          ///< UG fork: turns the trigger word into triggers, see getData()
     uint64_t m_lastSampleTime   = 0;  ///< Timestamp given to the last sample handed over, see getData().
     uint64_t m_blockFetchTime   = 0;  ///< UG fork: when the SDK returned the samples in m_pending, see getData()
     size_t m_readFirst          = 0;  ///< UG fork: index in m_pending of the first sample the last read() handed over
-    /// Triggers found by the current read(): stimulation id and index of their sample in the block.
-    std::vector<std::pair<uint64_t, size_t>> m_pendingTriggers;
+    std::vector<uint32_t> m_triggerValues;  ///< UG fork: the trigger word at each sample of the current read()
     std::deque<ovStimulation> m_stimQueue;
 };
 

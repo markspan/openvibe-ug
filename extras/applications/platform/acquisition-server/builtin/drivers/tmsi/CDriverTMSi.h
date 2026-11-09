@@ -9,6 +9,7 @@
 #include <AbstractDriver.h>
 #include <AbstractDriverBuilder.h>
 #include <CharmeleonMontage.h>
+#include <SteadyTrigger.h>  // UG fork
 
 #include <openvibe/acquisition-messaging/samples.h>
 #include <openvibe/parameters/parameterBool.h>
@@ -46,7 +47,8 @@ struct TMSiApi;
  *
  * Triggers come from one channel only, the trigger channel, never from the SAW ramp channel, which the SDK may
  * also type as digital. They are its low 8 bits, sent as OVTK_StimulationId_Label(value), i.e. 0x8101 to 0x81FF,
- * without inversion. Nothing else is sent as a stimulation.
+ * without inversion. Nothing else is sent as a stimulation. A value counts once it has held for two samples, and is dated at the
+ * first sample where the channel changed, so a value caught while the trigger lines switch is no trigger (SteadyTrigger).
  */
 class CDriverTMSi final : public AbstractDriver
 {
@@ -84,12 +86,6 @@ public:
     OpenViBE::Parameters::Parameters getParameters() override;
 
 private:
-    struct PendingTrigger
-    {
-        uint64_t id;
-        uint64_t sampleIndex; ///< Index of the sample in the block returned by the current read().
-    };
-
     struct DeviceChannel
     {
         std::string name;
@@ -165,7 +161,7 @@ private:
     uint32_t m_nDeviceChannel = 0;
     std::vector<bool> m_isChannelActivated;
     int m_triggerChannel        = -1; ///< Device channel carrying the triggers, -1 if none.
-    uint32_t m_lastTriggerValue = 0;
+    SteadyTrigger m_trigger;          ///< UG fork: turns the trigger channel into triggers, see getData()
 
     /**
      * @brief Records how full the SDK's buffer is, at most every 20 ms, just before GetSamples empties it.
@@ -191,7 +187,7 @@ private:
     uint32_t m_readFirst      = 0;  ///< UG fork: index in m_rawBuffer of the first sample the last read() handed over
 
     uint64_t m_lastSampleTime = 0; ///< Timestamp given to the last sample handed over, see getData().
-    std::vector<PendingTrigger> m_pendingTriggers;
+    std::vector<uint32_t> m_triggerValues;  ///< UG fork: the trigger channel's value at each sample of the current read()
     std::deque<ovStimulation> m_stimQueue;
 };
 

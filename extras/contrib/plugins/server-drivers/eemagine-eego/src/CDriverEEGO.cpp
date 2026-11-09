@@ -8,6 +8,7 @@
 #include "CDriverEEGO.h"
 
 #include <BlockStamps.h>  // UG fork
+#include <SteadyTrigger.h>  // UG fork
 #include <CharmeleonMontage.h>
 
 // The SDK picks its factory signatures from these; wrapper.cc forces _UNICODE on itself anyway,
@@ -489,7 +490,8 @@ bool CDriverEEGO::start()
 
     m_pendingSamples   = 0;
     m_pendingOffset    = 0;
-    m_lastTriggerValue = ~0u; // every bit high, so the first word cannot look like a rising edge
+    m_trigger.resetUnknown(); // UG fork: the first word is where the lines are, not a rising edge
+    m_triggerValues.clear();  // UG fork
     m_lastSampleTime   = 0;
     m_blockFetchTime   = 0;  // UG fork
     m_readFirst        = 0;  // UG fork
@@ -667,7 +669,7 @@ AbstractDriver::DeviceBuffer CDriverEEGO::takeDeviceBuffer()
 
 int CDriverEEGO::read(sampleType* data, const uint64_t size)
 {
-    m_pendingTriggers.clear();
+    m_triggerValues.clear();  // UG fork
     if (!m_stream) { return 0; }
 
     if (m_pendingOffset >= m_pendingSamples && fetchPending() == 0)
@@ -697,19 +699,8 @@ int CDriverEEGO::read(sampleType* data, const uint64_t size)
             dst[channel] = sampleType(0);
         }
 
-        // A trigger is a rising edge: bits that went from 0 to 1 are the code, 1 -> 0 is ignored.
-        if (m_triggerChannel >= 0)
-        {
-            const uint32_t triggers = uint32_t(src[m_triggerChannel]);
-            const uint32_t rising   = triggers & ~m_lastTriggerValue;
-            m_lastTriggerValue      = triggers;
-
-            // getData() dates it at this sample once the read timestamp is known
-            if (rising != 0)
-            {
-                m_pendingTriggers.emplace_back(STIMULATION_LABEL_BASE | (rising & 0xFF), sample);
-            }
-        }
+        // getData() turns the trigger word into triggers once it has the stamps
+        if (m_triggerChannel >= 0) { m_triggerValues.push_back(uint32_t(src[m_triggerChannel])); }  // UG fork
     }
 
     m_pendingOffset += count;
@@ -729,11 +720,21 @@ void CDriverEEGO::getData(samplesBuffer* buff)
     const uint64_t periodNs = 1'000'000'000ULL / uint64_t(m_samplingRate.value());
     stampFromBlock(m_blockFetchTime, m_pendingSamples, m_readFirst, buff->count, periodNs, m_lastSampleTime, buff->timestampsBuff);
 
-    for (const auto& [id, sample] : m_pendingTriggers)
+    // A trigger is a rising edge: the bits that went from 0 to 1 are the code, 1 -> 0 is ignored. The word counts once it has
+    // held for two samples, and the trigger is dated at the first sample where it changed. A change can settle in a later read
+    // than it started in: its date then is a sample sent before, and the client still places it on that sample.
+    // UG fork: before, every change counted, so a word caught while the trigger lines switched gave a trigger for the lines
+    // already on, and another for the rest. See UG.md, 2.25.
+    for (size_t s = 0; s < m_triggerValues.size(); ++s)
     {
-        m_stimQueue.push_back(ovStimulation{ id, buff->timestampsBuff[sample], 0 });
+        const auto change = m_trigger.feed(m_triggerValues[s], buff->timestampsBuff[s]);
+        const uint32_t rising = change ? change->value & ~change->previous : 0;
+        if (rising != 0)
+        {
+            m_stimQueue.push_back(ovStimulation{ STIMULATION_LABEL_BASE | (rising & 0xFF), change->onset, 0 });
+        }
     }
-    m_pendingTriggers.clear();
+    m_triggerValues.clear();
 
     buff->stimCount = readStimulations(buff->stimulationsBuff, buff->maxStimCount);
 }
