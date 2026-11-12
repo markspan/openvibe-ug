@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 32 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 34 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 279 files, about 25,700 lines added and 3,200 removed |
 
@@ -684,6 +684,7 @@ The label sits in a flag at the top of the marker line:
 - **Antialiasing.** The traces are drawn into a layer with 4× multisampling, so the lines are smooth. A layer is a texture, so it is left out when the scrolling content is taller than 8192 device pixels; the lines are then drawn as before.
 - **Channel selection.** The Channels list has three buttons above it: Select all, Deselect all and Invert selection. Each sets the whole selection at once. They are part of the shared multi-select control (`MultiSelectParameter.qml`), so any other multi-select list gets them too.
 - **Hiding the panel.** A gear button next to the settings panel hides it, so the traces get the whole width, and shows it again. The panel keeps its width meanwhile. It is shown when playback starts.
+- **Label width.** The column with the channel labels was 96 px wide whatever the labels, so short names such as `Cz` stood far from the amplitude ruler. It is now as wide as the longest label, name or unit, up to twice that; longer labels are cut short.
 
 Repairs, found by reading the display's code through:
 - **Times after a long chunk.** A chunk longer than the displayed window keeps only its last samples, but upstream counted only those. Every later sample was then dated too early by the samples left out, and the time ruler and the markers with it. It happens when the Time Scale is shorter than a chunk, such as 0.1 s at 256 Hz, which is 26 samples, with chunks of 32. Now all samples count, and the kept ones go to the slots they would have reached.

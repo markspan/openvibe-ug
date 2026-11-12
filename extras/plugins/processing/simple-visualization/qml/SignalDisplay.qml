@@ -14,7 +14,17 @@ Item {
     id: _root
 
     readonly property int ampWidth: dataSource.showAmplitudeRuler ? DS.Theme.spacing5xl : 0
-    readonly property int gutterWidth: DS.Theme.labelWidthSm
+    // UG fork: as wide as the longest channel label, with ChannelGutter's margins, rather than a fixed 96 px, which left
+    // short names such as Cz far from the amplitude ruler. Long labels are elided past twice the old width.
+    readonly property int gutterWidth: {
+        let widest = 0
+        for (const channel of dataSource.channels) {
+            widest = Math.max(widest, _nameMetrics.advanceWidth(channel.name), _unitMetrics.advanceWidth(channel.unit ?? ""))
+        }
+        // Multiview's legend puts a coloured dot before each name
+        const dot = dataSource.butterfly ? DS.Theme.spacingSm + DS.Theme.spacingXs : 0
+        return Math.min(2 * DS.Theme.labelWidthSm, Math.ceil(widest + dot) + DS.Theme.spacingMd)
+    }
     readonly property int rulerHeight: dataSource.showTimeRuler ? DS.Theme.labelHeightLg : 0
 
     // Fit every lane in the viewport by default; above the requested density, scroll instead.
@@ -25,6 +35,10 @@ Item {
         if (!dataSource.butterfly && perPage > 0 && count > perPage) { return _scroll.height * count / perPage }
         return _scroll.height
     }
+
+    // UG fork: the fonts ChannelGutter shows the names and units in, to size the gutter by
+    FontMetrics { id: _nameMetrics; font: DS.Theme.textSmallRegular }
+    FontMetrics { id: _unitMetrics; font: DS.Theme.textXsRegular }
 
     // UG fork: whether the settings panel on the left is shown. The gear button next to it hides and shows it, and the
     // panel keeps its width meanwhile.
