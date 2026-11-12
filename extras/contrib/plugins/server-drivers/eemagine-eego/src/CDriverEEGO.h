@@ -29,6 +29,7 @@
 namespace eemagine {
 namespace sdk {
 class amplifier;
+class channel;  // UG fork
 class factory;
 class stream;
 }
@@ -45,6 +46,8 @@ class stream;
  * ("Channel": "BIP1"). On eego the cap fixes which electrode is on which referential channel, so a montage
  * mostly mirrors the cap. Bipolar channels start out empty: giving one a name records it under that name.
  * The stream always carries a trigger and a sample-counter channel on top.
+ * UG fork: the EEG and bipolar channels are sent in microvolt, as the TMSi driver sends them; the SDK gives volt. Start
+ * checks that the stream lists the channels in the order they were named, and refuses to record otherwise.
  * The trigger channel is published as a signal channel *and* flank-decoded into stimulations, as it
  * was before the port. UG fork: a trigger word counts once it has held for two samples, and is dated at the first sample
  * where it changed, so a word caught while the trigger lines switch is no trigger (SteadyTrigger).
@@ -136,6 +139,14 @@ private:
      */
     bool selectChannels();
 
+    /**
+     * @brief Why the stream's channels are not those named, in the order named: the selected channels, then the trigger and
+     *        the sample counter; empty when they are.
+     *
+     * UG fork: start() refuses a stream that fails this, see there.
+     */
+    std::string streamLayoutMismatch(const std::vector<eemagine::sdk::channel>& channels) const;
+
     /** Copies one stream buffer into m_pending. Returns the number of samples fetched. */
     size_t fetchPending();
     /**
@@ -200,6 +211,7 @@ private:
     uint64_t m_blockFetchTime   = 0;  ///< UG fork: when the SDK returned the samples in m_pending, see getData()
     size_t m_readFirst          = 0;  ///< UG fork: index in m_pending of the first sample the last read() handed over
     std::vector<uint32_t> m_triggerValues;  ///< UG fork: the trigger word at each sample of the current read()
+    std::vector<double> m_columnScale;      ///< UG fork: what each column of the stream is multiplied by: 1e6 (volt to microvolt) or 1
     std::deque<ovStimulation> m_stimQueue;
 };
 

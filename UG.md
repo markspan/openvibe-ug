@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 34 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 35 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 279 files, about 25,700 lines added and 3,200 removed |
+| Size | 285 files, about 29,700 lines added and 3,200 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -64,6 +64,7 @@ Everything outside the files listed here is identical to upstream.
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
 | Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
+| BrainVision file integrity | eego data in volt in a microvolt file; markers counted from the scenario's start, not the file's first sample; the header written only at the end | eego in microvolt and its stream order checked; markers on their own sample; files written out at every step; a script that checks a recording |
 | P300 speller | Display box not ported to Qt and not built, so 6 of the 11 speller scenarios can not run; the Lua online scripts also stop with an error | Ported, and the error repaired; markers are sent once the flash is on screen; also a set of scenarios with Python scripts |
 | Player timing | Designer's player runs in rounds with a 50 ms sleep between them, so stimuli can be up to about 60 ms off | 1 ms sleep |
 | Kernel tokens | no `Path_Documents`; the Foldername setting type is unregistered | `${Path_Documents}` added; `Foldername` setting type registered |
@@ -149,6 +150,7 @@ The driver reports how full the TMSi library's buffer is and how many samples it
 - Channels are handed to the SDK as an explicit list. This also removes the 64-bit mask limit.
 - The trigger and sample-counter channels are always appended, as upstream does.
 - Every sample is timestamped, and each trigger is dated at its own sample (see 2.5).
+- The EEG and bipolar channels are sent in microvolt, as the TMSi driver sends them; the SDK, and upstream, give volt. Start checks that the stream lists the channels in the order they were named (see 2.27).
 - The driver reports how much data waited at each read, and counts lost samples from the sample counter (see 2.4). It uses Charmeleon for impedances when it is installed.
 - When it cannot start, it says why under the settings (see 2.16).
 
@@ -712,6 +714,43 @@ Repairs, found by reading the display's code through:
 - In the Designer settings dialog, settings that do not apply are not greyed out; only the panel next to the display does that.
 - Tested with `test-signal-display` (14 tests: the scaling, and the ring after long chunks). The whole test suite passes, and the Simple-visualization scenario plays without QML errors. Not yet looked at on screen.
 
+### 2.27 BrainVision recordings from eego: the integrity of the files
+
+**Files**
+- `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp`, `CDriverEEGO.h`
+- `extras/contrib/plugins/processing/file-io/src/box-algorithms/BrainVisionUG.h` (new), `ovpCBoxAlgorithmBrainampFileWriterUG.cpp`, `ovpCBoxAlgorithmBrainampFileWriterUG.h`
+- `extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py` (new)
+- `extras/contrib/plugins/processing/file-io/test/BrainVisionUGTest.cpp` (new), `test/CMakeLists.txt`, `test/scenarios-tests/BrainVision-UG-Write-test.xml` and `-input.csv` (new)
+
+The path checked: eego amplifier, a Charmeleon montage with part of the EEG channels, hardware triggers, the acquisition server, the Acquisition client box, and the BrainVision Format file writer (UG). Every step was read for what reaches the files. These were wrong:
+
+- **Volt in a microvolt file.** The eego SDK gives volt, and the driver passed them on, as upstream's did. The writer declares no unit, which BrainVision means as microvolt, and the TMSi driver does deliver microvolt. So an eego file read a million times too small. The driver now sends the EEG and bipolar channels in microvolt. Trigger and SampleCounter are sent as they are.
+- **Names on the wrong data.** The driver names the channels in the order it asks the SDK for them, then `Trigger` and `SampleCounter`, and checked only that the stream had as many channels. The SDK does not promise the order. Start now checks the kind of every channel of the stream against the names: the selected referential and bipolar channels in order, then the trigger, then the sample counter. If it differs, nothing is recorded, and the server says why under the settings. When the SDK numbers the stream's channels differently from the amplifier, only the kinds can be checked, and the log says so.
+- **Markers off their samples.** The writer took a marker's position from its date counted from the scenario's start. The Acquisition client starts its signal when the server's configuration comes in, so the data file starts later than that, and every marker lay too late by that time. And it rounded down: a chunk's start is a sum of durations rounded down to OpenViBE's fixed point, which at 500 Hz puts a sample's date just short of its time, and the marker one sample early. A marker's position is now counted from the first sample in the file, and rounded to the nearest sample. A marker that comes before any signal waits for it; one dated before the first sample is left out, with a warning.
+- **Files that end short.** The writer kept the `.vhdr` in memory until the end, so a crash left it empty. It now writes all three files out at every step. A file that can not be written, e.g. on a full disk, stops the recording with an error; before, the files silently ended short of what they claim.
+- **16-bit formats.** INT_16 and UINT_16 truncated the values, and a value out of range, such as an amplifier's DC offset, wrapped around. They are now rounded and held at the format's limits, with a warning. IEEE_FLOAT_32, the default, is not affected.
+- **Smaller.** A comma in a channel name is coded as `\1`, as BrainVision has it. The files say `Codepage=UTF-8`, which is what is written; they said ANSI. A second signal header stops the recording, where it was appended to the `.vhdr`.
+
+These were checked and found right:
+- **Montage subset.** Only EEG channels the montage names are recorded, under the montage's names. Their positions go to `[Coordinates]` by name, and other channels get `0,0,0` (2.3, 2.7, 2.9).
+- **Triggers.** Dated at their own sample (2.24), without values caught while the lines switch (2.25), and placed by the client on the last sample stamped at or before them (2.5, 2.20). eego's code is the lines that came on, so a pulse must return to 0 between codes, or a code that only switches lines off gives no marker.
+- **Samples.** The server sends whole chunks only, so the client never pads one with zeros. No sample is repeated or dropped between the server and the file. Samples the amplifier lost are counted (2.4), but the file has no gap for them; the SampleCounter channel shows where they were.
+
+**Checking a recording.** `check_brainvision.py` checks a recording itself:
+
+```bash
+pixi run python extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py recording.vhdr
+```
+
+It checks the header, that the data is a whole number of samples without NaN, and that EEG is in microvolt. It checks that every stimulus marker sits on the sample where the recorded Trigger channel switches on its code, and that every switch has its marker. It also checks that the SampleCounter counts every sample. It reads TMSi and eego codes alike, and ends with exit code 1 when something is wrong.
+
+**Consequences**
+- eego recordings, and everything else downstream of the eego driver (Signal display, filters, LSL Output), are now in microvolt. Scenarios or scripts that compensated for volt need changing.
+- Marker positions in UG BrainVision files are exact, also when the Acquisition client started late, and at every sampling rate.
+- Tested with `test-brainvision-ug` (6 tests: positions, names, 16-bit values) and `BrainVision-UG-Write`. That test sends a signal with a 25 mV DC offset, a Trigger channel and a SampleCounter, and 10 hardware triggers, through the writer, and `check_brainvision.py` then checks the file. The checker itself was tried on damaged copies: a marker one sample late, a data file cut short, and data in volt. It found each. The whole test suite passes, except `run_TagStream` while an installed acquisition server holds its port.
+- **Not verified with an amplifier:** the eego microvolt and the stream order check. The stream order check refuses to record if the SDK lists the channels in another order than asked. That would show at the first Play, with the reason under the settings.
+- The SampleCounter is a 32-bit float in the server, so beyond 16.7 million samples (2.3 h at 2048 Hz) it no longer counts exactly. The checker then reports jumps as warnings, not errors.
+
 ---
 
 ## 3. All modified files
@@ -780,13 +819,19 @@ Repairs, found by reading the display's code through:
 | M | `extras/applications/qml/OVParameters/src/parameterPathObject.h` | 2.13 |
 | A | `extras/applications/qml/OVParameters/test/CMakeLists.txt` | 2.22 |
 | A | `extras/applications/qml/OVParameters/test/ParameterPathObjectTest.cpp` | 2.22 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9 |
+| A | `extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py` | 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/BrainVisionUG.h` | 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9, 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9, 2.27 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_defines.h` | 2.9 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_main.cpp` | 2.9 |
+| A | `extras/contrib/plugins/processing/file-io/test/BrainVisionUGTest.cpp` | 2.27 |
+| M | `extras/contrib/plugins/processing/file-io/test/CMakeLists.txt` | 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-input.csv` | 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-test.xml` | 2.27 |
 | M | `extras/contrib/plugins/server-drivers/CMakeLists.txt` | 2.2 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27 |
 | M | `extras/plugins/processing/acquisition/CMakeLists.txt` | 2.20 |
 | M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7, 2.20 |
 | M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7, 2.20 |

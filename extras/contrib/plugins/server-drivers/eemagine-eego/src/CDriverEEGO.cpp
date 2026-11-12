@@ -448,6 +448,41 @@ bool CDriverEEGO::selectChannels()
     return true;
 }
 
+std::string CDriverEEGO::streamLayoutMismatch(const std::vector<es::channel>& channels) const
+{
+    const auto typeName = [](const int type)
+    {
+        switch (type)
+        {
+            case es::channel::reference: return std::string("referential channel");
+            case es::channel::bipolar: return std::string("bipolar channel");
+            case es::channel::trigger: return std::string("trigger channel");
+            case es::channel::sample_counter: return std::string("sample counter");
+            default: return "channel of type " + std::to_string(type);
+        }
+    };
+
+    const size_t nSelected = m_selectedChannels.size();
+    if (channels.size() != nSelected + STATUS_CHANNEL_COUNT)
+    {
+        return std::to_string(channels.size()) + " channels where " + std::to_string(nSelected + STATUS_CHANNEL_COUNT) + " were asked for";
+    }
+    bool sameNumbers = true;
+    for (size_t i = 0; i < channels.size(); ++i)
+    {
+        const int expected = i < nSelected ? m_selectedChannels[i].second : i == nSelected ? int(es::channel::trigger) : int(es::channel::sample_counter);
+        if (int(channels[i].getType()) != expected)
+        {
+            return "its channel " + std::to_string(i + 1) + " is a " + typeName(int(channels[i].getType())) + ", where a " + typeName(expected)
+                   + " was asked for";
+        }
+        if (i < nSelected && channels[i].getIndex() != m_selectedChannels[i].first) { sameNumbers = false; }
+    }
+    // The SDK may number a stream's channels its own way; then only the kinds could be checked
+    if (!sameNumbers) { std::cout << "[EEGO] The stream numbers its channels differently from the amplifier; their order was checked by kind only." << std::endl; }
+    return {};
+}
+
 /// The selected channels as the SDK lists them, optionally only the referential ones.
 static std::vector<es::channel> toChannelList(const std::vector<std::pair<unsigned int, int>>& selected, const bool referentialOnly)
 {
@@ -549,6 +584,27 @@ bool CDriverEEGO::start()
                       << m_channelCount.value() << " were announced at init." << std::endl;
             m_stream.reset();
             return false;
+        }
+
+        // UG fork: the channels were named in the order of m_selectedChannels, then Trigger and SampleCounter. The SDK does not
+        // promise to keep that order, so check it: a stream in another order would record each name over another channel's data.
+        const std::string mismatch = streamLayoutMismatch(channels);
+        if (!mismatch.empty())
+        {
+            report("The eego stream does not list its channels as they were named: " + mismatch + ". Nothing is recorded, so "
+                   "that no channel is recorded under another's name.");
+            setNote(Note::Level::Error, "Play failed: " + m_lastError);
+            m_stream.reset();
+            return false;
+        }
+
+        // UG fork: the SDK gives volt; the EEG and bipolar channels go out in microvolt, as the TMSi driver's do and as the
+        // BrainVision writer declares them. Upstream sent volt, which BrainVision files then read as a million times too small.
+        m_columnScale.assign(channels.size(), 1.0);
+        for (size_t i = 0; i < channels.size(); ++i)
+        {
+            const auto type = channels[i].getType();
+            if (type == es::channel::reference || type == es::channel::bipolar) { m_columnScale[i] = 1e6; }
         }
 
         const auto trigger = std::find_if(channels.begin(), channels.end(), [](const es::channel& chan)
@@ -690,7 +746,8 @@ int CDriverEEGO::read(sampleType* data, const uint64_t size)
 
         for (size_t channel = 0; channel < channels; ++channel)
         {
-            dst[channel] = sampleType(src[channel]);
+            // UG fork: volt to microvolt for the EEG and bipolar channels, see start()
+            dst[channel] = sampleType(src[channel] * (channel < m_columnScale.size() ? m_columnScale[channel] : 1.0));
         }
         // start() rejects a stream narrower than announced, so this normally copies nothing; it is
         // here so a surprise short scan cannot leak the previous chunk's values.

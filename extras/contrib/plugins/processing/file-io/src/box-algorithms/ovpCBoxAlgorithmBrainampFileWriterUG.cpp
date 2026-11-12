@@ -173,15 +173,29 @@ bool CBoxAlgorithmBrainampFileWriterUG::process()
         //HEADER
         if (m_streamDecoder->isHeaderReceived())
         {
+            // UG fork: one header per file. Upstream appended a second one to the .vhdr, which then described neither.
+            if (m_isHeaderWritten)
+            {
+                this->getLogManager() << Kernel::LogLevel_Error << "The signal started again with a new header; " << m_headerFilename
+                        << " describes the first one only, so the recording stops here.\n";
+                return false;
+            }
             m_matrix   = m_streamDecoder->getOutputMatrix();
             m_sampling = m_streamDecoder->getOutputSamplingRate();
 
             writeHeaderFile();
+            m_isHeaderWritten = true;
         }
 
         //BUFFER
         if (m_streamDecoder->isBufferReceived())
         {
+            // UG fork: markers are counted from the first sample written, see BrainVisionUG::markerPosition()
+            if (!m_hasFirstSample)
+            {
+                m_firstSampleTime = boxContext.getInputChunkStartTime(0, i);
+                m_hasFirstSample  = true;
+            }
             // size_t channelCount = m_Matrix->getDimensionSize(0);
             switch (m_binaryFormat)
             {
@@ -206,6 +220,14 @@ bool CBoxAlgorithmBrainampFileWriterUG::process()
         boxContext.markInputAsDeprecated(0, i);
     }
 
+    // UG fork: once, rather than each time, a sample that did not fit the integer format
+    if (m_clipped && !m_clipReported)
+    {
+        this->getLogManager() << Kernel::LogLevel_Warning << "Samples outside the range of the binary format were written as its limits; "
+                << "record as IEEE_FLOAT_32 to keep them.\n";
+        m_clipReported = true;
+    }
+
     // Make sure the marker file header is written in any case
     if (!m_isVmrkHeaderFileWritten)
     {
@@ -214,7 +236,7 @@ bool CBoxAlgorithmBrainampFileWriterUG::process()
 
         m_markerFile << "Brain Vision Data Exchange Marker File, Version 1.0" << std::endl << std::endl
                 << "[Common Infos]" << std::endl
-                << "Codepage=ANSI" << std::endl
+                << "Codepage=UTF-8" << std::endl  // UG fork: what is written; upstream said ANSI
                 << "DataFile=" << getShortName(m_dataFilename) << std::endl << std::endl
                 << "[Marker Infos]" << std::endl
                 << "; Each entry: Mk<Marker number>=<Type>,<Description>,<Position in data points>," << std::endl
@@ -244,19 +266,61 @@ bool CBoxAlgorithmBrainampFileWriterUG::process()
                 const uint64_t id = stimSet->getId(j);
                 // Only write hardware label codes OVTK_StimulationId_Label(1..255)
                 if (id < OVTK_StimulationId_LabelStart + 1 || id > OVTK_StimulationId_LabelEnd) { continue; }
-                const uint64_t code     = id - OVTK_StimulationId_LabelStart; // extract raw value 1-255
-                const uint64_t position = CTime(stimSet->getDate(j)).toSampleCount(m_sampling) + 1;
+                const uint64_t code = id - OVTK_StimulationId_LabelStart; // extract raw value 1-255
 
-                // BrainVision Recorder names stimulus markers "S" plus the code right-aligned in 3 characters: "S  1", "S 12", "S123"
-                m_markerFile << "Mk" << m_stimulationCounter << "=Stimulus,S" << std::setw(3) << code << "," << position << ",1,0" << std::endl;
-
-                m_stimulationCounter++;
+                // UG fork: a marker before any signal waits for the first sample, which it is counted from
+                if (m_hasFirstSample) { writeMarker(code, stimSet->getDate(j)); }
+                else { m_earlyMarkers.emplace_back(code, stimSet->getDate(j)); }
             }
         }
 
         boxContext.markInputAsDeprecated(1, i);
     }
+    if (m_hasFirstSample)
+    {
+        for (const auto& [code, date] : m_earlyMarkers) { writeMarker(code, date); }
+        m_earlyMarkers.clear();
+    }
 
+    return flushFiles();
+}
+
+void CBoxAlgorithmBrainampFileWriterUG::writeMarker(const uint64_t code, const uint64_t date)
+{
+    // UG fork: counted from the first sample written, and rounded. Upstream counted from the scenario's start, so every
+    // marker was late by the time the Acquisition client started its signal, and rounded down, which put markers one sample
+    // early at rates such as 500 Hz.
+    const std::optional<uint64_t> position = BrainVisionUG::markerPosition(date, m_firstSampleTime, m_sampling);
+    if (!position)
+    {
+        this->getLogManager() << Kernel::LogLevel_Warning << "Trigger " << code << " is dated before the first sample recorded, at "
+                << CTime(date).toSeconds() << " s; it is left out.\n";
+        return;
+    }
+
+    // BrainVision Recorder names stimulus markers "S" plus the code right-aligned in 3 characters: "S  1", "S 12", "S123"
+    m_markerFile << "Mk" << m_stimulationCounter << "=Stimulus,S" << std::setw(3) << code << "," << *position << ",1,0" << std::endl;
+    m_stimulationCounter++;
+}
+
+bool CBoxAlgorithmBrainampFileWriterUG::flushFiles()
+{
+    // UG fork: written out at every step, so that a recording is complete on disk up to the last step, also when the program
+    // stops unexpectedly. Upstream kept the .vhdr in memory until the end, and a crash left it empty. A file that can not be
+    // written, e.g. on a full disk, stops the recording: upstream went on and left the files short of what they claim.
+    m_headerFile.flush();
+    m_dataFile.flush();
+    m_markerFile.flush();
+    for (const auto& [file, name] : { std::pair<std::ofstream*, const std::string*>{&m_headerFile, &m_headerFilename},
+                                      {&m_dataFile, &m_dataFilename}, {&m_markerFile, &m_markerFilename} })
+    {
+        if (!file->good())
+        {
+            this->getLogManager() << Kernel::LogLevel_Error << "Could not write to " << *name << ", e.g. because the disk is full; "
+                    << "the recording stops here.\n";
+            return false;
+        }
+    }
     return true;
 }
 
@@ -289,7 +353,7 @@ bool CBoxAlgorithmBrainampFileWriterUG::writeHeaderFile()
     m_headerFile << "Brain Vision Data Exchange Header File Version 1.0" << std::endl
             << "; Data created by the Vision Recorder" << std::endl << std::endl
             << "[Common Infos]" << std::endl
-            << "Codepage=ANSI" << std::endl
+            << "Codepage=UTF-8" << std::endl  // UG fork: what is written, also the "µ" below; upstream said ANSI
             << "DataFile=" << getShortName(m_dataFilename) << std::endl
             << "MarkerFile=" << getShortName(m_markerFilename) << std::endl
             << "DataFormat=BINARY" << std::endl
@@ -311,7 +375,9 @@ bool CBoxAlgorithmBrainampFileWriterUG::writeHeaderFile()
 
     for (size_t i = 0; i < nChannel; ++i)
     {
-        m_headerFile << "Ch" << (i + 1) << "=" << m_matrix->getDimensionLabel(0, i) << ",,1," << std::endl; //resolution = 1 
+        // UG fork: a comma in a name is coded as "\1"; upstream wrote it as is, which split the entry. Resolution 1 and no
+        // unit, which BrainVision reads as microvolt: the TMSi and eego drivers deliver microvolt
+        m_headerFile << "Ch" << (i + 1) << "=" << BrainVisionUG::escapeName(m_matrix->getDimensionLabel(0, i)) << ",,1," << std::endl;
     }
 
     m_headerFile << std::endl;
