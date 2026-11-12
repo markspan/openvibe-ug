@@ -60,6 +60,7 @@ Everything outside the files listed here is identical to upstream.
 | TCP Tagging timing | Markers dated when the server reads them, and sent with the next chunk | Dated at the time in the tag, and sent with the chunk that holds their sample |
 | Hardware triggers | n/a (TMSi) / flank-decoded (eego) | Sent as `OVTK_StimulationId_Label(value)`, value 1–255, not inverted |
 | Trigger lines switching | A value caught while the trigger lines switch is an extra trigger with a wrong code (eego) | A value counts once it has held for two samples, and is dated at the first sample of the change (TMSi, eego) |
+| Designer configuration | A `designer.conf` that is not found is skipped without a word; the user's settings are then not loaded, and every session save fails with `${Designer_CustomConfigurationFile} is empty` | The missing file is named in the log, and the user configuration file falls back to `${Path_UserData}/openvibe-designer.conf` |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
@@ -665,6 +666,23 @@ The label sits in a flag at the top of the marker line:
 - A trigger leaves the server one sample later than before, with the same date.
 - Tested with `SteadyTriggerTest`. Not yet run with an amplifier.
 
+### 2.26 Designer finds its user configuration file without designer.conf
+
+**Files**
+- `designer/applications/platform/designer/src/OVDesigner.cpp` (`loadDesignerConfiguration()`)
+
+**What it does**
+- Designer reads `designer.conf` from its data directory, `<install>/share/openvibe/applications/designer/`. That file sets `${Designer_CustomConfigurationFile}`, the user configuration file that holds the user's own tokens and the list of scenarios to reopen. The kernel skips a configuration file that does not exist without saying so. Upstream, a `designer.conf` that was not found therefore left that token unset: the user's file was not loaded, and every save of a scenario, every scenario opened and Designer closing logged `${Designer_CustomConfigurationFile} is empty, the session can not be saved`.
+- Now a missing `designer.conf` is an error in the log that names the path that was tried, and asks whether `OV_PATH_DATA` or `OV_PATH_ROOT` points elsewhere.
+- When the token is unset after loading, Designer sets it to `${Path_UserData}/openvibe-designer.conf`, the value in `designer.conf-base`, and says so in a warning. The user's file is then loaded and the session saved there, at `%APPDATA%\OpenVIBE-4.0\openvibe-designer.conf`.
+- The user's file is loaded only when it exists. On a first run it does not, and the first session save creates it.
+
+**Consequences**
+- The scenario file itself was always saved; only the session (the scenarios to reopen) was lost. Both now work.
+- The default is written in two places, `designer.conf-base` and `OVDesigner.cpp`. A comment next to the constant says to keep them in step.
+- Designer still runs on its built-in defaults without `designer.conf`: its other tokens, such as `Designer_DefaultWorkingDirectory` and the help URLs, are not set. The error says which file to restore.
+- Not yet built or run on Windows.
+
 ---
 
 ## 3. All modified files
@@ -680,6 +698,7 @@ The label sits in a flag at the top of the marker line:
 | M | `conda/env_windows.yaml` | 2.21 |
 | M | `conda/recipe/meta.yaml` | 2.21 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12 |
+| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.26 |
 | M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18, 2.23 |
 | M | `designer/applications/platform/designer/src/main.cpp` | 2.17 |
 | M | `extras/applications/developer-tools/plugin-inspector/src/CAlgorithmGlobalDefinesGen.cpp` | 2.23 |

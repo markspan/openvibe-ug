@@ -49,6 +49,62 @@
 namespace OpenViBE {
 namespace Designer {
 
+namespace {
+
+// UG fork: the user configuration file is found even when designer.conf is not. See UG.md, 2.26.
+
+/// Token naming the user configuration file, which holds the user's own tokens and the session.
+constexpr const char* USER_CONFIGURATION_TOKEN = "Designer_CustomConfigurationFile";
+
+/// Its value when designer.conf does not set it. Keep in step with share/designer.conf-base.
+constexpr const char* DEFAULT_USER_CONFIGURATION_FILE = "${Path_UserData}/openvibe-designer.conf";
+
+/// True when the file at the given UTF-8 path exists.
+bool fileExists(const CString& path) { return QFileInfo::exists(QString::fromUtf8(path.toASCIIString())); }
+
+/**
+ * @brief Loads designer.conf, then the user configuration file it designates.
+ *
+ * The kernel skips a configuration file that does not exist without a word. A designer.conf
+ * missing from the data directory therefore went unnoticed: the user's own configuration file
+ * was not loaded either, and every attempt to save the session failed with
+ * "${Designer_CustomConfigurationFile} is empty". This names the file that is missing, and falls
+ * back to the default user configuration file, so that the session and the user's settings keep
+ * working while the installation is repaired.
+ *
+ * @param context the kernel context whose configuration manager receives the tokens
+ */
+void loadDesignerConfiguration(Kernel::IKernelContext& context)
+{
+    Kernel::IConfigurationManager& configMgr = context.getConfigurationManager();
+    Kernel::ILogManager& logMgr              = context.getLogManager();
+
+    const CString designerConfigFile = Directories::getDataDir() + "/applications/designer/designer.conf";
+    if (fileExists(designerConfigFile)) {
+        configMgr.addConfigurationFromFile(designerConfigFile);
+    }
+    else {
+        logMgr << Kernel::LogLevel_Error << "We are sorry: the Designer configuration file [" << designerConfigFile
+                << "] could not be found, so Designer runs on its built-in defaults. Is OpenViBE installed completely?"
+                << " If the environment variable OV_PATH_DATA or OV_PATH_ROOT is set, does it point to this installation?\n";
+    }
+
+    const CString userConfigToken = CString("${") + USER_CONFIGURATION_TOKEN + "}";
+    if (QString::fromUtf8(configMgr.expand(userConfigToken).toASCIIString()).trimmed().isEmpty()) {
+        logMgr << Kernel::LogLevel_Warning << userConfigToken << " is not set, so Designer keeps your settings and"
+                << " session in [" << configMgr.expand(DEFAULT_USER_CONFIGURATION_FILE) << "].\n";
+        configMgr.addOrReplaceConfigurationToken(USER_CONFIGURATION_TOKEN, DEFAULT_USER_CONFIGURATION_FILE);
+    }
+
+    // Absent on a first run: the session manager creates it when it first saves the session.
+    const CString userConfigFile = configMgr.expand(userConfigToken);
+    if (fileExists(userConfigFile)) {
+        configMgr.addConfigurationFromFile(userConfigFile);
+    }
+}
+
+}  // namespace
+
 struct OVDesignerPrivate
 {
     explicit OVDesignerPrivate(OVDesigner *parent): m_parent(parent) {}
@@ -360,9 +416,7 @@ OVDesigner::OVDesigner() : d(new OVDesignerPrivate(this))
                 emit toastMessage(message, "warning");
             });
 
-            context->getConfigurationManager().addConfigurationFromFile(Directories::getDataDir() + "/applications/designer/designer.conf");
-            CString appConfigFile = context->getConfigurationManager().expand("${Designer_CustomConfigurationFile}");
-            context->getConfigurationManager().addConfigurationFromFile(appConfigFile);
+            loadDesignerConfiguration(*context);
 
             VisualizationToolkit::initialize(*context);
 
