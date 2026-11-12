@@ -26,6 +26,12 @@ Item {
         return _scroll.height
     }
 
+    // UG fork: whether the settings panel on the left is shown. The gear button next to it hides and shows it, and the
+    // panel keeps its width meanwhile.
+    property bool panelShown: true
+    // A plain value, not a binding: the drag handle assigns it, which would destroy a binding.
+    property real panelWidth: DS.Theme.boxSettingsMinimumWidth
+
     Rectangle {
         id: _panel
 
@@ -35,9 +41,9 @@ Item {
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.bottom: parent.bottom
-        
-        // A plain value, not a binding: the drag handle assigns it, which would destroy a binding.
-        width: DS.Theme.boxSettingsMinimumWidth
+
+        width: _root.panelShown ? _root.panelWidth : 0
+        visible: _root.panelShown
 
         color: DS.Theme.white
 
@@ -129,15 +135,27 @@ Item {
                 if (!pressed) { return }
                 const global = mapToGlobal(mouse.x, mouse.y)
                 const target = global.x - _panel.x + mouseToEdgeX
-                _panel.width = Math.max(_panel.minWidth, Math.min(_panel.maxWidth, target))
+                _root.panelWidth = Math.max(_panel.minWidth, Math.min(_panel.maxWidth, target))
             }
         }
+    }
+
+    // UG fork: hides and shows the settings panel, to give the traces the whole width
+    DS.IconButton {
+        id: _panelToggle
+
+        anchors { top: parent.top; left: _panel.right; topMargin: DS.Theme.spacingSm; leftMargin: DS.Theme.spacingXs }
+        iconName: "settings"
+        iconSize: DS.Theme.iconLg
+        iconColor: _root.panelShown ? DS.Theme.iconPrimary : DS.Theme.iconSecondary
+        tooltip: _root.panelShown ? qsTr("Hide the settings") : qsTr("Show the settings")
+        onClicked: _root.panelShown = !_root.panelShown
     }
 
     Item {
         id: _plot
 
-        anchors { top: parent.top; left: _panel.right; right: parent.right; bottom: parent.bottom }
+        anchors { top: parent.top; left: _panelToggle.right; right: parent.right; bottom: parent.bottom }
         anchors.margins: DS.Theme.spacingSm
 
         Flickable {

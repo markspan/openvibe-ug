@@ -62,7 +62,7 @@ Everything outside the files listed here is identical to upstream.
 | Trigger lines switching | A value caught while the trigger lines switch is an extra trigger with a wrong code (eego) | A value counts once it has held for two samples, and is dated at the first sample of the change (TMSi, eego) |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
-| Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list |
+| Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
 | P300 speller | Display box not ported to Qt and not built, so 6 of the 11 speller scenarios can not run; the Lua online scripts also stop with an error | Ported, and the error repaired; markers are sent once the flash is on screen; also a set of scenarios with Python scripts |
 | Player timing | Designer's player runs in rounds with a 50 ms sleep between them, so stimuli can be up to about 60 ms off | 1 ms sleep |
@@ -666,7 +666,7 @@ The label sits in a flag at the top of the marker line:
 - A trigger leaves the server one sample later than before, with the same date.
 - Tested with `SteadyTriggerTest`. Not yet run with an amplifier.
 
-### 2.26 Signal display: scaling by page and by type, antialiased lines, channel selection buttons, repairs
+### 2.26 Signal display: scaling by page and by type, antialiased lines, channel selection buttons, a panel that hides, repairs
 
 **Files**
 - `extras/plugins/processing/simple-visualization/src/SignalScaling.h` (new), `CSignalTraceItem.cpp`, `CSignalTraceItem.h`, `CSignalDisplayController.cpp`, `CSignalDisplayController.h`, `CTraceBuffer.cpp`, `CTraceBuffer.h`, `SDisplaySettings.h`, `defines.hpp`, `main.cpp`, `box-algorithms/CSignalDisplay.cpp`, `box-algorithms/CSignalDisplay.h`, `CMakeLists.txt`
@@ -683,6 +683,7 @@ The label sits in a flag at the top of the marker line:
 - **Greyed out.** Vertical Scale and Vertical Offset are used only when the scaling is None, and Channels per page is not used in Multiview. The panel now shows them greyed out and they can not be changed then. For this, a parameter object has an `enabled` property, true unless set otherwise.
 - **Antialiasing.** The traces are drawn into a layer with 4× multisampling, so the lines are smooth. A layer is a texture, so it is left out when the scrolling content is taller than 8192 device pixels; the lines are then drawn as before.
 - **Channel selection.** The Channels list has three buttons above it: Select all, Deselect all and Invert selection. Each sets the whole selection at once. They are part of the shared multi-select control (`MultiSelectParameter.qml`), so any other multi-select list gets them too.
+- **Hiding the panel.** A gear button next to the settings panel hides it, so the traces get the whole width, and shows it again. The panel keeps its width meanwhile. It is shown when playback starts.
 
 Repairs, found by reading the display's code through:
 - **Times after a long chunk.** A chunk longer than the displayed window keeps only its last samples, but upstream counted only those. Every later sample was then dated too early by the samples left out, and the time ruler and the markers with it. It happens when the Time Scale is shorter than a chunk, such as 0.1 s at 256 Hz, which is 26 samples, with chunks of 32. Now all samples count, and the kept ones go to the slots they would have reached.

@@ -88,7 +88,8 @@ Online visualization settings
 __________________________________________________________________
 
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_OnlineVisualizationSettings|
-A parameter panel is shown to the left of the graph during playback.
+A parameter panel is shown to the left of the graph during playback. The gear button next to it
+hides the panel, giving the graph the whole width, and shows it again.
 
   - Display Mode : switches between Scan and Scroll.
   - Auto vertical scale : Per channel, By type, Global, or None.
