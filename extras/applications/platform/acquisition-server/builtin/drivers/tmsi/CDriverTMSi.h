@@ -34,7 +34,8 @@ struct TMSiApi;
  *
  * UG fork: new in this fork; upstream OpenViBE 4.0 has no TMSi driver. Compared with the 3.x driver it was ported
  * from: no channel count or masks to set, the channel model below, Charmeleon montages and impedances, one trigger
- * channel with per-sample trigger times, and errors shown in the server (AbstractDriver::note()).
+ * channel with per-sample trigger times, and errors shown in the server (AbstractDriver::note()). Channels in volt are sent
+ * in microvolt, whatever exponent the device gives them; samples out of range are counted and reported.
  *
  * The channel names list has one entry per device channel, read from the amplifier, and only channels with a name
  * are recorded, in device order. EXG channels start out with their device name. A Charmeleon montage, applied by
@@ -160,6 +161,9 @@ private:
     std::string m_layoutDevice; ///< Device m_layout was read from.
     uint32_t m_nDeviceChannel = 0;
     std::vector<bool> m_isChannelActivated;
+    std::vector<double> m_channelScale;  ///< UG fork: per device channel, what turns its values into microvolt (1 if not in volt), see init()
+    uint64_t m_overflowSamples  = 0;     ///< UG fork: analog samples out of range since Play, recorded as 0
+    uint64_t m_overflowReported = 0;     ///< UG fork: how many of those were reported
     int m_triggerChannel        = -1; ///< Device channel carrying the triggers, -1 if none.
     SteadyTrigger m_trigger;          ///< UG fork: turns the trigger channel into triggers, see getData()
 

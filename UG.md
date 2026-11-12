@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 35 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 36 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 285 files, about 29,700 lines added and 3,200 removed (of which 3,000 a test input) |
 
@@ -64,7 +64,7 @@ Everything outside the files listed here is identical to upstream.
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
 | Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
-| BrainVision file integrity | eego data in volt in a microvolt file; markers counted from the scenario's start, not the file's first sample; the header written only at the end | eego in microvolt and its stream order checked; markers on their own sample; files written out at every step; a script that checks a recording |
+| BrainVision file integrity | eego data in volt in a microvolt file; TMSi BIP and AUX channels unscaled; markers counted from the scenario's start, not the file's first sample; the header written only at the end | eego in microvolt and its stream order checked; markers on their own sample; files written out at every step; a script that checks a recording |
 | P300 speller | Display box not ported to Qt and not built, so 6 of the 11 speller scenarios can not run; the Lua online scripts also stop with an error | Ported, and the error repaired; markers are sent once the flash is on screen; also a set of scenarios with Python scripts |
 | Player timing | Designer's player runs in rounds with a 50 ms sleep between them, so stimuli can be up to about 60 ms off | 1 ms sleep |
 | Kernel tokens | no `Path_Documents`; the Foldername setting type is unregistered | `${Path_Documents}` added; `Foldername` setting type registered |
@@ -714,10 +714,11 @@ Repairs, found by reading the display's code through:
 - In the Designer settings dialog, settings that do not apply are not greyed out; only the panel next to the display does that.
 - Tested with `test-signal-display` (14 tests: the scaling, and the ring after long chunks). The whole test suite passes, and the Simple-visualization scenario plays without QML errors. Not yet looked at on screen.
 
-### 2.27 BrainVision recordings from eego: the integrity of the files
+### 2.27 BrainVision recordings from eego and TMSi: the integrity of the files
 
 **Files**
 - `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp`, `CDriverEEGO.h`
+- `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp`, `CDriverTMSi.h`
 - `extras/contrib/plugins/processing/file-io/src/box-algorithms/BrainVisionUG.h` (new), `ovpCBoxAlgorithmBrainampFileWriterUG.cpp`, `ovpCBoxAlgorithmBrainampFileWriterUG.h`
 - `extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py` (new)
 - `extras/contrib/plugins/processing/file-io/test/BrainVisionUGTest.cpp` (new), `test/CMakeLists.txt`, `test/scenarios-tests/BrainVision-UG-Write-test.xml` and `-input.csv` (new)
@@ -731,6 +732,13 @@ The path checked: eego amplifier, a Charmeleon montage with part of the EEG chan
 - **16-bit formats.** INT_16 and UINT_16 truncated the values, and a value out of range, such as an amplifier's DC offset, wrapped around. They are now rounded and held at the format's limits, with a warning. IEEE_FLOAT_32, the default, is not affected.
 - **Smaller.** A comma in a channel name is coded as `\1`, as BrainVision has it. The files say `Codepage=UTF-8`, which is what is written; they said ANSI. A second signal header stops the recording, where it was appended to the `.vhdr`.
 
+The TMSi path, checked the same way afterwards:
+
+- **Unit exponent.** The SDK gives each channel's values in its unit times 10 to the channel's exponent. The driver ignored the exponent, as the 3.x driver it was ported from did. EXG channels come in 1e-6 V, so EEG was in microvolt and is unchanged. A BIP or AUX channel with another exponent was recorded a thousand or a million times off. Every channel in volt now goes out in microvolt, and the log names each channel that needed scaling. An analog channel in another unit is recorded as the device gives it, and the log says so. The volt unit is taken to be the SDK's unit number 1; if that were wrong, nothing would be scaled, as before, and the log would call every analog channel "not in volt".
+- **Out of range.** A sample out of the amplifier's range, e.g. from an electrode come loose, is recorded as 0, as before, which the recording does not show. The log now counts them.
+- **Part of a sample.** A block from the SDK that is not a whole number of samples lost its partial sample silently; the log now says so.
+- **Right already:** the names and the data come from one list of the device's channels, so a name can not land on another channel's data; the montage subset and the triggers are as for eego.
+
 These were checked and found right:
 - **Montage subset.** Only EEG channels the montage names are recorded, under the montage's names. Their positions go to `[Coordinates]` by name, and other channels get `0,0,0` (2.3, 2.7, 2.9).
 - **Triggers.** Dated at their own sample (2.24), without values caught while the lines switch (2.25), and placed by the client on the last sample stamped at or before them (2.5, 2.20). eego's code is the lines that came on, so a pulse must return to 0 between codes, or a code that only switches lines off gives no marker.
@@ -742,13 +750,14 @@ These were checked and found right:
 pixi run python extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py recording.vhdr
 ```
 
-It checks the header, that the data is a whole number of samples without NaN, and that EEG is in microvolt. It checks that every stimulus marker sits on the sample where the recorded Trigger channel switches on its code, and that every switch has its marker. It also checks that the SampleCounter counts every sample. It reads TMSi and eego codes alike, and ends with exit code 1 when something is wrong.
+It checks the header, that the data is a whole number of samples without NaN, and that EEG is in microvolt. It checks that every stimulus marker sits on the sample where the recorded trigger channel switches on its code, and that every switch has its marker. It also checks that the sample counter counts every sample. The trigger channel is eego's `Trigger` or the name given to TMSi's digital channel, and the sample counter eego's `SampleCounter` or TMSi's sawtooth channel, when that is recorded; `--trigger` and `--counter` name them otherwise. It reads TMSi and eego codes alike, and ends with exit code 1 when something is wrong.
 
 **Consequences**
 - eego recordings, and everything else downstream of the eego driver (Signal display, filters, LSL Output), are now in microvolt. Scenarios or scripts that compensated for volt need changing.
 - Marker positions in UG BrainVision files are exact, also when the Acquisition client started late, and at every sampling rate.
 - Tested with `test-brainvision-ug` (6 tests: positions, names, 16-bit values) and `BrainVision-UG-Write`. That test sends a signal with a 25 mV DC offset, a Trigger channel and a SampleCounter, and 10 hardware triggers, through the writer, and `check_brainvision.py` then checks the file. The checker itself was tried on damaged copies: a marker one sample late, a data file cut short, and data in volt. It found each. The whole test suite passes, except `run_TagStream` while an installed acquisition server holds its port.
-- **Not verified with an amplifier:** the eego microvolt and the stream order check. The stream order check refuses to record if the SDK lists the channels in another order than asked. That would show at the first Play, with the reason under the settings.
+- With TMSi, record the sawtooth channel (give it a name, e.g. `Saw`) to have the check find lost samples.
+- **Not verified with an amplifier:** the eego microvolt and the stream order check, and the TMSi scaling of BIP and AUX channels. The stream order check refuses to record if the SDK lists the channels in another order than asked. That would show at the first Play, with the reason under the settings.
 - The SampleCounter is a 32-bit float in the server, so beyond 16.7 million samples (2.3 h at 2048 Hz) it no longer counts exactly. The checker then reports jumps as warnings, not errors.
 
 ---
@@ -782,8 +791,8 @@ It checks the header, that the data is a whole number of samples without NaN, an
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/SteadyTrigger.h` | 2.25 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7, 2.21 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` | 2.21 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21 |

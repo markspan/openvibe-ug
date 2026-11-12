@@ -3,15 +3,20 @@
 # UG fork: new file, see UG.md 2.27.
 """Checks a recording of the BrainVision Format file writer (UG) for integrity.
 
-Usage: python check_brainvision.py recording.vhdr [--expect-markers N] [--expect-samples N] [--max-gap-samples N]
+Usage: python check_brainvision.py recording.vhdr [--trigger NAME] [--counter NAME]
+                                   [--expect-markers N] [--expect-samples N] [--max-gap-samples N]
 
 What it checks:
   - the header: format, channel count and names, sampling interval, and the [Coordinates] section if there is one;
   - the data file: its size is a whole number of samples, and no value is NaN or infinite;
-  - the markers: each lies within the data, and each stimulus "S<code>" sits on the sample where the recorded Trigger
-    channel switches on that code; each switch on of the Trigger channel has its marker;
-  - the SampleCounter channel, when recorded: it counts up by one step at every sample, so no sample went missing;
+  - the markers: each lies within the data, and each stimulus "S<code>" sits on the sample where the recorded trigger
+    channel switches on that code; each switch on of the trigger channel has its marker;
+  - the sample counter, when recorded: it counts up by one step at every sample, so no sample went missing;
   - the units: EEG in microvolt, not volt.
+
+The trigger channel is the one named --trigger, or else the first whose name has "trig" or "dig" in it: eego's
+Trigger, or the name given to TMSi's digital channel. The sample counter is the one named --counter, or else the first
+whose name has "counter", "saw" or "ramp" in it: eego's SampleCounter, or TMSi's sawtooth channel, if it was named.
 
 It prints what it found, and ends with exit code 1 when something is wrong, 0 otherwise. Warnings do not fail.
 """
@@ -24,7 +29,21 @@ import sys
 import numpy as np
 
 FORMATS = {"IEEE_FLOAT_32": np.float32, "INT_16": np.int16, "UINT_16": np.uint16}
-STATUS_CHANNELS = ("Trigger", "SampleCounter")
+TRIGGER_NAMES = ("trig", "dig")
+COUNTER_NAMES = ("counter", "saw", "ramp")
+
+
+def find_channel(names, explicit, parts, report, what):
+    """The index of the channel named `explicit`, or else of the first whose name contains one of `parts`; None if none."""
+    if explicit:
+        if explicit in names:
+            return names.index(explicit)
+        report.error(f"There is no {what} channel named {explicit!r}")
+        return None
+    for index, name in enumerate(names):
+        if any(part in name.lower() for part in parts):
+            return index
+    return None
 
 
 class Report:
@@ -97,7 +116,7 @@ def trigger_onsets(trigger, hold=2):
     return onsets
 
 
-def check(vhdr_path, expect_markers=None, expect_samples=None, max_gap_samples=0):
+def check(vhdr_path, expect_markers=None, expect_samples=None, max_gap_samples=0, trigger_name=None, counter_name=None):
     report = Report()
     folder = os.path.dirname(os.path.abspath(vhdr_path))
 
@@ -158,7 +177,12 @@ def check(vhdr_path, expect_markers=None, expect_samples=None, max_gap_samples=0
     for c in np.nonzero(bad.any(axis=0))[0]:
         report.error(f"Channel {names[c]} has {int(bad[:, c].sum())} values that are not a number or infinite")
 
-    eeg = [c for c, name in enumerate(names) if name not in STATUS_CHANNELS]
+    trigger_index = find_channel(names, trigger_name, TRIGGER_NAMES, report, "trigger")
+    counter_index = find_channel(names, counter_name, COUNTER_NAMES, report, "sample counter")
+    for index, what in ((trigger_index, "Trigger"), (counter_index, "Sample counter")):
+        report.info(f"{what} channel: {names[index] if index is not None else 'none recorded'}")
+
+    eeg = [c for c in range(n_channels) if c not in (trigger_index, counter_index)]
     for c in eeg:
         column = data[:, c]
         spread = float(np.percentile(column, 95) - np.percentile(column, 5)) if n_samples else 0.0
@@ -168,16 +192,17 @@ def check(vhdr_path, expect_markers=None, expect_samples=None, max_gap_samples=0
             report.error(f"Channel {names[c]} varies by {spread:.3g} only: it looks like volt, where microvolt is declared")
 
     # ---- sample counter: every sample there
-    if "SampleCounter" in names:
-        counter = data[:, names.index("SampleCounter")]
+    if counter_index is not None:
+        counter = data[:, counter_index]
         if n_samples > 2:
             steps = np.diff(counter)
             step = float(np.median(steps))
-            gaps = np.nonzero(np.abs(steps - step) > 0.5 * abs(step))[0] if step else []
+            # A step down is the counter wrapping around, as a sawtooth does; a step well over the usual one, samples lost
+            gaps = np.nonzero(steps > 1.5 * step)[0] if step > 0 else []
             if len(gaps):
                 exact = float(np.max(np.abs(counter))) < 2 ** 24 or binary_format != "IEEE_FLOAT_32"
                 lost = int(round(sum((steps[g] - step) / step for g in gaps))) if step else 0
-                message = (f"The SampleCounter jumps {len(gaps)} times, first after sample {int(gaps[0]) + 1}: "
+                message = (f"The sample counter jumps {len(gaps)} times, first after sample {int(gaps[0]) + 1}: "
                            f"about {lost} samples lost")
                 if exact and lost > max_gap_samples:
                     report.error(message)
@@ -186,7 +211,7 @@ def check(vhdr_path, expect_markers=None, expect_samples=None, max_gap_samples=0
                 else:
                     report.warning(message)
             else:
-                report.info("SampleCounter: no sample missing")
+                report.info("Sample counter: no sample missing")
 
     # ---- markers
     marker_path = os.path.join(folder, common["MarkerFile"])
@@ -210,9 +235,10 @@ def check(vhdr_path, expect_markers=None, expect_samples=None, max_gap_samples=0
     if positions != sorted(positions):
         report.warning("The stimulus markers are not in the order of their samples")
 
-    # ---- markers against the Trigger channel
-    if "Trigger" in names and n_samples:
-        trigger = data[:, names.index("Trigger")]
+    # ---- markers against the trigger channel
+    if trigger_index is not None and n_samples:
+        # The drivers read their codes from the low 8 bits; the other lines of a digital channel are no triggers
+        trigger = np.round(data[:, trigger_index]).astype(np.int64) & 0xFF
         onsets = trigger_onsets(trigger)
         matched = set()
         for position, code, key in stimuli:
@@ -245,8 +271,10 @@ def main():
     parser.add_argument("--expect-markers", type=int)
     parser.add_argument("--expect-samples", type=int)
     parser.add_argument("--max-gap-samples", type=int, default=0, help="lost samples to accept before it is an error")
+    parser.add_argument("--trigger", help="the trigger channel's name")
+    parser.add_argument("--counter", help="the sample counter's name")
     args = parser.parse_args()
-    report = check(args.vhdr, args.expect_markers, args.expect_samples, args.max_gap_samples)
+    report = check(args.vhdr, args.expect_markers, args.expect_samples, args.max_gap_samples, args.trigger, args.counter)
     sys.exit(1 if report.errors else 0)
 
 
