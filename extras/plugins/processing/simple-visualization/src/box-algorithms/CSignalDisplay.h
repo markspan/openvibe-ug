@@ -59,6 +59,14 @@ public:
 
     _IsDerivedFromClass_Final_(Toolkit::TBoxAlgorithm<IBoxAlgorithm>, Box_SignalDisplay)
 
+private:
+    /**
+     * UG fork: the matrix the stream decoder put out. TSignalDecoder does not derive from TStreamedMatrixDecoder, so the
+     * decoder is cast to the class it is; upstream cast both to TStreamedMatrixDecoder, which is undefined behaviour.
+     */
+    const CMatrix* decodedMatrix() const;
+
+public:
     Toolkit::TDecoder<CSignalDisplay>* m_StreamDecoder = nullptr;
     Toolkit::TStimulationDecoder<CSignalDisplay> m_StimulationDecoder;
     Toolkit::TChannelUnitsDecoder<CSignalDisplay> m_UnitDecoder;
@@ -135,8 +143,8 @@ public:
     bool getBoxPrototype(Kernel::IBoxProto& prototype) const override
     {
         prototype.addSetting("Display Mode", TypeId_SignalDisplayMode, "Scan"); //list scroll or scan
-        prototype.addSetting("Auto vertical scale", TypeId_SignalDisplayScaling, "Per channel"); //"Per channel", "Global", "None"
-        prototype.addSetting("Scale refresh interval (secs)", OV_TypeId_Float, "5");
+        prototype.addSetting("Auto vertical scale", TypeId_SignalDisplayScaling, "Per channel"); //"Per channel", "By type", "Global", "None"
+        // UG fork: no "Scale refresh interval (secs)": the scale is worked out again for every page
         prototype.addSetting("Vertical Scale",OV_TypeId_Float, "100");
         prototype.addSetting("Vertical Offset",OV_TypeId_Float, "0");
         prototype.addSetting("Time Scale", OV_TypeId_Float, "10");

@@ -61,6 +61,35 @@ Control {
       }
     }
 
+    // UG fork: select all entries, none, or the other ones. Each sets the whole selection at once, so a box that
+    // follows the selection, such as the Signal display's channel list, updates once rather than per entry.
+    Flow {
+      Layout.fillWidth: true
+      Layout.topMargin: DS.Theme.spacingXs
+      Layout.bottomMargin: DS.Theme.spacingXs
+      spacing: DS.Theme.spacingXs
+      visible: _repeater.count > 0
+
+      DS.Button {
+        name: qsTr("Select all")
+        onClicked: if (_control.param) { _control.param.value = _control.param.available_values }
+      }
+
+      DS.Button {
+        name: qsTr("Deselect all")
+        onClicked: if (_control.param) { _control.param.value = [] }
+      }
+
+      DS.Button {
+        name: qsTr("Invert selection")
+        onClicked: {
+          if (!_control.param) { return }
+          const selected = _control.param.value
+          _control.param.value = _control.param.available_values.filter(entry => selected.indexOf(entry) === -1)
+        }
+      }
+    }
+
     Repeater {
       id: _repeater
       model: _control.param ? _control.param.available_values : []

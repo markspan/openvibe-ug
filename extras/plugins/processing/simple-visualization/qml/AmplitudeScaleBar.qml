@@ -16,16 +16,22 @@ Item {
     /// In butterfly every lane shares one baseline, so one bracket describes them all.
     property bool butterfly: false
 
-    /// Matches LANE_FILL in CSignalTraceItem.cpp.
-    readonly property real laneFill: 0.90
+    /// UG fork: from the trace, which draws by it, rather than a copy of its value.
+    readonly property real laneFill: _root.trace.laneFill
 
+    // UG fork: at most three significant digits and no trailing zeros, so that the automatic scales, which are 1, 2
+    // or 5 times a power of ten, read as ±50, ±0.5 or ±20000 rather than ±50.0 or ±2.0e+4
     function formatRange(value) {
         const v = Math.abs(value)
         if (v === 0) { return "0" }
-        if (v >= 1000 || v < 0.01) { return v.toExponential(1) }
-        if (v >= 100) { return v.toFixed(0) }
-        if (v >= 10) { return v.toFixed(1) }
-        return v.toFixed(2)
+        return String(Number(v.toPrecision(3)))
+    }
+
+    /// UG fork: whether every lane has the same scale. In butterfly the one bracket stands for all of them, so it
+    /// shows a number only then; upstream showed the first lane's, also when the others differed.
+    readonly property bool sharedScale: {
+        const ranges = _root.trace.rowHalfRanges
+        return ranges.every(range => range === ranges[0])
     }
 
     Repeater {
@@ -74,7 +80,7 @@ Item {
                     rightMargin: DS.Theme.spacingMd
                     verticalCenter: parent.verticalCenter
                 }
-                text: "±" + _root.formatRange(_bracket.halfRange)
+                text: (_root.butterfly && !_root.sharedScale) ? qsTr("varies") : "±" + _root.formatRange(_bracket.halfRange)
                 font: DS.Theme.textXsRegular
                 color: DS.Theme.textTertiary
                 visible: _bracket.height > DS.Theme.labelHeightLg

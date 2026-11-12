@@ -28,8 +28,11 @@ inline double OVTimeToSeconds(const uint64_t t) { return double(t >> 32) + doubl
  * firstTime + g / sampling, which makes a per-channel time cursor -- and the drift bug it used
  * to cause -- structurally impossible: x is derived from the ring slot index alone.
  *
- * Threading: every public method locks. The player thread only ever calls appendChunk();
+ * Threading: every public method locks. The player thread calls reconfigure() and appendChunk();
  * the GUI and render threads read through CReader.
+ *
+ * UG fork: the slot of global sample g is always g % capacity, also after a chunk longer than the ring, and
+ * writePos() is always totalSamples() % capacity(). The time ruler and the markers rely on both.
  */
 class CTraceBuffer
 {
@@ -39,13 +42,15 @@ public:
     CTraceBuffer& operator=(const CTraceBuffer&) = delete;
 
     /**
-     * \brief Sets the geometry. Reallocates and drops history only if it actually changes.
+     * \brief Sets the stream's geometry. Reallocates and drops history only if it actually changes.
+     *
+     * UG fork: the duration held is kept, see setWindowSeconds(), so that the player thread can call this on a
+     * header without reading the display settings, which the GUI thread owns.
      *
      * \param channels Number of channels.
      * \param samplingRate Sampling rate in Hz, or <= 0 to have it estimated from the first chunk.
-     * \param windowSeconds Duration held by the ring.
      */
-    void reconfigure(size_t channels, double samplingRate, double windowSeconds);
+    void reconfigure(size_t channels, double samplingRate);
 
     /**
      * \brief Changes the displayed duration, keeping the channel count and sampling rate.
@@ -63,8 +68,6 @@ public:
      * \param buffer Channel-major [channels x samples], as delivered by CMatrix.
      */
     void appendChunk(const double* buffer, size_t channels, size_t samples, uint64_t startTime, uint64_t endTime);
-
-    void clear();
 
     /** Cheap snapshot of the write counter, for change detection. */
     uint64_t totalSamples() const;
@@ -103,7 +106,7 @@ private:
     size_t             m_channels      = 0;
     size_t             m_capacity      = 0;     ///< slots per channel
     size_t             m_writePos      = 0;     ///< next slot to write
-    uint64_t           m_total         = 0;     ///< samples per channel written since the last clear()
+    uint64_t           m_total         = 0;     ///< samples per channel received since the last reallocation
     double             m_sampling      = 0.0;   ///< Hz, 0 until known
     double             m_windowSeconds = 10.0;
     double             m_firstSampleSeconds = 0.0;  ///< time of global sample 0

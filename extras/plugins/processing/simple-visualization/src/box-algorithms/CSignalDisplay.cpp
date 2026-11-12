@@ -43,9 +43,10 @@ namespace {
  * order here is documentation, not contract, and it matches the prototype in CSignalDisplay.h.
  */
 constexpr const char* SETTING_NAMES[] = {
-    "Display Mode", "Auto vertical scale", "Scale refresh interval (secs)", "Vertical Scale", "Vertical Offset",
-    "Time Scale", "Bottom ruler", "Left ruler", "Multiview"
+    "Display Mode", "Auto vertical scale", "Vertical Scale", "Vertical Offset", "Time Scale", "Bottom ruler", "Left ruler", "Multiview"
 };
+// UG fork: "Scale refresh interval (secs)" is gone, as the scale is worked out again for every page. The scenarios in
+// this repository no longer have it; others still play, as settings are read by name and the extra one is not read.
 }  // namespace
 
 bool CSignalDisplay::initialize()
@@ -81,7 +82,6 @@ bool CSignalDisplay::initialize()
     m_settings.timeMode = ESignalDisplayMode(static_cast<uint64_t>(setting("Display Mode")));
     m_settings.scaling  = ESignalDisplayScaling(static_cast<uint64_t>(setting("Auto vertical scale")));
 
-    m_settings.scaleRefreshSeconds = static_cast<double>(setting("Scale refresh interval (secs)"));
     m_settings.verticalScale       = static_cast<double>(setting("Vertical Scale"));
     m_settings.baselineOffset      = static_cast<double>(setting("Vertical Offset"));
     m_settings.timeScaleSeconds    = static_cast<double>(setting("Time Scale"));
@@ -165,6 +165,12 @@ bool CSignalDisplay::uninitialize()
     return true;
 }
 
+const CMatrix* CSignalDisplay::decodedMatrix() const
+{
+    if (m_InputTypeID == OV_TypeId_Signal) { return static_cast<Toolkit::TSignalDecoder<CSignalDisplay>*>(m_StreamDecoder)->getOutputMatrix(); }
+    return static_cast<Toolkit::TStreamedMatrixDecoder<CSignalDisplay>*>(m_StreamDecoder)->getOutputMatrix();
+}
+
 bool CSignalDisplay::processInput(const size_t /*index*/)
 {
     getBoxAlgorithmContext()->markAlgorithmAsReadyToProcess();
@@ -231,7 +237,7 @@ bool CSignalDisplay::process()
 
         if (m_StreamDecoder->isHeaderReceived())
         {
-            const CMatrix* matrix = static_cast<Toolkit::TStreamedMatrixDecoder<CSignalDisplay>*>(m_StreamDecoder)->getOutputMatrix();
+            const CMatrix* matrix = decodedMatrix();
             if (matrix->getDimensionCount() != 2)
             {
                 this->getLogManager() << Kernel::LogLevel_Error << "Signal display only supports 2-dimensional matrices, got "
@@ -255,7 +261,7 @@ bool CSignalDisplay::process()
 
         if (m_StreamDecoder->isBufferReceived())
         {
-            const CMatrix* matrix = static_cast<Toolkit::TStreamedMatrixDecoder<CSignalDisplay>*>(m_StreamDecoder)->getOutputMatrix();
+            const CMatrix* matrix = decodedMatrix();
             m_controller->pushChunk(matrix->getBuffer(), matrix->getDimensionSize(0), matrix->getDimensionSize(1),
                                     boxCtx->getInputChunkStartTime(0, c), boxCtx->getInputChunkEndTime(0, c));
         }

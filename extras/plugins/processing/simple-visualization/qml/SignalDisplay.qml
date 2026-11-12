@@ -3,6 +3,7 @@
 
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Window  // UG fork: Screen, for the trace's layer
 
 import OVParameters as OVP
 import DesignSystem as DS
@@ -89,6 +90,9 @@ Item {
 
                         width: parent.width
                         sourceComponent: component
+                        // UG fork: a setting that does not apply now, such as Vertical Scale while scaling is automatic, is greyed out
+                        enabled: param ? param.enabled : true
+                        opacity: enabled ? 1.0 : 0.4
                     }
                 }
             }
@@ -182,6 +186,13 @@ Item {
                     anchors { top: parent.top; left: _gutter.right; right: parent.right; bottom: parent.bottom }
                     clip: true
                     traceColor: DS.Theme.textPrimary
+
+                    // UG fork: antialiased lines. The traces are drawn into a multisampled layer, which smooths the lines
+                    // the scene graph draws without it. A layer is a texture, so it is left out when the trace is
+                    // wider or, scrolling, taller than graphics cards are sure to allow; the lines are then drawn as before.
+                    layer.enabled: Math.max(width, height) * Screen.devicePixelRatio <= 8192
+                    layer.samples: 4
+                    layer.smooth: true
                 }
 
                 // Sweep cursor, Scan mode only.

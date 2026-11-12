@@ -316,13 +316,6 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Scale refresh interval (secs)</Name>
-                    <DefaultValue>5</DefaultValue>
-                    <Value>5</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
                     <Name>Vertical Scale</Name>
                     <DefaultValue>100</DefaultValue>
                     <Value>4</Value>
@@ -375,7 +368,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x92c056a7, 0x2dc71aff)</Value>
+                    <Value>(0x749ffce0, 0x5335cebd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -422,13 +415,6 @@
                     <Name>Auto vertical scale</Name>
                     <DefaultValue>Per channel</DefaultValue>
                     <Value>None</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Scale refresh interval (secs)</Name>
-                    <DefaultValue>5</DefaultValue>
-                    <Value>5</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
@@ -485,7 +471,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x92c056a7, 0x2dc71aff)</Value>
+                    <Value>(0x749ffce0, 0x5335cebd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -532,13 +518,6 @@
                     <Name>Auto vertical scale</Name>
                     <DefaultValue>Per channel</DefaultValue>
                     <Value>None</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Scale refresh interval (secs)</Name>
-                    <DefaultValue>5</DefaultValue>
-                    <Value>5</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
@@ -595,7 +574,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x92c056a7, 0x2dc71aff)</Value>
+                    <Value>(0x749ffce0, 0x5335cebd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -642,13 +621,6 @@
                     <Name>Auto vertical scale</Name>
                     <DefaultValue>Per channel</DefaultValue>
                     <Value>None</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Scale refresh interval (secs)</Name>
-                    <DefaultValue>5</DefaultValue>
-                    <Value>5</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
@@ -705,7 +677,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x92c056a7, 0x2dc71aff)</Value>
+                    <Value>(0x749ffce0, 0x5335cebd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -752,13 +724,6 @@
                     <Name>Auto vertical scale</Name>
                     <DefaultValue>Per channel</DefaultValue>
                     <Value>None</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Scale refresh interval (secs)</Name>
-                    <DefaultValue>5</DefaultValue>
-                    <Value>5</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
@@ -815,7 +780,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x92c056a7, 0x2dc71aff)</Value>
+                    <Value>(0x749ffce0, 0x5335cebd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -862,13 +827,6 @@
                     <Name>Auto vertical scale</Name>
                     <DefaultValue>Per channel</DefaultValue>
                     <Value>None</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Scale refresh interval (secs)</Name>
-                    <DefaultValue>5</DefaultValue>
-                    <Value>5</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
@@ -925,7 +883,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x92c056a7, 0x2dc71aff)</Value>
+                    <Value>(0x749ffce0, 0x5335cebd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -972,13 +930,6 @@
                     <Name>Auto vertical scale</Name>
                     <DefaultValue>Per channel</DefaultValue>
                     <Value>None</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Scale refresh interval (secs)</Name>
-                    <DefaultValue>5</DefaultValue>
-                    <Value>5</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
@@ -1035,7 +986,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x92c056a7, 0x2dc71aff)</Value>
+                    <Value>(0x749ffce0, 0x5335cebd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -1082,13 +1033,6 @@
                     <Name>Auto vertical scale</Name>
                     <DefaultValue>Per channel</DefaultValue>
                     <Value>None</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Scale refresh interval (secs)</Name>
-                    <DefaultValue>5</DefaultValue>
-                    <Value>5</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
@@ -1145,7 +1089,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x92c056a7, 0x2dc71aff)</Value>
+                    <Value>(0x749ffce0, 0x5335cebd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -1192,13 +1136,6 @@
                     <Name>Auto vertical scale</Name>
                     <DefaultValue>Per channel</DefaultValue>
                     <Value>None</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Scale refresh interval (secs)</Name>
-                    <DefaultValue>5</DefaultValue>
-                    <Value>5</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
@@ -1255,7 +1192,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x92c056a7, 0x2dc71aff)</Value>
+                    <Value>(0x749ffce0, 0x5335cebd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -1302,13 +1239,6 @@
                     <Name>Auto vertical scale</Name>
                     <DefaultValue>Per channel</DefaultValue>
                     <Value>None</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Scale refresh interval (secs)</Name>
-                    <DefaultValue>5</DefaultValue>
-                    <Value>5</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
@@ -1365,7 +1295,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x92c056a7, 0x2dc71aff)</Value>
+                    <Value>(0x749ffce0, 0x5335cebd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -1412,13 +1342,6 @@
                     <Name>Auto vertical scale</Name>
                     <DefaultValue>Per channel</DefaultValue>
                     <Value>None</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Scale refresh interval (secs)</Name>
-                    <DefaultValue>5</DefaultValue>
-                    <Value>5</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
@@ -1475,7 +1398,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x92c056a7, 0x2dc71aff)</Value>
+                    <Value>(0x749ffce0, 0x5335cebd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -1522,13 +1445,6 @@
                     <Name>Auto vertical scale</Name>
                     <DefaultValue>Per channel</DefaultValue>
                     <Value>None</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Scale refresh interval (secs)</Name>
-                    <DefaultValue>5</DefaultValue>
-                    <Value>5</Value>
                     <Modifiability>false</Modifiability>
                 </Setting>
                 <Setting>
@@ -1585,7 +1501,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x92c056a7, 0x2dc71aff)</Value>
+                    <Value>(0x749ffce0, 0x5335cebd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>

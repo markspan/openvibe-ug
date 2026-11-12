@@ -10,6 +10,7 @@
 #include <QtQmlIntegration/qqmlintegration.h>
 
 #include "SDisplaySettings.h"
+#include "SignalScaling.h"  // UG fork
 
 namespace OpenViBE {
 namespace Plugins {
@@ -37,7 +38,8 @@ class CSignalTraceItem : public QQuickItem
     Q_OBJECT
     QML_NAMED_ELEMENT(SignalTrace)
 
-    Q_PROPERTY(int visibleCount READ visibleCount NOTIFY layoutChanged)
+    /** UG fork: the fraction of a lane a trace may fill, for the amplitude ruler, which draws that extent. */
+    Q_PROPERTY(qreal laneFill READ laneFill CONSTANT)
     /** Lane centre of each visible row, in item pixels. Index is the row, not the channel. */
     Q_PROPERTY(QVariantList rowBaselines READ rowBaselines NOTIFY layoutChanged)
     /** Channel index backing each visible row. */
@@ -64,11 +66,13 @@ public:
     void setSettings(const SDisplaySettings& settings);
     void setVisibleChannels(const QVector<int>& channels);
     void setChannelColors(const QVector<QColor>& colors);
+    /// UG fork: the kind of each channel, indexed by channel, for scaling By type. Takes effect at the next refreshAutoScale().
+    void setChannelKinds(const QVector<EChannelKind>& kinds);
 
     /**
-     * \brief Recomputes the per-channel centre and half-range from the ring, with hysteresis.
+     * \brief Recomputes the per-channel centre and half-range from the ring.
      *
-     * No-op when scaling is None. Throttled by the caller, not here.
+     * No-op when scaling is None. UG fork: no hysteresis; the caller calls it once per page (CSignalDisplayController::onTick()).
      */
     void refreshAutoScale();
 
@@ -82,7 +86,7 @@ public:
     /** Emits timeWindowChanged() so QML rulers and overlays re-evaluate. */
     void notifyTimeWindowChanged() { emit timeWindowChanged(); }
 
-    int          visibleCount() const { return int(m_rows.size()); }
+    static qreal laneFill();
     QVariantList rowBaselines() const;
     QVariantList rowChannels() const;
     QVariantList rowHalfRanges() const;
@@ -98,8 +102,6 @@ public:
     bool   perChannelColors() const { return m_perChannelColors; }
     void   setPerChannelColors(bool enabled);
 
-    /** Channel index under a y coordinate, or -1. */
-    Q_INVOKABLE int channelAt(qreal y) const;
     /** Absolute time in seconds at an x coordinate. */
     Q_INVOKABLE qreal timeAtX(qreal x) const;
     /** X of an absolute time in seconds, or -1 when outside the window. */
@@ -143,6 +145,8 @@ private:
 
     /** Centre and half-range to draw channel c with, honouring the scaling mode. */
     void scaleFor(int channel, double& centre, double& halfRange) const;
+    /// UG fork: channels with the same group share a half-range: one group per channel, one for all, or one per kind.
+    int scaleGroup(int channel) const;
 
     CTraceBuffer*    m_buffer = nullptr;
     SDisplaySettings m_settings;
@@ -150,9 +154,9 @@ private:
     QVector<QColor>  m_colors;
     QVector<SRow>    m_rows;
 
-    /** Per-channel {centre, halfRange} carried across refreshes so the gain does not wobble. */
+    /** Per-channel {centre, halfRange}, from the last refreshAutoScale(), in every automatic mode. */
     QVector<QPair<double, double>> m_scale;
-    QPair<double, double>          m_globalScale{ 0.0, 1.0 };
+    QVector<EChannelKind>          m_kinds;  ///< UG fork: see setChannelKinds()
 
     QColor m_traceColor{ 0x05, 0x1B, 0x38 };  ///< DesignSystem textPrimary
     bool   m_perChannelColors = false;

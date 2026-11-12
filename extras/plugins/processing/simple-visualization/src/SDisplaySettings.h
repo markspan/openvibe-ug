@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <algorithm>
+#include <array>
 #include <cctype>
 #include <string>
 
@@ -32,10 +34,10 @@ struct SDisplaySettings
 {
     ESignalDisplayMode    timeMode            = ESignalDisplayMode::Scan;
     ESignalDisplayScaling scaling             = ESignalDisplayScaling::PerChannel;
-    double                scaleRefreshSeconds = 5.0;
+    // UG fork: no scale refresh interval; an automatic scale is worked out again for every new page
     /** Signal units filling half a lane. Only consulted when scaling == None. */
     double                verticalScale       = 100.0;
-    /** DC level subtracted from every sample before scaling. */
+    /** DC level subtracted from every sample before scaling. Only consulted when scaling == None. */
     double                baselineOffset      = 0.0;
     double                timeScaleSeconds    = 10.0;
     bool                  showTimeRuler       = true;
@@ -89,6 +91,11 @@ struct SDisplaySettings
             out = ESignalDisplayScaling::PerChannel;
             return true;
         }
+        if (n == "bytype")  // UG fork
+        {
+            out = ESignalDisplayScaling::ByType;
+            return true;
+        }
         if (n == "global")
         {
             out = ESignalDisplayScaling::Global;
@@ -102,7 +109,17 @@ struct SDisplaySettings
         return false;
     }
 
-    /** Spelled as registered in main.cpp, so the panel's dropdown matches the box setting. */
+    /**
+     * UG fork: every value, in the order the box setting and the panel list them. main.cpp registers the box
+     * setting's entries from these and toString(), and the panel fills its lists from them too, so the names are
+     * spelled in one place only.
+     */
+    static constexpr std::array<ESignalDisplayMode, 2> TIME_MODES = { ESignalDisplayMode::Scroll, ESignalDisplayMode::Scan };
+    static constexpr std::array<ESignalDisplayScaling, 4> SCALINGS = {
+        ESignalDisplayScaling::PerChannel, ESignalDisplayScaling::ByType, ESignalDisplayScaling::Global, ESignalDisplayScaling::None
+    };
+
+    /** The name of a value, as the box setting and the panel show it. */
     static const char* toString(const ESignalDisplayMode v) { return v == ESignalDisplayMode::Scroll ? "Scroll" : "Scan"; }
 
     static const char* toString(const ESignalDisplayScaling v)
@@ -110,6 +127,7 @@ struct SDisplaySettings
         switch (v)
         {
             case ESignalDisplayScaling::PerChannel: return "Per channel";
+            case ESignalDisplayScaling::ByType: return "By type";  // UG fork
             case ESignalDisplayScaling::Global: return "Global";
             default: return "None";
         }
@@ -122,9 +140,16 @@ struct SDisplaySettings
      */
     bool validate(std::string& error) const
     {
-        if (scaleRefreshSeconds < 0.0)
+        // UG fork: a value the box setting does not list, from a hand-edited scenario or a newer build, was used as it
+        // was: it scaled as Per channel while the panel showed None
+        if (std::find(TIME_MODES.begin(), TIME_MODES.end(), timeMode) == TIME_MODES.end())
         {
-            error = "Scale refresh interval (secs) must be >= 0";
+            error = "Display Mode is not one of Scroll and Scan";
+            return false;
+        }
+        if (std::find(SCALINGS.begin(), SCALINGS.end(), scaling) == SCALINGS.end())
+        {
+            error = "Auto vertical scale is not one of Per channel, By type, Global and None";
             return false;
         }
         if (verticalScale <= 0.0)

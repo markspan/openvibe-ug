@@ -30,16 +30,15 @@ void CTraceBuffer::reallocate()
     m_samples.assign(m_channels * m_capacity, 0.0F);
 }
 
-void CTraceBuffer::reconfigure(const size_t channels, const double samplingRate, const double windowSeconds)
+void CTraceBuffer::reconfigure(const size_t channels, const double samplingRate)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
     const double sampling = samplingRate > 0.0 ? samplingRate : 0.0;
-    if (channels == m_channels && sampling == m_sampling && windowSeconds == m_windowSeconds) { return; }
+    if (channels == m_channels && sampling == m_sampling) { return; }
 
-    m_channels      = channels;
-    m_sampling      = sampling;
-    m_windowSeconds = windowSeconds;
+    m_channels = channels;
+    m_sampling = sampling;
     reallocate();
 }
 
@@ -50,14 +49,6 @@ void CTraceBuffer::setWindowSeconds(const double windowSeconds)
 
     m_windowSeconds = windowSeconds;
     reallocate();
-}
-
-void CTraceBuffer::clear()
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_writePos = 0;
-    m_total    = 0;
-    std::fill(m_samples.begin(), m_samples.end(), 0.0F);
 }
 
 uint64_t CTraceBuffer::totalSamples() const
@@ -84,31 +75,28 @@ void CTraceBuffer::appendChunk(const double* buffer, const size_t channels, cons
 
     if (m_total == 0) { m_firstSampleSeconds = OVTimeToSeconds(startTime); }
 
-    // A chunk longer than the whole ring: keep only the tail that would survive anyway.
-    const size_t stride = samples;
-    size_t       offset = 0;
-    size_t       count  = samples;
-    if (count > m_capacity)
-    {
-        offset = count - m_capacity;
-        count  = m_capacity;
-    }
+    // A chunk longer than the whole ring: only its tail is kept, as the rest would be overwritten at once.
+    // UG fork: the skipped samples still count, and the tail goes to the slots it would have reached. Upstream
+    // counted only the tail, so every later sample, and so the time ruler and the markers, was dated too early by
+    // the samples skipped.
+    const size_t skipped = samples > m_capacity ? samples - m_capacity : 0;
+    const size_t count   = samples - skipped;
+    const size_t first   = (m_writePos + skipped) % m_capacity;
 
     // The write splits into at most two contiguous spans: up to the ring end, then from the start.
-    const size_t first = m_writePos;
-    const size_t head  = std::min(count, m_capacity - first);
-    const size_t tail  = count - head;
+    const size_t head = std::min(count, m_capacity - first);
+    const size_t tail = count - head;
 
     for (size_t c = 0; c < m_channels; ++c)
     {
-        const double* src = buffer + c * stride + offset;
+        const double* src = buffer + c * samples + skipped;
         float*        dst = m_samples.data() + c * m_capacity;
         for (size_t i = 0; i < head; ++i) { dst[first + i] = float(src[i]); }
         for (size_t i = 0; i < tail; ++i) { dst[i] = float(src[head + i]); }
     }
 
     m_writePos = (first + count) % m_capacity;
-    m_total += count;
+    m_total += samples;
 }
 
 }  // namespace SimpleVisualization

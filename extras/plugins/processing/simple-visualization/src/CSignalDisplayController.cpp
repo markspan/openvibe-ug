@@ -23,10 +23,15 @@ namespace {
 constexpr int TICK_INTERVAL_MS = 16;
 /** Upper bound on retained markers, so a long run cannot grow the list without limit. */
 constexpr size_t MAX_STIMULATIONS = 512;
+/**
+ * UG fork: how often the automatic scale is worked out while the first page fills. After that it is worked out once
+ * per page, but the first page would otherwise be drawn for its whole length at a scale guessed before any data.
+ */
+constexpr qint64 FIRST_PAGE_RESCALE_MS = 500;
 
 /**
  * Mirrors DesignSystem's Theme.windowManagerNodeColors, so an opt-in coloured trace matches the
- * palette the rest of the application uses. Indexed by row, never by a process-wide counter.
+ * palette the rest of the application uses. UG fork: indexed by channel, see refreshVisibleChannels().
  */
 const QColor& paletteColor(const int index)
 {
@@ -42,6 +47,7 @@ const QColor& paletteColor(const int index)
 CSignalDisplayController::CSignalDisplayController(Kernel::ILogManager& logManager, const SDisplaySettings& initial, QQmlEngine* engine)
     : m_log(logManager), m_settings(initial), m_engine(engine)
 {
+    m_buffer.setWindowSeconds(m_settings.timeScaleSeconds);  // UG fork: the buffer keeps it, see CTraceBuffer::reconfigure()
     buildParameters();
     buildQml(engine);
 
@@ -159,8 +165,11 @@ QJSValue CSignalDisplayController::parameters() const
 
 void CSignalDisplayController::buildParameters()
 {
-    m_pDisplayMode = new Parameters::ParameterListStringObject("Display Mode", "Scan sweeps a cursor across a fixed axis; Scroll slides the data leftwards", { "Scroll", "Scan" },
-                                                              SDisplaySettings::toString(m_settings.timeMode));
+    // UG fork: the names of the list entries come from SDisplaySettings, as do those of the box setting
+    std::vector<std::string> timeModes;
+    for (const ESignalDisplayMode mode : SDisplaySettings::TIME_MODES) { timeModes.emplace_back(SDisplaySettings::toString(mode)); }
+    m_pDisplayMode = new Parameters::ParameterListStringObject("Display Mode", "Scan sweeps a cursor across a fixed axis; Scroll slides the data leftwards",
+                                                              timeModes, SDisplaySettings::toString(m_settings.timeMode));
     connect(m_pDisplayMode, &Parameters::ParameterListStringObject::valueChanged, this, [this](const QString& value)
     {
         if (!SDisplaySettings::parseTimeMode(value.toStdString(), m_settings.timeMode)) { return; }
@@ -169,19 +178,21 @@ void CSignalDisplayController::buildParameters()
     });
     m_parameters.push_back(m_pDisplayMode);
 
-    m_pScaling = new Parameters::ParameterListStringObject("Auto vertical scale", "Normalise each lane on its own, all lanes together, or not at all",
-                                                          // Spelled as registered in main.cpp.
-                                                          { "Per channel", "Global", "None" }, SDisplaySettings::toString(m_settings.scaling));
+    // UG fork: By type, and the scale is worked out again for every page
+    std::vector<std::string> scalings;
+    for (const ESignalDisplayScaling scaling : SDisplaySettings::SCALINGS) { scalings.emplace_back(SDisplaySettings::toString(scaling)); }
+    m_pScaling = new Parameters::ParameterListStringObject("Auto vertical scale",
+                                                          "Scale each lane on its own, the EEG, EOG and digital channels each together, all lanes "
+                                                          "together, or not at all. An automatic scale is worked out again for every new page",
+                                                          scalings, SDisplaySettings::toString(m_settings.scaling));
     connect(m_pScaling, &Parameters::ParameterListStringObject::valueChanged, this, [this](const QString& value)
     {
         if (!SDisplaySettings::parseScaling(value.toStdString(), m_settings.scaling)) { return; }
-        if (m_trace != nullptr)
-        {
-            m_trace->refreshAutoScale();
-            m_trace->setSettings(m_settings);
-        }
-        m_sinceScaleRefresh.restart();
+        if (m_trace != nullptr) { m_trace->setSettings(m_settings); }
+        // UG fork: the next tick works the scale out, for the new mode; upstream did it here as well
+        m_rescale     = true;
         m_layoutDirty = true;
+        updateEnabledParameters();
     });
     m_parameters.push_back(m_pScaling);
 
@@ -192,11 +203,12 @@ void CSignalDisplayController::buildParameters()
         m_settings.timeScaleSeconds = value;
         m_buffer.setWindowSeconds(value);
         m_lastRenderedTotal = 0;
+        m_rescale           = true;  // UG fork
         m_layoutDirty       = true;
     });
     m_parameters.push_back(m_pTimeScale);
 
-    m_pVerticalScale = new Parameters::ParameterDoubleObject("Vertical Scale", "Signal units filling half a channel lane. Only used when auto scaling is None",
+    m_pVerticalScale = new Parameters::ParameterDoubleObject("Vertical Scale", "Signal units filling half a channel lane. Only used when Auto vertical scale is None",
                                                             m_settings.verticalScale, 1e-3, 1e6, 3);
     connect(m_pVerticalScale, &Parameters::ParameterDoubleObject::valueChanged, this, [this](const double& value)
     {
@@ -207,7 +219,8 @@ void CSignalDisplayController::buildParameters()
     });
     m_parameters.push_back(m_pVerticalScale);
 
-    m_pBaselineOffset = new Parameters::ParameterDoubleObject("Vertical Offset", "DC level removed from every sample before it is scaled", m_settings.baselineOffset,
+    m_pBaselineOffset = new Parameters::ParameterDoubleObject("Vertical Offset", "DC level removed from every sample before it is scaled. Only used when Auto vertical scale is None",
+                                                             m_settings.baselineOffset,
                                                              -1e6, 1e6, 3);
     connect(m_pBaselineOffset, &Parameters::ParameterDoubleObject::valueChanged, this, [this](const double& value)
     {
@@ -216,14 +229,6 @@ void CSignalDisplayController::buildParameters()
         m_layoutDirty = true;
     });
     m_parameters.push_back(m_pBaselineOffset);
-
-    m_pScaleRefresh = new Parameters::ParameterDoubleObject("Scale refresh interval (secs)", "How often an automatic scale is recomputed",
-                                                           m_settings.scaleRefreshSeconds, 0.1, 60.0, 2);
-    connect(m_pScaleRefresh, &Parameters::ParameterDoubleObject::valueChanged, this, [this](const double& value)
-    {
-        m_settings.scaleRefreshSeconds = std::max(0.0, value);
-    });
-    m_parameters.push_back(m_pScaleRefresh);
 
     m_pChannels = new Parameters::ParameterMultiSelectObject("Channels", "Channels to display", {});
     connect(m_pChannels, &Parameters::ParameterMultiSelectObject::valueChanged, this, [this](const QStringList&) { refreshVisibleChannels(); });
@@ -245,6 +250,7 @@ void CSignalDisplayController::buildParameters()
         m_settings.layout = value ? ELayoutMode::Butterfly : ELayoutMode::Stacked;
         if (m_trace) { m_trace->setSettings(m_settings); }
         m_layoutDirty = true;
+        updateEnabledParameters();
         // QML needs this: paging and the gutter behave differently on a single shared baseline.
         emit settingsChanged();
     });
@@ -272,6 +278,17 @@ void CSignalDisplayController::buildParameters()
         emit settingsChanged();
     });
     m_parameters.push_back(m_pAmplitudeRuler);
+
+    updateEnabledParameters();
+}
+
+void CSignalDisplayController::updateEnabledParameters()
+{
+    // UG fork: the fixed scale and offset apply only without automatic scaling, and pages only to stacked lanes
+    const bool fixedScale = m_settings.scaling == ESignalDisplayScaling::None;
+    m_pVerticalScale->setEnabled(fixedScale);
+    m_pBaselineOffset->setEnabled(fixedScale);
+    m_pChannelsPerPage->setEnabled(m_settings.layout != ELayoutMode::Butterfly);
 }
 
 //------------------------------------------------------------------------------------------------
@@ -280,10 +297,13 @@ void CSignalDisplayController::buildParameters()
 
 void CSignalDisplayController::pushHeader(const size_t channels, const double samplingRate, std::vector<std::string> labels)
 {
+    // UG fork: the ring is shaped here, at once, so that it takes the chunks that follow. Upstream shaped it at the
+    // next tick, up to 16 ms later, and the chunks that came before were dropped for not matching it.
+    m_buffer.reconfigure(channels, samplingRate);
+
     std::lock_guard<std::mutex> lock(m_metaMutex);
     m_pending.header   = true;
     m_pending.channels = channels;
-    m_pending.sampling = samplingRate;
     m_pending.labels   = std::move(labels);
 }
 
@@ -326,40 +346,40 @@ void CSignalDisplayController::applyPendingMetadata()
 
     if (pending.header)
     {
-        m_buffer.reconfigure(pending.channels, pending.sampling, m_settings.timeScaleSeconds);
-
         m_channelNames.clear();
         m_channelNames.reserve(int(pending.channels));
         for (size_t i = 0; i < pending.channels; ++i)
         {
             const std::string& label = i < pending.labels.size() ? pending.labels[i] : std::string();
-            m_channelNames.append(label.empty() ? QStringLiteral("Channel %1").arg(i + 1) : QString::fromStdString(label));
+            QString            name  = label.empty() ? QStringLiteral("Channel %1").arg(i + 1) : QString::fromStdString(label);
+            // UG fork: the selection goes by name, so two channels with one name were shown and hidden together. A name
+            // that is taken gets the channel's number.
+            if (m_channelNames.contains(name)) { name += QStringLiteral(" (%1)").arg(i + 1); }
+            m_channelNames.append(name);
         }
-        m_channelUnits = QStringList();
-        for (size_t i = 0; i < pending.channels; ++i) { m_channelUnits.append(QString()); }
 
         // Everything is selected until the user says otherwise.
         m_pChannels->setAvailableValues(m_channelNames);
         m_pChannels->setValue(m_channelNames);
 
+        // UG fork: the kind of each channel, from its name, for scaling By type
+        QVector<EChannelKind> kinds;
+        kinds.reserve(m_channelNames.size());
+        for (const QString& name : m_channelNames) { kinds.append(channelKind(name.toStdString())); }
+        if (m_trace != nullptr) { m_trace->setChannelKinds(kinds); }
+
         rebuildChannelModel();
         refreshVisibleChannels();
         m_lastRenderedTotal = 0;
+        m_rescale           = true;  // UG fork
         m_layoutDirty       = true;
     }
 
     if (pending.units)
     {
-        // Units decorate the channels; they must never overwrite the names, or the channel filter
-        // would stop matching the model it was built from.
-        for (size_t i = 0; i < pending.unitList.size() && int(i) < m_channelUnits.size(); ++i)
-        {
-            const std::string& unit   = pending.unitList[i].first;
-            const std::string& factor = pending.unitList[i].second;
-            QString            text   = QString::fromStdString(unit);
-            if (!factor.empty() && factor != "Unspecified") { text = QString::fromStdString(factor) + text; }
-            m_channelUnits[int(i)] = text;
-        }
+        // UG fork: kept, and shown by rebuildChannelModel() whenever the channels are known. Upstream dropped units
+        // that came before the header, which can happen, as another box feeds the units input.
+        m_channelUnits = std::move(pending.unitList);
         rebuildChannelModel();
     }
 
@@ -372,6 +392,15 @@ void CSignalDisplayController::applyPendingMetadata()
 
 void CSignalDisplayController::rebuildChannelModel()
 {
+    // Units decorate the channels; they never replace the names, which the channel selection goes by
+    const auto unitText = [this](const int i)
+    {
+        if (i >= int(m_channelUnits.size())) { return QString(); }
+        const auto& [unit, factor] = m_channelUnits[size_t(i)];
+        const QString text         = QString::fromStdString(unit);
+        return factor.empty() || factor == "Unspecified" ? text : QString::fromStdString(factor) + text;
+    };
+
     m_channels.clear();
     m_channels.reserve(m_channelNames.size());
     for (int i = 0; i < m_channelNames.size(); ++i)
@@ -379,7 +408,7 @@ void CSignalDisplayController::rebuildChannelModel()
         QVariantMap entry;
         entry["index"] = i;
         entry["name"]  = m_channelNames.at(i);
-        entry["unit"]  = i < m_channelUnits.size() ? m_channelUnits.at(i) : QString();
+        entry["unit"]  = unitText(i);
         entry["color"] = paletteColor(i);
         m_channels.append(entry);
     }
@@ -398,7 +427,9 @@ void CSignalDisplayController::refreshVisibleChannels()
     {
         if (!selected.contains(m_channelNames.at(i))) { continue; }
         visible.append(i);
-        colors.append(paletteColor(visible.size() - 1));
+        // UG fork: coloured by channel, as the Multiview legend is (rebuildChannelModel()), so that a channel keeps
+        // its colour when others are hidden. Upstream coloured the traces by row, and the legend then disagreed.
+        colors.append(paletteColor(i));
     }
 
     m_visible = visible;
@@ -407,6 +438,7 @@ void CSignalDisplayController::refreshVisibleChannels()
         m_trace->setChannelColors(colors);
         m_trace->setVisibleChannels(visible);
     }
+    m_rescale     = true;  // UG fork: a channel shown again, or one fewer in its group, changes the scale
     m_layoutDirty = true;
     emit channelsChanged();
 }
@@ -448,14 +480,30 @@ void CSignalDisplayController::onTick()
     applyPendingMetadata();
     if (m_trace == nullptr) { return; }
 
-    const uint64_t total = m_buffer.totalSamples();
+    uint64_t total    = 0;
+    size_t   capacity = 0;
+    {
+        CTraceBuffer::CReader r(m_buffer);
+        total    = r.totalSamples();
+        capacity = r.valid() ? r.capacity() : 0;
+    }
     if (total == m_lastRenderedTotal && !m_layoutDirty) { return; }
 
-    if (m_settings.scaling != ESignalDisplayScaling::None && m_sinceScaleRefresh.elapsed() >= qint64(m_settings.scaleRefreshSeconds * 1000.0))
+    // UG fork: the automatic scale is worked out again for every new page, from the page just drawn: in Scan mode when
+    // the cursor starts again at the left, in Scroll mode every window length. While the first page fills, it is
+    // worked out every FIRST_PAGE_RESCALE_MS.
+    if (m_settings.scaling != ESignalDisplayScaling::None && capacity > 0)
     {
-        m_trace->refreshAutoScale();
-        m_sinceScaleRefresh.restart();
-        m_layoutDirty = true;
+        const uint64_t page      = total / capacity;
+        const bool     firstPage = page == 0 && m_sinceScaleRefresh.elapsed() >= FIRST_PAGE_RESCALE_MS;
+        if (m_rescale || page != m_scaledPage || firstPage)
+        {
+            m_trace->refreshAutoScale();
+            m_scaledPage = page;
+            m_rescale    = false;
+            m_sinceScaleRefresh.restart();
+            m_layoutDirty = true;
+        }
     }
 
     if (m_layoutDirty)

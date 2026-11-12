@@ -81,7 +81,8 @@ enum EInterpolationType { Spline = 1, Laplacian = 2 };
 
 enum class ESignalDisplayMode { Scroll, Scan };
 
-enum class ESignalDisplayScaling { PerChannel, Global, None };
+/// UG fork: ByType, one scale for the EEG channels, one for the EOG and one for the digital channels; see SignalScaling.h
+enum class ESignalDisplayScaling { PerChannel, Global, None, ByType };
 
 enum EFeedbackMode { Positive, Best, All, No };
 }   // namespace OpenViBE

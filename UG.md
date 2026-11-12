@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 31 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 32 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 242 files, about 24,900 lines added and 2,000 removed |
+| Size | 279 files, about 25,700 lines added and 3,200 removed |
 
 To regenerate the list of changes:
 
@@ -62,6 +62,7 @@ Everything outside the files listed here is identical to upstream.
 | Trigger lines switching | A value caught while the trigger lines switch is an extra trigger with a wrong code (eego) | A value counts once it has held for two samples, and is dated at the first sample of the change (TMSi, eego) |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
+| Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
 | P300 speller | Display box not ported to Qt and not built, so 6 of the 11 speller scenarios can not run; the Lua online scripts also stop with an error | Ported, and the error repaired; markers are sent once the flash is on screen; also a set of scenarios with Python scripts |
 | Player timing | Designer's player runs in rounds with a 50 ms sleep between them, so stimuli can be up to about 60 ms off | 1 ms sleep |
@@ -665,6 +666,50 @@ The label sits in a flag at the top of the marker line:
 - A trigger leaves the server one sample later than before, with the same date.
 - Tested with `SteadyTriggerTest`. Not yet run with an amplifier.
 
+### 2.26 Signal display: scaling by page and by type, antialiased lines, channel selection buttons, repairs
+
+**Files**
+- `extras/plugins/processing/simple-visualization/src/SignalScaling.h` (new), `CSignalTraceItem.cpp`, `CSignalTraceItem.h`, `CSignalDisplayController.cpp`, `CSignalDisplayController.h`, `CTraceBuffer.cpp`, `CTraceBuffer.h`, `SDisplaySettings.h`, `defines.hpp`, `main.cpp`, `box-algorithms/CSignalDisplay.cpp`, `box-algorithms/CSignalDisplay.h`, `CMakeLists.txt`
+- `extras/plugins/processing/simple-visualization/qml/SignalDisplay.qml`, `qml/AmplitudeScaleBar.qml`, `qml/TimeRuler.qml`, `doc/Doc_BoxAlgorithm_SignalDisplay.dox-part`
+- `extras/applications/qml/OVParameters/src/parameterObject.h`, `parameterObject.cpp`, `extras/applications/qml/OVParameters/MultiSelectParameter.qml`
+- `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp` (new), `test/TraceBufferTest.cpp` (new), `test/CMakeLists.txt`
+- 59 demo, tutorial and test scenarios (`*.xml`) with a Signal display
+
+**What it does**
+- **Centring.** In every automatic mode each channel is centred on the middle of its own signal. Upstream's Global mode gave all channels one centre, the middle of all of them together. A channel with a DC offset, as an amplifier without a high-pass filter gives, was then drawn outside its lane, and the shared range spanned the offsets, so the ruler showed numbers like ±1.2e+5. Global now shares the scale only.
+- **By type**, a new scaling mode: the EEG channels share one scale, the EOG channels one and the digital channels one. Other channels (ECG, EMG, GSR, unnamed BIP and AUX inputs) keep a scale of their own. The kind comes from the channel name: names with EOG, and HEO and VEO, are EOG; Trigger, SampleCounter, Digi, DIG, Saw, Status and Marker are digital; ECG, EMG, GSR, Resp, BIP, AUX and the like are other; everything else is EEG.
+- **Once per page.** An automatic scale is worked out again at every new page, from the page just drawn: in Scan mode when the cursor starts again at the left, in Scroll mode once per Time Scale. It then fits that page at once. While the first page fills, twice a second. Upstream refreshed it on a timer, every 5 s by default, and moved it only part of the way, with hysteresis. The setting "Scale refresh interval (secs)" is gone from the box and the panel.
+- **Round numbers.** A scale is rounded up to 1, 2 or 5 times a power of ten, after 5 % headroom, and the ruler shows it without trailing zeros: ±50, ±0.5, ±200.
+- **Greyed out.** Vertical Scale and Vertical Offset are used only when the scaling is None, and Channels per page is not used in Multiview. The panel now shows them greyed out and they can not be changed then. For this, a parameter object has an `enabled` property, true unless set otherwise.
+- **Antialiasing.** The traces are drawn into a layer with 4× multisampling, so the lines are smooth. A layer is a texture, so it is left out when the scrolling content is taller than 8192 device pixels; the lines are then drawn as before.
+- **Channel selection.** The Channels list has three buttons above it: Select all, Deselect all and Invert selection. Each sets the whole selection at once. They are part of the shared multi-select control (`MultiSelectParameter.qml`), so any other multi-select list gets them too.
+
+Repairs, found by reading the display's code through:
+- **Times after a long chunk.** A chunk longer than the displayed window keeps only its last samples, but upstream counted only those. Every later sample was then dated too early by the samples left out, and the time ruler and the markers with it. It happens when the Time Scale is shorter than a chunk, such as 0.1 s at 256 Hz, which is 26 samples, with chunks of 32. Now all samples count, and the kept ones go to the slots they would have reached.
+- **First chunks dropped.** The ring took the stream's shape at the next screen update, up to 16 ms after the header, and dropped the chunks that came before. It now takes it at once, on the player thread. That also stops the player thread from reading the Time Scale, which the panel changes.
+- **Undefined behaviour.** For a Signal input the box cast its decoder to `TStreamedMatrixDecoder`, a class `TSignalDecoder` does not derive from. It worked because the two happen to be laid out alike. The box now casts to the decoder it made.
+- **Colours.** With Colour per channel and a channel hidden, the traces took their colour by row and the Multiview legend by channel, so they disagreed. Both go by channel now, and a channel keeps its colour when others are hidden.
+- **Time ruler.** It made a new list of ticks at every screen update, and so rebuilt all of them 60 times a second. It now counts the ticks and moves them.
+- **One source of truth.** The names of the modes and scalings were spelled in `main.cpp` and again in the panel; both now take them from `SDisplaySettings`. The amplitude ruler took the share of a lane a trace may fill from a copy of the value; it now reads it from the trace.
+- **Channels with the same name** were shown and hidden together, as the selection goes by name. A name that is taken now gets the channel's number: `EOG`, `EOG (12)`.
+- **Units before the header.** Channel units that came before the signal's header were dropped; another box feeds that input, so it can happen. They are now kept until the channels are known.
+- **Multiview's amplitude bracket** showed the first channel's scale, also when the others had another one (Per channel, By type). It now shows a number only when all channels share the scale, and "varies" otherwise.
+- **Unknown setting values.** A Display Mode or Auto vertical scale the box does not know, from a hand-edited scenario or one made with a newer build, was used as it was: it scaled as Per channel while the panel showed None. The box now stops with an error that names the setting.
+- **Infinite samples.** A channel with an infinite sample gave its whole group the fallback scale of ±1. Such a channel now keeps its previous scale, and its group is scaled without it.
+- **Antialiasing on wide screens.** The size limit of the antialiasing layer checked only the height; it now checks the width too.
+- Removed unused code (`CTraceBuffer::clear`, `channelAt`, `visibleCount`); a change of scaling no longer works the scale out twice.
+
+**Scenarios.** Designer asks to update a box whose stored prototype hash (attribute `0x4e7b798a, 0x183beafb`) differs from that of the box as built. All 118 Signal display boxes in the repository's 59 scenarios had a hash that matched no version of the box, so Designer flagged them already upstream. Their "Scale refresh interval (secs)" setting is now removed and their hash set to that of the current box, `(0x749ffce0, 0x5335cebd)`. That hash was computed with the kernel's own `SBoxProto`. Nothing else in them differed from the current box.
+
+**Consequences**
+- Scenarios outside the repository that still have "Scale refresh interval (secs)" play as before: settings are read by name, so it is ignored. Designer marks such a box as one to update; updating it in Designer removes the setting.
+- "By type" is in the box setting and the panel. A box with "None", "Global" or "Per channel" keeps its value.
+- A channel whose name says nothing (`Channel 3`) counts as EEG. Under By type, a recording that names its EOG channel `BIP1` scales it on its own, not with the EOG.
+- A new page can change the scale in a jump, once per page. That is the intent: within a page the scale stays put.
+- Unchanged from upstream: the display keeps at most 512 markers. With more in the window, such as 90 pulses a second over 10 s, the oldest ones, on the left, are not drawn.
+- In the Designer settings dialog, settings that do not apply are not greyed out; only the panel next to the display does that.
+- Tested with `test-signal-display` (14 tests: the scaling, and the ring after long chunks). The whole test suite passes, and the Simple-visualization scenario plays without QML errors. Not yet looked at on screen.
+
 ---
 
 ## 3. All modified files
@@ -725,7 +770,10 @@ The label sits in a flag at the top of the marker line:
 | M | `extras/applications/platform/acquisition-server/ui/qml/Main.qml` | 2.4, 2.8, 2.16 |
 | M | `extras/applications/qml/OVControls/Logger.qml` | 2.23 |
 | M | `extras/applications/qml/OVParameters/CMakeLists.txt` | 2.22 |
+| M | `extras/applications/qml/OVParameters/MultiSelectParameter.qml` | 2.26 |
 | M | `extras/applications/qml/OVParameters/PathParameter.qml` | 2.13 |
+| M | `extras/applications/qml/OVParameters/src/parameterObject.cpp` | 2.26 |
+| M | `extras/applications/qml/OVParameters/src/parameterObject.h` | 2.26 |
 | M | `extras/applications/qml/OVParameters/src/parameterPathObject.cpp` | 2.13, 2.22 |
 | M | `extras/applications/qml/OVParameters/src/parameterPathObject.h` | 2.13 |
 | A | `extras/applications/qml/OVParameters/test/CMakeLists.txt` | 2.22 |
@@ -773,23 +821,40 @@ The label sits in a flag at the top of the marker line:
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmMatrix3dTo2d.cpp` | 2.23 |
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/connectivity/CBoxAlgorithmConnectivityMeasure.cpp` | 2.23 |
 | M | `extras/plugins/processing/stimulation/share/lua-stimulator-stim-codes.lua` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18, 2.26 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_P300SpellerVisualization.dox-part` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/qml/P300SpellerVisualization.qml` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/qml/SignalDisplay.qml` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/qml/TimeRuler.qml` | 2.26 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.cpp` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.hpp` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CGrazMultiVisualization.cpp` | 2.23 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.h` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11 |
+| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11, 2.26 |
+| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.h` | 2.26 |
 | M | 35 demo and tutorial scenarios (`*.xml`) with a Signal display | 2.11 |
 | M | 31 demo and tutorial scenarios (`*.xml`) with an Acquisition client box | 2.19 |
+| M | 59 demo, tutorial and test scenarios (`*.xml`) with a Signal display | 2.26 |
 | M | `extras/plugins/server-extensions/tcp-tagging-service/test/test_tcptaggingservice.cpp` | 2.19 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.h` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/src/main.cpp` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/test/CMakeLists.txt` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.cpp` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.h` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/src/SDisplaySettings.h` | 2.26 |
+| A | `extras/plugins/processing/simple-visualization/src/SignalScaling.h` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/src/defines.hpp` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/src/main.cpp` | 2.18, 2.26 |
+| M | `extras/plugins/processing/simple-visualization/test/CMakeLists.txt` | 2.18, 2.26 |
 | A | `extras/plugins/processing/simple-visualization/test/P300SpellerStateTest.cpp` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp` | 2.26 |
+| A | `extras/plugins/processing/simple-visualization/test/TraceBufferTest.cpp` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-lua-test.xml` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-check.py` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-test.xml` | 2.18 |
@@ -872,7 +937,7 @@ The label sits in a flag at the top of the marker line:
 
   New files (TMSi driver, Charmeleon, UG writer, buffer display) merge cleanly.
 - **Charmeleon.** The montage round trip and the choice of amplifier need Charmeleon 2.2 (see 2.6). Charmeleon is a separate repository and installer.
-- **Tests.** The acquisition server unit tests (`test-acquisition-server-core`, 53 tests) pass. They include new tests for the circular buffer, the config message and the montage rules. So do the P300 speller tests (`test-p300-speller`, 12 tests), for the letter grid, what the display shows and when a frame showed it.
+- **Tests.** The acquisition server unit tests (`test-acquisition-server-core`, 53 tests) pass. They include new tests for the circular buffer, the config message and the montage rules. So do the P300 speller tests (`test-p300-speller`, 12 tests), for the letter grid, what the display shows and when a frame showed it. So do the Signal display tests (`test-signal-display`, 14 tests), for channel kinds, round and shared scales, and the ring of samples.
 - **Tested without an amplifier:**
   - the montage note and locked entries;
   - the error under the settings when Play fails;

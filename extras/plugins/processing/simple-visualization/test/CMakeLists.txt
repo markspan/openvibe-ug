@@ -25,3 +25,11 @@ target_link_libraries(test-p300-speller PRIVATE tinyxml2::tinyxml2 GTest::GTest 
 
 include(GoogleTest)
 gtest_discover_tests(test-p300-speller)
+
+# UG fork: the parts of the Signal display that need neither Qt nor the player: its automatic vertical scale
+# (SignalScaling.h) and its ring of samples (CTraceBuffer)
+add_executable(test-signal-display SignalScalingTest.cpp TraceBufferTest.cpp ../src/CTraceBuffer.cpp)
+target_include_directories(test-signal-display PRIVATE ../src)
+set_property(TARGET test-signal-display PROPERTY FOLDER ${TESTS_FOLDER})
+target_link_libraries(test-signal-display PRIVATE GTest::GTest GTest::Main)
+gtest_discover_tests(test-signal-display)

@@ -30,16 +30,13 @@ Item {
         return candidates[candidates.length - 1]
     }
 
-    /// The round times currently on screen. Rebuilt whenever the window moves.
-    readonly property var ticks: {
-        const out = []
-        const s = _root.step
-        if (!(s > 0) || !(_root.newest > _root.oldest)) { return out }
-
-        let t = Math.ceil(_root.oldest / s) * s
-        // Guard against a pathological step/window ratio producing an unbounded loop.
-        for (let n = 0; t <= _root.newest && n < 256; ++n, t += s) { out.push(t) }
-        return out
+    /// UG fork: the round times on screen are firstTick, firstTick + step, ... tickCount of them. The Repeater counts
+    /// them, rather than taking a list of them as upstream did: a new list every frame made it rebuild every tick.
+    readonly property real firstTick: _root.step > 0 ? Math.ceil(_root.oldest / _root.step) * _root.step : 0
+    readonly property int tickCount: {
+        if (!(_root.step > 0) || !(_root.newest > _root.oldest)) { return 0 }
+        // At most 256, against a pathological step/window ratio
+        return Math.min(256, Math.floor((_root.newest - _root.firstTick) / _root.step) + 1)
     }
 
     function labelAt(seconds) {
@@ -55,14 +52,19 @@ Item {
     }
 
     Repeater {
-        model: _root.ticks
+        model: _root.tickCount
 
         delegate: Item {
             id: _tick
 
-            required property real modelData
+            required property int index
 
-            readonly property real px: _root.trace.xAtTime(modelData)
+            readonly property real seconds: _root.firstTick + index * _root.step
+            // Naming newest makes the position follow the window as it moves, in Scroll mode
+            readonly property real px: {
+                _root.newest
+                return _root.trace.xAtTime(_tick.seconds)
+            }
 
             x: _tick.px
             height: _root.height
@@ -77,7 +79,7 @@ Item {
             Label {
                 y: DS.Theme.spacingXs
                 x: -width / 2
-                text: _root.labelAt(_tick.modelData)
+                text: _root.labelAt(_tick.seconds)
                 font: DS.Theme.textXsRegular
                 color: DS.Theme.textTertiary
             }

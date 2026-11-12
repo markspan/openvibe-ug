@@ -50,7 +50,7 @@ class CSignalDisplayController final : public QObject
 
     Q_PROPERTY(QString name READ name NOTIFY nameChanged)
     Q_PROPERTY(QJSValue parameters READ parameters NOTIFY parametersChanged)
-    /** One entry per channel: { name, unit, index }. */
+    /** One entry per channel: { name, unit, index, color }. */
     Q_PROPERTY(QVariantList channels READ channels NOTIFY channelsChanged)
     /** Stimulations inside the displayed window: { time, name, id }. */
     Q_PROPERTY(QVariantList stimulations READ stimulations NOTIFY stimulationsChanged)
@@ -78,9 +78,18 @@ public:
     void setName(const QString& name);
 
     // ---- called from the PLAYER thread ----
+    // UG fork: documented
+    /**
+     * \brief A new stream: shapes the ring at once, and hands the channel names to the next tick.
+     *
+     * \param samplingRate In Hz, or 0 for a StreamedMatrix, whose rate the ring estimates from the first chunk.
+     */
     void pushHeader(size_t channels, double samplingRate, std::vector<std::string> labels);
+    /** Copies one chunk into the ring. \p buffer is channel-major, [channels x samples]. */
     void pushChunk(const double* buffer, size_t channels, size_t samples, uint64_t startTime, uint64_t endTime);
+    /** A stimulation, dated in OpenViBE time, with the name to show for it. */
     void pushStimulation(uint64_t id, uint64_t date, std::string name);
+    /** {unit, factor} per channel, as named by the type manager. */
     void pushChannelUnits(std::vector<std::pair<std::string, std::string>> units);
 
     // ---- read by QML, GUI thread ----
@@ -115,7 +124,6 @@ private:
     {
         bool                     header   = false;
         size_t                   channels = 0;
-        double                   sampling = 0.0;
         std::vector<std::string> labels;
 
         bool                                             units = false;
@@ -131,6 +139,8 @@ private:
     void rebuildChannelModel();
     void refreshVisibleChannels();
     void pruneStimulations();
+    /// UG fork: greys out the parameters that do not apply with the current settings.
+    void updateEnabledParameters();
 
     Kernel::ILogManager& m_log;
     SDisplaySettings     m_settings;  ///< the single source of truth
@@ -143,7 +153,9 @@ private:
     QQmlEngine*       m_engine = nullptr;
 
     QTimer        m_tick;
-    QElapsedTimer m_sinceScaleRefresh;
+    QElapsedTimer m_sinceScaleRefresh;  ///< UG fork: since the scale was last worked out, see onTick()
+    uint64_t      m_scaledPage = 0;     ///< UG fork: the page the scale was last worked out on
+    bool          m_rescale    = true;  ///< UG fork: work the scale out at the next tick, whatever the page
     uint64_t      m_lastRenderedTotal = 0;
     bool          m_layoutDirty       = true;
 
@@ -152,7 +164,7 @@ private:
 
     QString      m_name = "Signal Display";
     QStringList  m_channelNames;
-    QStringList  m_channelUnits;
+    std::vector<std::pair<std::string, std::string>> m_channelUnits;  ///< UG fork: {unit, factor} per channel, as last received
     QVariantList m_channels;
     QVariantList m_stimulations;
     QVector<int> m_visible;
@@ -163,7 +175,6 @@ private:
     Parameters::ParameterObjects            m_parameters;
     Parameters::ParameterListStringObject*  m_pDisplayMode    = nullptr;
     Parameters::ParameterListStringObject*  m_pScaling        = nullptr;
-    Parameters::ParameterDoubleObject*      m_pScaleRefresh   = nullptr;
     Parameters::ParameterDoubleObject*      m_pVerticalScale  = nullptr;
     Parameters::ParameterDoubleObject*      m_pBaselineOffset = nullptr;
     Parameters::ParameterDoubleObject*      m_pTimeScale      = nullptr;

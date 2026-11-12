@@ -47,43 +47,40 @@ In Scroll mode, the new data always arrives on the right and all displayed data 
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting1|
 
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting2|
-Automatic vertical (y) scaling mode: Per channel, Global, or None.
+Automatic vertical (y) scaling mode: Per channel, By type, Global, or None. See the examples below.
+An automatic scale is worked out again for every new page: in Scan mode when the cursor starts again
+at the left, in Scroll mode every Time Scale. It then fits the page just drawn. While the first page
+fills, it is worked out twice a second.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting2|
  
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting3|
-How often the vertical scale is recomputed. Only used when automatic vertical scaling mode is not
-None. Rescaling is deliberately infrequent, and the new scale is only adopted when it differs
-enough from the current one.
- * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting3|
-
- * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting4|
 Amplitude that fills half a channel lane, in signal units, when automatic vertical scaling mode is
 None. With a value of 100, a trace touching the top of
 its lane is at +100 units.
+ * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting3|
+ 
+ * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting4|
+DC level subtracted from every sample before it is scaled, i.e. the signal value drawn on the lane
+baseline, when automatic vertical scaling mode is None. Channels are separated by the stacking
+itself, so this is a baseline correction and not a channel spacing control.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting4|
  
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting5|
-DC level subtracted from every sample before it is scaled, i.e. the signal value drawn on the lane
-baseline. Channels are separated by the stacking itself, so this is a baseline correction and not a
-channel spacing control.
+Size of time window to display, in seconds.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting5|
  
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting6|
-Size of time window to display, in seconds.
- * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting6|
- 
- * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting7|
 Enable bottom (x) ruler?
+ * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting6|
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting7|
+Enable the left amplitude ruler: a per-lane bracket showing the amplitude the lane spans.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting7|
 
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting8|
-Enable the left amplitude ruler: a per-lane bracket showing the amplitude the lane spans.
- * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting8|
-
- * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting9|
 Draw every channel on a single shared baseline instead of one lane each. This is the 'butterfly
 plot'. It is the same renderer as the stacked view, with all baselines collapsed to mid-height.
- * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting9|
+ * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting8|
 
 __________________________________________________________________
 
@@ -94,20 +91,20 @@ __________________________________________________________________
 A parameter panel is shown to the left of the graph during playback.
 
   - Display Mode : switches between Scan and Scroll.
-  - Auto vertical scale : Per channel, Global, or None.
+  - Auto vertical scale : Per channel, By type, Global, or None.
   - Time Scale : the time span displayed. Changing it resizes the buffer and clears history.
-  - Vertical Scale : the amplitude filling half a channel lane, used when auto scaling is None.
-  - Vertical Offset : DC level removed before scaling.
-  - Scale refresh interval (secs) : how often an automatic scale is recomputed.
+  - Vertical Scale : the amplitude filling half a channel lane. Greyed out unless auto scaling is None.
+  - Vertical Offset : DC level removed before scaling. Greyed out unless auto scaling is None.
   - Bottom ruler / Left ruler : toggle the time ruler and the amplitude scale bar.
   - Multiview : overlay every channel on a single baseline.
 
 Three further entries exist only in this panel and are not box settings, so they are not saved with
 the scenario:
 
-  - Channels : show or hide individual channels.
+  - Channels : show or hide individual channels. Select all, Deselect all and Invert selection change
+    them all at once.
   - Channels per page : 0 fits every channel in the view; a smaller value keeps each lane that tall
-    and makes the view scroll, which is what high channel counts need.
+    and makes the view scroll, which is what high channel counts need. Greyed out in Multiview.
   - Colour per channel : colour each trace rather than drawing them all alike.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_OnlineVisualizationSettings|
 __________________________________________________________________
@@ -120,8 +117,11 @@ __________________________________________________________________
 To get some signals displayed right, changing the automatic y scaling may be useful. The provided scaling settings are 
 
 	- Per channel (default) : Every channel will get centered and scaled separately. This should allow viewing arbitrary signals. This is suitable for unfiltered data which may have huge differences in scale and DC between channels.
+	- By type : The EEG channels share one scale, the EOG channels another and the digital (trigger, counter) channels a third, so that amplitudes can be compared within each kind. Other channels, such as ECG, EMG, GSR, or unnamed BIP and AUX inputs, keep a scale of their own. The kind is read from the channel name: names with EOG (HEOG, VEOG) are EOG, Trigger, SampleCounter, Digi, DIG and Saw are digital, and electrode names are EEG.
 	- Global : All channels are put to the same scale which is the maximum of all the channels. This mode is suitable for filtered EEG and data which may have long-term trends but where all channels generally stay in the same range. 
 	- None: User must specify global center and scale. Display is never automatically rescaled. This is suitable for filtered EEG data where the meaningful range is within known parameters and DC doesn't vary.
+
+In every automatic mode each channel is centred on its own signal, so a DC offset does not push it out of its lane; By type and Global share only the scale. The scale is rounded up to 1, 2 or 5 times a power of ten, so the left ruler reads as ±50 or ±200.
 
 Practical example :
 
@@ -141,9 +141,9 @@ __________________________________________________________________
 
 Best practices
 
-All vertical scaling modes except 'None' change the scaling dynamically when the scale of the data
-appears to have changed. The whole displayed window is redrawn at the new scale, so the trace stays
-internally consistent; the 'Scale refresh (s)' setting controls how often this may happen.
+All vertical scaling modes except 'None' work the scale out again for every new page, from the page
+just drawn. The whole displayed window is redrawn at the new scale, so the trace stays internally
+consistent.
 
 For most situations the following is recommended:
 
@@ -161,9 +161,9 @@ meaningful. In the case of Feature Vector stream, you can try to use the
 Matrix Transpose box on the feature stream first to turn the features into 
 channels.
 
-Multiview presents all the signals in the same space. With 'Per Channel' scaling each trace is still
-centred on its own mean; with 'Global' or 'None' scaling, channels with large DC differences may
-overlap unhelpfully, so filter the signal first.
+Multiview presents all the signals in the same space. With automatic scaling each trace is still
+centred on its own signal; with 'None' scaling, channels with large DC differences may overlap
+unhelpfully, so filter the signal first.
 
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Miscellaneous|
  */
