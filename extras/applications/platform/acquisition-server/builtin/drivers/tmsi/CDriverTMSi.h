@@ -178,7 +178,10 @@ private:
     std::atomic<bool> m_bufferReported{false};     ///< Set once the acquisition runs
     std::atomic<uint32_t> m_bufferSamples{0};       ///< Size of the SDK's buffer, in samples (SetSignalBuffer)
     std::atomic<uint32_t> m_bufferRate{0};          ///< Sampling rate, in Hz
-    std::atomic<uint32_t> m_bufferPeakPercent{0};   ///< Fullest the buffer was since the previous takeDeviceBuffer()
+    std::atomic<uint32_t> m_bufferPeakPercent{0};   ///< Fullest the buffer was since the previous takeDeviceBuffer(), as GetBufferInfo says
+    /// Most samples one GetSamples returned since the previous takeDeviceBuffer(). GetSamples empties the buffer, so this is what
+    /// waited in it, to the sample; GetBufferInfo gives whole percents, 100 ms of the 10 s buffer.
+    std::atomic<uint32_t> m_peakFetched{0};
     std::atomic<uint32_t> m_bufferOverflows{0};     ///< Times the buffer overflowed, losing its contents, since Start
     std::atomic<int64_t> m_lastReadNs{0};           ///< When GetSamples was last called, on the steady clock
     std::chrono::steady_clock::time_point m_lastBufferInfo;  ///< When GetBufferInfo was last called

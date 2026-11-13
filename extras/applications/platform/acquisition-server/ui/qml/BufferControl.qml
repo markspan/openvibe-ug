@@ -26,10 +26,7 @@ Control {
     readonly property bool _lossCounted: _deviceReported && buffers.lossCounted === true
     readonly property bool _lost: _lossCounted && buffers.lostSamples > 0
 
-    function _percent(seconds) {
-        return Math.round(100 * seconds / buffers.deviceCapacity) + " %"
-    }
-
+    // In time, not in percent: a backlog of tens of milliseconds, normal, is 0 % of a 10 s buffer
     function _duration(seconds) {
         return seconds < 1 ? Math.round(1000 * seconds) + " ms" : seconds.toFixed(1) + " s"
     }
@@ -102,7 +99,7 @@ Control {
             TextMetrics {
                 id: _valueMetrics
                 font: DS.Theme.textSmallLight
-                text: "100 % of 10 s (max 100 %)"
+                text: "999 ms of 10.0 s (max 999 ms)"
             }
 
             GridLayout {
@@ -136,8 +133,8 @@ Control {
                 Text {
                     text: !_control._acquiring ? "–"
                         : !_control._deviceReported ? "not reported by this driver"
-                        : _control._deviceSizeKnown ? _control._percent(_control.buffers.deviceSeconds) + " of " + _control._duration(_control.buffers.deviceCapacity)
-                                                      + " (max " + _control._percent(_control.buffers.deviceMaxSeconds) + ")"
+                        : _control._deviceSizeKnown ? _control._duration(_control.buffers.deviceSeconds) + " of " + _control._duration(_control.buffers.deviceCapacity)
+                                                      + " (max " + _control._duration(_control.buffers.deviceMaxSeconds) + ")"
                         : _control._duration(_control.buffers.deviceSeconds) + " waiting (max " + _control._duration(_control.buffers.deviceMaxSeconds) + ")"
                     font: DS.Theme.textSmallLight
                     color: DS.Theme.textPrimary

@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 44 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 45 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 307 files, about 34,000 lines added and 3,400 removed (of which 3,000 a test input) |
 
@@ -226,7 +226,7 @@ Samples are lost only when the amplifier's own buffer overflows. The server read
 - **Reader priority.** The reader thread registers with the Windows multimedia scheduler (MMCSS) as a "Pro Audio" task at high priority, and opts out of Windows 11's power throttling, which may slow down minimised programs. It waits whenever there is nothing to read, so it takes no more CPU than before; it gets it sooner.
 - **Empty reads.** A driver that returns at once with nothing (the generic oscillator, LSL) would keep that high-priority reader spinning, so the reader pauses 1 ms after a quick, empty read. Drivers that wait for data themselves (TMSi, eego) take longer than that and are not slowed down. An empty buffer is kept for the next read instead of going round the cleaning thread.
 - **Buffers panel.** Where upstream shows the drift, the server shows, twice a second, during an acquisition:
-  - **Amplifier buffer.** TMSi: how full the TMSi library's buffer is (`GetBufferInfo`), as a percentage of its 10 seconds. eego: the SDK does not say how full its buffer is, so the panel shows how much data waited at each read. For both, a reader that is held up counts as a growing backlog.
+  - **Amplifier buffer.** Shown as the time of data waiting, in milliseconds, with the worst since Play. TMSi: how many samples each read found waiting, which is exact, as a read empties the TMSi library's buffer; and how full the library says its buffer is (`GetBufferInfo`), whichever is more. `GetBufferInfo` gives whole percents of the 10 s buffer, so it reads 0 below 100 ms, which is where a working acquisition stays; the panel first showed only that percentage, and so always 0 %. The bar shows the part of the 10 s used. eego: the SDK does not say how full its buffer is, so the panel shows how much data waited at each read. For both, a reader that is held up counts as a growing backlog.
   - **Server buffers:** how many of the 10 are free. The reader and the processing thread hold one each, so 8 free is normal.
   - **Lost samples.** TMSi: the library's overflow count, times its buffer size. eego: gaps in the amplifier's sample counter channel, counted exactly. Lost samples also show in red in the panel's header and are logged as an error.
 

@@ -734,6 +734,7 @@ bool CDriverTMSi::start()
 
     // The SDK resets its overflow count at Start
     m_bufferPeakPercent = 0;
+    m_peakFetched       = 0;
     m_bufferOverflows   = 0;
     m_lastBufferInfo    = {};
     m_lastReadNs        = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -770,7 +771,8 @@ AbstractDriver::DeviceBuffer CDriverTMSi::takeDeviceBuffer()
 
     result.reported        = true;
     result.capacitySeconds = double(m_bufferSamples) / rate;
-    result.peakSeconds     = m_bufferPeakPercent.exchange(0) / 100.0 * result.capacitySeconds;
+    // UG fork: the samples a read found waiting, to the sample; GetBufferInfo's whole percents read 0 below 100 ms
+    result.peakSeconds     = (std::max)(m_bufferPeakPercent.exchange(0) / 100.0 * result.capacitySeconds, double(m_peakFetched.exchange(0)) / rate);
     // While the reader is held up nothing is read and nothing is measured, but the backlog grows all the same
     const int64_t sinceRead = std::chrono::steady_clock::now().time_since_epoch().count() - m_lastReadNs;
     result.peakSeconds      = (std::max)(result.peakSeconds, std::chrono::duration<double>(std::chrono::steady_clock::duration(sinceRead)).count());
@@ -816,6 +818,8 @@ int CDriverTMSi::read(sampleType* data, const uint64_t size)
         }
         m_rawSampleIndex = 0;
         m_blockFetchTime = fetchTime;  // UG fork
+        // UG fork: what waited in the SDK's buffer, which GetSamples has just emptied into m_rawBuffer, as large as that buffer
+        if (m_rawSampleCount > m_peakFetched) { m_peakFetched = m_rawSampleCount; }
     }
 
     m_readFirst = m_rawSampleIndex;  // UG fork: where in the block this read starts, see getData()
