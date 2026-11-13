@@ -60,10 +60,65 @@ Item {
             return panel ? panel.trace : null
         }
 
+        // Record: the streams ticked go to the LSL XDF writer connected to the box's output, a file per recording. While
+        // recording, the Streams list is locked, so that a file holds one set of streams throughout.
+        Item {
+            id: _recordBar
+
+            readonly property color recordColor: DS.Theme.iconHoverClose
+
+            anchors { top: parent.top; left: parent.left; right: parent.right }
+            height: _record.implicitHeight + DS.Theme.spacingSm
+
+            AbstractButton {
+                id: _record
+
+                anchors { right: parent.right; top: parent.top }
+                enabled: dataSource.recording || dataSource.canRecord
+                text: dataSource.recording ? qsTr("Stop recording  %1").arg(dataSource.recordingTime) : qsTr("Record")
+                implicitHeight: _recordLabel.implicitHeight + 2 * DS.Theme.spacingXs
+                implicitWidth: _recordDot.width + _recordLabel.implicitWidth + 3 * DS.Theme.spacingSm
+                onClicked: dataSource.toggleRecording()
+
+                HoverHandler { cursorShape: Qt.PointingHandCursor }
+                ToolTip.visible: hovered
+                ToolTip.text: dataSource.recording ? qsTr("Stops the recording and closes its file")
+                                                   : qsTr("Records the streams ticked to a new XDF file, through the LSL XDF writer connected to this box's output")
+
+                background: Rectangle {
+                    radius: DS.Theme.radiusXs
+                    border.width: DS.Theme.borderSm
+                    border.color: _record.enabled ? _recordBar.recordColor : DS.Theme.iconDisabled
+                    color: dataSource.recording ? Qt.rgba(_recordBar.recordColor.r, _recordBar.recordColor.g, _recordBar.recordColor.b, 0.15)
+                         : _record.hovered ? Qt.rgba(_recordBar.recordColor.r, _recordBar.recordColor.g, _recordBar.recordColor.b, 0.08)
+                         : DS.Theme.white
+                }
+
+                contentItem: Item {
+                    // A round dot to record, a square while recording, as recorders show them
+                    Rectangle {
+                        id: _recordDot
+                        anchors { left: parent.left; leftMargin: DS.Theme.spacingSm; verticalCenter: parent.verticalCenter }
+                        width: DS.Theme.spacingSm + DS.Theme.spacingXs
+                        height: width
+                        radius: dataSource.recording ? DS.Theme.radiusXs / 2 : width / 2
+                        color: _record.enabled ? _recordBar.recordColor : DS.Theme.iconDisabled
+                    }
+                    Label {
+                        id: _recordLabel
+                        anchors { left: _recordDot.right; leftMargin: DS.Theme.spacingSm; verticalCenter: parent.verticalCenter }
+                        text: _record.text
+                        font: DS.Theme.textSmallBold
+                        color: _record.enabled ? _recordBar.recordColor : DS.Theme.iconDisabled
+                    }
+                }
+            }
+        }
+
         Column {
             id: _column
 
-            anchors { top: parent.top; left: parent.left; right: parent.right; bottom: _time.top }
+            anchors { top: _recordBar.bottom; left: parent.left; right: parent.right; bottom: _time.top }
 
             Repeater {
                 id: _streams

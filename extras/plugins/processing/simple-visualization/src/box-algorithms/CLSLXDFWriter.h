@@ -9,6 +9,7 @@
 #include <toolkit/ovtk_all.h>
 
 #include <memory>
+#include <set>
 #include <string>
 
 namespace OpenViBE {
@@ -20,9 +21,10 @@ class CLSLRecorder;
 /**
  * \brief Records the LSL streams ticked in an LSL display into an XDF file, as LabRecorder does.
  *
- * Connected to an LSL display's output, it records the streams ticked there, from Play to Stop: a stream ticked later starts
- * in the file then, one unticked ends there. The file is LabRecorder's format, with the senders' own time stamps and the
- * clock offsets, so that load_xdf and pyxdf load and correct it as they do LabRecorder's files (CLSLRecorder).
+ * Connected to an LSL display's output, it records the streams ticked there each time the display's Record button is pressed,
+ * to a new file, until it is pressed again: the first file under the name set, the next with "-2", "-3", ... The file is
+ * LabRecorder's format, with the senders' own time stamps and the clock offsets, so that load_xdf and pyxdf load and correct
+ * it as they do LabRecorder's files (CLSLRecorder).
  */
 class CLSLXDFWriter final : public Toolkit::TBoxAlgorithm<IBoxAlgorithm>
 {
@@ -39,9 +41,17 @@ public:
     _IsDerivedFromClass_Final_(Toolkit::TBoxAlgorithm<IBoxAlgorithm>, Box_LSLXDFWriter)
 
 private:
+    /// The file of a recording: the name set for the first, with "-2", "-3", ... before the extension for the next
+    std::string pathOf(size_t recording) const;
+    bool startRecording(const std::set<std::string>& uids);
+    /// Writes every stream's footer and closes the file, if one is open
+    void stopRecording();
+
     Toolkit::TStreamedMatrixDecoder<CLSLXDFWriter> m_decoder;
-    std::unique_ptr<CLSLRecorder> m_recorder;
-    std::string m_path;
+    std::unique_ptr<CLSLRecorder> m_recorder;  ///< While recording
+    std::string m_basePath;                    ///< From the settings
+    std::string m_path;                        ///< The file being recorded
+    size_t m_recordings = 0;                   ///< Recordings since Play
 };
 
 class CLSLXDFWriterDesc final : public IBoxAlgorithmDesc
@@ -55,10 +65,10 @@ public:
     CString getShortDescription() const override { return "Records the LSL streams ticked in an LSL display into an XDF file"; }
     CString getDetailedDescription() const override
     {
-        return "Connect it to the output of an LSL display (UG). From Play to Stop it records the LSL streams ticked in that display into "
-               "an XDF file, as LabRecorder does: every sample with the sender's own time stamp, and each stream's clock offset every "
-               "5 s, so that load_xdf and pyxdf correct the times when they load the file. A stream ticked later starts in the file "
-               "then; one unticked ends there.";
+        return "Connect it to the output of an LSL display (UG). Each time Record is pressed in that display, it records the LSL streams "
+               "ticked there into a new XDF file, until Record is pressed again, as LabRecorder does: every sample with the sender's own "
+               "time stamp, and each stream's clock offset every 5 s, so that load_xdf and pyxdf correct the times when they load the "
+               "file. The first file has the name set, the next ones -2, -3, ...";
     }
     CString getCategory() const override { return "File reading and writing/XDF"; }
     CString getVersion() const override { return "1.0"; }

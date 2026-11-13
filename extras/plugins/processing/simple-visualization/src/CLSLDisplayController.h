@@ -131,6 +131,12 @@ class CLSLDisplayController final : public QObject
     Q_PROPERTY(bool butterfly READ butterfly NOTIFY settingsChanged)
     /// Markers are being read, though no data stream is shown
     Q_PROPERTY(bool hasMarkerStreams READ hasMarkerStreams NOTIFY streamsChanged)
+    /// Whether the streams ticked are being recorded, by an LSL XDF writer connected to the box's output
+    Q_PROPERTY(bool recording READ recording NOTIFY recordingChanged)
+    /// How long the recording has run, "1:23"
+    Q_PROPERTY(QString recordingTime READ recordingTime NOTIFY recordingTimeChanged)
+    /// Whether a stream is ticked, so that there is something to record
+    Q_PROPERTY(bool canRecord READ canRecord NOTIFY tickedChanged)
 
 public:
     CLSLDisplayController(Kernel::ILogManager& logManager, const SDisplaySettings& initial, QQmlEngine* engine);
@@ -146,16 +152,28 @@ public:
     bool showAmplitudeRuler() const { return m_settings.showAmplitudeRuler; }
     bool butterfly() const { return m_settings.layout == ELayoutMode::Butterfly; }
     bool hasMarkerStreams() const { return m_markerStreams > 0; }
+    bool recording() const { return m_recording; }
+    QString recordingTime() const { return m_recordingTime; }
+    bool canRecord() const;
 
     /**
-     * \brief The streams ticked, by LSL uid, for the box's output; any thread.
-     * \param version Goes up by one each time the ticks change, so that the box sends them only then.
+     * \brief Starts recording the streams ticked, or stops. While recording, the ticks can not be changed, so that a file
+     *        holds one set of streams throughout.
      */
-    std::vector<std::string> tickedStreams(uint64_t& version) const;
+    Q_INVOKABLE void toggleRecording();
+
+    /**
+     * \brief The streams to record now, by LSL uid, for the box's output: those ticked while recording, none otherwise; any thread.
+     * \param version Goes up by one each time they change, so that the box sends them only then.
+     */
+    std::vector<std::string> streamsToRecord(uint64_t& version) const;
 
 signals:
     void parametersChanged();
     void streamsChanged();
+    void recordingChanged();
+    void recordingTimeChanged();
+    void tickedChanged();
     void stimulationsChanged();
     void settingsChanged();
 
@@ -187,9 +205,12 @@ private:
     std::map<QString, SLSLStreamInfo> m_byLabel;   ///< The streams listed, by their label in the Streams parameter
     int m_markerStreams = 0;                        ///< Selected marker streams
 
-    mutable std::mutex m_tickedMutex;               // guards the two below, which the player thread reads
-    std::vector<std::string> m_ticked;              ///< The streams ticked, by uid, see tickedStreams()
-    uint64_t m_tickedVersion = 0;
+    mutable std::mutex m_tickedMutex;               // guards the three below, which the player thread reads
+    std::vector<std::string> m_ticked;              ///< The streams ticked, by uid
+    bool m_recording         = false;               ///< See toggleRecording()
+    uint64_t m_tickedVersion = 0;                   ///< See streamsToRecord()
+    QElapsedTimer m_recordingSince;
+    QString m_recordingTime;
 
     std::deque<SLSLMarker> m_markers;
     QVariantList m_stimulations;

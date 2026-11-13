@@ -55,11 +55,11 @@ bool CLSLDisplay::process()
 {
     if (m_controller == nullptr) { return true; }
     uint64_t version                    = 0;
-    const std::vector<std::string> uids = m_controller->tickedStreams(version);
+    const std::vector<std::string> uids = m_controller->streamsToRecord(version);
     if (version == m_sentVersion) { return true; }
     m_sentVersion = version;
 
-    // A header that lists them, one row each, labelled with the uid; at least one row, empty when nothing is ticked
+    // A header that lists them, one row each, labelled with the uid; at least one row, empty when nothing is to be recorded
     CMatrix* matrix = m_encoder.getInputMatrix();
     matrix->resize(std::max<size_t>(1, uids.size()), 1);
     for (size_t i = 0; i < std::max<size_t>(1, uids.size()); ++i) { matrix->setDimensionLabel(0, i, i < uids.size() ? uids[i].c_str() : ""); }

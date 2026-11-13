@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 41 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 42 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 304 files, about 33,200 lines added and 3,400 removed (of which 3,000 a test input) |
 
@@ -64,7 +64,7 @@ Everything outside the files listed here is identical to upstream.
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
 | Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
-| LSL streams | Seen through the acquisition server's LSL driver: one data stream and one marker stream, numbers only, timed when they arrive | "LSL display (UG)" box: any number of data streams of any rate, stacked on one time axis by their LSL times, and number and text markers on all; streams ticked while it runs. "LSL XDF writer (UG)" connected to it records the ticked streams as LabRecorder does |
+| LSL streams | Seen through the acquisition server's LSL driver: one data stream and one marker stream, numbers only, timed when they arrive | "LSL display (UG)" box: any number of data streams of any rate, stacked on one time axis by their LSL times, and number and text markers on all; streams ticked while it runs. "LSL XDF writer (UG)" connected to it records the ticked streams as LabRecorder does, a file each time Record is pressed |
 | BrainVision file integrity | eego data in volt in a microvolt file; TMSi BIP and AUX channels unscaled; markers counted from the scenario's start, not the file's first sample; the header written only at the end | eego in microvolt and its stream order checked; markers on their own sample; files written out at every step; a script that checks a recording |
 | P300 speller | Display box not ported to Qt and not built, so 6 of the 11 speller scenarios can not run; the Lua online scripts also stop with an error | Ported, and the error repaired; markers are sent once the flash is on screen; also a set of scenarios with Python scripts |
 | Player timing | Designer's player runs in rounds with a 50 ms sleep between them, so stimuli can be up to about 60 ms off | 1 ms sleep |
@@ -819,19 +819,23 @@ For this, the Signal display's parts became shared, each in one place:
 
 **What it does**
 
-"LSL XDF writer (UG)", under *File reading and writing/XDF*, records LSL streams into an XDF file, as LabRecorder does. Connect it to the LSL display's new output, *LSL streams* (`box-tutorials/lsl-display-xdf.xml`). From Play to Stop it records the streams ticked in that display. A stream ticked later starts in the file then; one unticked ends there, and starts again under a new stream id if it is ticked again.
+"LSL XDF writer (UG)", under *File reading and writing/XDF*, records LSL streams into an XDF file, as LabRecorder does. Connect it to the LSL display's new output, *LSL streams* (`box-tutorials/lsl-display-xdf.xml`).
+
+- **The display's Record button** starts a recording of the streams ticked, to a new file, and stops it again ("Stop recording 1:23"). The button sits at the top right of the plot, so it stays at hand when the settings panel is hidden; it can not be pressed while nothing is ticked.
+- **While recording, the Streams list is locked** (greyed out), so that a file holds one set of streams from start to end. The rest can be changed while recording: the options, and each stream's channel selection, which only decides what is drawn. A file always holds every channel of its streams, as LabRecorder's does.
+- **One file per recording.** The first gets the name set, the next ones in the same Play `-2`, `-3`, ... before the extension. Nothing is written until Record is pressed; Stop in Designer ends a recording too.
 
 - **The file is LabRecorder's format.** A FileHeader; for each stream a StreamHeader with the stream's whole LSL info, channel labels included. Then Samples chunks with every sample and its own time stamp, in the stream's own type (float, double, integers, text); a ClockOffset every 5 s; and a StreamFooter with the first and last time stamp, the sample count and the clock offsets. Boundary chunks every 10 s.
 - **The time stamps are the senders' own,** as LabRecorder keeps them: the writer reads the streams through inlets of its own, without LSL's corrections. `load_xdf` and pyxdf correct them from the clock offsets, and smooth them, when they load the file, as they do LabRecorder's files. The display's inlets do apply the corrections, as they draw at once.
 - **Written out chunk by chunk,** so a crash loses no more than the last moments. A file that can not be written, e.g. on a full disk, stops the recording with an error.
 - **Settings:** Output directory, `${Path_Documents}/data` by default and made if needed; Filename, `lsl-[$core{date}-$core{time}].xdf` by default. A filename with a full path replaces the directory.
 
-How the boxes connect: the display's output is a new stream type, *LSL streams*, registered by the plugin. It is a streamed matrix whose header lists the ticked streams by LSL uid, one row each, sent again whenever the ticks change. Only the writer's input takes it, so Designer connects nothing else to it.
+How the boxes connect: the display's output is a new stream type, *LSL streams*, registered by the plugin. It is a streamed matrix whose header lists the streams to record by LSL uid, one row each: the ticked ones while Record is on, none (one empty label) otherwise. It is sent again on every change, and the writer opens a file when the list fills and closes it when it empties. Only the writer's input takes it, so Designer connects nothing else to it.
 
 **Consequences**
 - Seeing and recording LSL streams together needs one scenario and no other program. LabRecorder remains the tried tool; this writer's files load as LabRecorder's do.
 - The display's prototype gained the output, so a scenario with the LSL display from before this has it outdated; Designer offers to update it.
-- Tested with `test-lsl-recorder` (2 tests). It records three streams the test sends itself: 3 float channels at 200 Hz with labels, an int16 stream, and text markers. Then it reads the file back with a parser of its own: every sample and time stamp as sent, the description, the footers, a clock offset. The same file loaded in pyxdf 1.17 and in MATLAB with `load_xdf` (EEGLAB's xdfimport 1.2): all 400, 100 and 3 samples, the labels, the markers 0.25 s after the first sample as sent, the footers and clock offsets. Both tutorials load without being out of date, and the writer creates its file at Play. **Not yet tried:** ticking streams in the display while the writer records; that needs the display on screen.
+- Tested with `test-lsl-recorder` (2 tests). It records three streams the test sends itself: 3 float channels at 200 Hz with labels, an int16 stream, and text markers. Then it reads the file back with a parser of its own: every sample and time stamp as sent, the description, the footers, a clock offset. The same file loaded in pyxdf 1.17 and in MATLAB with `load_xdf` (EEGLAB's xdfimport 1.2): all 400, 100 and 3 samples, the labels, the markers 0.25 s after the first sample as sent, the footers and clock offsets. Both tutorials load without being out of date, and the writer waits for Record without writing a file. **Not yet tried:** the Record button with streams ticked; that needs the display on screen.
 
 ---
 

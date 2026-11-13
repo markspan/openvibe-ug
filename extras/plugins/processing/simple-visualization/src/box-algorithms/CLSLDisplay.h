@@ -26,8 +26,8 @@ class CLSLDisplayController;
  *        axis, and marker streams, numbers or text, as flags on all of them.
  *
  * The box has no inputs: it reads the streams itself (CLSLReader), and the streams are chosen while it runs, in its panel. Its
- * settings are the Signal display's, and are where the panel starts. Its output tells an LSL XDF writer which streams are
- * ticked, so that it records those.
+ * settings are the Signal display's, and are where the panel starts. Its output tells an LSL XDF writer which streams to
+ * record: those ticked, from when its Record button is pressed to when it is pressed again; none otherwise.
  */
 class CLSLDisplay final : public Toolkit::TBoxAlgorithm<IBoxAlgorithm>
 {
@@ -39,7 +39,7 @@ public:
     /// Often enough for a change of ticks to reach a writer at once
     uint64_t getClockFrequency() override { return 8LL << 32; }
     bool processClock(Kernel::CMessageClock& /*msg*/) override;
-    /// Sends the ticked streams on the output, when they changed
+    /// Sends the streams to record on the output, when they changed
     bool process() override;
 
     _IsDerivedFromClass_Final_(Toolkit::TBoxAlgorithm<IBoxAlgorithm>, Box_LSLDisplay)
@@ -48,7 +48,7 @@ private:
     SDisplaySettings m_settings;
     CLSLDisplayController* m_controller = nullptr;
     Toolkit::TStreamedMatrixEncoder<CLSLDisplay> m_encoder;
-    uint64_t m_sentVersion = ~0ULL;  ///< The version of the ticks last sent, see CLSLDisplayController::tickedStreams()
+    uint64_t m_sentVersion = ~0ULL;  ///< The version last sent, see CLSLDisplayController::streamsToRecord()
     VisualizationToolkit::IVisualizationContext* m_visualizationCtx = nullptr;
 };
 
@@ -65,8 +65,8 @@ public:
     {
         return "Shows the LabStreamingLayer streams on the network that are ticked in its panel while it runs. Data streams, of any rate "
                "and any number of channels, are stacked on one time axis, lined up by their LSL times; markers, numbers or text, are "
-               "drawn as flags on all of them. The options are the Signal display's. Connect an LSL XDF writer to its output to record the "
-               "streams ticked, as LabRecorder does.";
+               "drawn as flags on all of them. The options are the Signal display's. With an LSL XDF writer connected to its output, its "
+               "Record button records the streams ticked, as LabRecorder does, a file per recording.";
     }
     CString getCategory() const override { return "Visualization/Basic"; }
     CString getVersion() const override { return "1.0"; }
@@ -80,7 +80,7 @@ public:
     bool getBoxPrototype(Kernel::IBoxProto& prototype) const override
     {
         addDisplaySettings(prototype);
-        // The streams ticked, for an LSL XDF writer to record
+        // The streams to record, for an LSL XDF writer: those ticked while Record is on
         prototype.addOutput("LSL streams", TypeId_LSLStreams);
         return true;
     }

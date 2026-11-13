@@ -18,6 +18,7 @@ CLSLXDFWriter::~CLSLXDFWriter() = default;
 bool CLSLXDFWriter::initialize()
 {
     m_decoder.initialize(*this, 0);
+    m_recordings = 0;
 
     const CString directory = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0);
     const CString filename  = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1);
@@ -37,7 +38,30 @@ bool CLSLXDFWriter::initialize()
                 << error.message() << "\n";
         return false;
     }
-    m_path     = path.generic_u8string();
+    m_basePath = path.generic_u8string();
+    this->getLogManager() << Kernel::LogLevel_Info << "Press Record in the LSL display to record its streams to " << m_basePath << "\n";
+    return true;
+}
+
+bool CLSLXDFWriter::uninitialize()
+{
+    m_decoder.uninitialize();
+    stopRecording();
+    return true;
+}
+
+std::string CLSLXDFWriter::pathOf(const size_t recording) const
+{
+    // The first recording under the name set, the next with "-2", "-3", ... before the extension
+    if (recording <= 1) { return m_basePath; }
+    const std::filesystem::path base = std::filesystem::u8path(m_basePath);
+    return (base.parent_path() / std::filesystem::u8path(base.stem().u8string() + "-" + std::to_string(recording) + base.extension().u8string()))
+        .generic_u8string();
+}
+
+bool CLSLXDFWriter::startRecording(const std::set<std::string>& uids)
+{
+    m_path     = pathOf(++m_recordings);
     m_recorder = std::make_unique<CLSLRecorder>(m_path);
     if (!m_recorder->ok())
     {
@@ -45,21 +69,18 @@ bool CLSLXDFWriter::initialize()
         m_recorder.reset();
         return false;
     }
-    this->getLogManager() << Kernel::LogLevel_Info << "Recording the LSL streams ticked in the LSL display to " << m_path << "\n";
+    m_recorder->select(uids);
+    this->getLogManager() << Kernel::LogLevel_Info << "Recording " << uids.size() << " LSL streams to " << m_path << "\n";
     return true;
 }
 
-bool CLSLXDFWriter::uninitialize()
+void CLSLXDFWriter::stopRecording()
 {
-    m_decoder.uninitialize();
-    if (m_recorder)
-    {
-        const bool ok = m_recorder->ok();
-        m_recorder.reset();  // writes every stream's footer and closes the file
-        if (ok) { this->getLogManager() << Kernel::LogLevel_Info << "XDF file " << m_path << " closed\n"; }
-        else { this->getLogManager() << Kernel::LogLevel_Error << "Could not write all of the XDF file " << m_path << ", e.g. because the disk is full\n"; }
-    }
-    return true;
+    if (!m_recorder) { return; }
+    const bool ok = m_recorder->ok();
+    m_recorder.reset();  // writes every stream's footer and closes the file
+    if (ok) { this->getLogManager() << Kernel::LogLevel_Info << "Recording stopped; " << m_path << " closed\n"; }
+    else { this->getLogManager() << Kernel::LogLevel_Error << "Could not write all of the XDF file " << m_path << ", e.g. because the disk is full\n"; }
 }
 
 bool CLSLXDFWriter::processInput(const size_t /*index*/)
@@ -74,9 +95,9 @@ bool CLSLXDFWriter::process()
     for (size_t i = 0; i < boxContext.getInputChunkCount(0); ++i)
     {
         m_decoder.decode(i);
-        if (!m_decoder.isHeaderReceived() || !m_recorder) { continue; }
+        if (!m_decoder.isHeaderReceived()) { continue; }
 
-        // The streams ticked in the display: the rows of the header, labelled with their LSL uids; an empty label for none
+        // The streams to record: the rows of the header, labelled with their LSL uids; none, an empty label, when not recording
         const CMatrix* matrix = m_decoder.getOutputMatrix();
         std::set<std::string> uids;
         for (size_t row = 0; matrix->getDimensionCount() > 0 && row < matrix->getDimensionSize(0); ++row)
@@ -84,7 +105,10 @@ bool CLSLXDFWriter::process()
             const std::string uid = matrix->getDimensionLabel(0, row);
             if (!uid.empty()) { uids.insert(uid); }
         }
-        m_recorder->select(uids);
+
+        if (uids.empty()) { stopRecording(); }
+        else if (!m_recorder) { startRecording(uids); }
+        else { m_recorder->select(uids); }
     }
     if (m_recorder && !m_recorder->ok())
     {

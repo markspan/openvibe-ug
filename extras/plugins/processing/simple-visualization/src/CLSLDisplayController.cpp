@@ -207,6 +207,7 @@ CLSLDisplayController::CLSLDisplayController(Kernel::ILogManager& logManager, co
 
     m_sinceLookUp.start();
     m_sinceDelay.start();
+    m_recordingSince.start();
     m_tick.setInterval(TICK_INTERVAL_MS);
     m_tick.setTimerType(Qt::PreciseTimer);
     connect(&m_tick, &QTimer::timeout, this, &CLSLDisplayController::onTick);
@@ -437,6 +438,7 @@ void CLSLDisplayController::selectStreams()
         m_ticked.assign(uids.begin(), uids.end());
         ++m_tickedVersion;
     }
+    emit tickedChanged();
     if (markers != m_markerStreams)
     {
         m_markerStreams = markers;
@@ -445,11 +447,33 @@ void CLSLDisplayController::selectStreams()
     }
 }
 
-std::vector<std::string> CLSLDisplayController::tickedStreams(uint64_t& version) const
+std::vector<std::string> CLSLDisplayController::streamsToRecord(uint64_t& version) const
 {
     std::lock_guard<std::mutex> lock(m_tickedMutex);
     version = m_tickedVersion;
-    return m_ticked;
+    return m_recording ? m_ticked : std::vector<std::string>();
+}
+
+bool CLSLDisplayController::canRecord() const
+{
+    std::lock_guard<std::mutex> lock(m_tickedMutex);
+    return !m_ticked.empty();
+}
+
+void CLSLDisplayController::toggleRecording()
+{
+    {
+        std::lock_guard<std::mutex> lock(m_tickedMutex);
+        if (!m_recording && m_ticked.empty()) { return; }  // nothing to record
+        m_recording = !m_recording;
+        ++m_tickedVersion;
+    }
+    // While recording, the set of streams stays as it is: a file holds the same streams throughout
+    m_pStreams->setEnabled(!m_recording);
+    m_recordingSince.restart();
+    m_recordingTime = m_recording ? QStringLiteral("0:00") : QString();
+    emit recordingChanged();
+    emit recordingTimeChanged();
 }
 
 void CLSLDisplayController::addStream(SLSLOpenedStream stream)
@@ -511,6 +535,16 @@ void CLSLDisplayController::onTick()
         any         = true;
     }
     for (size_t i = 0; i < m_views.size(); ++i) { m_views[i]->tick(newestOf[i] > 0.0 ? newest - newestOf[i] : 0.0); }
+    if (m_recording)
+    {
+        const qint64 seconds = m_recordingSince.elapsed() / 1000;
+        const QString time   = QStringLiteral("%1:%2").arg(seconds / 60).arg(seconds % 60, 2, 10, QLatin1Char('0'));
+        if (time != m_recordingTime)
+        {
+            m_recordingTime = time;
+            emit recordingTimeChanged();
+        }
+    }
     if (m_sinceDelay.elapsed() >= DELAY_INTERVAL_MS)
     {
         const double now = lsl::local_clock();  // the clock the samples' dates are on
