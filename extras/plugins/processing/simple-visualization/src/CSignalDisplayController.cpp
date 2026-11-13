@@ -4,6 +4,7 @@
 #include "CSignalDisplayController.h"
 
 #include "CSignalTraceItem.h"
+#include "TracePalette.h"  // UG fork
 
 #include <QQmlComponent>
 #include <QQmlContext>
@@ -29,18 +30,7 @@ constexpr size_t MAX_STIMULATIONS = 512;
  */
 constexpr qint64 FIRST_PAGE_RESCALE_MS = 500;
 
-/**
- * Mirrors DesignSystem's Theme.windowManagerNodeColors, so an opt-in coloured trace matches the
- * palette the rest of the application uses. UG fork: indexed by channel, see refreshVisibleChannels().
- */
-const QColor& paletteColor(const int index)
-{
-    static const QVector<QColor> palette = {
-        QColor("#FAB9DD"), QColor("#8DE7AF"), QColor("#B399FF"), QColor("#FFE080"), QColor("#66D1FF"), QColor("#F98585"),
-        QColor("#ADDA85"), QColor("#C77C9C"), QColor("#FA9E80"), QColor("#6591F1"), QColor("#FFC370")
-    };
-    return palette.at(((index % palette.size()) + palette.size()) % palette.size());
-}
+// UG fork: paletteColor() is in TracePalette.h, shared with the LSL display
 
 }  // namespace
 

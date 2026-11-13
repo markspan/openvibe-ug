@@ -82,3 +82,77 @@ TEST(TraceBuffer, theRateOfAMatrixStreamComesFromItsFirstChunk)
     EXPECT_EQ(r.capacity(), 32U);
     EXPECT_DOUBLE_EQ(r.firstSampleSeconds(), 1.0);
 }
+
+// UG fork: the time-locked ring of the LSL display
+
+TEST(TraceBuffer, ringsOfDifferentRatesDrawATimeAtTheSameX)
+{
+    // Two streams of 500 and 256 Hz in a 2 s window, starting at different times on a shared clock
+    CTraceBuffer fast, slow;
+    for (CTraceBuffer* ring : { &fast, &slow }) {
+        ring->setWindowSeconds(2.0);
+        ring->setTimeOrigin(100.0);
+    }
+    fast.reconfigure(1, 500.0);
+    slow.reconfigure(1, 256.0);
+
+    // Both written up to t = 101.0
+    const std::vector<double> fastSamples = ramp(0, 350), slowSamples = ramp(0, 64);
+    fast.appendTimed(fastSamples.data(), 1, 350, 100.3);
+    slow.appendTimed(slowSamples.data(), 1, 64, 100.75);
+
+    CTraceBuffer::CReader f(fast);
+    const double fastX = double(f.writePos()) / double(f.capacity());
+    CTraceBuffer::CReader s(slow);
+    const double slowX = double(s.writePos()) / double(s.capacity());
+    EXPECT_DOUBLE_EQ(fastX, 0.5);  // 1 s into a 2 s window
+    EXPECT_DOUBLE_EQ(slowX, 0.5);
+}
+
+TEST(TraceBuffer, aGapInTimeIsBridgedWithTheLastValue)
+{
+    CTraceBuffer ring;
+    ring.setWindowSeconds(1.0);
+    ring.setTimeOrigin(0.0);
+    ring.reconfigure(1, 100.0);
+
+    const std::vector<double> first = ramp(0, 10), second = ramp(100, 10);
+    ring.appendTimed(first.data(), 1, 10, 0.0);
+    ring.appendTimed(second.data(), 1, 10, 0.2);  // 10 samples later than counted
+
+    CTraceBuffer::CReader r(ring);
+    EXPECT_EQ(r.totalSamples(), 30U);
+    EXPECT_FLOAT_EQ(r.channel(0)[15], 9.0F);   // the gap holds the last value
+    EXPECT_FLOAT_EQ(r.channel(0)[20], 100.0F); // the second chunk at the slot of its time
+}
+
+TEST(TraceBuffer, samplesThatComeEarlyOverwriteTheLastOnes)
+{
+    CTraceBuffer ring;
+    ring.setWindowSeconds(1.0);
+    ring.setTimeOrigin(0.0);
+    ring.reconfigure(1, 100.0);
+
+    const std::vector<double> first = ramp(0, 10), second = ramp(100, 10);
+    ring.appendTimed(first.data(), 1, 10, 0.0);
+    ring.appendTimed(second.data(), 1, 10, 0.07);  // 3 samples earlier than counted
+
+    CTraceBuffer::CReader r(ring);
+    EXPECT_EQ(r.totalSamples(), 17U);
+    EXPECT_FLOAT_EQ(r.channel(0)[7], 100.0F);
+    EXPECT_EQ(r.writePos(), 17U);
+}
+
+TEST(TraceBuffer, aSampleOfJitterIsLeftAlone)
+{
+    CTraceBuffer ring;
+    ring.setWindowSeconds(1.0);
+    ring.setTimeOrigin(0.0);
+    ring.reconfigure(1, 100.0);
+
+    const std::vector<double> chunk = ramp(0, 10);
+    ring.appendTimed(chunk.data(), 1, 10, 0.0);
+    ring.appendTimed(chunk.data(), 1, 10, 0.111);  // one sample late: under RESYNC_SAMPLES
+
+    EXPECT_EQ(ring.totalSamples(), 20U);
+}

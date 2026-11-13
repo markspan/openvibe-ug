@@ -102,6 +102,14 @@ public:
     bool   perChannelColors() const { return m_perChannelColors; }
     void   setPerChannelColors(bool enabled);
 
+    /**
+     * \brief In Scroll mode, how far left of the right edge the newest sample is drawn, in seconds.
+     *
+     * UG fork, for the LSL display: streams that come in with different delays scroll together when each is drawn as far
+     * behind as it lags the newest of them. 0 by default.
+     */
+    void setScrollLagSeconds(double seconds);
+
     /** Absolute time in seconds at an x coordinate. */
     Q_INVOKABLE qreal timeAtX(qreal x) const;
     /** X of an absolute time in seconds, or -1 when outside the window. */
@@ -141,7 +149,7 @@ private:
      *
      * \return The number of runs written to out.
      */
-    int buildRuns(size_t capacity, size_t filled, size_t writePos, qreal w, SRun out[2]) const;
+    int buildRuns(size_t capacity, size_t filled, size_t writePos, qreal w, double lagSamples, SRun out[2]) const;
 
     /** Centre and half-range to draw channel c with, honouring the scaling mode. */
     void scaleFor(int channel, double& centre, double& halfRange) const;
@@ -159,6 +167,7 @@ private:
     QVector<EChannelKind>          m_kinds;  ///< UG fork: see setChannelKinds()
 
     QColor m_traceColor{ 0x05, 0x1B, 0x38 };  ///< DesignSystem textPrimary
+    double m_scrollLagSeconds = 0.0;          ///< UG fork: see setScrollLagSeconds()
     bool   m_perChannelColors = false;
 };
 

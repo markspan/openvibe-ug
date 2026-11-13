@@ -1,0 +1,41 @@
+<OpenViBE-Scenario>
+    <FormatVersion>3</FormatVersion>
+    <Creator>OpenViBE Designer</Creator>
+    <CreatorVersion>4.0.0</CreatorVersion>
+    <!-- UG fork: the LSL display on its own. Play, then tick the streams to show under Streams, in its panel. See UG.md 2.28 -->
+    <Settings/>
+    <Inputs/>
+    <Outputs/>
+    <Boxes>
+        <Box>
+            <Identifier>(0x00001234, 0x00005678)</Identifier>
+            <Name>LSL display (UG)</Name>
+            <AlgorithmClassIdentifier>(0x7a1c5d20, 0x3e9b4f61)</AlgorithmClassIdentifier>
+            <Settings>
+                <Setting><TypeIdentifier>(0x5de046a6, 0x086340aa)</TypeIdentifier><Name>Display Mode</Name><DefaultValue>Scan</DefaultValue><Value>Scan</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x33a30739, 0x00d5299b)</TypeIdentifier><Name>Auto vertical scale</Name><DefaultValue>Per channel</DefaultValue><Value>Per channel</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier><Name>Vertical Scale</Name><DefaultValue>100</DefaultValue><Value>100</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier><Name>Vertical Offset</Name><DefaultValue>0</DefaultValue><Value>0</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier><Name>Time Scale</Name><DefaultValue>10</DefaultValue><Value>10</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier><Name>Bottom ruler</Name><DefaultValue>true</DefaultValue><Value>true</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier><Name>Left ruler</Name><DefaultValue>false</DefaultValue><Value>false</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier><Name>Multiview</Name><DefaultValue>false</DefaultValue><Value>false</Value><Modifiability>false</Modifiability></Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>0</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>0</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0x5f4d87dd, 0xb3852a0e)</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
+    </Boxes>
+    <Links/>
+</OpenViBE-Scenario>

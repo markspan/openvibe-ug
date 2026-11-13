@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 38 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 39 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 285 files, about 29,700 lines added and 3,200 removed (of which 3,000 a test input) |
+| Size | 296 files, about 32,000 lines added and 3,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -64,6 +64,7 @@ Everything outside the files listed here is identical to upstream.
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
 | Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
+| LSL streams | Seen through the acquisition server's LSL driver: one data stream and one marker stream, numbers only, timed when they arrive | "LSL display (UG)" box: any number of data streams of any rate, stacked on one time axis by their LSL times, and number and text markers on all; streams ticked while it runs |
 | BrainVision file integrity | eego data in volt in a microvolt file; TMSi BIP and AUX channels unscaled; markers counted from the scenario's start, not the file's first sample; the header written only at the end | eego in microvolt and its stream order checked; markers on their own sample; files written out at every step; a script that checks a recording |
 | P300 speller | Display box not ported to Qt and not built, so 6 of the 11 speller scenarios can not run; the Lua online scripts also stop with an error | Ported, and the error repaired; markers are sent once the flash is on screen; also a set of scenarios with Python scripts |
 | Player timing | Designer's player runs in rounds with a 50 ms sleep between them, so stimuli can be up to about 60 ms off | 1 ms sleep |
@@ -762,6 +763,44 @@ It checks the header, that the data is a whole number of samples without NaN, an
 
 ---
 
+### 2.28 LSL display (new box)
+
+**Files**
+- `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLDisplay.cpp`, `CLSLDisplay.h` (new): the box
+- `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp`, `.h`, `CLSLReader.cpp`, `.h`, `TracePalette.h` (new)
+- `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml`, `qml/SettingsPanel.qml` (new), `qml/SignalDisplay.qml`
+- `CTraceBuffer.cpp`, `CTraceBuffer.h`, `CSignalTraceItem.cpp`, `CSignalTraceItem.h`, `CSignalDisplayController.cpp`, `box-algorithms/CSignalDisplay.cpp`, `box-algorithms/CSignalDisplay.h`, `defines.hpp`, `main.cpp`, `CMakeLists.txt` (links LSL)
+- `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` (new)
+- `extras/plugins/processing/simple-visualization/test/LSLReaderTest.cpp` (new), `test/TraceBufferTest.cpp`, `test/CMakeLists.txt`
+
+**What it does**
+
+"LSL display (UG)", under *Visualization/Basic*, shows LabStreamingLayer streams from the network. It is for seeing them; record them with LabRecorder. The acquisition server's LSL driver can not do this: a driver carries one stream, at one rate.
+
+- **No acquisition server and no inputs.** The box finds the streams itself. Put it in a scenario on its own (`box-tutorials/lsl-display.xml`) and press Play.
+- **Streams are chosen while it runs.** The panel lists the streams on the network under *Streams*, brought up to date every second, as "name (type, 32 ch, 2048 Hz)" or "name (type, text markers)". Tick a stream to show it, untick it to close it. A stream that goes away stays listed while it is ticked, and comes back by itself when it does.
+- **Data streams**, any regular rate and any number type, are stacked in panels, each with its name above it. A panel's height goes by the channels it shows, so lanes are alike across streams. The panels share one time axis and the time ruler at the bottom.
+- **Marker streams**, numbers or text, are drawn as flags on every panel, at their LSL times. A stream of text, or one without a regular rate, counts as markers. Of a marker stream with several channels, the first is the code, as in the two-channel sync sender.
+- **The options are the Signal display's:** Display Mode, Auto vertical scale (Per channel, By type, Global, None), Time Scale, Vertical Scale and Offset, Multiview, Colour per channel, and the rulers. They apply to every stream. Each data stream adds its own channel selection, *Channels: name*, with Select all, Deselect all and Invert selection. The box settings are where the panel starts.
+
+How streams of different rates line up:
+- Each sample is placed by its LSL time, corrected to this computer's clock and smoothed, as LabRecorder's files are when loaded. Every stream's ring is locked to one clock (`CTraceBuffer::setTimeOrigin()`). In Scan mode a time is at the same x in every panel, whatever the stream's rate or start. In Scroll mode each stream is drawn as far behind the newest as it lags, so that the panels scroll together.
+- A stream's samples do not come exactly at its nominal rate. When the count of samples and their LSL times drift two samples apart, the ring follows the times: a gap is drawn with the last values, and samples that come early overwrite the last ones. So the times stay right for hours.
+
+For this, the Signal display's parts became shared, each in one place:
+- `SettingsPanel.qml` is the panel with its gear button, used by both displays.
+- `TracePalette.h` holds the trace colours.
+- `addDisplaySettings()` and `readDisplaySettings()`, with `DISPLAY_SETTING_NAMES`, hold the box settings. The Signal display's settings are unchanged, so its prototype and the scenarios' hashes are too.
+
+**Consequences**
+- Seeing LSL streams no longer needs the acquisition server or a scenario per stream.
+- The streams ticked are not saved with the scenario: they are ticked again after Play. Their uids change with every start of the sending program anyway.
+- There is no Channels per page: the panels share the window's height.
+- At most 2048 markers are kept.
+- Tested with `test-lsl-reader` (3 tests), which sends its own LSL streams on this computer: a data stream comes in with its labels, units and times; number and text markers with their times; a stream unticked is closed. Also tested with `test-signal-display` (18 tests, among them the time-locked rings: rates lining up, gaps, early samples, jitter). The box plays in Designer without errors, and the whole test suite passes. **Not yet looked at on screen**, with real streams.
+
+---
+
 ## 3. All modified files
 
 `A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
@@ -877,40 +916,51 @@ It checks the header, that the data is a whole number of samples without NaN, an
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmMatrix3dTo2d.cpp` | 2.23 |
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/connectivity/CBoxAlgorithmConnectivityMeasure.cpp` | 2.23 |
 | M | `extras/plugins/processing/stimulation/share/lua-stimulator-stim-codes.lua` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18, 2.26 |
+| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18, 2.26, 2.28 |
+| A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` | 2.28 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_P300SpellerVisualization.dox-part` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26 |
 | M | `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/qml/P300SpellerVisualization.qml` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/qml/SignalDisplay.qml` | 2.26 |
+| A | `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/qml/SettingsPanel.qml` | 2.28 |
+| M | `extras/plugins/processing/simple-visualization/qml/SignalDisplay.qml` | 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/qml/TimeRuler.qml` | 2.26 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.cpp` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.hpp` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CGrazMultiVisualization.cpp` | 2.23 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.h` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11, 2.26 |
-| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.h` | 2.26 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLDisplay.cpp` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLDisplay.h` | 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11, 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.h` | 2.26, 2.28 |
 | M | 35 demo and tutorial scenarios (`*.xml`) with a Signal display | 2.11 |
 | M | 31 demo and tutorial scenarios (`*.xml`) with an Acquisition client box | 2.19 |
 | M | 59 demo, tutorial and test scenarios (`*.xml`) with a Signal display | 2.26 |
 | M | `extras/plugins/server-extensions/tcp-tagging-service/test/test_tcptaggingservice.cpp` | 2.19 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.h` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.h` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLReader.cpp` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLReader.h` | 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26 |
-| M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.cpp` | 2.26 |
-| M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.h` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.cpp` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.h` | 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/src/SDisplaySettings.h` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/src/SignalScaling.h` | 2.26 |
-| M | `extras/plugins/processing/simple-visualization/src/defines.hpp` | 2.26 |
-| M | `extras/plugins/processing/simple-visualization/src/main.cpp` | 2.18, 2.26 |
-| M | `extras/plugins/processing/simple-visualization/test/CMakeLists.txt` | 2.18, 2.26 |
+| A | `extras/plugins/processing/simple-visualization/src/TracePalette.h` | 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/defines.hpp` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/main.cpp` | 2.18, 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/test/CMakeLists.txt` | 2.18, 2.26, 2.28 |
+| A | `extras/plugins/processing/simple-visualization/test/LSLReaderTest.cpp` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/test/P300SpellerStateTest.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp` | 2.26 |
-| A | `extras/plugins/processing/simple-visualization/test/TraceBufferTest.cpp` | 2.26 |
+| A | `extras/plugins/processing/simple-visualization/test/TraceBufferTest.cpp` | 2.26, 2.28 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-lua-test.xml` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-check.py` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-test.xml` | 2.18 |

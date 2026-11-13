@@ -33,3 +33,10 @@ target_include_directories(test-signal-display PRIVATE ../src)
 set_property(TARGET test-signal-display PROPERTY FOLDER ${TESTS_FOLDER})
 target_link_libraries(test-signal-display PRIVATE GTest::GTest GTest::Main)
 gtest_discover_tests(test-signal-display)
+
+# UG fork: the LSL display's reader, against LSL streams the test sends itself on this computer
+add_executable(test-lsl-reader LSLReaderTest.cpp ../src/CLSLReader.cpp ../src/CTraceBuffer.cpp)
+target_include_directories(test-lsl-reader PRIVATE ../src)
+set_property(TARGET test-lsl-reader PROPERTY FOLDER ${TESTS_FOLDER})
+target_link_libraries(test-lsl-reader PRIVATE LSL::lsl GTest::GTest GTest::Main)
+gtest_discover_tests(test-lsl-reader DISCOVERY_TIMEOUT 30)

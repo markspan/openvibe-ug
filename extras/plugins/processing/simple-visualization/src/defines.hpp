@@ -32,6 +32,8 @@ namespace OpenViBE {
 //---------------------------------------------------------------------------------------------------
 #define Box_SignalDisplay                                       CIdentifier(0x0055BE5F, 0x087BDD12)
 #define Box_SignalDisplayDesc                                   CIdentifier(0x00C4F2D5, 0x58810276)
+#define Box_LSLDisplay                                          CIdentifier(0x7A1C5D20, 0x3E9B4F61)  // UG fork
+#define Box_LSLDisplayDesc                                      CIdentifier(0x6D2E8B13, 0x4A7F0C95)  // UG fork
 #define Box_DisplayCueImage                                     CIdentifier(0x005789A4, 0x3AB78A36)
 #define Box_DisplayCueImageDesc                                 CIdentifier(0x086185A4, 0x796A854C)
 #define Box_GrazVisualization                                   CIdentifier(0x00DD290D, 0x5F142820)

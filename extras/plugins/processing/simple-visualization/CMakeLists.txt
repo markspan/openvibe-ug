@@ -12,6 +12,13 @@ set(SRC_FILES
     src/CTraceBuffer.h
     src/CSignalDisplayController.cpp
     src/CSignalDisplayController.h
+    src/CLSLDisplayController.cpp  # UG fork: the LSL display
+    src/CLSLDisplayController.h
+    src/CLSLReader.cpp
+    src/CLSLReader.h
+    src/TracePalette.h
+    src/box-algorithms/CLSLDisplay.cpp
+    src/box-algorithms/CLSLDisplay.h
     src/box-algorithms/CBoxAlgorithmErpPlot.cpp
     src/box-algorithms/CBoxAlgorithmErpPlot.h
     src/box-algorithms/CBoxAlgorithmLevelMeasure.cpp
@@ -60,6 +67,8 @@ qt_add_qml_module(${PROJECT_NAME}
       qml/AmplitudeScaleBar.qml
       qml/TimeRuler.qml
       qml/StimulationOverlay.qml
+      qml/SettingsPanel.qml  # UG fork
+      qml/LSLDisplay.qml  # UG fork
 )
 
 qt_add_resources(${PROJECT_NAME} "resourcesSimpleVisualization"
@@ -85,6 +94,7 @@ target_link_libraries(${PROJECT_NAME}
                       openvibe-parameters-object
                       openvibe-visualization-toolkit
                       tinyxml2::tinyxml2 # UG fork: reads the P300 speller's grid file
+                      LSL::lsl # UG fork: the LSL display reads the streams itself
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES

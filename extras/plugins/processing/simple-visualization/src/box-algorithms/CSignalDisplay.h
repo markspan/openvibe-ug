@@ -41,6 +41,54 @@ namespace SimpleVisualization {
 class CSignalDisplayController;
 
 /**
+ * UG fork: the display settings, as the Signal display and the LSL display both have them: added to a box prototype, and
+ * read from a box into SDisplaySettings, with an error logged for a setting missing or out of range. One list for both.
+ * The settings are read by name, so their order in the prototype does not matter.
+ */
+constexpr const char* DISPLAY_SETTING_NAMES[] = {
+    "Display Mode", "Auto vertical scale", "Vertical Scale", "Vertical Offset", "Time Scale", "Bottom ruler", "Left ruler", "Multiview"
+};
+void addDisplaySettings(Kernel::IBoxProto& prototype);
+
+/**
+ * \param setting The box's setting of a name, as FSettingValueAutoCast reads it; a box passes a lambda, as only a box can
+ *                make one.
+ */
+template <class Setting>
+bool readDisplaySettings(const Kernel::IBox& box, Kernel::ILogManager& log, Setting setting, SDisplaySettings& settings)
+{
+    for (const char* name : DISPLAY_SETTING_NAMES)
+    {
+        if (!box.hasSettingWithName(CString(name)))
+        {
+            log << Kernel::LogLevel_Error << "Missing setting '" << name << "'\n";
+            return false;
+        }
+    }
+
+    // The two enumeration settings go through operator uint64_t(), which resolves the entry name
+    // through the type manager. The value it yields is the enumerator main.cpp registered, so it
+    // converts straight across -- no string matching, and no second enum to translate into.
+    settings.timeMode = ESignalDisplayMode(static_cast<uint64_t>(setting("Display Mode")));
+    settings.scaling  = ESignalDisplayScaling(static_cast<uint64_t>(setting("Auto vertical scale")));
+
+    settings.verticalScale      = static_cast<double>(setting("Vertical Scale"));
+    settings.baselineOffset     = static_cast<double>(setting("Vertical Offset"));
+    settings.timeScaleSeconds   = static_cast<double>(setting("Time Scale"));
+    settings.showTimeRuler      = static_cast<bool>(setting("Bottom ruler"));
+    settings.showAmplitudeRuler = static_cast<bool>(setting("Left ruler"));
+    settings.layout             = static_cast<bool>(setting("Multiview")) ? ELayoutMode::Butterfly : ELayoutMode::Stacked;
+
+    std::string error;
+    if (!settings.validate(error))
+    {
+        log << Kernel::LogLevel_Error << error.c_str() << "\n";
+        return false;
+    }
+    return true;
+}
+
+/**
 * Decodes the incoming streams and forwards them to a QML view that stacks every channel as one
 * trace of a single graph. The view is built on the designer's QML engine and handed to the window
 * manager as a QQuickItem.
@@ -142,15 +190,7 @@ public:
 
     bool getBoxPrototype(Kernel::IBoxProto& prototype) const override
     {
-        prototype.addSetting("Display Mode", TypeId_SignalDisplayMode, "Scan"); //list scroll or scan
-        prototype.addSetting("Auto vertical scale", TypeId_SignalDisplayScaling, "Per channel"); //"Per channel", "By type", "Global", "None"
-        // UG fork: no "Scale refresh interval (secs)": the scale is worked out again for every page
-        prototype.addSetting("Vertical Scale",OV_TypeId_Float, "100");
-        prototype.addSetting("Vertical Offset",OV_TypeId_Float, "0");
-        prototype.addSetting("Time Scale", OV_TypeId_Float, "10");
-        prototype.addSetting("Bottom ruler", OV_TypeId_Boolean, "true");
-        prototype.addSetting("Left ruler", OV_TypeId_Boolean, "false");
-        prototype.addSetting("Multiview", OV_TypeId_Boolean, "false");
+        addDisplaySettings(prototype);  // UG fork: shared with the LSL display
 
         prototype.addInput("Data", OV_TypeId_Signal);
         prototype.addInput("Stimulations", OV_TypeId_Stimulations);

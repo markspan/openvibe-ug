@@ -30,6 +30,7 @@
 #include "box-algorithms/CBoxAlgorithmLevelMeasure.h"
 
 #include "box-algorithms/CSignalDisplay.h"
+#include "box-algorithms/CLSLDisplay.h"  // UG fork
 
 // Presentation
 #include "box-algorithms/CDisplayCueImage.h"
@@ -68,6 +69,7 @@ OVP_Declare_Begin()
     OVP_Declare_New(CDisplayCueImageDesc)
     OVP_Declare_New(CBoxAlgorithmErpPlotDesc)
     OVP_Declare_New(CSignalDisplayDesc)
+    OVP_Declare_New(CLSLDisplayDesc)  // UG fork
     OVP_Declare_New(CGrazVisualizationDesc)
     OVP_Declare_New(CGrazMultiVisualizationDesc)
     OVP_Declare_New(CBoxAlgorithmLevelMeasureDesc)

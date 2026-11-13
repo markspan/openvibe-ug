@@ -37,17 +37,23 @@ namespace OpenViBE {
 namespace Plugins {
 namespace SimpleVisualization {
 
-namespace {
-/**
- * The box settings, by name. This is the only list of them: settings are read by name, so the
- * order here is documentation, not contract, and it matches the prototype in CSignalDisplay.h.
- */
-constexpr const char* SETTING_NAMES[] = {
-    "Display Mode", "Auto vertical scale", "Vertical Scale", "Vertical Offset", "Time Scale", "Bottom ruler", "Left ruler", "Multiview"
-};
-// UG fork: "Scale refresh interval (secs)" is gone, as the scale is worked out again for every page. The scenarios in
-// this repository no longer have it; others still play, as settings are read by name and the extra one is not read.
-}  // namespace
+// UG fork: the box settings, by name, are DISPLAY_SETTING_NAMES in CSignalDisplay.h, shared with the LSL display.
+// "Scale refresh interval (secs)" is gone, as the scale is worked out again for every page. The scenarios in this repository
+// no longer have it; others still play, as settings are read by name and the extra one is not read.
+
+void addDisplaySettings(Kernel::IBoxProto& prototype)
+{
+    // UG fork: moved here from CSignalDisplayDesc, in the same order, so that the Signal display's prototype is unchanged
+    prototype.addSetting("Display Mode", TypeId_SignalDisplayMode, "Scan"); //list scroll or scan
+    prototype.addSetting("Auto vertical scale", TypeId_SignalDisplayScaling, "Per channel"); //"Per channel", "By type", "Global", "None"
+    // UG fork: no "Scale refresh interval (secs)": the scale is worked out again for every page
+    prototype.addSetting("Vertical Scale",OV_TypeId_Float, "100");
+    prototype.addSetting("Vertical Offset",OV_TypeId_Float, "0");
+    prototype.addSetting("Time Scale", OV_TypeId_Float, "10");
+    prototype.addSetting("Bottom ruler", OV_TypeId_Boolean, "true");
+    prototype.addSetting("Left ruler", OV_TypeId_Boolean, "false");
+    prototype.addSetting("Multiview", OV_TypeId_Boolean, "false");
+}
 
 bool CSignalDisplay::initialize()
 {
@@ -64,37 +70,9 @@ bool CSignalDisplay::initialize()
     m_StimulationDecoder.initialize(*this, 1);
     m_UnitDecoder.initialize(*this, 2);
 
-    // Settings are read by name, so their order in the prototype does not matter.
-    for (const char* name : SETTING_NAMES)
-    {
-        if (!this->getStaticBoxContext().hasSettingWithName(CString(name)))
-        {
-            this->getLogManager() << Kernel::LogLevel_Error << "Missing setting '" << name << "'\n";
-            return false;
-        }
-    }
-
+    // UG fork: shared with the LSL display
     const auto setting = [this](const char* name) { return FSettingValueAutoCast(*this->getBoxAlgorithmContext(), CString(name)); };
-
-    // The two enumeration settings go through operator uint64_t(), which resolves the entry name
-    // through the type manager. The value it yields is the enumerator main.cpp registered, so it
-    // converts straight across -- no string matching, and no second enum to translate into.
-    m_settings.timeMode = ESignalDisplayMode(static_cast<uint64_t>(setting("Display Mode")));
-    m_settings.scaling  = ESignalDisplayScaling(static_cast<uint64_t>(setting("Auto vertical scale")));
-
-    m_settings.verticalScale       = static_cast<double>(setting("Vertical Scale"));
-    m_settings.baselineOffset      = static_cast<double>(setting("Vertical Offset"));
-    m_settings.timeScaleSeconds    = static_cast<double>(setting("Time Scale"));
-    m_settings.showTimeRuler       = static_cast<bool>(setting("Bottom ruler"));
-    m_settings.showAmplitudeRuler  = static_cast<bool>(setting("Left ruler"));
-    m_settings.layout              = static_cast<bool>(setting("Multiview")) ? ELayoutMode::Butterfly : ELayoutMode::Stacked;
-
-    std::string error;
-    if (!m_settings.validate(error))
-    {
-        this->getLogManager() << Kernel::LogLevel_Error << error.c_str() << "\n";
-        return false;
-    }
+    if (!readDisplaySettings(this->getStaticBoxContext(), this->getLogManager(), setting, m_settings)) { return false; }
 
     const CIdentifier windowManagerID = CIdentifier(
         getConfigurationManager().lookUpConfigurationTokenValue("VisualizationContext_WindowManagerID").toASCIIString());

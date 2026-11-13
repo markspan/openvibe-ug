@@ -248,7 +248,15 @@ bool CSignalTraceItem::recomputeLayout()
     return true;
 }
 
-int CSignalTraceItem::buildRuns(const size_t capacity, const size_t filled, const size_t writePos, const qreal w, SRun out[2]) const
+void CSignalTraceItem::setScrollLagSeconds(const double seconds)
+{
+    if (seconds == m_scrollLagSeconds) { return; }
+    m_scrollLagSeconds = seconds;
+    emit timeWindowChanged();
+    update();
+}
+
+int CSignalTraceItem::buildRuns(const size_t capacity, const size_t filled, const size_t writePos, const qreal w, const double lagSamples, SRun out[2]) const
 {
     if (capacity == 0 || filled == 0 || w <= 0.0) { return 0; }
 
@@ -256,9 +264,10 @@ int CSignalTraceItem::buildRuns(const size_t capacity, const size_t filled, cons
 
     if (m_settings.timeMode == ESignalDisplayMode::Scroll)
     {
-        // The newest sample sits at the right edge; the span may wrap the ring.
+        // The newest sample sits at the right edge, or as far left of it as the stream lags, see setScrollLagSeconds();
+        // the span may wrap the ring.
         const size_t first = (writePos + capacity - filled) % capacity;
-        const qreal  x0    = w - qreal(filled - 1) * dx;
+        const qreal  x0    = w - (qreal(filled - 1) + lagSamples) * dx;
         const size_t head  = std::min(filled, capacity - first);
 
         out[0] = { first, head, x0, dx };
@@ -271,8 +280,14 @@ int CSignalTraceItem::buildRuns(const size_t capacity, const size_t filled, cons
     // across the sweep discontinuity between the old page and the new one.
     if (filled < capacity)
     {
-        out[0] = { 0, filled, 0.0, dx };
-        return 1;
+        // UG fork: the first page starts at the ring's slot offset, which a time-locked ring sets (CTraceBuffer::setTimeOrigin()),
+        // and may wrap; upstream's always started at slot 0
+        const size_t first = (writePos + capacity - filled) % capacity;
+        const size_t head  = std::min(filled, capacity - first);
+        out[0]             = { first, head, qreal(first) * dx, dx };
+        if (head == filled) { return 1; }
+        out[1] = { 0, filled - head, 0.0, dx };
+        return 2;
     }
 
     int n = 0;
@@ -303,7 +318,7 @@ QSGNode* CSignalTraceItem::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData
     }
 
     SRun      runs[2];
-    const int nRuns = buildRuns(r.capacity(), r.filled(), r.writePos(), w, runs);
+    const int nRuns = buildRuns(r.capacity(), r.filled(), r.writePos(), w, m_scrollLagSeconds * r.sampling(), runs);
     if (nRuns == 0)
     {
         trimChildren(root, 0);
@@ -525,7 +540,7 @@ qreal CSignalTraceItem::timeAtX(const qreal x) const
     const qreal  dx       = width() / qreal(capacity);
 
     double index;
-    if (m_settings.timeMode == ESignalDisplayMode::Scroll) { index = total - 1.0 - (width() - x) / dx; }
+    if (m_settings.timeMode == ESignalDisplayMode::Scroll) { index = total - 1.0 - m_scrollLagSeconds * r.sampling() - (width() - x) / dx; }
     else
     {
         const double slot = x / dx;
@@ -550,8 +565,9 @@ qreal CSignalTraceItem::xAtTime(const qreal seconds) const
     if (index < oldest || index > total) { return -1.0; }
 
     const qreal dx = width() / qreal(capacity);
-    if (m_settings.timeMode == ESignalDisplayMode::Scroll) { return width() - (total - 1.0 - index) * dx; }
-    return std::fmod(index, double(capacity)) * dx;
+    if (m_settings.timeMode == ESignalDisplayMode::Scroll) { return width() - (total - 1.0 - index + m_scrollLagSeconds * r.sampling()) * dx; }
+    // UG fork: from the ring's slot offset, see CTraceBuffer::setTimeOrigin()
+    return std::fmod(index + double(r.slotOffset()), double(capacity)) * dx;
 }
 
 qreal CSignalTraceItem::cursorX() const
