@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 43 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 44 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 304 files, about 33,200 lines added and 3,400 removed (of which 3,000 a test input) |
+| Size | 307 files, about 34,000 lines added and 3,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -72,6 +72,7 @@ Everything outside the files listed here is identical to upstream.
 | Designer | Clicking two outputs could try to link a box to itself and wedge link creation | Second click on a port of the same kind restarts the link; failures end link creation |
 | Path parameters | Re-choosing the same file in the file dialog does nothing | Re-choosing the same file applies it again (reloads an edited montage) |
 | Client memory | Acquisition client leaked every received message's arrays | Arrays freed |
+| Server restarted under a running scenario | Connected clients keep the first settings; blocks larger than they expect are cut, the rest dropped without a word (a block size of 64 after 4 keeps one sample in 16), other channels are misread | Clients get the new settings; every sample is kept whatever the block size; another rate or other channels stop the scenario with an error that says so |
 | Client box in scenarios | 31 scenarios, among them all of the speller, use the legacy box, which gets nothing from this server | They use the current `Acquisition client`, on port 8088 |
 | Quiet connections | A client silent for 5 s is no longer read; a server silent for 5 s loses its client | They keep the connection |
 | Late TCP markers | A marker that reaches the server after its chunk has gone lands on the next chunk's first sample | It lands on its own sample, as the Acquisition client sends markers at least 100 ms behind the signal, which itself is not delayed |
@@ -838,6 +839,28 @@ How the boxes connect: the display's output is a new stream type, *LSL streams*,
 - The display's prototype gained the output, so a scenario with the LSL display from before this has it outdated; Designer offers to update it.
 - Tested with `test-lsl-recorder` (3 tests). It records three streams the test sends itself: 3 float channels at 200 Hz with labels, of which only Fp1 and Pz; an int16 stream; and text markers. Then it reads the file back with a parser of its own: every sample and time stamp as sent, the two channels with their descriptions and the note `1,3`, the footers, a clock offset. The same file loaded in pyxdf 1.17 and in MATLAB with `load_xdf` (EEGLAB's xdfimport 1.2): all 400, 100 and 3 samples, the EEG as 2 channels labelled Fp1 and Pz, the markers 0.25 s after the first sample as sent, the footers and clock offsets. Both tutorials load without being out of date, and the writer waits for Record without writing a file. **Not yet tried:** the Record button with streams ticked; that needs the display on screen.
 
+### 2.30 No sample dropped when the server's settings change under a running scenario
+
+**Files**
+- `extras/plugins/processing/acquisition/src/box-algorithms/SampleBlocks.h` (new), `BoxAcquisitionClient.cpp`, `BoxAcquisitionClient.h`
+- `extras/applications/platform/acquisition-server/core/Acquisition.cpp`
+- `extras/plugins/processing/acquisition/test/SampleBlocksTest.cpp` (new), `test/CMakeLists.txt`
+- `extras/applications/platform/acquisition-server/test/AcquisitionConfigTest.cpp` (new)
+
+**What went wrong**
+
+The server tells a client its settings (rate, channels, "Sample count per sent block") once, when the client connects. Restarted with other settings, it did not tell the clients still connected, and the Acquisition client box took only the first settings it got. It wrote each block into one chunk of the size it knew, and dropped what did not fit, without a word. With the block size raised from 4 to 64 under a running scenario, the box kept the first 4 samples of every 64: one sample in 16. The Signal display took 15 to 16 s to fill a page of 1 s, and its ruler still read 1 s a page, as it counts the samples it gets. A recording would have held the same sixteenth. Other channels would have been worse: the box read each block with the old channel count, mixing the channels up, and past the end of a smaller block.
+
+**What it does now**
+- **The server sends its settings to every connected client** each time it sets up an acquisition, not only to a client that connects.
+- **The client never drops a sample.** `SampleBlocks` cuts the server's blocks, of any size, into the chunks of the scenario's signal stream: blocks of 64 into 16 chunks of 4, blocks of 4 gathered into chunks of 32. A stimulation goes with the chunk that holds the last sample of the block it came with, never an earlier one. A changed block size only gets a warning in the log.
+- **A change the stream can not take stops the scenario, with an error that says so:** another sampling rate, another channel count, other channel names or another montage. A signal stream keeps its header from start to end, and no box can take one that changes midway. The message gives both settings and says to start the scenario again. A block whose values are not a whole number of samples of the stream's channels stops it too, also from a server without this change, which does not send the new settings.
+- Settings that come before the stream has begun replace the earlier ones; samples received under those earlier ones are left out, with a warning.
+
+**Consequences**
+- A recording or display can no longer be silently thinned out or scrambled by changing the server's settings during a run. A changed block size goes on without loss; any other change stops the scenario.
+- Tested with `test-sample-blocks` (4 tests): blocks of 64 into chunks of 4 keep all 128 samples, in order, with their stamps; blocks of 4 wait to fill a chunk of 32; a stimulation waits for the chunk with its block's last sample; a block of other channels is refused, not misread. `AcquisitionConfigTest` (server core, 67 tests in all): after the acquisition is set up again with blocks of 64, the connected client is sent the new settings; it fails without the change. **Not yet tried:** the whole path, server restarted under a running scenario in Designer.
+
 ---
 
 ## 3. All modified files
@@ -873,7 +896,7 @@ How the boxes connect: the display's output is a new stream type, *LSL streams*,
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` | 2.21 |
-| M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21 |
+| M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21, 2.30 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.h` | 2.4, 2.6, 2.7, 2.8, 2.16 |
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.cpp` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.h` | 2.4 |
@@ -882,6 +905,7 @@ How the boxes connect: the display's output is a new stream type, *LSL streams*,
 | M | `extras/applications/platform/acquisition-server/main.cpp` | 2.17 |
 | M | `extras/applications/platform/acquisition-server/settings/SessionManager.cpp` | 2.14 |
 | M | `extras/applications/platform/acquisition-server/settings/SessionManager.h` | 2.14 |
+| A | `extras/applications/platform/acquisition-server/test/AcquisitionConfigTest.cpp` | 2.30 |
 | A | `extras/applications/platform/acquisition-server/test/CharmeleonMontageTest.cpp` | 2.3 |
 | A | `extras/applications/platform/acquisition-server/test/CircularBufferTest.cpp` | 2.4 |
 | A | `extras/applications/platform/acquisition-server/test/OvMsgSerializerTest.cpp` | 2.7 |
@@ -920,10 +944,12 @@ How the boxes connect: the display's output is a new stream type, *LSL streams*,
 | M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27 |
 | M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27 |
 | M | `extras/plugins/processing/acquisition/CMakeLists.txt` | 2.20 |
-| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7, 2.20 |
-| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7, 2.20 |
+| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7, 2.20, 2.30 |
+| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7, 2.20, 2.30 |
+| A | `extras/plugins/processing/acquisition/src/box-algorithms/SampleBlocks.h` | 2.30 |
 | A | `extras/plugins/processing/acquisition/src/box-algorithms/StimulationDelay.h` | 2.20 |
-| A | `extras/plugins/processing/acquisition/test/CMakeLists.txt` | 2.20 |
+| A | `extras/plugins/processing/acquisition/test/CMakeLists.txt` | 2.20, 2.30 |
+| A | `extras/plugins/processing/acquisition/test/SampleBlocksTest.cpp` | 2.30 |
 | A | `extras/plugins/processing/acquisition/test/StimulationDelayTest.cpp` | 2.20 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.18 |
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TagDate.h` | 2.18 |

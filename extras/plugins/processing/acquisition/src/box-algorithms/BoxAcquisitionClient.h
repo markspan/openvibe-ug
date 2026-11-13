@@ -12,9 +12,10 @@
 
 #include <openvibe/acquisition-messaging/samples.h>
 
+#include "SampleBlocks.h"
 #include "StimulationDelay.h"
 
-#include <queue>
+#include <string>
 #include <vector>
 
 namespace Network {
@@ -63,16 +64,17 @@ protected:
   std::string m_montage;
   std::string m_electrodePositions;
 
-  // UG fork: the stamps are kept and the stimulations stay in the server's clock, for StimulationDelay to place. Upstream gives
-  // each stimulation a sample within the chunk it came with, and has no stamps here.
-  struct ReceivedChunk {
-    std::vector<double>        samples;
-    std::vector<uint64_t>      stamps;
-    std::vector<ovStimulation> stims;
-  };
+  // UG fork: the channel names of the stream's header, against which a later configuration from the server is checked
+  std::vector<std::string> m_channelNames;
 
-  std::queue<ReceivedChunk> m_chunkQueue;
+  // UG fork: the server's blocks, of any size, cut into the stream's chunks, with the server's stamps, see SampleBlocks. Upstream
+  // queued each block as one chunk and dropped what did not fit.
+  SampleBlocks m_blocks;
   StimulationDelay m_stimulationDelay;  // UG fork
+  // UG fork: set by the network thread, logged by process(). A failure stops the scenario: the server's samples no longer fit the
+  // stream (another rate, other channels), and no box can take a stream that changes midway.
+  std::string m_failure;
+  std::string m_notice;
   std::mutex m_signalMutex;
   CMatrix* m_signalMatrix = nullptr;
 

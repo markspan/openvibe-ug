@@ -316,6 +316,13 @@ void Acquisition::initAcquisition()
             w->init(m_chunkSampleCount.value(), channelCount);
             w->onAcquisitionSetup(sampleRate, m_channelInfo);  // UG fork: the montage too; upstream passes the names
         }
+
+        // UG fork: the clients that are connected already get these settings too; addClient() gives them only to a client
+        // that connects. Upstream's kept reading the new blocks with the settings they had, and a client that expected 4 samples
+        // a block kept 4 of each 64. The client checks them against its stream (BoxAcquisitionClient.cpp). See UG.md 2.30.
+        if (!m_clientsList.empty()) {
+            for (auto& w : m_writers) { w->writeAcquisitionConfig(channelCount, sampleRate, m_chunkSampleCount.value(), m_channelInfo); }
+        }
     }
 }
 

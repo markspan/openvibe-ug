@@ -106,6 +106,16 @@ bool CBoxAcquisitionClient::process()
 {
   std::lock_guard<std::mutex> lock(m_signalMutex);
 
+  // UG fork: what the network thread found, see receiveDataStream()
+  if (!m_notice.empty()) {
+    this->getLogManager() << Kernel::LogLevel_Warning << m_notice.c_str() << "\n";
+    m_notice.clear();
+  }
+  if (!m_failure.empty()) {
+    this->getLogManager() << Kernel::LogLevel_Error << m_failure.c_str() << "\n";
+    return false;
+  }
+
   if (m_acquisitionConfigured && !m_headerSent) {
     Kernel::IBoxIO& boxContext = this->getDynamicBoxContext();
     // UG fork: before the header, with which the BrainVision writer writes its own
@@ -124,17 +134,17 @@ bool CBoxAcquisitionClient::process()
     m_stimulationDelay.configure(StimulationDelay::chunksFor(m_sampleChunk, m_sampleRate),
                                  [this](const size_t sample) { return CTime(m_sampleRate, sample).time(); });
     m_headerSent = true;
-  } else if (m_headerSent && !m_chunkQueue.empty()) {
+  } else if (m_headerSent && m_blocks.hasChunk()) {
     Kernel::IBoxIO& boxContext = this->getDynamicBoxContext();
 
     // Drain everything that arrived since the last tick rather than one chunk per tick. The clock
     // runs at getClockFrequency() (64 Hz), so emitting a single chunk per call capped this box at
     // 64 * m_sampleChunk samples/s -- only 2048 Hz with the default 32-sample block. Past that the
     // stream fell behind the wall clock (a 16384 Hz device advanced at an eighth of real time) and
-    // m_chunkQueue grew without bound. Sending several chunks from one process() is the usual
+    // the queue grew without bound. Sending several chunks from one process() is the usual
     // pattern here; see CBoxAlgorithmOVCSVFileReader::process().
-    while (!m_chunkQueue.empty()) {
-      ReceivedChunk& chunk = m_chunkQueue.front();
+    while (m_blocks.hasChunk()) {
+      SampleBlocks::Chunk chunk = m_blocks.takeChunk();
 
       double* buffer = m_signalMatrix->getBuffer();
       std::copy(chunk.samples.begin(), chunk.samples.end(), buffer);
@@ -158,7 +168,6 @@ bool CBoxAcquisitionClient::process()
         boxContext.markOutputAsReadyToSend(1, due.startTime, due.startTime + chunkDuration);
       }
 
-      m_chunkQueue.pop();
       m_startTime = m_lastEndTime;
     }
   }
@@ -236,50 +245,65 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
         {
           auto& payload = msg.msgData.samplesStruct;
           std::lock_guard<std::mutex> lock(m_signalMutex);
+          if (!m_failure.empty()) { break; }  // the scenario stops at the next process()
 
-          // Acquisition-server streams interleaved (sample-major) data, so we need to transpose
-          // the received data into the signal matrix.
-          //
-          // The row length is m_sampleChunk, declared by
-          // OV_MSG_ACQUISITION_CONFIG, while payload.count is what this message actually carries.
-          // AbstractWriter only emits full chunks today, so the two normally agree, but a short
-          // chunk would leave stale values in each row's tail and a long one would run past the
-          // resize() below. Both would read as scrambled channel ordering.
-          ReceivedChunk chunk;
-          chunk.samples.assign(m_channelCount * m_sampleChunk, 0.0);
-          const size_t sampleCount = std::min<size_t>(payload.count, m_sampleChunk);
-          for (size_t i = 0; i < sampleCount; ++i) {
-            for (size_t j = 0; j < m_channelCount; ++j) {
-              chunk.samples[j * m_sampleChunk + i] = static_cast<double>(payload.samples[i * m_channelCount + j]);
-            }
+          // UG fork: the block, of whatever size, goes to SampleBlocks, which cuts it into the stream's chunks and keeps every
+          // sample. Upstream wrote it into one chunk of m_sampleChunk samples, and dropped the samples past that: after the server
+          // was restarted with blocks of 64 instead of 4, a running scenario kept one sample in 16, and said nothing.
+          // The number of values is worked out as deserializeOvMsg() does, from the message's size.
+          const size_t fixed  = 4 * sizeof(uint32_t) + size_t(payload.count) * sizeof(timestampType)
+                                + size_t(payload.stimCount) * sizeof(ovStimulation);
+          const size_t values = msg.msgSize >= fixed ? (msg.msgSize - fixed) / sizeof(sampleType) : 0;
+          if (!m_blocks.add(payload.samples, values, payload.timestamp, payload.count, payload.stimulations, payload.stimCount)) {
+            m_failure = !m_blocks.configured()
+                          ? std::string("The acquisition server sent samples before its settings; they can not be placed.")
+                          : "The acquisition server sent a block of " + std::to_string(payload.count) + " samples with "
+                            + std::to_string(values) + " values, which is not " + std::to_string(m_channelCount)
+                            + " channels: its channels changed while the scenario ran. Start the scenario again.";
           }
-
-          // UG fork: placed in process(), see StimulationDelay
-          chunk.stamps.assign(payload.timestamp, payload.timestamp + payload.count);
-          chunk.stims.assign(payload.stimulations, payload.stimulations + payload.stimCount);
-
-          m_chunkQueue.push(std::move(chunk));
         }
         break;
       case ovMsg::msgTypeEnum::OV_MSG_ACQUISITION_CONFIG:
         {
           std::lock_guard<std::mutex> lock(m_signalMutex);  // UG fork: the matrix is also read by process()
-          if (! m_acquisitionConfigured) {
-            auto& payload = msg.msgData.acquisitionConfigStruct;
+          auto& payload = msg.msgData.acquisitionConfigStruct;
+
+          // UG fork: the server sends the channel names, a channel without one is numbered from 1, and the montage
+          // that named them (ovChannelInfo.h). Upstream leaves the channels unnamed
+          const ovChannelInfo info = decodeChannelInfo(payload.channelNames, payload.channelNamesSize, payload.channelCount);
+          std::vector<std::string> names(payload.channelCount);
+          for (size_t i = 0; i < names.size(); ++i) { names[i] = info.names[i].empty() ? std::to_string(i + 1) : info.names[i]; }
+
+          // UG fork: the server sends its settings again when it starts an acquisition anew (Acquisition::initAcquisition()).
+          // Upstream took only the first, and read the blocks of a restarted server with the settings of the one before.
+          if (m_headerSent) {
+            // The stream has gone out with the first settings, and can not change them. Another block size is fine: the
+            // blocks are cut into the stream's chunks. Another rate, or other channels, can not be placed in the stream.
+            if (payload.sampleRate != m_sampleRate || payload.channelCount != m_channelCount || names != m_channelNames
+                || info.montage != m_montage) {
+              m_failure = "The acquisition server was started again with other settings (" + std::to_string(payload.sampleRate)
+                          + " Hz, " + std::to_string(payload.channelCount) + " channels; the scenario has " + std::to_string(m_sampleRate)
+                          + " Hz, " + std::to_string(m_channelCount) + " channels" + (names != m_channelNames ? ", other names" : "")
+                          + (info.montage != m_montage ? ", another montage" : "") + "). Start the scenario again.";
+            }
+            else if (payload.sampleChunk != m_sampleChunk) {
+              m_notice = "The acquisition server now sends blocks of " + std::to_string(payload.sampleChunk) + " samples; the signal stream keeps its chunks of "
+                         + std::to_string(m_sampleChunk) + ", and every sample.";
+            }
+          }
+          else {
+            if (m_blocks.pendingSamples() > 0 || m_blocks.hasChunk()) {
+              m_notice = "The acquisition server was started again before the scenario's signal stream began; the samples before that are left out.";
+            }
             m_channelCount = payload.channelCount;
             m_sampleRate = payload.sampleRate;
             m_sampleChunk = payload.sampleChunk;
             m_signalMatrix->resize(m_channelCount, m_sampleChunk);
-
-            // UG fork: the server sends the channel names, a channel without one is numbered from 1, and the montage
-            // that named them (ovChannelInfo.h). Upstream leaves the channels unnamed
-            const ovChannelInfo info = decodeChannelInfo(payload.channelNames, payload.channelNamesSize, m_channelCount);
-            for (size_t i = 0; i < m_channelCount; ++i) {
-              const std::string label = info.names[i].empty() ? std::to_string(i + 1) : info.names[i];
-              m_signalMatrix->setDimensionLabel(0, i, label.c_str());
-            }
+            for (size_t i = 0; i < m_channelCount; ++i) { m_signalMatrix->setDimensionLabel(0, i, names[i].c_str()); }
+            m_channelNames       = std::move(names);
             m_montage            = info.montage;
             m_electrodePositions = encodeElectrodePositions(info);
+            m_blocks.configure(m_channelCount, m_sampleChunk);
 
             m_acquisitionConfigured = true;
             std::cout << "Acquisition started" << std::endl;
