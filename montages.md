@@ -1,6 +1,6 @@
 # Montages in the UG-lab EEG workflow
 
-A how-to for montages in the UG fork of OpenViBE: what they are and why each amplifier needs a different kind, how to make one in Charmeleon, and how the acquisition server and the BrainVision writer use it.
+A how-to for montages in the UG fork of OpenViBE: what they are and why each amplifier needs a different kind, how to make one in Charmeleon, and how the acquisition server, the BrainVision writer and the LSL stream use it.
 
 **You need:**
 - the UG fork of OpenViBE (this repository), built from the commit that added this file or later;
@@ -10,15 +10,16 @@ A how-to for montages in the UG fork of OpenViBE: what they are and why each amp
 
 ## 1. What a montage is
 
-A **montage** is a small JSON file that says, for every electrode, **which amplifier channel it is wired to**, what it is called, and where it sits on the head. In this workflow the same file is used in three places:
+A **montage** is a small JSON file that says, for every electrode, **which amplifier channel it is wired to**, what it is called, and where it sits on the head. In this workflow the same file is used in four places:
 
 | Where | What the montage does there |
 |---|---|
 | **Charmeleon** (impedance check) | Shows each electrode's impedance at its place on the head map, under its name. |
 | **Acquisition server** (TMSi and eego drivers) | Names the channels, and decides which EEG channels are recorded: an EEG channel the montage leaves out is not recorded. |
 | **BrainVision writer (UG)** in Designer | Writes the montage's name and where each electrode sat into the recording's header (`[Coordinates]`), so that EEGLAB, MNE and BrainVision Analyzer load the layout with the data. It takes the montage from the acquisition server: there is nothing to set. |
+| **LSL Output** of the acquisition server | Puts the channel names, each electrode's position and the montage's name in the LSL stream's description, so that an XDF file recorded from it (with LabRecorder, or the LSL XDF writer box) has the layout too (section 7). |
 
-So there is **one source of truth**. You name the electrodes once, in Charmeleon, and the impedance check, the recording and the analysis all agree on what "Cz" is.
+So there is **one source of truth**. You name the electrodes once, in Charmeleon, and the impedance check, the recordings and the analysis all agree on what "Cz" is.
 
 ---
 
@@ -149,8 +150,8 @@ Under the driver settings the server says what the montage did, for example:
 | The note's colour | Means |
 |---|---|
 | Blue | All is well. |
-| Orange | Something to look at: electrodes the amplifier has no channel for ("Not recorded: Left (EEG 73)"), a montage made for another amplifier, problems in the file, or a montage file that has gone (see 5.5). |
-| Red | The montage can not be used ("Montage ... not found"), or Play failed and why. |
+| Orange | Something to look at: electrodes the amplifier has no channel for ("Not recorded, as the amplifier has no such channel: Left (EEG 73)"), a montage made for another amplifier, problems in the file, or a montage file that has gone (see 5.5). |
+| Red | The montage can not be used ("Montage ... not found"), or Play failed and why. A montage that can not be used stops Play too: choose another one, or clear the setting, to record. |
 
 In the **Channel Names** list, the entries the montage decides are **greyed and read-only**. Hover over one to see why. That is every EEG channel, named or left out, plus the BIP and AUX channels the montage names. Change these in the montage, in Charmeleon. The other entries stay yours: type a name to record a BIP or AUX channel the montage does not name.
 
@@ -158,9 +159,9 @@ In the **Channel Names** list, the entries the montage decides are **greyed and 
 
 With no amplifier connected, the server can not know which of its channels are EEG. It shows the montage's names anyway, provisionally, and the note says so:
 - **TMSi:** it assumes the layout of a Refa. The list's channels are EEG, except the last eight, which are BIP1–4 and AUX1–4, with their hints. A montage's BIP and AUX channels land there, and names you type for them are kept.
-- **eego:** every entry counts as EEG, in channel order.
+- **eego:** every entry counts as EEG, in channel order. The montage's BIP and AUX channels are named on Play; the note lists them ("Named on Play: ...").
 
-**Play** opens the amplifier and puts every name on the right channel, so the provisional list never ends up in a recording.
+Until then only the entries the montage names are greyed, as the others may turn out to be BIP or AUX channels, whose names are yours. **Play** opens the amplifier and puts every name on the right channel, so the provisional list never ends up in a recording.
 
 ### 5.4 Editing a montage from the acquisition server
 
@@ -177,6 +178,8 @@ If you used **Save Montage As**, the driver switches to the new file. A Charmele
 ### 5.5 When the montage file is moved or deleted
 
 Each time the server loads a montage it keeps a copy, in `%LOCALAPPDATA%\OpenViBE\acquisition-server\montages`. If the file is gone at the next session, the driver uses that copy, and the note turns orange to tell you. Restore the file, or choose another montage, to make the note go away.
+
+The impedance button then opens that copy in Charmeleon, and closing it saves your edits to the copy. To give the montage a place of its own again, use **Save Montage As**: the driver switches to the new file.
 
 ---
 
@@ -196,7 +199,11 @@ Use them by name in the acquisition server (section 5.1), or open one in Charmel
 
 ## 7. Electrode positions in the recording
 
-The montage is chosen in one place: the acquisition server's driver. On Play the server sends its name and the position of each electrode to Designer, with the channel names, and the **BrainVision Format file writer (UG)** box writes them into the header (`.vhdr`):
+The montage is chosen in one place: the acquisition server's driver. On Play the server sends its name and the position of each electrode, with the channel names, to Designer and to the LSL stream.
+
+### 7.1 BrainVision files
+
+The **BrainVision Format file writer (UG)** box writes them into the header (`.vhdr`):
 - a `[Coordinates]` section, one line per channel: `Ch<n>=1,<theta>,<phi>`, on a unit sphere, in BrainVision's convention (theta negative on the left half of the head);
 - a line under `[Comment]` naming the montage: `Montage: Refa-64.json (electrode positions of 62 channels)`.
 
@@ -211,6 +218,12 @@ Where the positions come from:
 Without a montage in the server, or when the signal comes from a file rather than the server, the header has no positions and no montage line.
 
 Up to version 1.3 the writer box had a **Montage (electrode positions)** setting of its own. A scenario saved with it still opens; the setting is ignored.
+
+### 7.2 LSL streams and XDF files
+
+With the server's **LSL Output** on, the signal stream's description has, for every channel, its `label`, and with a montage its `type`: `EEG` for an electrode the montage places on the head, with a `location` (`X`, `Y`, `Z`), and `AUX` for any other channel (EOG, ECG, ...). The montage's name is under `cap`. LabRecorder and the **LSL XDF writer (UG)** box copy the description into the XDF file, in the fields the XDF specification gives for channels (`label`, `type`, `location`) and caps. The XDF writer records only the channels shown, and keeps the entries of those.
+
+The locations are in millimetres, X to the right, Y to the front and Z to the top, on a head of 85 mm radius: a montage gives only the directions, and no head was measured. Without a montage the channels have a label only.
 
 ---
 
@@ -254,6 +267,7 @@ An electrode is **in use** when it is active and on a channel (`HardwareChannel`
 | "the file is gone, so this is the copy kept from its last use" | Restore the file or choose another montage (section 5.5). |
 | "Play failed: ..." in red | The note says why: e.g. no device connected, the device refuses access because another program (Charmeleon) holds it, or no channel has a name. |
 | Charmeleon opens in demo mode from the impedance button | It could not open the driver's amplifier; its message says why. Is the amplifier on, and not in use by another program? |
+| A running scenario stops: "... another montage). Start the scenario again." | The server was started again with another montage, or other channels, while the scenario ran. A signal keeps its channels from start to end, so start the scenario again. |
 | You need the server's full messages | Everything the server prints, montage messages included, is in `%APPDATA%\OpenVIBE-4.0\log\openvibe-acquisition-server-console.log`; the previous run's is `…console.previous.log`. |
 | Edits in Charmeleon do not reach the server | Is it Charmeleon 2.2 or later? Check **About**. An older one does not report back; save there, then choose the montage file again in the server. |
 
