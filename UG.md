@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 39 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 41 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 296 files, about 32,000 lines added and 3,400 removed (of which 3,000 a test input) |
+| Size | 304 files, about 33,200 lines added and 3,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -64,7 +64,7 @@ Everything outside the files listed here is identical to upstream.
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
 | Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
-| LSL streams | Seen through the acquisition server's LSL driver: one data stream and one marker stream, numbers only, timed when they arrive | "LSL display (UG)" box: any number of data streams of any rate, stacked on one time axis by their LSL times, and number and text markers on all; streams ticked while it runs |
+| LSL streams | Seen through the acquisition server's LSL driver: one data stream and one marker stream, numbers only, timed when they arrive | "LSL display (UG)" box: any number of data streams of any rate, stacked on one time axis by their LSL times, and number and text markers on all; streams ticked while it runs. "LSL XDF writer (UG)" connected to it records the ticked streams as LabRecorder does |
 | BrainVision file integrity | eego data in volt in a microvolt file; TMSi BIP and AUX channels unscaled; markers counted from the scenario's start, not the file's first sample; the header written only at the end | eego in microvolt and its stream order checked; markers on their own sample; files written out at every step; a script that checks a recording |
 | P300 speller | Display box not ported to Qt and not built, so 6 of the 11 speller scenarios can not run; the Lua online scripts also stop with an error | Ported, and the error repaired; markers are sent once the flash is on screen; also a set of scenarios with Python scripts |
 | Player timing | Designer's player runs in rounds with a 50 ms sleep between them, so stimuli can be up to about 60 ms off | 1 ms sleep |
@@ -775,7 +775,7 @@ It checks the header, that the data is a whole number of samples without NaN, an
 
 **What it does**
 
-"LSL display (UG)", under *Visualization/Basic*, shows LabStreamingLayer streams from the network. It is for seeing them; record them with LabRecorder. The acquisition server's LSL driver can not do this: a driver carries one stream, at one rate.
+"LSL display (UG)", under *Visualization/Basic*, shows LabStreamingLayer streams from the network; the LSL XDF writer (2.29) connected to it records them. The acquisition server's LSL driver can not do this: a driver carries one stream, at one rate.
 
 - **No acquisition server and no inputs.** The box finds the streams itself. Put it in a scenario on its own (`box-tutorials/lsl-display.xml`) and press Play.
 - **Streams are chosen while it runs.** The panel lists the streams on the network under *Streams*, brought up to date every second, as "name (type, 32 ch, 2048 Hz)" or "name (type, text markers)". Tick a stream to show it, untick it to close it. A stream that goes away stays listed while it is ticked, and comes back by itself when it does.
@@ -786,6 +786,13 @@ It checks the header, that the data is a whole number of samples without NaN, an
 How streams of different rates line up:
 - Each sample is placed by its LSL time, corrected to this computer's clock and smoothed, as LabRecorder's files are when loaded. Every stream's ring is locked to one clock (`CTraceBuffer::setTimeOrigin()`). In Scan mode a time is at the same x in every panel, whatever the stream's rate or start. In Scroll mode each stream is drawn as far behind the newest as it lags, so that the panels scroll together.
 - A stream's samples do not come exactly at its nominal rate. When the count of samples and their LSL times drift two samples apart, the ring follows the times: a gap is drawn with the last values, and samples that come early overwrite the last ones. So the times stay right for hours.
+- Every ring starts at the grid point of its first sample on the shared clock, and every chunk is measured on that grid. So the time of a slot is the same in every stream, and each sample lies less than two samples, plus half a sample of grid, from its date. A test runs two streams for an hour: 500 Hz running 500 ppm fast in chunks of 20, its first date 15 ms off; and 128 Hz running 0.1 % slow in chunks of 4. At the end, each still draws a time on the sample of that time.
+
+Why the streams' cursors differ, and move against each other:
+- A stream's cursor is where its newest sample is, which is its date of that sample, not the time now. Each panel's header shows how far that is behind now, e.g. "42 ms behind". The distance between two cursors is the difference between their delays.
+- **The delay depends on how the sender sends.** A stream pushed in chunks of 32 samples at 512 Hz arrives up to 62 ms after its first sample's date; one pushed sample by sample arrives within milliseconds. Chunks of different streams come at their own moments, so their cursors jump against each other.
+- **The dates settle over the first minutes.** LSL corrects each sample's date to this computer's clock and smooths it (clock sync and dejitter), as `load_xdf` does when it loads a LabRecorder file. Online, the clock offset is measured again every few seconds, and the smoothing learns the stream's real rate over about a minute and a half. The dates, and with them the cursors, shift a little until it has. `load_xdf` fits the whole recording at once, so its times can differ from the display's by that much in the first minute.
+- None of this moves the data: every sample is drawn at its own date. A marker sent at the same moment as a sample in two streams stands on that sample in both, wherever the cursors are.
 
 For this, the Signal display's parts became shared, each in one place:
 - `SettingsPanel.qml` is the panel with its gear button, used by both displays.
@@ -797,7 +804,34 @@ For this, the Signal display's parts became shared, each in one place:
 - The streams ticked are not saved with the scenario: they are ticked again after Play. Their uids change with every start of the sending program anyway.
 - There is no Channels per page: the panels share the window's height.
 - At most 2048 markers are kept.
-- Tested with `test-lsl-reader` (3 tests), which sends its own LSL streams on this computer: a data stream comes in with its labels, units and times; number and text markers with their times; a stream unticked is closed. Also tested with `test-signal-display` (18 tests, among them the time-locked rings: rates lining up, gaps, early samples, jitter). The box plays in Designer without errors, and the whole test suite passes. **Not yet looked at on screen**, with real streams.
+- Tested with `test-lsl-reader` (3 tests), which sends its own LSL streams on this computer: a data stream comes in with its labels, units and times; number and text markers with their times; a stream unticked is closed. Also tested with `test-signal-display` (19 tests, among them the time-locked rings: rates lining up, gaps, early samples, jitter, and the hour of two drifting streams). The box plays in Designer without errors, and the whole test suite passes. **Not yet looked at on screen**, with real streams.
+
+---
+
+### 2.29 LSL XDF writer (new box)
+
+**Files**
+- `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLXDFWriter.cpp`, `CLSLXDFWriter.h` (new): the box
+- `extras/plugins/processing/simple-visualization/src/CLSLRecorder.cpp`, `.h`, `XDFWriter.cpp`, `.h` (new)
+- `box-algorithms/CLSLDisplay.cpp`, `CLSLDisplay.h`, `CLSLDisplayController.cpp`, `CLSLDisplayController.h`, `defines.hpp`, `main.cpp`, `CMakeLists.txt`
+- `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display-xdf.xml` (new), `box-tutorials/lsl-display.xml`
+- `extras/plugins/processing/simple-visualization/test/LSLRecorderTest.cpp` (new), `test/CMakeLists.txt`
+
+**What it does**
+
+"LSL XDF writer (UG)", under *File reading and writing/XDF*, records LSL streams into an XDF file, as LabRecorder does. Connect it to the LSL display's new output, *LSL streams* (`box-tutorials/lsl-display-xdf.xml`). From Play to Stop it records the streams ticked in that display. A stream ticked later starts in the file then; one unticked ends there, and starts again under a new stream id if it is ticked again.
+
+- **The file is LabRecorder's format.** A FileHeader; for each stream a StreamHeader with the stream's whole LSL info, channel labels included. Then Samples chunks with every sample and its own time stamp, in the stream's own type (float, double, integers, text); a ClockOffset every 5 s; and a StreamFooter with the first and last time stamp, the sample count and the clock offsets. Boundary chunks every 10 s.
+- **The time stamps are the senders' own,** as LabRecorder keeps them: the writer reads the streams through inlets of its own, without LSL's corrections. `load_xdf` and pyxdf correct them from the clock offsets, and smooth them, when they load the file, as they do LabRecorder's files. The display's inlets do apply the corrections, as they draw at once.
+- **Written out chunk by chunk,** so a crash loses no more than the last moments. A file that can not be written, e.g. on a full disk, stops the recording with an error.
+- **Settings:** Output directory, `${Path_Documents}/data` by default and made if needed; Filename, `lsl-[$core{date}-$core{time}].xdf` by default. A filename with a full path replaces the directory.
+
+How the boxes connect: the display's output is a new stream type, *LSL streams*, registered by the plugin. It is a streamed matrix whose header lists the ticked streams by LSL uid, one row each, sent again whenever the ticks change. Only the writer's input takes it, so Designer connects nothing else to it.
+
+**Consequences**
+- Seeing and recording LSL streams together needs one scenario and no other program. LabRecorder remains the tried tool; this writer's files load as LabRecorder's do.
+- The display's prototype gained the output, so a scenario with the LSL display from before this has it outdated; Designer offers to update it.
+- Tested with `test-lsl-recorder` (2 tests). It records three streams the test sends itself: 3 float channels at 200 Hz with labels, an int16 stream, and text markers. Then it reads the file back with a parser of its own: every sample and time stamp as sent, the description, the footers, a clock offset. The same file loaded in pyxdf 1.17 and in MATLAB with `load_xdf` (EEGLAB's xdfimport 1.2): all 400, 100 and 3 samples, the labels, the markers 0.25 s after the first sample as sent, the footers and clock offsets. Both tutorials load without being out of date, and the writer creates its file at Play. **Not yet tried:** ticking streams in the display while the writer records; that needs the display on screen.
 
 ---
 
@@ -917,7 +951,8 @@ For this, the Signal display's parts became shared, each in one place:
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/connectivity/CBoxAlgorithmConnectivityMeasure.cpp` | 2.23 |
 | M | `extras/plugins/processing/stimulation/share/lua-stimulator-stim-codes.lua` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18, 2.26, 2.28 |
-| A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display-xdf.xml` | 2.29 |
+| A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` | 2.28, 2.29 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_P300SpellerVisualization.dox-part` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26 |
 | M | `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml` | 2.26 |
@@ -931,8 +966,10 @@ For this, the Signal display's parts became shared, each in one place:
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CGrazMultiVisualization.cpp` | 2.23 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.h` | 2.18 |
-| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLDisplay.cpp` | 2.28 |
-| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLDisplay.h` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLDisplay.cpp` | 2.28, 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLDisplay.h` | 2.28, 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLXDFWriter.cpp` | 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLXDFWriter.h` | 2.29 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11, 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.h` | 2.26, 2.28 |
 | M | 35 demo and tutorial scenarios (`*.xml`) with a Signal display | 2.11 |
@@ -941,10 +978,12 @@ For this, the Signal display's parts became shared, each in one place:
 | M | `extras/plugins/server-extensions/tcp-tagging-service/test/test_tcptaggingservice.cpp` | 2.19 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.h` | 2.18 |
-| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp` | 2.28 |
-| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.h` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp` | 2.28, 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.h` | 2.28, 2.29 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLReader.cpp` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLReader.h` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.cpp` | 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.h` | 2.29 |
 | M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26 |
 | M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28 |
@@ -954,10 +993,13 @@ For this, the Signal display's parts became shared, each in one place:
 | M | `extras/plugins/processing/simple-visualization/src/SDisplaySettings.h` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/src/SignalScaling.h` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/src/TracePalette.h` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/src/XDFWriter.cpp` | 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/XDFWriter.h` | 2.29 |
 | M | `extras/plugins/processing/simple-visualization/src/defines.hpp` | 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/src/main.cpp` | 2.18, 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/test/CMakeLists.txt` | 2.18, 2.26, 2.28 |
 | A | `extras/plugins/processing/simple-visualization/test/LSLReaderTest.cpp` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/test/LSLRecorderTest.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/test/P300SpellerStateTest.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/test/TraceBufferTest.cpp` | 2.26, 2.28 |

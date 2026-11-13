@@ -117,22 +117,23 @@ void CTraceBuffer::appendTimed(const double* buffer, const size_t channels, cons
     std::lock_guard<std::mutex> lock(m_mutex);
     if (buffer == nullptr || samples == 0 || channels == 0 || channels != m_channels || m_capacity == 0) { return; }
 
-    const auto slotOf = [this](const double seconds)
-    {
-        const int64_t slot = int64_t(std::llround(seconds * m_sampling)) % int64_t(m_capacity);
-        return size_t(slot < 0 ? slot + int64_t(m_capacity) : slot);
-    };
+    // The chunk's first sample on the grid of the shared clock; without one, on its own
+    const double origin = m_timeLocked ? m_originSeconds : (m_total == 0 ? firstSampleSeconds : m_firstSampleSeconds - double(m_startIndex) / m_sampling);
+    const int64_t index = int64_t(std::llround((firstSampleSeconds - origin) * m_sampling));
 
     if (m_total == 0)
     {
-        m_firstSampleSeconds = firstSampleSeconds;
-        m_slotOffset         = m_timeLocked ? slotOf(firstSampleSeconds - m_originSeconds) : 0;
+        // The ring starts at the grid point of its first sample, so that its times are the grid's
+        m_startIndex         = m_timeLocked ? index : 0;
+        m_firstSampleSeconds = origin + double(m_startIndex) / m_sampling;
+        const int64_t slot   = m_startIndex % int64_t(m_capacity);
+        m_slotOffset         = size_t(slot < 0 ? slot + int64_t(m_capacity) : slot);
         m_writePos           = m_slotOffset;
     }
     else
     {
-        const int64_t expected = int64_t(std::llround((firstSampleSeconds - m_firstSampleSeconds) * m_sampling));
-        const int64_t drift    = expected - int64_t(m_total);
+        // Measured on the shared grid, as every ring is, so that all rings follow their dates alike
+        const int64_t drift = (index - m_startIndex) - int64_t(m_total);
         if (drift >= RESYNC_SAMPLES || drift <= -RESYNC_SAMPLES) { shift(drift); }
     }
     write(buffer, samples);

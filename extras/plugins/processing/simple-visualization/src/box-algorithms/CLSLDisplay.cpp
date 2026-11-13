@@ -13,6 +13,8 @@ namespace SimpleVisualization {
 
 bool CLSLDisplay::initialize()
 {
+    m_encoder.initialize(*this, 0);
+    m_sentVersion = ~0ULL;
     const auto setting = [this](const char* name) { return FSettingValueAutoCast(*this->getBoxAlgorithmContext(), CString(name)); };
     if (!readDisplaySettings(this->getStaticBoxContext(), this->getLogManager(), setting, m_settings)) { return false; }
 
@@ -43,8 +45,33 @@ bool CLSLDisplay::initialize()
     return true;
 }
 
+bool CLSLDisplay::processClock(Kernel::CMessageClock& /*msg*/)
+{
+    getBoxAlgorithmContext()->markAlgorithmAsReadyToProcess();
+    return true;
+}
+
+bool CLSLDisplay::process()
+{
+    if (m_controller == nullptr) { return true; }
+    uint64_t version                    = 0;
+    const std::vector<std::string> uids = m_controller->tickedStreams(version);
+    if (version == m_sentVersion) { return true; }
+    m_sentVersion = version;
+
+    // A header that lists them, one row each, labelled with the uid; at least one row, empty when nothing is ticked
+    CMatrix* matrix = m_encoder.getInputMatrix();
+    matrix->resize(std::max<size_t>(1, uids.size()), 1);
+    for (size_t i = 0; i < std::max<size_t>(1, uids.size()); ++i) { matrix->setDimensionLabel(0, i, i < uids.size() ? uids[i].c_str() : ""); }
+    m_encoder.encodeHeader();
+    const uint64_t now = getPlayerContext().getCurrentTime();
+    getDynamicBoxContext().markOutputAsReadyToSend(0, now, now);
+    return true;
+}
+
 bool CLSLDisplay::uninitialize()
 {
+    m_encoder.uninitialize();
     if (m_visualizationCtx != nullptr)
     {
         const CIdentifier windowManagerID = CIdentifier(

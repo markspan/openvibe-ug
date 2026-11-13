@@ -6,6 +6,8 @@
 #include "SignalScaling.h"
 #include "TracePalette.h"
 
+#include <lsl_cpp.h>
+
 #include <QQmlComponent>
 #include <QQmlContext>
 #include <QQmlEngine>
@@ -28,6 +30,8 @@ constexpr qint64 LOOKUP_INTERVAL_MS = 1000;
 constexpr qint64 FIRST_PAGE_RESCALE_MS = 500;
 /// Upper bound on the markers kept, so that a fast marker stream can not grow the list without limit.
 constexpr size_t MAX_MARKERS = 2048;
+/// How often the streams' delays are shown again: often enough to follow, seldom enough to read.
+constexpr qint64 DELAY_INTERVAL_MS = 500;
 
 /// "2048 Hz", "500.5 Hz"
 QString rateText(const double rate)
@@ -130,6 +134,17 @@ void CLSLStreamView::refreshVisibleChannels()
     emit channelsChanged();
 }
 
+void CLSLStreamView::showDelay(const double now)
+{
+    double oldest = 0.0, newest = 0.0;
+    const QString delay = timeSpan(oldest, newest) ? QStringLiteral("%1 ms behind").arg(qint64(std::llround((now - newest) * 1000.0))) : QString();
+    if (delay != m_delay)
+    {
+        m_delay = delay;
+        emit delayChanged();
+    }
+}
+
 bool CLSLStreamView::timeSpan(double& oldest, double& newest) const
 {
     CTraceBuffer::CReader r(*m_stream.ring);
@@ -191,6 +206,7 @@ CLSLDisplayController::CLSLDisplayController(Kernel::ILogManager& logManager, co
     buildQml(engine);
 
     m_sinceLookUp.start();
+    m_sinceDelay.start();
     m_tick.setInterval(TICK_INTERVAL_MS);
     m_tick.setTimerType(Qt::PreciseTimer);
     connect(&m_tick, &QTimer::timeout, this, &CLSLDisplayController::onTick);
@@ -416,12 +432,24 @@ void CLSLDisplayController::selectStreams()
         if (it->second.isMarkers()) { ++markers; }
     }
     m_reader->select(uids);
+    {
+        std::lock_guard<std::mutex> lock(m_tickedMutex);
+        m_ticked.assign(uids.begin(), uids.end());
+        ++m_tickedVersion;
+    }
     if (markers != m_markerStreams)
     {
         m_markerStreams = markers;
         if (markers == 0) { m_markers.clear(); }
         emit streamsChanged();
     }
+}
+
+std::vector<std::string> CLSLDisplayController::tickedStreams(uint64_t& version) const
+{
+    std::lock_guard<std::mutex> lock(m_tickedMutex);
+    version = m_tickedVersion;
+    return m_ticked;
 }
 
 void CLSLDisplayController::addStream(SLSLOpenedStream stream)
@@ -483,6 +511,12 @@ void CLSLDisplayController::onTick()
         any         = true;
     }
     for (size_t i = 0; i < m_views.size(); ++i) { m_views[i]->tick(newestOf[i] > 0.0 ? newest - newestOf[i] : 0.0); }
+    if (m_sinceDelay.elapsed() >= DELAY_INTERVAL_MS)
+    {
+        const double now = lsl::local_clock();  // the clock the samples' dates are on
+        for (CLSLStreamView* view : m_views) { view->showDelay(now); }
+        m_sinceDelay.restart();
+    }
 
     // The markers within the time shown, on every stream
     QVariantList visible;

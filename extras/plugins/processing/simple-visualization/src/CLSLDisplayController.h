@@ -17,6 +17,7 @@
 #include <deque>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -47,6 +48,12 @@ class CLSLStreamView final : public QObject
     /// One entry per channel: { name, unit, index, color }, as the Signal display's
     Q_PROPERTY(QVariantList channels READ channels NOTIFY channelsChanged)
     Q_PROPERTY(int visibleChannelCount READ visibleChannelCount NOTIFY channelsChanged)
+    /**
+     * How long after its date the stream's newest sample was here, as "42 ms behind". It is where this stream's cursor is,
+     * left of now: streams sent in bigger chunks, or from further away, come in later. Their data are on their dates all
+     * the same.
+     */
+    Q_PROPERTY(QString delay READ delay NOTIFY delayChanged)
 
 public:
     CLSLStreamView(SLSLOpenedStream stream, QString label, QObject* parent);
@@ -55,6 +62,9 @@ public:
     QString label() const { return m_label; }
     QVariantList channels() const { return m_channels; }
     int visibleChannelCount() const { return int(m_visible.size()); }
+    QString delay() const { return m_delay; }
+    /// Shows how far behind \p now, on the LSL clock, the stream's newest sample is.
+    void showDelay(double now);
 
     /// Called by the stream's panel once its trace exists; the view drives it from then on.
     Q_INVOKABLE void attachTrace(QQuickItem* item);
@@ -78,6 +88,7 @@ public:
 
 signals:
     void channelsChanged();
+    void delayChanged();
 
 private:
     SLSLOpenedStream m_stream;
@@ -86,6 +97,7 @@ private:
     QVector<EChannelKind> m_kinds;
     QVector<int> m_visible;
     QVariantList m_channels;
+    QString m_delay;
     Parameters::ParameterMultiSelectObject* m_channelParameter = nullptr;
     QPointer<CSignalTraceItem> m_trace;
     SDisplaySettings m_settings;
@@ -135,6 +147,12 @@ public:
     bool butterfly() const { return m_settings.layout == ELayoutMode::Butterfly; }
     bool hasMarkerStreams() const { return m_markerStreams > 0; }
 
+    /**
+     * \brief The streams ticked, by LSL uid, for the box's output; any thread.
+     * \param version Goes up by one each time the ticks change, so that the box sends them only then.
+     */
+    std::vector<std::string> tickedStreams(uint64_t& version) const;
+
 signals:
     void parametersChanged();
     void streamsChanged();
@@ -162,11 +180,16 @@ private:
     QPointer<QQuickItem> m_root;
     QTimer m_tick;
     QElapsedTimer m_sinceLookUp;
+    QElapsedTimer m_sinceDelay;  ///< Since the streams' delays were last shown
 
     std::unique_ptr<CLSLReader> m_reader;
     std::vector<CLSLStreamView*> m_views;          ///< In the order they were opened
     std::map<QString, SLSLStreamInfo> m_byLabel;   ///< The streams listed, by their label in the Streams parameter
     int m_markerStreams = 0;                        ///< Selected marker streams
+
+    mutable std::mutex m_tickedMutex;               // guards the two below, which the player thread reads
+    std::vector<std::string> m_ticked;              ///< The streams ticked, by uid, see tickedStreams()
+    uint64_t m_tickedVersion = 0;
 
     std::deque<SLSLMarker> m_markers;
     QVariantList m_stimulations;

@@ -1,0 +1,58 @@
+<OpenViBE-Scenario>
+    <FormatVersion>3</FormatVersion>
+    <Creator>OpenViBE Designer</Creator>
+    <CreatorVersion>4.0.0</CreatorVersion>
+    <!-- UG fork: The LSL display, recording the streams ticked in it to Documents/data, as LabRecorder does. See UG.md 2.28 and 2.29 -->
+    <Settings/>
+    <Inputs/>
+    <Outputs/>
+    <Boxes>
+        <Box>
+            <Identifier>(0x00001234, 0x00005678)</Identifier>
+            <Name>LSL display (UG)</Name>
+            <AlgorithmClassIdentifier>(0x7a1c5d20, 0x3e9b4f61)</AlgorithmClassIdentifier>
+            <Outputs>
+                <Output><TypeIdentifier>(0x2f8a3b61, 0x7c4e1d95)</TypeIdentifier><Name>LSL streams</Name></Output>
+            </Outputs>
+            <Settings>
+                <Setting><TypeIdentifier>(0x5de046a6, 0x086340aa)</TypeIdentifier><Name>Display Mode</Name><DefaultValue>Scan</DefaultValue><Value>Scan</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x33a30739, 0x00d5299b)</TypeIdentifier><Name>Auto vertical scale</Name><DefaultValue>Per channel</DefaultValue><Value>Per channel</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier><Name>Vertical Scale</Name><DefaultValue>100</DefaultValue><Value>100</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier><Name>Vertical Offset</Name><DefaultValue>0</DefaultValue><Value>0</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier><Name>Time Scale</Name><DefaultValue>10</DefaultValue><Value>10</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier><Name>Bottom ruler</Name><DefaultValue>true</DefaultValue><Value>true</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier><Name>Left ruler</Name><DefaultValue>false</DefaultValue><Value>false</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x2cdb2f0b, 0x12f231ea)</TypeIdentifier><Name>Multiview</Name><DefaultValue>false</DefaultValue><Value>false</Value><Modifiability>false</Modifiability></Setting>
+            </Settings>
+            <Attributes>
+                <Attribute><Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier><Value>0</Value></Attribute>
+                <Attribute><Identifier>(0x207c9054, 0x3c841b63)</Identifier><Value>0</Value></Attribute>
+                <Attribute><Identifier>(0x4e7b798a, 0x183beafb)</Identifier><Value>(0x64c7c9bc, 0xcfaabf13)</Value></Attribute>
+            </Attributes>
+        </Box>
+        <Box>
+            <Identifier>(0x00004321, 0x00008765)</Identifier>
+            <Name>LSL XDF writer (UG)</Name>
+            <AlgorithmClassIdentifier>(0x51c0e7a4, 0x2d9b6f38)</AlgorithmClassIdentifier>
+            <Inputs>
+                <Input><TypeIdentifier>(0x2f8a3b61, 0x7c4e1d95)</TypeIdentifier><Name>LSL streams</Name></Input>
+            </Inputs>
+            <Settings>
+                <Setting><TypeIdentifier>(0x43a26c8e, 0x0a8172b6)</TypeIdentifier><Name>Output directory</Name><DefaultValue>${Path_Documents}/data</DefaultValue><Value>${Path_Documents}/data</Value><Modifiability>false</Modifiability></Setting>
+                <Setting><TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier><Name>Filename</Name><DefaultValue>lsl-[$core{date}-$core{time}].xdf</DefaultValue><Value>lsl-[$core{date}-$core{time}].xdf</Value><Modifiability>false</Modifiability></Setting>
+            </Settings>
+            <Attributes>
+                <Attribute><Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier><Value>176</Value></Attribute>
+                <Attribute><Identifier>(0x207c9054, 0x3c841b63)</Identifier><Value>0</Value></Attribute>
+                <Attribute><Identifier>(0x4e7b798a, 0x183beafb)</Identifier><Value>(0xfdd40034, 0x54ec3964)</Value></Attribute>
+            </Attributes>
+        </Box>
+    </Boxes>
+    <Links>
+        <Link>
+            <Identifier>(0x00002468, 0x00001357)</Identifier>
+            <Source><BoxIdentifier>(0x00001234, 0x00005678)</BoxIdentifier><BoxOutputIndex>0</BoxOutputIndex></Source>
+            <Target><BoxIdentifier>(0x00004321, 0x00008765)</BoxIdentifier><BoxInputIndex>0</BoxInputIndex></Target>
+        </Link>
+    </Links>
+</OpenViBE-Scenario>

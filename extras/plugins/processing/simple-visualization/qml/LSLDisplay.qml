@@ -87,7 +87,8 @@ Item {
                         anchors.leftMargin: _root.ampWidth
                         height: _root.headerHeight
                         verticalAlignment: Text.AlignVCenter
-                        text: _stream.modelData.label
+                        // Its delay: where its cursor is, left of now
+                        text: _stream.modelData.label + (_stream.modelData.delay !== "" ? "  ·  " + _stream.modelData.delay : "")
                         font: DS.Theme.textSmallBold
                         color: DS.Theme.textSecondary
                         elide: Text.ElideRight

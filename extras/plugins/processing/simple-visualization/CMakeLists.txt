@@ -19,6 +19,12 @@ set(SRC_FILES
     src/TracePalette.h
     src/box-algorithms/CLSLDisplay.cpp
     src/box-algorithms/CLSLDisplay.h
+    src/CLSLRecorder.cpp  # UG fork: the LSL XDF writer
+    src/CLSLRecorder.h
+    src/XDFWriter.cpp
+    src/XDFWriter.h
+    src/box-algorithms/CLSLXDFWriter.cpp
+    src/box-algorithms/CLSLXDFWriter.h
     src/box-algorithms/CBoxAlgorithmErpPlot.cpp
     src/box-algorithms/CBoxAlgorithmErpPlot.h
     src/box-algorithms/CBoxAlgorithmLevelMeasure.cpp

@@ -5,6 +5,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <vector>
 
 using namespace OpenViBE::Plugins::SimpleVisualization;
@@ -155,4 +156,54 @@ TEST(TraceBuffer, aSampleOfJitterIsLeftAlone)
     ring.appendTimed(chunk.data(), 1, 10, 0.111);  // one sample late: under RESYNC_SAMPLES
 
     EXPECT_EQ(ring.totalSamples(), 20U);
+}
+
+namespace {
+/**
+ * Sends a simulated LSL stream into a ring for \p seconds: samples at \p actualRate, in chunks of \p chunk samples, each
+ * chunk dated by its first sample, as LSL dates it, plus \p firstError on the first chunk only. Each sample's value is its
+ * true time, so that a slot shows where the sample of that time landed.
+ */
+void simulate(CTraceBuffer& ring, const double start, const double actualRate, const size_t chunk, const double seconds, const double firstError)
+{
+    std::vector<double> values(chunk);
+    const size_t total = size_t(seconds * actualRate);
+    for (size_t s = 0; s + chunk <= total; s += chunk)
+    {
+        for (size_t i = 0; i < chunk; ++i) { values[i] = start + double(s + i) / actualRate; }
+        ring.appendTimed(values.data(), 1, chunk, values[0] + (s == 0 ? firstError : 0.0));
+    }
+}
+
+/// The true time of the sample in the slot where \p ring draws time \p t, as xAtTime() maps a time to a slot.
+double sampleTimeAt(CTraceBuffer& ring, const double t)
+{
+    CTraceBuffer::CReader r(ring);
+    const double index = (t - r.firstSampleSeconds()) * r.sampling();
+    const size_t slot  = size_t(std::llround(std::fmod(index + double(r.slotOffset()), double(r.capacity()))));
+    return r.channel(0)[slot % r.capacity()];
+}
+}  // namespace
+
+TEST(TraceBuffer, streamsOfDifferentRatesAndClocksStayLinedUpForAnHour)
+{
+    // Two streams on one clock: one at 500 Hz whose amplifier runs 500 ppm fast, in chunks of 20, its first date 15 ms
+    // off, as LSL's first dates are before the clock correction settles; one at 128 Hz running 0.1 % slow, in chunks of 4
+    CTraceBuffer fast, slow;
+    for (CTraceBuffer* ring : { &fast, &slow }) {
+        ring->setWindowSeconds(10.0);
+        ring->setTimeOrigin(1000.0);
+    }
+    fast.reconfigure(1, 500.0);
+    slow.reconfigure(1, 128.0);
+    simulate(fast, 1000.3, 500.25, 20, 3600.0, 0.015);
+    simulate(slow, 1000.7, 127.872, 4, 3600.0, 0.0);
+
+    // An hour on, a time a few seconds back is drawn on the sample of that time in both, within RESYNC_SAMPLES and the
+    // half sample of the grid
+    for (const double t : { 4595.0, 4597.25, 4598.5 })
+    {
+        EXPECT_NEAR(sampleTimeAt(fast, t), t, (CTraceBuffer::RESYNC_SAMPLES + 0.5) / 500.0) << "at " << t;
+        EXPECT_NEAR(sampleTimeAt(slow, t), t, (CTraceBuffer::RESYNC_SAMPLES + 0.5) / 128.0) << "at " << t;
+    }
 }

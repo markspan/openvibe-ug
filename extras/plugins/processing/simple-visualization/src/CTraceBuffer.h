@@ -73,19 +73,22 @@ public:
     /**
      * \brief Locks the ring to a clock shared with other rings, so that rings of different rates line up.
      *
-     * UG fork, for the LSL display. A sample dated t then sits in slot round((t - origin) * rate) % capacity, so in Scan mode
-     * every ring with the same window draws a time at the same x, whatever its rate or when it started. Call before the
-     * first sample, with the same origin for every ring that is to line up; samples come through appendTimed().
+     * UG fork, for the LSL display. Sample slots then lie on a grid of that clock: the sample dated t sits in slot
+     * round((t - origin) * rate) % capacity, and the time of a slot is the grid's. So in Scan mode every ring with the same
+     * window draws a time at the same x, whatever its rate or when it started. Call before the first sample, with the same
+     * origin for every ring that is to line up; samples come through appendTimed().
      */
     void setTimeOrigin(double originSeconds);
 
     /**
      * \brief Appends one chunk dated by its first sample, keeping each sample at the slot of its time.
      *
-     * UG fork, for the LSL display. A stream's samples do not come exactly at its nominal rate, and may have gaps. When the
-     * chunk's date and the samples counted so far disagree by RESYNC_SAMPLES or more, the count follows the date: a gap
-     * is filled with each channel's last value, and samples come in early overwrite the last ones. So the times stay right
-     * for hours, at the cost of a sample skipped or repeated now and then.
+     * UG fork, for the LSL display. Every chunk is placed by its own date on the grid of setTimeOrigin(): the ring starts at
+     * the grid point of its first sample, so that its times are the grid's, in every ring alike. A stream's samples do not
+     * come exactly at its nominal rate, and may have gaps. When a chunk's date and the samples counted so far disagree by
+     * RESYNC_SAMPLES or more, the count follows the date: a gap is filled with each channel's last value, and samples come in
+     * early overwrite the last ones. So every sample lies less than RESYNC_SAMPLES from its date, plus half a sample of
+     * grid, for hours, at the cost of a sample skipped or repeated now and then.
      *
      * \param buffer             Channel-major [channels x samples].
      * \param firstSampleSeconds The date of the chunk's first sample, on the clock of setTimeOrigin().
@@ -150,6 +153,7 @@ private:
     bool               m_timeLocked    = false; ///< UG fork: see setTimeOrigin()
     double             m_originSeconds = 0.0;   ///< UG fork: see setTimeOrigin()
     size_t             m_slotOffset    = 0;     ///< UG fork: the slot of global sample 0
+    int64_t            m_startIndex    = 0;     ///< UG fork: the grid index of global sample 0, see setTimeOrigin()
 };
 
 }  // namespace SimpleVisualization
