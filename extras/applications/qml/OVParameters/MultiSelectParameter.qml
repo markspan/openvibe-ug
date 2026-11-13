@@ -57,6 +57,37 @@ Control {
     }
   }
 
+  // UG fork: a check box in the same style as OutlineButton: white, outlined in the primary blue, with a blue check
+  // when checked; DS.CheckBox fills blue with a white check
+  component OutlineCheckBox: CheckBox {
+    id: _box
+
+    readonly property color tint: DS.Theme.primary
+
+    implicitWidth: DS.Theme.icon3xl
+    implicitHeight: DS.Theme.icon3xl
+
+    HoverHandler { cursorShape: Qt.PointingHandCursor }
+
+    indicator: Rectangle {
+      anchors.fill: parent
+      radius: DS.Theme.radiusXs
+      border.width: DS.Theme.borderSm
+      border.color: _box.enabled ? _box.tint : DS.Theme.iconDisabled
+      color: _box.pressed ? Qt.rgba(_box.tint.r, _box.tint.g, _box.tint.b, 0.2)
+           : _box.hovered ? Qt.rgba(_box.tint.r, _box.tint.g, _box.tint.b, 0.1)
+           : DS.Theme.white
+
+      DS.Icon {
+        anchors.centerIn: parent
+        name: "check"
+        size: DS.Theme.icon2xl
+        color: _box.enabled ? _box.tint : DS.Theme.iconDisabled
+        visible: _box.checked
+      }
+    }
+  }
+
   // The parameter holds the whole selection as a single list, so every toggle rebuilds
   // it from the current checkbox states rather than mutating the list in place.
   function selectionFromCheckBoxes() {
@@ -153,7 +184,7 @@ Control {
           readonly property string entryName: modelData
           readonly property alias checked: _checkbox.checked
 
-          DS.CheckBox {
+          OutlineCheckBox {  // UG fork: was DS.CheckBox
             id: _checkbox
             Layout.alignment: Qt.AlignVCenter
 
