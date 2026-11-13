@@ -12,10 +12,10 @@
 
 #include <openvibe/acquisition-messaging/samples.h>
 
-#include "SampleBlocks.h"
-#include "StimulationDelay.h"
+#include "SampleBlocks.h"      // UG fork
+#include "StimulationDelay.h"  // UG fork
 
-#include <string>
+#include <string>  // UG fork
 #include <vector>
 
 namespace Network {

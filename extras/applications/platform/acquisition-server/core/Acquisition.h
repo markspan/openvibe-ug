@@ -20,8 +20,8 @@
 #include "AbstractWriter.h"
 
 #include <openvibe/parameters/parameters.h>
-#include <openvibe/parameters/parameterInt.h>
-#include <openvibe/parameters/parameterListString.h>
+#include <openvibe/parameters/parameterInt.h>  // UG fork
+#include <openvibe/parameters/parameterListString.h>  // UG fork
 
 #include "Thread.h" // Assuming this is a custom thread class
 #include <thread>

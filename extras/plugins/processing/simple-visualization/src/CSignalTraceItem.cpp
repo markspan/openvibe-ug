@@ -194,6 +194,7 @@ void CSignalTraceItem::refreshAutoScale()
         groups.push_back(scaleGroup(c));
     }
 
+    // UG fork: every mode gives each channel its own centre; upstream gave Global one centre, with hysteresis
     const std::vector<SChannelScale> scales = scaleChannels(spans, groups);
     for (size_t i = 0; i < channels.size(); ++i)
     {
@@ -318,6 +319,7 @@ QSGNode* CSignalTraceItem::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData
     }
 
     SRun      runs[2];
+    // UG fork: the scroll lag, see setScrollLagSeconds()
     const int nRuns = buildRuns(r.capacity(), r.filled(), r.writePos(), w, m_scrollLagSeconds * r.sampling(), runs);
     if (nRuns == 0)
     {
@@ -495,7 +497,7 @@ QVariantList CSignalTraceItem::rowHalfRanges() const
     return out;
 }
 
-qreal CSignalTraceItem::laneFill() { return LANE_FILL; }
+qreal CSignalTraceItem::laneFill() { return LANE_FILL; }  // UG fork
 
 qreal CSignalTraceItem::rowHeight() const
 {
@@ -540,6 +542,7 @@ qreal CSignalTraceItem::timeAtX(const qreal x) const
     const qreal  dx       = width() / qreal(capacity);
 
     double index;
+    // UG fork: the scroll lag, see setScrollLagSeconds()
     if (m_settings.timeMode == ESignalDisplayMode::Scroll) { index = total - 1.0 - m_scrollLagSeconds * r.sampling() - (width() - x) / dx; }
     else
     {

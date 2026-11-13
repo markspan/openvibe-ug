@@ -57,10 +57,10 @@ Item {
         delegate: Item {
             id: _tick
 
-            required property int index
+            required property int index  // UG fork: the tick's time follows from its index, see tickCount
 
             readonly property real seconds: _root.firstTick + index * _root.step
-            // Naming newest makes the position follow the window as it moves, in Scroll mode
+            // UG fork: naming newest makes the position follow the window as it moves, in Scroll mode
             readonly property real px: {
                 _root.newest
                 return _root.trace.xAtTime(_tick.seconds)

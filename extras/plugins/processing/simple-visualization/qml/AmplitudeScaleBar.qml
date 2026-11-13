@@ -80,6 +80,7 @@ Item {
                     rightMargin: DS.Theme.spacingMd
                     verticalCenter: parent.verticalCenter
                 }
+                // UG fork: in Multiview the channels share no scale unless it is Global
                 text: (_root.butterfly && !_root.sharedScale) ? qsTr("varies") : "±" + _root.formatRange(_bracket.halfRange)
                 font: DS.Theme.textXsRegular
                 color: DS.Theme.textTertiary

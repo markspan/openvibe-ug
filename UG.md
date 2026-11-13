@@ -9,7 +9,7 @@ This repository (`markspan/openvibe-ug`) is a fork of the Inria OpenViBE 4.0 rep
 
 This document lists every change against upstream, what each change does and what it means in use.
 
-**In the code**, every place where the fork differs from upstream is marked with a comment that starts with `UG fork:`, in C++, QML, CMake and TOML alike. A new file says so at its top. To list them all:
+**In the code**, every place where the fork differs from upstream is marked with a comment that starts with `UG fork:`, in C++, QML, CMake and TOML alike. A new file says so at its top, and so does a file rewritten as a whole (the P300 speller box, the eego driver). The files marked 2.23 in section 3 say it once, above their includes (see 2.23). Files that can not carry a comment, or that a program rewrites, carry none: scenarios (`*.xml`, which Designer writes anew on every save), documentation (`*.dox-part`), `pixi.lock` and test input data. Section 3 lists them all the same. To list the tags:
 
 ```bash
 git grep -n "UG fork"
@@ -431,11 +431,9 @@ The label sits in a flag at the top of the marker line:
 
 ### 2.14 Session settings
 
-**Files**
-- `extras/applications/platform/acquisition-server/settings/SessionManager.h`
-- `extras/applications/platform/acquisition-server/settings/SessionManager.cpp`
+**Files:** none any more. `SessionManager.h` and `.cpp` are back to upstream's, since the drift correction settings they stored are gone (2.4).
 
-**What it does:** the driver parameters stored for TMSi and eego follow their new settings. Sessions saved by earlier versions of the fork may carry `driftCorrectionPolicy`, `driftCorrection` and `driftToleranceMs`. These are ignored, and the next save drops them.
+**What it does:** the server stores each driver's parameters as the driver lists them, so the TMSi and eego entries follow their new settings without a change here. Sessions saved by earlier versions of the fork may carry `driftCorrectionPolicy`, `driftCorrection` and `driftToleranceMs`. These are ignored, and the next save drops them, as a save writes the session anew.
 
 **Consequences**
 - A UG session file opened by upstream ignores the extra keys.
@@ -903,8 +901,6 @@ The server tells a client its settings (rate, channels, "Sample count per sent b
 | M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.cpp` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.h` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/main.cpp` | 2.17 |
-| M | `extras/applications/platform/acquisition-server/settings/SessionManager.cpp` | 2.14 |
-| M | `extras/applications/platform/acquisition-server/settings/SessionManager.h` | 2.14 |
 | A | `extras/applications/platform/acquisition-server/test/AcquisitionConfigTest.cpp` | 2.30 |
 | A | `extras/applications/platform/acquisition-server/test/CharmeleonMontageTest.cpp` | 2.3 |
 | A | `extras/applications/platform/acquisition-server/test/CircularBufferTest.cpp` | 2.4 |
@@ -991,6 +987,7 @@ The server tells a client its settings (rate, channels, "Sample count per sent b
 | A | `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/qml/SettingsPanel.qml` | 2.28 |
 | M | `extras/plugins/processing/simple-visualization/qml/SignalDisplay.qml` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/qml/StimulationOverlay.qml` | 2.11 |
 | M | `extras/plugins/processing/simple-visualization/qml/TimeRuler.qml` | 2.26 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.cpp` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.hpp` | 2.18 |
@@ -1107,7 +1104,7 @@ The server tells a client its settings (rate, channels, "Sample count per sent b
 - **Merging upstream.** The fork changes shared code that upstream may also change, so these are the likely merge conflicts:
   - acquisition message format and serializer
   - `AbstractWriter` signature
-  - `Acquisition`, `CircularBuffer`, `AcquisitionController`, `SessionManager`
+  - `Acquisition`, `CircularBuffer`, `AcquisitionController`
   - the network control API and `CServer`
   - Designer's and the server's `main.cpp`
   - `DesignerScenario::clickPort`

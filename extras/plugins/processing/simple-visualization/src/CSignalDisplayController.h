@@ -50,7 +50,7 @@ class CSignalDisplayController final : public QObject
 
     Q_PROPERTY(QString name READ name NOTIFY nameChanged)
     Q_PROPERTY(QJSValue parameters READ parameters NOTIFY parametersChanged)
-    /** One entry per channel: { name, unit, index, color }. */
+    /** One entry per channel: { name, unit, index, color }. UG fork: color. */
     Q_PROPERTY(QVariantList channels READ channels NOTIFY channelsChanged)
     /** Stimulations inside the displayed window: { time, name, id }. */
     Q_PROPERTY(QVariantList stimulations READ stimulations NOTIFY stimulationsChanged)

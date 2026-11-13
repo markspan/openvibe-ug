@@ -3,6 +3,9 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  *
  * Ported from the eego acquisition driver originally written by Steffen Heimes (eemagine GmbH).
+ *
+ * UG fork: upstream ships this driver but does not build it. This fork builds it and reworked it (see CDriverEEGO.h):
+ * the channel list and the montage in place of the bit masks, microvolt, the buffer levels, and the trigger timing.
  */
 
 #include "CDriverEEGO.h"
@@ -61,6 +64,7 @@ int toInt(const std::string& value, const int fallback)
     catch (const std::exception&) { return fallback; }
 }
 
+// UG fork: for the montage path
 std::string trim(const std::string& s)
 {
     const size_t first = s.find_first_not_of(" \t");
@@ -104,7 +108,7 @@ CDriverEEGO::CDriverEEGO()
                       { "150", "750", "1000" }, "1000"),
       m_paramBIPRange("BIPRange", "Signal range of the bipolar channels [mV]",
                       { "350", "700", "1500", "4000" }, "1500"),
-      m_paramMontage("Montage",
+      m_paramMontage("Montage",  // UG fork: in place of the EEGMask and BIPMask bit masks
                      "Charmeleon montage (a .json file, or the name of one in Charmeleon's library): names the channels, and decides which EEG "
                      "channels are recorded",
                      "",
@@ -114,13 +118,13 @@ CDriverEEGO::CDriverEEGO()
     // are dropdowns; the inherited m_samplingRate is derived in init() and stays out of the parameter list.
     // The channel count is read from the amplifier, but kept among the parameters so that the names of the
     // last session's channels can be restored when it is not connected at startup.
-    m_channelCount.setDescription("Number of channels (read from the amplifier)");
+    m_channelCount.setDescription("Number of channels (read from the amplifier)");  // UG fork
 
     m_parameters.push_back(&m_paramSamplingRate);
     m_parameters.push_back(&m_paramEEGRange);
     m_parameters.push_back(&m_paramBIPRange);
-    m_parameters.push_back(&m_channelCount);
-    m_parameters.push_back(&m_paramMontage);
+    m_parameters.push_back(&m_channelCount);  // UG fork
+    m_parameters.push_back(&m_paramMontage);  // UG fork
 
     m_paramMontage.connect([this](std::any) { onMontageChanged(); });
 }
@@ -129,6 +133,8 @@ CDriverEEGO::~CDriverEEGO() = default;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Channel list
+// UG fork: everything up to the SDK factory is new. Upstream selects the channels with two bit masks; this reads the
+// amplifier's channels, names them (with a montage, if one is set) and records the channels with a name.
 // ─────────────────────────────────────────────────────────────────────────────
 
 OpenViBE::Parameters::Parameters CDriverEEGO::getParameters()
@@ -367,7 +373,7 @@ es::factory& CDriverEEGO::factory()
 bool CDriverEEGO::init()
 {
     bool success = false;
-    m_lastError.clear();
+    m_lastError.clear();  // UG fork: see report()
 
     try
     {
@@ -388,24 +394,25 @@ bool CDriverEEGO::init()
         m_samplingRate.setValue(rate);
         m_effectiveBipRange = bipRange / 1000.0;
 
-        success = selectChannels();
+        success = selectChannels();  // UG fork: in place of the masks
     }
     catch (const std::exception& ex)
     {
-        report(std::string("No eego amplifier could be opened: ") + ex.what());
+        report(std::string("No eego amplifier could be opened: ") + ex.what());  // UG fork: shown in the server
     }
 
     if (!success)
     {
         m_stream.reset();
         m_amplifier.reset();
-        return failInit();
+        return failInit();  // UG fork
     }
 
-    setNote(m_montageNote.level, m_montageNote.text);
+    setNote(m_montageNote.level, m_montageNote.text);  // UG fork: what the montage did
     return true;
 }
 
+// UG fork: upstream's buildChannelNames() took the channels the masks selected
 bool CDriverEEGO::selectChannels()
 {
     // The amplifier can enumerate its channels without a stream being open, which matters: the SDK
@@ -496,7 +503,7 @@ static std::vector<es::channel> toChannelList(const std::vector<std::pair<unsign
 
 bool CDriverEEGO::unInit()
 {
-    m_bufferReported = false;
+    m_bufferReported = false;  // UG fork
     m_stream.reset();
     m_amplifier.reset();
 
@@ -818,7 +825,7 @@ bool CDriverEEGO::startImpedanceCheck()
     try
     {
         m_stream.reset(); // at most one stream may be alive at a time
-        m_stream.reset(m_amplifier->OpenImpedanceStream(toChannelList(m_selectedChannels, true)));
+        m_stream.reset(m_amplifier->OpenImpedanceStream(toChannelList(m_selectedChannels, true)));  // UG fork: the named channels
     }
     catch (const std::exception& ex)
     {

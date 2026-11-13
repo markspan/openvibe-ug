@@ -86,6 +86,7 @@ public:
 
     void setChunkSize(uint32_t chunkSize) override;
 
+    // UG fork: the buffer levels, the channel hints and the channel list read from the amplifier
     /**
      * The most data a read found waiting (the SDK does not tell how full its buffer is, nor how much it holds), and
      * the samples lost, counted from gaps in the amplifier's sample counter channel.
@@ -107,6 +108,7 @@ private:
     /** Lazily builds the SDK factory. Throws whatever the SDK throws when the library is missing. */
     eemagine::sdk::factory& factory();
 
+    // UG fork: the channel list, read from the amplifier, and the montage, in place of upstream's bit masks (EEGMask, BIPMask)
     struct DeviceChannel
     {
         unsigned int index; ///< SDK channel index.

@@ -18,6 +18,9 @@
 ///
 /// You should have received a copy of the GNU Affero General Public License
 /// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+///
+/// UG fork: ported from GTK to Qt. The stimulation logic is unchanged; the display is CP300SpellerView, and the
+/// stimuli are sent once their flash is on screen (m_heldStimuli).
 /// 
 ///-------------------------------------------------------------------------------------------------
 

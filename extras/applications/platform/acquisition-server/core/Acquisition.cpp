@@ -774,6 +774,7 @@ uint64_t Acquisition::immediateTimestamp()
     return std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now().time_since_epoch()).count();
 }
 
+// UG fork: the buffer levels the server shows, see AcquisitionController::buffers()
 Acquisition::BufferStatus Acquisition::takeBufferStatus()
 {
     BufferStatus status;

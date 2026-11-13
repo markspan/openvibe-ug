@@ -6,7 +6,7 @@
 
 #include <CClient.h>
 #include <CNetwork.h>
-#include <openvibe/acquisition-messaging/ovChannelInfo.h>
+#include <openvibe/acquisition-messaging/ovChannelInfo.h>  // UG fork
 #include <openvibe/acquisition-messaging/ovCtrlCmdMsg.h>
 #include <openvibe/acquisition-messaging/ovMsg.h>
 #include <openvibe/acquisition-messaging/ovMsgSerializer.h>

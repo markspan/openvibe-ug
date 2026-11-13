@@ -220,6 +220,8 @@ void CSignalDisplayController::buildParameters()
     });
     m_parameters.push_back(m_pBaselineOffset);
 
+    // UG fork: no "Scale refresh interval (secs)" here any more; the scale is worked out once per page
+
     m_pChannels = new Parameters::ParameterMultiSelectObject("Channels", "Channels to display", {});
     connect(m_pChannels, &Parameters::ParameterMultiSelectObject::valueChanged, this, [this](const QStringList&) { refreshVisibleChannels(); });
     m_parameters.push_back(m_pChannels);
@@ -240,7 +242,7 @@ void CSignalDisplayController::buildParameters()
         m_settings.layout = value ? ELayoutMode::Butterfly : ELayoutMode::Stacked;
         if (m_trace) { m_trace->setSettings(m_settings); }
         m_layoutDirty = true;
-        updateEnabledParameters();
+        updateEnabledParameters();  // UG fork: Multiview greys out Channels per page
         // QML needs this: paging and the gutter behave differently on a single shared baseline.
         emit settingsChanged();
     });

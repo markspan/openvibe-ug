@@ -143,6 +143,7 @@ bool CSignalDisplay::uninitialize()
     return true;
 }
 
+// UG fork: see CSignalDisplay.h
 const CMatrix* CSignalDisplay::decodedMatrix() const
 {
     if (m_InputTypeID == OV_TypeId_Signal) { return static_cast<Toolkit::TSignalDecoder<CSignalDisplay>*>(m_StreamDecoder)->getOutputMatrix(); }
@@ -215,7 +216,7 @@ bool CSignalDisplay::process()
 
         if (m_StreamDecoder->isHeaderReceived())
         {
-            const CMatrix* matrix = decodedMatrix();
+            const CMatrix* matrix = decodedMatrix();  // UG fork
             if (matrix->getDimensionCount() != 2)
             {
                 this->getLogManager() << Kernel::LogLevel_Error << "Signal display only supports 2-dimensional matrices, got "
@@ -239,7 +240,7 @@ bool CSignalDisplay::process()
 
         if (m_StreamDecoder->isBufferReceived())
         {
-            const CMatrix* matrix = decodedMatrix();
+            const CMatrix* matrix = decodedMatrix();  // UG fork
             m_controller->pushChunk(matrix->getBuffer(), matrix->getDimensionSize(0), matrix->getDimensionSize(1),
                                     boxCtx->getInputChunkStartTime(0, c), boxCtx->getInputChunkEndTime(0, c));
         }
