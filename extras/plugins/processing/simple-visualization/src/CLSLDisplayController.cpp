@@ -3,6 +3,7 @@
 
 #include "CLSLDisplayController.h"
 
+#include "CLSLRecorder.h"  // recordLabel()
 #include "SignalScaling.h"
 #include "TracePalette.h"
 
@@ -451,7 +452,7 @@ std::vector<std::string> CLSLDisplayController::streamsToRecord(uint64_t& versio
 {
     std::lock_guard<std::mutex> lock(m_tickedMutex);
     version = m_tickedVersion;
-    return m_recording ? m_ticked : std::vector<std::string>();
+    return m_recording ? m_recorded : std::vector<std::string>();
 }
 
 bool CLSLDisplayController::canRecord() const
@@ -466,10 +467,24 @@ void CLSLDisplayController::toggleRecording()
         std::lock_guard<std::mutex> lock(m_tickedMutex);
         if (!m_recording && m_ticked.empty()) { return; }  // nothing to record
         m_recording = !m_recording;
+        // Of each data stream, the channels shown; a marker stream, or a stream not shown yet, whole. A data stream with no
+        // channel shown is left out.
+        m_recorded.clear();
+        for (const std::string& uid : m_ticked)
+        {
+            const auto view = std::find_if(m_views.begin(), m_views.end(), [&uid](const CLSLStreamView* v) { return v->uid() == uid; });
+            if (view == m_views.end()) { m_recorded.push_back(uid); continue; }
+            const QVector<int>& shown = (*view)->visibleChannels();
+            if (shown.isEmpty()) { continue; }
+            CLSLRecorder::Channels channels;
+            if (shown.size() < (*view)->channelCount()) { for (const int c : shown) { channels.push_back(size_t(c)); } }
+            m_recorded.push_back(CLSLRecorder::recordLabel(uid, channels));
+        }
         ++m_tickedVersion;
     }
-    // While recording, the set of streams stays as it is: a file holds the same streams throughout
+    // While recording, the streams and their channels stay as they are: a file holds the same channels throughout
     m_pStreams->setEnabled(!m_recording);
+    for (CLSLStreamView* view : m_views) { view->channelParameter()->setEnabled(!m_recording); }
     m_recordingSince.restart();
     m_recordingTime = m_recording ? QStringLiteral("0:00") : QString();
     emit recordingChanged();
@@ -485,6 +500,7 @@ void CLSLDisplayController::addStream(SLSLOpenedStream stream)
     }
     auto* view = new CLSLStreamView(std::move(stream), label, this);
     view->applySettings(m_settings, m_pColors->value());
+    view->channelParameter()->setEnabled(!m_recording);  // a stream that opens while recording is recorded whole
     m_views.push_back(view);
     emit streamsChanged();
     emit parametersChanged();

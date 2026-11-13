@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <set>
 #include <thread>
 
 using namespace OpenViBE::Plugins::SimpleVisualization;
@@ -146,6 +147,21 @@ TEST(XDFWriter, varLenIntegersTakeOneFourOrEightBytes)
     EXPECT_EQ(out.size(), 2U + 5U + 9U);
 }
 
+TEST(LSLRecorder, labelsCarryAStreamAndItsChannels)
+{
+    EXPECT_EQ(CLSLRecorder::recordLabel("abc-123", {}), "abc-123");
+    EXPECT_EQ(CLSLRecorder::recordLabel("abc-123", { 0, 2, 5 }), "abc-123#0,2,5");
+
+    std::string uid;
+    CLSLRecorder::Channels channels;
+    ASSERT_TRUE(CLSLRecorder::parseRecordLabel("abc-123#0,2,5", uid, channels));
+    EXPECT_EQ(uid, "abc-123");
+    EXPECT_EQ(channels, (CLSLRecorder::Channels{ 0, 2, 5 }));
+    ASSERT_TRUE(CLSLRecorder::parseRecordLabel("abc-123", uid, channels));
+    EXPECT_TRUE(channels.empty()) << "a plain uid: all channels";
+    EXPECT_FALSE(CLSLRecorder::parseRecordLabel("", uid, channels)) << "an empty label: nothing to record";
+}
+
 TEST(LSLRecorder, recordsDataAndMarkersAsLabRecorderWouldWithEverySampleAndTimeStamp)
 {
     lsl::stream_info eegInfo("UGRecEEG", "EEG", 3, 200.0, lsl::cf_float32, "ug-recorder-test-eeg");
@@ -155,7 +171,10 @@ TEST(LSLRecorder, recordsDataAndMarkersAsLabRecorderWouldWithEverySampleAndTimeS
     lsl::stream_outlet counter(lsl::stream_info("UGRecCounter", "Misc", 1, 100.0, lsl::cf_int16, "ug-recorder-test-counter"));
     lsl::stream_outlet markers(lsl::stream_info("UGRecMarkers", "Markers", 1, lsl::IRREGULAR_RATE, lsl::cf_string, "ug-recorder-test-markers"));
 
-    const std::set<std::string> uids = { findUid("UGRecEEG"), findUid("UGRecCounter"), findUid("UGRecMarkers") };
+    // Of the EEG, only Fp1 and Pz, as when only they are shown; the others whole
+    const std::map<std::string, CLSLRecorder::Channels> uids = {
+        { findUid("UGRecEEG"), { 0, 2 } }, { findUid("UGRecCounter"), {} }, { findUid("UGRecMarkers"), {} }
+    };
     ASSERT_EQ(uids.size(), 3U);
     ASSERT_EQ(uids.count(""), 0U);
 
@@ -186,16 +205,22 @@ TEST(LSLRecorder, recordsDataAndMarkersAsLabRecorderWouldWithEverySampleAndTimeS
     const SParsedStream* recordedEEG = byName(streams, "UGRecEEG");
     ASSERT_NE(recordedEEG, nullptr);
     EXPECT_EQ(xmlValue(recordedEEG->header, "channel_format"), "float32");
-    EXPECT_NE(recordedEEG->header.find("<label>Cz</label>"), std::string::npos) << "the stream's description is in its header";
+    EXPECT_EQ(xmlValue(recordedEEG->header, "channel_count"), "2") << "only the channels shown";
+    EXPECT_NE(recordedEEG->header.find("<label>Fp1</label>"), std::string::npos) << "their descriptions are in the header";
+    EXPECT_NE(recordedEEG->header.find("<label>Pz</label>"), std::string::npos);
+    EXPECT_EQ(recordedEEG->header.find("<label>Cz</label>"), std::string::npos) << "the channel left out is not described";
+    EXPECT_EQ(xmlValue(recordedEEG->header, "recorded_channels"), "1,3") << "which channels of the stream, counted from 1";
+    EXPECT_EQ(xmlValue(recordedEEG->header, "stream_channel_count"), "3");
     ASSERT_EQ(recordedEEG->stamps.size(), 400U);
     const double start = recordedEEG->stamps[0];
     for (size_t s = 0; s < 400; ++s)
     {
         EXPECT_DOUBLE_EQ(recordedEEG->stamps[s], start + double(s) / 200.0) << "the sender's own time stamp, uncorrected";
-        float values[3];
+        ASSERT_EQ(recordedEEG->samples[s].size(), 2 * sizeof(float));
+        float values[2];
         std::memcpy(values, recordedEEG->samples[s].data(), sizeof(values));
-        EXPECT_FLOAT_EQ(values[0], float(s));
-        EXPECT_FLOAT_EQ(values[1], -float(s));
+        EXPECT_FLOAT_EQ(values[0], float(s)) << "Fp1";
+        EXPECT_FLOAT_EQ(values[1], 0.5F) << "Pz";
     }
     EXPECT_EQ(xmlValue(recordedEEG->footer, "sample_count"), "400");
     EXPECT_GE(recordedEEG->clockOffsets, 1U) << "a clock offset at the start, as LabRecorder";

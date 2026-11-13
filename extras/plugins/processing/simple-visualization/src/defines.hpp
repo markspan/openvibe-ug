@@ -37,7 +37,9 @@ namespace OpenViBE {
 #define Box_LSLXDFWriter                                        CIdentifier(0x51C0E7A4, 0x2D9B6F38)  // UG fork
 #define Box_LSLXDFWriterDesc                                    CIdentifier(0x3B7E19D6, 0x6A0C4E52)  // UG fork
 /// UG fork: the LSL streams to record, from an LSL display's output to an LSL XDF writer: a streamed matrix whose header lists
-/// them, one row each, labelled with the stream's LSL uid; none, one empty label, when not recording. Sent again on each change
+/// them, one row each, labelled with the stream's LSL uid, followed by '#' and the channels to record, counted from 0 and
+/// separated by commas, when not all of them ("uid#0,2,5"); none, one empty label, when not recording. Sent again on each
+/// change. See CLSLRecorder::parseRecordLabel()
 #define TypeId_LSLStreams                                       CIdentifier(0x2F8A3B61, 0x7C4E1D95)
 #define Box_DisplayCueImage                                     CIdentifier(0x005789A4, 0x3AB78A36)
 #define Box_DisplayCueImageDesc                                 CIdentifier(0x086185A4, 0x796A854C)

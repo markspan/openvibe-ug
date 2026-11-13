@@ -70,6 +70,9 @@ public:
     Q_INVOKABLE void attachTrace(QQuickItem* item);
 
     const std::string& uid() const { return m_stream.info.uid; }
+    /// The channels shown, counted from 0, in the stream's order; those recorded
+    const QVector<int>& visibleChannels() const { return m_visible; }
+    int channelCount() const { return int(m_names.size()); }
     CTraceBuffer& ring() const { return *m_stream.ring; }
     CSignalTraceItem* trace() const { return m_trace; }
     Parameters::ParameterMultiSelectObject* channelParameter() const { return m_channelParameter; }
@@ -157,13 +160,14 @@ public:
     bool canRecord() const;
 
     /**
-     * \brief Starts recording the streams ticked, or stops. While recording, the ticks can not be changed, so that a file
-     *        holds one set of streams throughout.
+     * \brief Starts recording the streams ticked, of each only the channels shown, or stops. While recording, the ticks and the
+     *        channel selections can not be changed, so that a file holds the same channels throughout.
      */
     Q_INVOKABLE void toggleRecording();
 
     /**
-     * \brief The streams to record now, by LSL uid, for the box's output: those ticked while recording, none otherwise; any thread.
+     * \brief The streams to record now, for the box's output: a label per stream, its uid and the channels shown
+     *        (CLSLRecorder::recordLabel()), while recording; none otherwise. Any thread.
      * \param version Goes up by one each time they change, so that the box sends them only then.
      */
     std::vector<std::string> streamsToRecord(uint64_t& version) const;
@@ -205,8 +209,9 @@ private:
     std::map<QString, SLSLStreamInfo> m_byLabel;   ///< The streams listed, by their label in the Streams parameter
     int m_markerStreams = 0;                        ///< Selected marker streams
 
-    mutable std::mutex m_tickedMutex;               // guards the three below, which the player thread reads
+    mutable std::mutex m_tickedMutex;               // guards the four below, which the player thread reads
     std::vector<std::string> m_ticked;              ///< The streams ticked, by uid
+    std::vector<std::string> m_recorded;            ///< The labels of the streams being recorded, see streamsToRecord()
     bool m_recording         = false;               ///< See toggleRecording()
     uint64_t m_tickedVersion = 0;                   ///< See streamsToRecord()
     QElapsedTimer m_recordingSince;

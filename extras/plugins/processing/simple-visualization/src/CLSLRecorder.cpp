@@ -5,8 +5,11 @@
 
 #include <lsl_cpp.h>
 
+#include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <iostream>
+#include <sstream>
 #include <vector>
 
 namespace OpenViBE {
@@ -48,7 +51,10 @@ struct CLSLRecorder::SStream
     std::string name;
     std::unique_ptr<lsl::stream_inlet> inlet;
     lsl::channel_format_t format = lsl::cf_undefined;
-    size_t channels = 0;
+    size_t channels = 0;          ///< Of the stream
+    std::vector<size_t> keep;     ///< The channels recorded, counted from 0; all of them, or those chosen
+    std::vector<char> kept;       ///< The samples of a chunk, of the channels recorded only
+    std::vector<std::string> keptTexts;
     size_t room     = 0;  ///< Samples pulled at most at a time
     double first = 0.0, last = 0.0;
     uint64_t count = 0;
@@ -72,10 +78,66 @@ CLSLRecorder::~CLSLRecorder()
     m_writer.close();
 }
 
-void CLSLRecorder::select(const std::set<std::string>& uids)
+void CLSLRecorder::select(const std::map<std::string, Channels>& streams)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    m_selected = uids;
+    m_selected = streams;
+}
+
+std::string CLSLRecorder::recordLabel(const std::string& uid, const Channels& channels)
+{
+    if (channels.empty()) { return uid; }
+    std::string label = uid + "#";
+    for (size_t i = 0; i < channels.size(); ++i) { label += (i == 0 ? "" : ",") + std::to_string(channels[i]); }
+    return label;
+}
+
+bool CLSLRecorder::parseRecordLabel(const std::string& label, std::string& uid, Channels& channels)
+{
+    channels.clear();
+    const size_t hash = label.find('#');
+    uid               = label.substr(0, hash);
+    if (hash != std::string::npos)
+    {
+        std::istringstream list(label.substr(hash + 1));
+        std::string index;
+        while (std::getline(list, index, ','))
+        {
+            try { channels.push_back(size_t(std::stoul(index))); }
+            catch (const std::exception&) {}  // a stray entry is left out
+        }
+    }
+    return !uid.empty();
+}
+
+std::string CLSLRecorder::headerForChannels(const std::string& xml, const Channels& channels)
+{
+    // Edit a stream info made from the XML, through LSL's own XML handling
+    lsl::stream_info info = lsl::stream_info::from_xml(xml);
+    const size_t total    = size_t(info.channel_count());
+    lsl::xml_element list = info.desc().child("channels");
+    if (!list.empty())
+    {
+        std::vector<lsl::xml_element> entries;
+        for (lsl::xml_element entry = list.child("channel"); !entry.empty(); entry = entry.next_sibling("channel")) { entries.push_back(entry); }
+        for (size_t i = 0; i < entries.size(); ++i)
+        {
+            if (std::find(channels.begin(), channels.end(), i) == channels.end()) { list.remove_child(entries[i]); }
+        }
+    }
+    // Which channels of the stream these are, counted from 1, as people count channels
+    std::string recorded;
+    for (size_t i = 0; i < channels.size(); ++i) { recorded += (i == 0 ? "" : ",") + std::to_string(channels[i] + 1); }
+    lsl::xml_element note = info.desc().append_child("openvibe_ug");
+    note.append_child_value("recorded_channels", recorded);
+    note.append_child_value("stream_channel_count", std::to_string(total));
+
+    // The channel count is not editable through the API, and appears once, at the top
+    std::string out          = info.as_xml();
+    const std::string before = "<channel_count>" + std::to_string(total) + "</channel_count>";
+    const size_t at          = out.find(before);
+    if (at != std::string::npos) { out.replace(at, before.size(), "<channel_count>" + std::to_string(channels.size()) + "</channel_count>"); }
+    return out;
 }
 
 void CLSLRecorder::run()
@@ -98,7 +160,7 @@ void CLSLRecorder::run()
             catch (const std::exception& ex) { std::cout << "[LSL recorder] Could not look up the streams: " << ex.what() << std::endl; }
         }
 
-        std::set<std::string> selected;
+        std::map<std::string, Channels> selected;
         {
             std::lock_guard<std::mutex> lock(m_mutex);
             selected = m_selected;
@@ -110,7 +172,7 @@ void CLSLRecorder::run()
             end(*it->second);
             it = m_streams.erase(it);
         }
-        for (const std::string& uid : selected)
+        for (const auto& [uid, chosen] : selected)
         {
             if (m_streams.count(uid) != 0 || found.count(uid) == 0) { continue; }
             auto stream = std::make_unique<SStream>();
@@ -129,8 +191,19 @@ void CLSLRecorder::run()
                     std::cout << "[LSL recorder] " << stream->name << " has a sample format that can not be recorded; it is left out." << std::endl;
                     continue;
                 }
+                // The channels chosen, those the stream has; all of them when none were chosen
+                for (const size_t c : chosen)
+                {
+                    if (c < stream->channels) { stream->keep.push_back(c); }
+                }
+                const bool all = stream->keep.empty() || stream->keep.size() == stream->channels;
+                if (all)
+                {
+                    stream->keep.clear();
+                    for (size_t c = 0; c < stream->channels; ++c) { stream->keep.push_back(c); }
+                }
                 stream->id = m_nextId++;
-                m_writer.writeStreamHeader(stream->id, info.as_xml());
+                m_writer.writeStreamHeader(stream->id, all ? info.as_xml() : headerForChannels(info.as_xml(), stream->keep));
             }
             catch (const std::exception& ex)
             {
@@ -138,7 +211,8 @@ void CLSLRecorder::run()
                 continue;  // tried again at the next pass
             }
             stream->nextOffset = Clock::now();  // the first offset at once, as LabRecorder
-            std::cout << "[LSL recorder] Recording " << stream->name << " as stream " << stream->id << std::endl;
+            std::cout << "[LSL recorder] Recording " << stream->name << " as stream " << stream->id << ", " << stream->keep.size() << " of its "
+                      << stream->channels << " channels" << std::endl;
             m_streams.emplace(uid, std::move(stream));
         }
         m_recording = m_streams.size();
@@ -194,7 +268,16 @@ bool CLSLRecorder::record(SStream& stream)
         count = stream.inlet->pull_chunk_multiplexed(stream.texts.data(), stream.stamps.data(), stream.texts.size(), stream.stamps.size(), 0.0)
                 / stream.channels;
         if (count == 0) { return false; }
-        m_writer.writeTextSamples(stream.id, stream.stamps.data(), count, stream.texts.data(), stream.channels);
+        if (stream.keep.size() == stream.channels) { m_writer.writeTextSamples(stream.id, stream.stamps.data(), count, stream.texts.data(), stream.channels); }
+        else
+        {
+            stream.keptTexts.resize(count * stream.keep.size());
+            for (size_t s = 0; s < count; ++s)
+            {
+                for (size_t k = 0; k < stream.keep.size(); ++k) { stream.keptTexts[s * stream.keep.size() + k] = stream.texts[s * stream.channels + stream.keep[k]]; }
+            }
+            m_writer.writeTextSamples(stream.id, stream.stamps.data(), count, stream.keptTexts.data(), stream.keep.size());
+        }
     }
     else
     {
@@ -214,7 +297,21 @@ bool CLSLRecorder::record(SStream& stream)
         }
         count /= stream.channels;
         if (count == 0) { return false; }
-        m_writer.writeSamples(stream.id, stream.stamps.data(), count, stream.values.data(), stream.channels * width);
+        if (stream.keep.size() == stream.channels) { m_writer.writeSamples(stream.id, stream.stamps.data(), count, stream.values.data(), stream.channels * width); }
+        else
+        {
+            // Only the channels recorded, in their order
+            const size_t keptWidth = stream.keep.size() * width;
+            stream.kept.resize(count * keptWidth);
+            for (size_t s = 0; s < count; ++s)
+            {
+                for (size_t k = 0; k < stream.keep.size(); ++k)
+                {
+                    std::memcpy(stream.kept.data() + s * keptWidth + k * width, stream.values.data() + (s * stream.channels + stream.keep[k]) * width, width);
+                }
+            }
+            m_writer.writeSamples(stream.id, stream.stamps.data(), count, stream.kept.data(), keptWidth);
+        }
     }
 
     if (stream.count == 0) { stream.first = stream.stamps[0]; }

@@ -8,9 +8,10 @@
 #include <openvibe/ov_all.h>
 #include <toolkit/ovtk_all.h>
 
+#include <map>
 #include <memory>
-#include <set>
 #include <string>
+#include <vector>
 
 namespace OpenViBE {
 namespace Plugins {
@@ -21,8 +22,8 @@ class CLSLRecorder;
 /**
  * \brief Records the LSL streams ticked in an LSL display into an XDF file, as LabRecorder does.
  *
- * Connected to an LSL display's output, it records the streams ticked there each time the display's Record button is pressed,
- * to a new file, until it is pressed again: the first file under the name set, the next with "-2", "-3", ... The file is
+ * Connected to an LSL display's output, it records the streams ticked there, of each only the channels shown, each time the
+ * display's Record button is pressed, to a new file, until it is pressed again: the first file under the name set, the next with "-2", "-3", ... The file is
  * LabRecorder's format, with the senders' own time stamps and the clock offsets, so that load_xdf and pyxdf load and correct
  * it as they do LabRecorder's files (CLSLRecorder).
  */
@@ -43,7 +44,7 @@ public:
 private:
     /// The file of a recording: the name set for the first, with "-2", "-3", ... before the extension for the next
     std::string pathOf(size_t recording) const;
-    bool startRecording(const std::set<std::string>& uids);
+    bool startRecording(const std::map<std::string, std::vector<size_t>>& streams);
     /// Writes every stream's footer and closes the file, if one is open
     void stopRecording();
 

@@ -9,9 +9,9 @@
 #include <map>
 #include <memory>
 #include <mutex>
-#include <set>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace OpenViBE {
 namespace Plugins {
@@ -22,9 +22,11 @@ namespace SimpleVisualization {
  *
  * Each stream gets inlets of its own, without LSL's corrections: the file holds the senders' own time stamps, every sample's,
  * and the clock offset of each stream measured every 5 s, so that load_xdf and pyxdf correct them as they do LabRecorder's
- * files. A stream selected while recording starts in the file then, with its StreamHeader; one no longer selected ends there,
- * with its StreamFooter, and starts again, under a new stream id, if it is selected again. Boundary chunks every 10 s. The
- * file is written out chunk by chunk, so a crash loses no more than the last moments.
+ * files. Of a stream, only the channels chosen are recorded: its header in the file then gives their number and only their
+ * descriptions, and notes which channels of the stream they are (desc/openvibe_ug/recorded_channels, counted from 1).
+ * A stream selected while recording starts in the file then, with its StreamHeader; one no longer selected ends there, with
+ * its StreamFooter, and starts again, under a new stream id, if it is selected again. Boundary chunks every 10 s. The file is
+ * written out chunk by chunk, so a crash loses no more than the last moments.
  */
 class CLSLRecorder
 {
@@ -38,8 +40,21 @@ public:
 
     /// Whether the file could be created, and everything since reached it.
     bool ok() const { return m_writer.good(); }
-    /// The streams to record, by LSL uid.
-    void select(const std::set<std::string>& uids);
+    /// The channels of a stream to record, counted from 0; empty for all of them.
+    using Channels = std::vector<size_t>;
+    /// The streams to record, by LSL uid, with their channels. A stream's channels are taken when it starts in the file.
+    void select(const std::map<std::string, Channels>& streams);
+
+    /// A label of the "LSL streams" stream, see TypeId_LSLStreams: its uid, and its channels when not all, "uid#0,2,5".
+    static std::string recordLabel(const std::string& uid, const Channels& channels);
+    /// The uid and the channels in a label; false for an empty one, which means nothing to record.
+    static bool parseRecordLabel(const std::string& label, std::string& uid, Channels& channels);
+    /**
+     * \brief A stream header's XML for only \p channels of a stream: their number, their descriptions, and which they are.
+     * \param xml       The stream's info, as stream_info::as_xml() gives it.
+     * \param channels  The channels recorded, counted from 0.
+     */
+    static std::string headerForChannels(const std::string& xml, const Channels& channels);
     /// How many streams are being recorded now.
     size_t recording() const { return m_recording; }
 
@@ -56,7 +71,7 @@ private:
     std::atomic<size_t> m_recording{0};
 
     std::mutex m_mutex;  // guards m_selected
-    std::set<std::string> m_selected;
+    std::map<std::string, Channels> m_selected;
 
     // Only the recording thread touches these
     std::map<std::string, std::unique_ptr<SStream>> m_streams;  ///< By uid

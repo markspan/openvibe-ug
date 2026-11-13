@@ -6,7 +6,7 @@
 #include "../CLSLRecorder.h"
 
 #include <filesystem>
-#include <set>
+#include <map>
 
 namespace OpenViBE {
 namespace Plugins {
@@ -59,7 +59,7 @@ std::string CLSLXDFWriter::pathOf(const size_t recording) const
         .generic_u8string();
 }
 
-bool CLSLXDFWriter::startRecording(const std::set<std::string>& uids)
+bool CLSLXDFWriter::startRecording(const std::map<std::string, std::vector<size_t>>& streams)
 {
     m_path     = pathOf(++m_recordings);
     m_recorder = std::make_unique<CLSLRecorder>(m_path);
@@ -69,8 +69,8 @@ bool CLSLXDFWriter::startRecording(const std::set<std::string>& uids)
         m_recorder.reset();
         return false;
     }
-    m_recorder->select(uids);
-    this->getLogManager() << Kernel::LogLevel_Info << "Recording " << uids.size() << " LSL streams to " << m_path << "\n";
+    m_recorder->select(streams);
+    this->getLogManager() << Kernel::LogLevel_Info << "Recording " << streams.size() << " LSL streams to " << m_path << "\n";
     return true;
 }
 
@@ -97,18 +97,20 @@ bool CLSLXDFWriter::process()
         m_decoder.decode(i);
         if (!m_decoder.isHeaderReceived()) { continue; }
 
-        // The streams to record: the rows of the header, labelled with their LSL uids; none, an empty label, when not recording
+        // The streams to record: the rows of the header, labelled with their LSL uids and their channels; none, an empty label,
+        // when not recording (TypeId_LSLStreams)
         const CMatrix* matrix = m_decoder.getOutputMatrix();
-        std::set<std::string> uids;
+        std::map<std::string, CLSLRecorder::Channels> streams;
         for (size_t row = 0; matrix->getDimensionCount() > 0 && row < matrix->getDimensionSize(0); ++row)
         {
-            const std::string uid = matrix->getDimensionLabel(0, row);
-            if (!uid.empty()) { uids.insert(uid); }
+            std::string uid;
+            CLSLRecorder::Channels channels;
+            if (CLSLRecorder::parseRecordLabel(matrix->getDimensionLabel(0, row), uid, channels)) { streams[uid] = channels; }
         }
 
-        if (uids.empty()) { stopRecording(); }
-        else if (!m_recorder) { startRecording(uids); }
-        else { m_recorder->select(uids); }
+        if (streams.empty()) { stopRecording(); }
+        else if (!m_recorder) { startRecording(streams); }
+        else { m_recorder->select(streams); }
     }
     if (m_recorder && !m_recorder->ok())
     {
