@@ -73,6 +73,7 @@ Everything outside the files listed here is identical to upstream.
 | Path parameters | Re-choosing the same file in the file dialog does nothing | Re-choosing the same file applies it again (reloads an edited montage) |
 | Client memory | Acquisition client leaked every received message's arrays | Arrays freed |
 | Server restarted under a running scenario | Connected clients keep the first settings; blocks larger than they expect are cut, the rest dropped without a word (a block size of 64 after 4 keeps one sample in 16), other channels are misread | Clients get the new settings; every sample is kept whatever the block size; another rate or other channels stop the scenario with an error that says so |
+| Second acquisition server | Starts on the port the first one uses, and Designer connects to either | Says the port is in use, and quits |
 | Client box in scenarios | 31 scenarios, among them all of the speller, use the legacy box, which gets nothing from this server | They use the current `Acquisition client`, on port 8088 |
 | Quiet connections | A client silent for 5 s is no longer read; a server silent for 5 s loses its client | They keep the connection |
 | Late TCP markers | A marker that reaches the server after its chunk has gone lands on the next chunk's first sample | It lands on its own sample, as the Acquisition client sends markers at least 100 ms behind the signal, which itself is not delayed |
@@ -859,6 +860,26 @@ The server tells a client its settings (rate, channels, "Sample count per sent b
 - A recording or display can no longer be silently thinned out or scrambled by changing the server's settings during a run. A changed block size goes on without loss; any other change stops the scenario.
 - Tested with `test-sample-blocks` (4 tests): blocks of 64 into chunks of 4 keep all 128 samples, in order, with their stamps; blocks of 4 wait to fill a chunk of 32; a stimulation waits for the chunk with its block's last sample; a block of other channels is refused, not misread. `AcquisitionConfigTest` (server core, 67 tests in all): after the acquisition is set up again with blocks of 64, the connected client is sent the new settings; it fails without the change. **Not yet tried:** the whole path, server restarted under a running scenario in Designer.
 
+### 2.31 A second acquisition server refuses a port already in use
+
+**Files**
+- `sdk/modules/network/Server/CServer.cpp`, `CServer.h`
+- `extras/applications/platform/acquisition-server/main.cpp`
+
+**What went wrong**
+
+The network server binds its port with `SO_REUSEADDR`, which on Windows lets a second program bind a port another one listens on. A second acquisition server, started by mistake, therefore ran next to the first without a word, and Designer connected to either one. Channels renamed in one server did not reach the scenario, which read the other.
+
+**What it does now**
+- Before it binds, the server connects to its port on this computer. When something answers, it does not listen, and says so in the console log. This holds for the acquisition port (8088) and the TCP tagging port (15361).
+- The acquisition server then shows "Port 8088 is already in use, most likely by another OpenViBE acquisition server that is still running", and quits.
+- A socket whose `bind()` or `listen()` failed is closed; upstream kept it open.
+
+**Consequences**
+- Only one server per port. Two servers side by side need different ports (Preferences).
+- Start-up takes up to 0.3 s longer when the port is free: how long the check waits for an answer.
+- Tried: a second server started while one ran on 8088 found both ports in use, showed the message and quit. **Not yet checked:** that the server already running is unaffected by the check's brief connection; in the one trial it closed about then, with a normal stop in its log.
+
 ---
 
 ## 3. All modified files
@@ -900,7 +921,7 @@ The server tells a client its settings (rate, channels, "Sample count per sent b
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.h` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.cpp` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.h` | 2.4 |
-| M | `extras/applications/platform/acquisition-server/main.cpp` | 2.17 |
+| M | `extras/applications/platform/acquisition-server/main.cpp` | 2.17, 2.31 |
 | A | `extras/applications/platform/acquisition-server/test/AcquisitionConfigTest.cpp` | 2.30 |
 | A | `extras/applications/platform/acquisition-server/test/CharmeleonMontageTest.cpp` | 2.3 |
 | A | `extras/applications/platform/acquisition-server/test/CircularBufferTest.cpp` | 2.4 |
@@ -1045,7 +1066,8 @@ The server tells a client its settings (rate, channels, "Sample count per sent b
 | M | `sdk/kernel/src/kernel/player/ovkCSimulatedBox.cpp` | 2.23 |
 | M | `sdk/kernel/src/kernel/scenario/ovkCScenarioManager.cpp` | 2.23 |
 | M | `sdk/modules/network/Client/CClient.cpp` | 2.19 |
-| M | `sdk/modules/network/Server/CServer.cpp` | 2.4 |
+| M | `sdk/modules/network/Server/CServer.cpp` | 2.4, 2.31 |
+| M | `sdk/modules/network/Server/CServer.h` | 2.31 |
 | M | `sdk/modules/network/Server/ConnectedClient.cpp` | 2.19 |
 | A | `sdk/openvibe/include/openvibe/ConsoleLog.hpp` | 2.17 |
 | A | `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h` | 2.7 |
