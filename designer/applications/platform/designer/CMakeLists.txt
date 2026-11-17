@@ -90,6 +90,7 @@ QML_FILES
   Footer.qml
   Main.qml
   MenuModel.qml
+  RuntimeOverlay.qml # UG fork, see UG.md 2.33
   ScenarioTab.qml
   SettingsMenu.qml
   SettingsPopup.qml

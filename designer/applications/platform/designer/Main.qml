@@ -185,6 +185,11 @@ ApplicationWindow {
     id: _toast
   }
 
+  // UG fork: the run time above all windows while a scenario runs. See UG.md, 2.33.
+  OV.RuntimeOverlay {
+    hostWindow: window
+  }
+
   Connections {
     target: OVDesigner
     function onToastMessage(message, type) {

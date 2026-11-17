@@ -31,6 +31,8 @@ class OVDesigner : public QObject
     Q_PROPERTY(QString playerStatus READ playerStatus NOTIFY playerStatusChanged)
     Q_PROPERTY(QString simulatedTime READ simulatedTime NOTIFY simulatedTimeChanged)
     Q_PROPERTY(QString simulatedTimeMs READ simulatedTimeMs NOTIFY simulatedTimeChanged)
+    // UG fork: whether the run time is also shown in a window above all others. See UG.md, 2.33.
+    Q_PROPERTY(bool runtimeOverlayEnabled READ runtimeOverlayEnabled CONSTANT)
     //TODO add signal toast to show messages to the user and ask for confirmation
     Q_PROPERTY(int currentScenarioIndex READ currentScenarioIndex WRITE setCurrentScenarioIndex NOTIFY currentScenarioIndexChanged)
     Q_PROPERTY(DesignerScenario* currentScenario READ currentScenario NOTIFY currentScenarioIndexChanged)
@@ -93,6 +95,11 @@ public:
     QString playerStatus() const;
     QString simulatedTime() const;
     QString simulatedTimeMs() const;
+    /**
+     * @brief True when ${Designer_RuntimeOverlay} asks for the run time to be shown in a window
+     * above all others while a scenario runs. True when the token is not set.
+     */
+    bool runtimeOverlayEnabled() const;
     bool threadFinished() const;
     int currentScenarioIndex() const;
     /** The scenario shown in the current tab, or nullptr when there is none. */

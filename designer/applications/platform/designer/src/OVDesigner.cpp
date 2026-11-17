@@ -1108,6 +1108,12 @@ QString OVDesigner::simulatedTimeMs() const
     return result;
 }
 
+bool OVDesigner::runtimeOverlayEnabled() const
+{
+    // UG fork: read when QML first asks, which is after designer.conf and the user's file are loaded
+    return d->m_context == nullptr || d->m_context->getConfigurationManager().expandAsBoolean("${Designer_RuntimeOverlay}", true);
+}
+
 QQmlListProperty<DesignerScenario> OVDesigner::scenarios()
 {
     return QQmlListProperty<DesignerScenario>(this, &d->m_scenarios);

@@ -61,6 +61,7 @@ Everything outside the files listed here is identical to upstream.
 | Hardware triggers | n/a (TMSi) / flank-decoded (eego) | Sent as `OVTK_StimulationId_Label(value)`, value 1–255, not inverted |
 | Trigger lines switching | A value caught while the trigger lines switch is an extra trigger with a wrong code (eego) | A value counts once it has held for two samples, and is dated at the first sample of the change (TMSi, eego) |
 | Designer configuration | A `designer.conf` that is not found is skipped without a word; the user's settings are then not loaded, and every session save fails with `${Designer_CustomConfigurationFile} is empty` | The missing file is named in the log, and the user configuration file falls back to `${Path_UserData}/openvibe-designer.conf` |
+| Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; red dot while running, amber while paused |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
 | Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
@@ -903,6 +904,27 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 
 ---
 
+### 2.33 Run time above all windows while a scenario runs (new)
+
+**Files**
+- `designer/applications/platform/designer/RuntimeOverlay.qml` (new), `Main.qml`, `CMakeLists.txt`
+- `designer/applications/platform/designer/src/OVDesigner.h`, `OVDesigner.cpp` (`runtimeOverlayEnabled`)
+- `designer/applications/platform/designer/share/designer.conf-base` (`Designer_RuntimeOverlay`)
+
+**What it does**
+- While a scenario plays, is paused, steps or fast-forwards, its run time is also shown in a small dark window at the top left corner of the screen Designer is on, above every other window: Designer's visualisation windows and other programs alike. It reads `00:12:34.567`, as the action bar does.
+- A dot before the time is red while time runs and amber while paused. When the scenario stops, the window goes.
+- The window takes no focus, lets every click through to whatever lies under it, has no taskbar button, and stays when Designer is minimised.
+- It shows the scenario of the current tab, as the action bar does.
+- `Designer_RuntimeOverlay = false`, in `designer.conf` or in the user's `openvibe-designer.conf`, turns it off. It is read when Designer starts.
+
+**Consequences**
+- With the participant's display on the same screen as Designer, the participant sees the time too. Put Designer on the experimenter's screen, or turn the overlay off.
+- A program that takes the screen in exclusive full-screen mode, as some games and stimulus programs on DirectX do, can cover it. Windowed and borderless full-screen programs, and OpenViBE's own windows, can not.
+- Checked in a headless Qt 6 with a stand-in for Designer: hidden on Stop, shown on Play and Pause with the right dot, at 16 px from the corner, with the flags above. Not yet run in Designer on Windows.
+
+---
+
 ## 3. All modified files
 
 `A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
@@ -915,8 +937,13 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `conda/env_osx_arm64.yaml` | 2.21 |
 | M | `conda/env_windows.yaml` | 2.21 |
 | M | `conda/recipe/meta.yaml` | 2.21 |
+| M | `designer/applications/platform/designer/CMakeLists.txt` | 2.33 |
+| M | `designer/applications/platform/designer/Main.qml` | 2.33 |
+| A | `designer/applications/platform/designer/RuntimeOverlay.qml` | 2.33 |
+| M | `designer/applications/platform/designer/share/designer.conf-base` | 2.33 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12 |
-| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32 |
+| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33 |
+| M | `designer/applications/platform/designer/src/OVDesigner.h` | 2.33 |
 | M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18, 2.23 |
 | M | `designer/applications/platform/designer/src/main.cpp` | 2.17 |
 | M | `extras/applications/developer-tools/plugin-inspector/src/CAlgorithmGlobalDefinesGen.cpp` | 2.23 |

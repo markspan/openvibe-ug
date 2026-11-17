@@ -57,6 +57,10 @@ Designer_ConsoleLogTimePrecision = 3
 
 Designer_FastForwardFactor = 100.0
 
+# UG fork: while a scenario runs, its run time is also shown in a small window at the top left
+# of the screen Designer is on, above all other windows. false turns it off. See UG.md, 2.33.
+Designer_RuntimeOverlay = true
+
 #Use all OpenViBE plugins, including SDK, Designer and extras
 Kernel_PluginsPatternMacOS = ${Path_Lib}/libopenvibe-plugins-*.dylib
 Kernel_PluginsPatternLinux = ${Path_Lib}/libopenvibe-plugins-*.so
