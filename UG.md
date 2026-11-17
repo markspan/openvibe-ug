@@ -62,7 +62,7 @@ Everything outside the files listed here is identical to upstream.
 | Trigger lines switching | A value caught while the trigger lines switch is an extra trigger with a wrong code (eego) | A value counts once it has held for two samples, and is dated at the first sample of the change (TMSi, eego) |
 | Designer configuration | A `designer.conf` that is not found is skipped without a word; the user's settings are then not loaded, and every session save fails with `${Designer_CustomConfigurationFile} is empty` | The missing file is named in the log, and the user configuration file falls back to `${Path_UserData}/openvibe-designer.conf` |
 | Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; red dot while running, amber while paused |
-| Comments on the canvas | Shown, edited, moved and deleted, but a new one can not be made: nothing starts it | Edit > Add comment, or Ctrl+Shift+C, then a click where it goes |
+| Comments on the canvas | Shown, edited, moved and deleted, but a new one can not be made: nothing starts it | Edit > Add comment, or Ctrl+Shift+C: the text dialog opens at once |
 | Installer on GitHub | none; the installer is built on Inria's GitLab runners | A GitHub Actions workflow builds the NSIS installer and a ZIP, by hand or on a version tag, and attaches them to a release |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
@@ -965,19 +965,19 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 
 **Files**
 - `designer/applications/platform/designer/MenuModel.qml`, `ShortcutManager.qml`, `Main.qml`
-- `designer/applications/platform/designer/OVVisualization/PipelineCanvas.qml` (`beginAddComment()`)
+- `designer/applications/platform/designer/OVVisualization/PipelineCanvas.qml` (`addComment()`, `_placementPoint()`)
 - `designer/applications/platform/designer/src/DesignerScenario.h`
 
 **What it does**
-- The legacy Designer put yellow comment boxes on the canvas. The new one shows them, and they can be edited (double-click), moved (drag), deleted (click, then Delete) and copied with boxes. But a new one could not be made: the canvas has a mode in which a click opens the comment dialog, and `DesignerScenario::addComment()` stores the comment, yet the only thing that switched that mode on was the signal `newComment`, which nothing sent.
-- Now **Edit > Add comment**, or **Ctrl+Shift+C**, starts it. The next click on an empty part of the canvas opens the dialog; OK puts the comment centred where was clicked, as one undoable step. Escape, or leaving the canvas, cancels before the click; Cancel in the dialog cancels after it.
+- The legacy Designer put yellow comment boxes on the canvas. The new one shows them, and they can be edited (double-click), moved (drag), deleted (click, then Delete) and copied with boxes. But a new one could not be made: the canvas had an unfinished mode in which a click opened the comment dialog, switched on only by the signal `newComment`, which nothing sent. `DesignerScenario::addComment()`, which stores the comment, was in place.
+- Now **Edit > Add comment**, or **Ctrl+Shift+C**, opens the comment dialog at once. OK puts the comment, centred, under the pointer when it is over the canvas, else in the middle of the view, as one undoable step. Cancel adds nothing. The comment can be dragged where it belongs afterwards.
 - The dialog starts empty each time. It is reused, and used to offer the previous comment's text.
-- The unused signal `newComment` and the `Connections` that waited for it are removed.
+- Removed: the click mode (`_mouseAreaComment`), the signal `newComment` and the `Connections` that waited for it. A first version of this change used the click mode, and choosing the menu entry seemed to do nothing: the only sign of the mode was the pointer's shape, and its own check for leaving the canvas ignored pan and zoom, so it could switch itself off before the click.
+- Not held back while a text field has the focus, unlike Cut, Copy and Paste: in that first version the box search field in the toolbox, when it kept the focus, also made the menu entry do nothing.
 
 **Consequences**
 - The text may hold simple HTML, as before: `<b>bold</b>`, `<i>italic</i>`, `<font color="red">…</font>`. Line breaks are kept as typed.
-- Ctrl+Shift+C does nothing while a text field has the focus, as with the other edit shortcuts.
-- Not yet run in Designer; `qmllint` finds no new problems in the changed files.
+- Tested headless with the real `CommentEditDialog.qml` and the canvas's own functions: the dialog opens, empty, and OK returns the text and the place. `qmllint` finds no new problems. Not yet run in Designer.
 
 ---
 

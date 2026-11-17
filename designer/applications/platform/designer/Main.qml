@@ -302,8 +302,11 @@ ApplicationWindow {
   function editCutHandle() { if (!_textEditorFocused()) _currentCanvas()?.cutSelection() }
   function editCopyHandle() { if (!_textEditorFocused()) _currentCanvas()?.copySelection() }
   function editPasteHandle() { if (!_textEditorFocused()) _currentCanvas()?.pasteClipboard() }
-  // UG fork: the next click on the canvas places a comment there. See UG.md, 2.36.
-  function editAddCommentHandle() { if (!_textEditorFocused()) _currentCanvas()?.beginAddComment() }
+  // UG fork: opens the dialog for a new comment on the current canvas. See UG.md, 2.36.
+  // Unlike Cut/Copy/Paste, not held back while a text field has the focus: Ctrl+Shift+C means
+  // nothing to a text field, and the toolbox's search field keeping the focus made the menu entry
+  // do nothing.
+  function editAddCommentHandle() { _currentCanvas()?.addComment() }
   function zoomInHandle() { console.log("zoomInHandle") }
   function zoomOutHandle() { console.log("zoomOutHandle") }
   function zoomResetHandle() { console.log("zoomResetHandle") }

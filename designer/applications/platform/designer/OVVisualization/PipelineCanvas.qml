@@ -115,23 +115,29 @@ FocusScope {
     canvas.requestDeselectAll()
   }
 
-  // Pasted items land under the pointer when it is over the canvas, else at the viewport centre
-  /**
-   * UG fork: starts placing a new comment. The next click on the empty canvas opens the text
-   * dialog, and OK puts the comment where was clicked. Escape, or leaving the canvas, cancels.
-   * See UG.md, 2.36.
-   */
-  function beginAddComment() {
-    _newCommentDialog.text = ""  // the dialog is reused: do not offer the previous comment's text
-    _mouseAreaComment.enabled = true
-    canvas.forceActiveFocus()    // so that Escape reaches Keys.onPressed below
-  }
-
-  function pasteClipboard() {
-    var anchor = panArea.containsMouse
+  /// Scenario coordinates of the pointer when it is over the canvas, else of the centre of the view
+  function _placementPoint() {
+    return panArea.containsMouse
         ? Qt.point((panArea.mouseX - panOffset.x) / zoomLevel, (panArea.mouseY - panOffset.y) / zoomLevel)
         : Qt.point((width / 2 - panOffset.x) / zoomLevel, (height / 2 - panOffset.y) / zoomLevel)
-    var pastedIds = canvas.model.modelData.pasteFromClipboard(anchor)
+  }
+
+  /**
+   * UG fork: adds a comment. The comment dialog opens at once; OK puts the comment, centred, under
+   * the pointer when it is over the canvas, else in the middle of the view. Cancel adds nothing.
+   * See UG.md, 2.36.
+   */
+  function addComment() {
+    _newCommentDialog.commentCenter = _placementPoint()
+    _newCommentDialog.text = ""  // the dialog is reused: do not offer the previous comment's text
+    _newCommentDialog.show()
+    _newCommentDialog.raise()
+    _newCommentDialog.requestActivate()  // so that typing goes straight into it
+  }
+
+  // Pasted items land under the pointer when it is over the canvas, else at the viewport centre
+  function pasteClipboard() {
+    var pastedIds = canvas.model.modelData.pasteFromClipboard(_placementPoint())
     if (pastedIds.length > 0) {
       selectBoxes(pastedIds)
       canvas.forceActiveFocus()
@@ -286,7 +292,6 @@ FocusScope {
       ctrlKeyActive = true
       event.accepted = false
     } else if (event.key === Qt.Key_Escape) {
-      _mouseAreaComment.enabled = false  // UG fork: also cancels placing a comment (2.36)
       canvas.requestDeselectAll()
       event.accepted = true
     } else if (event.key === Qt.Key_Delete) {
@@ -449,30 +454,6 @@ FocusScope {
       enabled: false
       onTapped: {
         canvas.model.modelData.stopLinkCreation()
-      }
-    }
-
-    MouseArea {
-      id: _mouseAreaComment
-      property int margin: 15
-      enabled: false
-      anchors.fill: parent
-      cursorShape: enabled ? Qt.PointingHand : canvas.currentCursor
-      hoverEnabled: true
-
-      onExited: {
-        //if position is outside the window, stop comment creation
-        // if the mouse is too fast, the positionChanged event may not triggered
-        // we also want to filter out the case where the mouse is going over a box hence the check on mouse position
-        if(mouseX < margin || mouseY < margin || mouseX > parent.width - margin || mouseY > parent.height - margin){
-          _mouseAreaComment.enabled = false
-        }
-      }
-
-      onClicked: (event) => {
-        _newCommentDialog.commentCenter = Qt.point(event.x, event.y)
-        _newCommentDialog.show()
-        _mouseAreaComment.enabled = false
       }
     }
 
