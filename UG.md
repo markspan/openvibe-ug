@@ -62,6 +62,7 @@ Everything outside the files listed here is identical to upstream.
 | Trigger lines switching | A value caught while the trigger lines switch is an extra trigger with a wrong code (eego) | A value counts once it has held for two samples, and is dated at the first sample of the change (TMSi, eego) |
 | Designer configuration | A `designer.conf` that is not found is skipped without a word; the user's settings are then not loaded, and every session save fails with `${Designer_CustomConfigurationFile} is empty` | The missing file is named in the log, and the user configuration file falls back to `${Path_UserData}/openvibe-designer.conf` |
 | Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; red dot while running, amber while paused |
+| Installer on GitHub | none; the installer is built on Inria's GitLab runners | A GitHub Actions workflow builds the NSIS installer and a ZIP, by hand or on a version tag, and attaches them to a release |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
 | Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
@@ -925,12 +926,32 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 
 ---
 
+### 2.34 Windows installer built on GitHub (new)
+
+**Files**
+- `.github/workflows/windows-installer.yml` (new)
+
+**What it does**
+- A GitHub Actions workflow, "Windows installer", builds OpenViBE UG on a Windows runner and packages it with CPack: `openvibe-<version>.exe` (the NSIS installer) and `openvibe-<version>.zip`. It follows the GitLab Windows pipeline: Qt 6.9.3 from the official build, everything else from the pixi environment, then `pixi run ci-build` and `pixi run ci-package`.
+- **By hand:** Actions tab, "Windows installer", "Run workflow", on any branch. The installer and ZIP are an artifact of the run, kept 30 days.
+- **On a tag:** pushing a tag such as `4.0.1` or `4.0.1-ug.1` runs it too, and attaches both files to a GitHub release named after the tag. A tag with a `-` makes a pre-release.
+- The version in the file names and in Designer comes from `git describe`, as in a local build; the workflow fetches the whole history for that.
+
+**Consequences**
+- A build takes in the order of an hour or more: the whole of OpenViBE, then the documentation, then CPack. The workflow stops after 6 hours.
+- The installer contains what `cmake --install` puts in `dist\`: the programs, the pixi environment's DLLs, Qt, the Python runtime and the Visual C++ runtime. Amplifier software such as Charmeleon is not in it.
+- The tag must read `MAJOR.MINOR.PATCH`, optionally with `-something`. Other tags do not start it, and CMake would refuse them anyway.
+- Not yet run. The first run may need adjusting, most likely the list of Qt modules or the disk the build goes to (`C:\ovb`).
+
+---
+
 ## 3. All modified files
 
 `A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
 
 | Status | File | Section |
 |---|---|---|
+| A | `.github/workflows/windows-installer.yml` | 2.34 |
 | M | `CMake/FindThirdPartyLSL.cmake` | 2.21 |
 | M | `conda/env_linux.yaml` | 2.21 |
 | M | `conda/env_osx.yaml` | 2.21 |

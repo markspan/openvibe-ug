@@ -1,0 +1,102 @@
+# UG fork: new file, not in upstream OpenViBE. See UG.md, 2.34.
+#
+# Builds OpenViBE UG on Windows and packages it with CPack: the NSIS installer (.exe) and a ZIP of
+# the same tree. The steps are those of the GitLab Windows pipeline (.gitlab/build.yml and
+# package.yml): the pixi environment supplies the compiler and every library but Qt, and the pixi
+# tasks ci-build and ci-package do the work, so a local `pixi run package` and this workflow build
+# the same thing.
+#
+# Runs:
+#   - by hand, from the Actions tab ("Run workflow"), on any branch: the installer is an artifact
+#     of the run;
+#   - on a pushed version tag such as 4.0.1 or 4.0.1-ug.1: the installer is also attached to a
+#     GitHub release named after the tag.
+#
+# The version comes from `git describe` (CMake/OvVersion.cmake), so the checkout needs the history
+# and the tags. A tag must read MAJOR.MINOR.PATCH, optionally followed by -something.
+
+name: Windows installer
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+      - '[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+  contents: write # to create the release on a tag; a manual run only reads
+
+concurrency:
+  group: windows-installer-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Must match Qt6_DIR in pixi.toml ([target.win-64.activation.env]), which pixi sets on activation.
+  QT_VERSION: '6.9.3'
+  # Short paths: OpenViBE's deepest build paths come close to the Windows 260-character limit.
+  BUILD_FOLDER: C:\ovb
+  PACKAGE_FOLDER: C:\ovp
+
+jobs:
+  installer:
+    runs-on: windows-2022
+    timeout-minutes: 360
+
+    steps:
+      - name: Check out, with history and tags for the version
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Qt is not taken from conda-forge on Windows (see pixi.toml); the lab machines use the
+      # official build, so the installer does too. Installed to C:\Qt\<version>\msvc2022_64, the
+      # path pixi.toml points Qt6_DIR at. Qt Graphs needs Quick 3D and the shader tools.
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          dir: C:\
+          modules: qtcharts qtgraphs qtquick3d qtshadertools
+          cache: true
+
+      - name: Install the pixi environment
+        uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          locked: true
+          cache: true
+
+      - name: Build
+        run: pixi run ci-build
+        env:
+          CMAKE_PREFIX_PATH: ${{ env.QT_ROOT_DIR }}
+
+      # ci-package builds the documentation first (the installer's Start Menu links to it), then
+      # runs CPack, which writes openvibe-<version>.exe and .zip to PACKAGE_FOLDER.
+      - name: Package
+        run: pixi run ci-package
+        env:
+          CMAKE_PREFIX_PATH: ${{ env.QT_ROOT_DIR }}
+
+      - name: Upload the installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: openvibe-ug-windows
+          path: |
+            ${{ env.PACKAGE_FOLDER }}\*.exe
+            ${{ env.PACKAGE_FOLDER }}\*.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Attach the installer to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.PACKAGE_FOLDER }}\*.exe
+            ${{ env.PACKAGE_FOLDER }}\*.zip
+          fail_on_unmatched_files: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
