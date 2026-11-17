@@ -202,7 +202,6 @@ signals:
     void finishLinkCreation();
     void parameterTypesChanged();
     void parametersChanged();
-    void newComment();
     void inputPortsChanged();
     void outputPortsChanged();
     void scenarioIOConnectionsChanged();

@@ -62,6 +62,7 @@ Everything outside the files listed here is identical to upstream.
 | Trigger lines switching | A value caught while the trigger lines switch is an extra trigger with a wrong code (eego) | A value counts once it has held for two samples, and is dated at the first sample of the change (TMSi, eego) |
 | Designer configuration | A `designer.conf` that is not found is skipped without a word; the user's settings are then not loaded, and every session save fails with `${Designer_CustomConfigurationFile} is empty` | The missing file is named in the log, and the user configuration file falls back to `${Path_UserData}/openvibe-designer.conf` |
 | Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; red dot while running, amber while paused |
+| Comments on the canvas | Shown, edited, moved and deleted, but a new one can not be made: nothing starts it | Edit > Add comment, or Ctrl+Shift+C, then a click where it goes |
 | Installer on GitHub | none; the installer is built on Inria's GitLab runners | A GitHub Actions workflow builds the NSIS installer and a ZIP, by hand or on a version tag, and attaches them to a release |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
@@ -960,6 +961,26 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 
 ---
 
+### 2.36 Adding a comment in Designer
+
+**Files**
+- `designer/applications/platform/designer/MenuModel.qml`, `ShortcutManager.qml`, `Main.qml`
+- `designer/applications/platform/designer/OVVisualization/PipelineCanvas.qml` (`beginAddComment()`)
+- `designer/applications/platform/designer/src/DesignerScenario.h`
+
+**What it does**
+- The legacy Designer put yellow comment boxes on the canvas. The new one shows them, and they can be edited (double-click), moved (drag), deleted (click, then Delete) and copied with boxes. But a new one could not be made: the canvas has a mode in which a click opens the comment dialog, and `DesignerScenario::addComment()` stores the comment, yet the only thing that switched that mode on was the signal `newComment`, which nothing sent.
+- Now **Edit > Add comment**, or **Ctrl+Shift+C**, starts it. The next click on an empty part of the canvas opens the dialog; OK puts the comment centred where was clicked, as one undoable step. Escape, or leaving the canvas, cancels before the click; Cancel in the dialog cancels after it.
+- The dialog starts empty each time. It is reused, and used to offer the previous comment's text.
+- The unused signal `newComment` and the `Connections` that waited for it are removed.
+
+**Consequences**
+- The text may hold simple HTML, as before: `<b>bold</b>`, `<i>italic</i>`, `<font color="red">…</font>`. Line breaks are kept as typed.
+- Ctrl+Shift+C does nothing while a text field has the focus, as with the other edit shortcuts.
+- Not yet run in Designer; `qmllint` finds no new problems in the changed files.
+
+---
+
 ## 3. All modified files
 
 `A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
@@ -974,10 +995,14 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `conda/env_windows.yaml` | 2.21 |
 | M | `conda/recipe/meta.yaml` | 2.21 |
 | M | `designer/applications/platform/designer/CMakeLists.txt` | 2.33 |
-| M | `designer/applications/platform/designer/Main.qml` | 2.33 |
+| M | `designer/applications/platform/designer/Main.qml` | 2.33, 2.36 |
+| M | `designer/applications/platform/designer/MenuModel.qml` | 2.36 |
+| M | `designer/applications/platform/designer/OVVisualization/PipelineCanvas.qml` | 2.36 |
 | A | `designer/applications/platform/designer/RuntimeOverlay.qml` | 2.33 |
+| M | `designer/applications/platform/designer/ShortcutManager.qml` | 2.36 |
 | M | `designer/applications/platform/designer/share/designer.conf-base` | 2.33 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12 |
+| M | `designer/applications/platform/designer/src/DesignerScenario.h` | 2.36 |
 | M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33 |
 | M | `designer/applications/platform/designer/src/OVDesigner.h` | 2.33 |
 | M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18, 2.23 |

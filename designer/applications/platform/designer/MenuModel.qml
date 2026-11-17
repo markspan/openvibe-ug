@@ -19,6 +19,7 @@ QtObject {
     signal editCutRequested()
     signal editCopyRequested()
     signal editPasteRequested()
+    signal editAddCommentRequested() // UG fork, see UG.md 2.36
     signal exportRequested()
     signal restoreScenarioRequested()
     signal communityRequested()
@@ -131,6 +132,15 @@ QtObject {
                     shortcut: ShortcutManager.getShortcutSequence("editPaste"),
                     enabled: canPaste,
                     action: function() { editPasteRequested() }
+                },
+                // UG fork: the yellow comment boxes of the legacy Designer. See UG.md, 2.36.
+                {
+                    id: "editAddComment",
+                    icon: "info",
+                    text: "Add comment",
+                    shortcut: ShortcutManager.getShortcutSequence("editAddComment"),
+                    enabled: currentScenario !== null,
+                    action: function() { editAddCommentRequested() }
                 }
             ]
         },

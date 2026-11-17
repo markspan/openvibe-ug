@@ -116,6 +116,17 @@ FocusScope {
   }
 
   // Pasted items land under the pointer when it is over the canvas, else at the viewport centre
+  /**
+   * UG fork: starts placing a new comment. The next click on the empty canvas opens the text
+   * dialog, and OK puts the comment where was clicked. Escape, or leaving the canvas, cancels.
+   * See UG.md, 2.36.
+   */
+  function beginAddComment() {
+    _newCommentDialog.text = ""  // the dialog is reused: do not offer the previous comment's text
+    _mouseAreaComment.enabled = true
+    canvas.forceActiveFocus()    // so that Escape reaches Keys.onPressed below
+  }
+
   function pasteClipboard() {
     var anchor = panArea.containsMouse
         ? Qt.point((panArea.mouseX - panOffset.x) / zoomLevel, (panArea.mouseY - panOffset.y) / zoomLevel)
@@ -275,6 +286,7 @@ FocusScope {
       ctrlKeyActive = true
       event.accepted = false
     } else if (event.key === Qt.Key_Escape) {
+      _mouseAreaComment.enabled = false  // UG fork: also cancels placing a comment (2.36)
       canvas.requestDeselectAll()
       event.accepted = true
     } else if (event.key === Qt.Key_Delete) {
@@ -650,15 +662,6 @@ FocusScope {
     }
   }
 
-  Connections {
-    target: canvas.model.modelData
-    function onNewComment() {
-      // 1. pick origin
-      // 2. open comment dialog to set text
-      // 3. ho le zoli comment
-      _mouseAreaComment.enabled = true
-    }
-  }
 
   function resetView() {
     if (boxes.length === 0) {

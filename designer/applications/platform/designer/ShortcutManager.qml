@@ -17,6 +17,7 @@ QtObject {
     signal editCutRequested()
     signal editCopyRequested()
     signal editPasteRequested()
+    signal editAddCommentRequested() // UG fork, see UG.md 2.36
     signal zoomInRequested()
     signal zoomOutRequested()
     signal zoomResetRequested()
@@ -34,6 +35,8 @@ QtObject {
         { sequence: "Ctrl+X", action: "editCut", signal: editCutRequested },
         { sequence: "Ctrl+C", action: "editCopy", signal: editCopyRequested },
         { sequence: "Ctrl+V", action: "editPaste", signal: editPasteRequested },
+        // UG fork: places a comment on the canvas. See UG.md, 2.36.
+        { sequence: "Ctrl+Shift+C", action: "editAddComment", signal: editAddCommentRequested },
         { sequence: "Ctrl++", action: "zoomIn", signal: zoomInRequested },
         { sequence: "Ctrl+-", action: "zoomOut", signal: zoomOutRequested },
         { sequence: "Ctrl+0", action: "zoomReset", signal: zoomResetRequested },

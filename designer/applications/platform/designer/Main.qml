@@ -70,6 +70,7 @@ ApplicationWindow {
     function onEditCutRequested() { editCutHandle() }
     function onEditCopyRequested() { editCopyHandle() }
     function onEditPasteRequested() { editPasteHandle() }
+    function onEditAddCommentRequested() { editAddCommentHandle() } // UG fork, see UG.md 2.36
     function onZoomInRequested() { zoomInHandle() }
     function onZoomOutRequested() { zoomOutHandle() }
     function onZoomResetRequested() { zoomResetHandle() }
@@ -88,6 +89,7 @@ ApplicationWindow {
     function onEditCutRequested() { editCutHandle() }
     function onEditCopyRequested() { editCopyHandle() }
     function onEditPasteRequested() { editPasteHandle() }
+    function onEditAddCommentRequested() { editAddCommentHandle() } // UG fork, see UG.md 2.36
     function onZoomInRequested() { zoomInHandle() }
     function onZoomOutRequested() { zoomOutHandle() }
     function onZoomResetRequested() { zoomResetHandle() }
@@ -300,6 +302,8 @@ ApplicationWindow {
   function editCutHandle() { if (!_textEditorFocused()) _currentCanvas()?.cutSelection() }
   function editCopyHandle() { if (!_textEditorFocused()) _currentCanvas()?.copySelection() }
   function editPasteHandle() { if (!_textEditorFocused()) _currentCanvas()?.pasteClipboard() }
+  // UG fork: the next click on the canvas places a comment there. See UG.md, 2.36.
+  function editAddCommentHandle() { if (!_textEditorFocused()) _currentCanvas()?.beginAddComment() }
   function zoomInHandle() { console.log("zoomInHandle") }
   function zoomOutHandle() { console.log("zoomOutHandle") }
   function zoomResetHandle() { console.log("zoomResetHandle") }
