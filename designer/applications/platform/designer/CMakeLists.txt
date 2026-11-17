@@ -14,6 +14,8 @@ if(WIN32)
 	set(PROJECT_PRODUCT_NAME "OpenViBE Designer")
 	ov_configure_rc(NAME ${PROJECT_NAME} ICON_PATH ${OV_ICON_FILE})
 	set(OV_DESIGNER_RC "${CMAKE_BINARY_DIR}/resource-files/${PROJECT_NAME}.rc")
+	# UG fork: rebuild the resources when the icon changes, which the build does not see by itself (UG.md, 2.37)
+	set_source_files_properties(${OV_DESIGNER_RC} PROPERTIES OBJECT_DEPENDS ${OV_ICON_FILE})
 endif()
 
 qt_add_executable(${PROJECT_NAME}

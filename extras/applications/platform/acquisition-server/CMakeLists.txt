@@ -132,6 +132,9 @@ if(WIN32)
     # UG fork: its own icon, not Designer's (UG.md, 2.37)
     ov_configure_rc(NAME ${TARGET_NAME} ICON_PATH ${OV_ACQUISITION_SERVER_ICON_FILE})
     set(OV_ACQUISITION_SERVER_RC "${CMAKE_BINARY_DIR}/resource-files/${TARGET_NAME}.rc")
+    # UG fork: the resource compiler reads the icon, but the build does not know that, so a changed
+    # icon left the old one in the executable (UG.md, 2.37)
+    set_source_files_properties(${OV_ACQUISITION_SERVER_RC} PROPERTIES OBJECT_DEPENDS ${OV_ACQUISITION_SERVER_ICON_FILE})
 endif()
 
 qt_add_executable(${TARGET_NAME})
