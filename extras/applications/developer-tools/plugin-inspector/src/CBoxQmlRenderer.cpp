@@ -139,6 +139,11 @@ QImage CBoxQmlRenderer::Render(const Kernel::IKernelContext& ctx, const Kernel::
     properties["initialOutputCount"] = int(box.getOutputCount());
     properties["inputPorts"]         = QVariant::fromValue(buildPorts(ctx, box, false, &portOwner));
     properties["outputPorts"]        = QVariant::fromValue(buildPorts(ctx, box, true, &portOwner));
+    // UG fork: Box.qml requires these since metaboxes are drawn apart, and a box the renderer does
+    // not initialise is not created at all, so every snapshot was skipped. See UG.md, 2.35.
+    // The snapshots are of box algorithms, never of metaboxes.
+    properties["isMetabox"] = false;
+    properties["metaboxId"] = QString();
 
     // Box.qml derives its own width/height from its content and uses boxSize only for
     // `x: center.x - boxSize.width/2`, so a zero center and size park it at the origin.

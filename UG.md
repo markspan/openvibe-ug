@@ -945,6 +945,21 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 
 ---
 
+### 2.35 Box pictures in the documentation
+
+**Files**
+- `extras/applications/developer-tools/plugin-inspector/src/CBoxQmlRenderer.cpp`
+
+**What it does**
+- The documentation build (`doc` target, also run before packaging) draws a picture of every box with Designer's `Box.qml`. `Box.qml` has two required properties for metaboxes, `isMetabox` and `metaboxId`, which the renderer did not set. Qt then refuses to create the box, so every picture was skipped, with two `Required property ... was not initialized` errors per box in the log.
+- The renderer now sets them: `isMetabox` false and `metaboxId` empty, as the pictures are of box algorithms.
+
+**Consequences**
+- The box pages of the documentation have their pictures again, and the packaging log loses some 500 error lines.
+- Found in the first run of the installer workflow (2.34). Not yet checked in a new run.
+
+---
+
 ## 3. All modified files
 
 `A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
@@ -968,6 +983,7 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18, 2.23 |
 | M | `designer/applications/platform/designer/src/main.cpp` | 2.17 |
 | M | `extras/applications/developer-tools/plugin-inspector/src/CAlgorithmGlobalDefinesGen.cpp` | 2.23 |
+| M | `extras/applications/developer-tools/plugin-inspector/src/CBoxQmlRenderer.cpp` | 2.35 |
 | M | `extras/applications/developer-tools/skeleton-generator/src/CDriverSkeletonGenerator.cpp` | 2.23 |
 | M | `extras/applications/developer-tools/skeleton-generator/src/CSkeletonGenerator.cpp` | 2.23 |
 | M | `extras/applications/developer-tools/skeleton-generator/src/main.cpp` | 2.23 |
