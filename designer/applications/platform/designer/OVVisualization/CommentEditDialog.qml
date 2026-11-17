@@ -14,6 +14,23 @@ Window {
     signal accepted()
 
     title: "Comment Editing"
+
+    /**
+     * UG fork: opens the dialog in the middle of hostWindow, normally Designer's main window, and
+     * gives it the keyboard. A window's position is in screen coordinates; the callers used to
+     * give it the comment's position on the canvas, which put it off the screen. See UG.md, 2.38.
+     *
+     * @param hostWindow The window to centre on; when null the window system places the dialog.
+     */
+    function openOver(hostWindow) {
+        if (hostWindow) {
+            x = hostWindow.x + Math.round((hostWindow.width - width) / 2)
+            y = hostWindow.y + Math.round((hostWindow.height - height) / 2)
+        }
+        show()
+        raise()
+        requestActivate()  // so that typing goes straight into the text
+    }
     flags: Qt.Dialog
     width: 400
     height: 400

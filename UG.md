@@ -64,6 +64,7 @@ Everything outside the files listed here is identical to upstream.
 | Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; red dot while running, amber while paused |
 | Comments on the canvas | Shown, edited, moved and deleted, but a new one can not be made: nothing starts it | Edit > Add comment, or Ctrl+Shift+C: the text dialog opens at once |
 | Acquisition server icon | The same as Designer's | Its own, in the same style: three channels merging into one |
+| Editing a comment | The editor opens at the comment's place on the canvas taken as a place on the screen, often off the screen | It opens in the middle of Designer's window |
 | Installer on GitHub | none; the installer is built on Inria's GitLab runners | A GitHub Actions workflow builds the NSIS installer and a ZIP, by hand or on a version tag, and attaches them to a release |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
@@ -1000,6 +1001,21 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 
 ---
 
+### 2.38 The comment editor opens on the screen
+
+**Files**
+- `designer/applications/platform/designer/OVVisualization/CommentEditDialog.qml` (`openOver()`), `Comment.qml`, `PipelineCanvas.qml`
+
+**What it does**
+- Double-clicking a comment opens its editor, a window of its own. Designer gave that window the comment's position on the canvas, but a window's position is on the screen. A comment to the right of or below the first screenful of the scenario, or any comment once the view was panned, put the editor off the screen, out of reach.
+- The editor now opens in the middle of Designer's window and takes the keyboard, both for editing a comment and for adding one (2.36).
+
+**Consequences**
+- The editor no longer appears next to its comment; it always appears where Designer is.
+- Tested headless: with Designer's window at (100, 80), 800 by 600, the editor of a comment at (5000, 3000) on the canvas opens at (300, 180), inside it. Not yet run in Designer.
+
+---
+
 ## 3. All modified files
 
 `A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
@@ -1017,7 +1033,9 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `designer/applications/platform/designer/CMakeLists.txt` | 2.33 |
 | M | `designer/applications/platform/designer/Main.qml` | 2.33, 2.36 |
 | M | `designer/applications/platform/designer/MenuModel.qml` | 2.36 |
-| M | `designer/applications/platform/designer/OVVisualization/PipelineCanvas.qml` | 2.36 |
+| M | `designer/applications/platform/designer/OVVisualization/Comment.qml` | 2.38 |
+| M | `designer/applications/platform/designer/OVVisualization/CommentEditDialog.qml` | 2.38 |
+| M | `designer/applications/platform/designer/OVVisualization/PipelineCanvas.qml` | 2.36, 2.38 |
 | A | `designer/applications/platform/designer/RuntimeOverlay.qml` | 2.33 |
 | M | `designer/applications/platform/designer/ShortcutManager.qml` | 2.36 |
 | M | `designer/applications/platform/designer/share/designer.conf-base` | 2.33 |

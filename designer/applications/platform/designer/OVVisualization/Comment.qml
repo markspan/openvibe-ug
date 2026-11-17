@@ -93,9 +93,7 @@ FocusScope {
     }
     onDoubleClicked: {
       _commentEditDialog.text = _scope.text
-      _commentEditDialog.x = _scope.x
-      _commentEditDialog.y = _scope.y
-      _commentEditDialog.visible = true
+      _commentEditDialog.openOver(_scope.Window.window)  // UG fork: on screen, see UG.md 2.38
     }
   }
 

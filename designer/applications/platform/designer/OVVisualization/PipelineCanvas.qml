@@ -130,9 +130,7 @@ FocusScope {
   function addComment() {
     _newCommentDialog.commentCenter = _placementPoint()
     _newCommentDialog.text = ""  // the dialog is reused: do not offer the previous comment's text
-    _newCommentDialog.show()
-    _newCommentDialog.raise()
-    _newCommentDialog.requestActivate()  // so that typing goes straight into it
+    _newCommentDialog.openOver(canvas.Window.window)
   }
 
   // Pasted items land under the pointer when it is over the canvas, else at the viewport centre
