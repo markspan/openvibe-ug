@@ -17,6 +17,8 @@ Run it after changing the drawing, and commit the .ico:
 Everything is drawn at SUPERSAMPLE times 256 px and scaled down, which is what smooths the edges.
 """
 
+import io
+import struct
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
@@ -112,9 +114,48 @@ def draw_icon():
     return icon.resize((256, 256), Image.LANCZOS)
 
 
+def dib_entry(image):
+    """
+    An icon image as a 32-bit DIB: BITMAPINFOHEADER, BGRA rows bottom-up, then an all-zero AND mask
+    (the alpha channel does the masking). The classic encoding, which every reader understands.
+    """
+    size = image.width
+    header = struct.pack("<IiiHHIIiiII", 40, size, 2 * size, 1, 32, 0, 0, 0, 0, 0, 0)
+    pixels = image.convert("RGBA").tobytes("raw", "BGRA", 0, -1)  # -1: rows bottom-up
+    mask_row = ((size + 31) // 32) * 4
+    return header + pixels + bytes(mask_row * size)
+
+
+def png_entry(image):
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def write_ico(icon, path):
+    """
+    Writes the icon as Designer's ov-icon.ico is written: DIB images up to 128 px, PNG at 256 px.
+    Pillow's own ICO writer stores every size as PNG, which the resource compiler, the Windows
+    shell and Qt's ICO reader do not all take for the small sizes.
+    """
+    images = []
+    for size in SIZES:
+        scaled_icon = icon if size == 256 else icon.resize((size, size), Image.LANCZOS)
+        images.append((size, png_entry(scaled_icon) if size == 256 else dib_entry(scaled_icon)))
+
+    directory = struct.pack("<HHH", 0, 1, len(images))  # reserved, type 1 = icon, count
+    offset = len(directory) + 16 * len(images)
+    entries, data = b"", b""
+    for size, blob in images:
+        side = 0 if size == 256 else size  # 0 means 256 in an icon directory
+        entries += struct.pack("<BBBBHHII", side, side, 0, 0, 1, 32, len(blob), offset)
+        offset += len(blob)
+        data += blob
+    path.write_bytes(directory + entries + data)
+
+
 def main():
-    icon = draw_icon()
-    icon.save(OUTPUT_FILE, format="ICO", sizes=[(s, s) for s in SIZES])
+    write_ico(draw_icon(), OUTPUT_FILE)
     print(f"Wrote {OUTPUT_FILE}")
 
 

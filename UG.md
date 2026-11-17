@@ -993,6 +993,7 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 - The acquisition server had Designer's icon, so the two were hard to tell apart in the taskbar and the Start Menu. It now has its own, in the same style: the white tile with rounded corners, the pink to blue gradient, the same stroke width and round nodes, and the faint glow. Designer's shows one trace with a spike between two nodes; the server's shows three channels coming in on the left, the middle one with Designer's spike, merging into one node on the right.
 - It is in the executable (taskbar, Explorer, the installer's Start Menu shortcut) and is the window icon. Sizes 16, 24, 32, 48, 64, 128 and 256 px.
 - The icon is drawn by a script rather than by hand, so it can be changed and redrawn: `pip install pillow`, then `python share/tools/make_acquisition_server_icon.py`. Its measurements are those of Designer's icon, at the top of the script.
+- The file is laid out as Designer's: classic 32-bit bitmaps up to 128 px and PNG at 256 px. The first version stored every size as PNG, Pillow's default, which the resource compiler, the Windows shell and Qt's icon reader do not all take for the small sizes.
 
 **Consequences**
 - The installer itself, and Designer, keep `ov-icon.ico`.
