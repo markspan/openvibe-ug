@@ -32,6 +32,15 @@ namespace OpenViBE {
 //---------------------------------------------------------------------------------------------------
 #define Box_SignalDisplay                                       CIdentifier(0x0055BE5F, 0x087BDD12)
 #define Box_SignalDisplayDesc                                   CIdentifier(0x00C4F2D5, 0x58810276)
+#define Box_LSLDisplay                                          CIdentifier(0x7A1C5D20, 0x3E9B4F61)  // UG fork
+#define Box_LSLDisplayDesc                                      CIdentifier(0x6D2E8B13, 0x4A7F0C95)  // UG fork
+#define Box_LSLXDFWriter                                        CIdentifier(0x51C0E7A4, 0x2D9B6F38)  // UG fork
+#define Box_LSLXDFWriterDesc                                    CIdentifier(0x3B7E19D6, 0x6A0C4E52)  // UG fork
+/// UG fork: the LSL streams to record, from an LSL display's output to an LSL XDF writer: a streamed matrix whose header lists
+/// them, one row each, labelled with the stream's LSL uid, followed by '#' and the channels to record, counted from 0 and
+/// separated by commas, when not all of them ("uid#0,2,5"); none, one empty label, when not recording. Sent again on each
+/// change. See CLSLRecorder::parseRecordLabel()
+#define TypeId_LSLStreams                                       CIdentifier(0x2F8A3B61, 0x7C4E1D95)
 #define Box_DisplayCueImage                                     CIdentifier(0x005789A4, 0x3AB78A36)
 #define Box_DisplayCueImageDesc                                 CIdentifier(0x086185A4, 0x796A854C)
 #define Box_GrazVisualization                                   CIdentifier(0x00DD290D, 0x5F142820)
@@ -81,7 +90,8 @@ enum EInterpolationType { Spline = 1, Laplacian = 2 };
 
 enum class ESignalDisplayMode { Scroll, Scan };
 
-enum class ESignalDisplayScaling { PerChannel, Global, None };
+/// UG fork: ByType, one scale for the EEG channels, one for the EOG and one for the digital channels; see SignalScaling.h
+enum class ESignalDisplayScaling { PerChannel, Global, None, ByType };
 
 enum EFeedbackMode { Positive, Best, All, No };
 }   // namespace OpenViBE

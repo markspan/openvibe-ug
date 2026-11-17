@@ -9,7 +9,7 @@ This repository (`markspan/openvibe-ug`) is a fork of the Inria OpenViBE 4.0 rep
 
 This document lists every change against upstream, what each change does and what it means in use.
 
-**In the code**, every place where the fork differs from upstream is marked with a comment that starts with `UG fork:`, in C++, QML, CMake and TOML alike. A new file says so at its top. To list them all:
+**In the code**, every place where the fork differs from upstream is marked with a comment that starts with `UG fork:`, in C++, QML, CMake and TOML alike. A new file says so at its top, and so does a file rewritten as a whole (the P300 speller box, the eego driver). The files marked 2.23 in section 3 say it once, above their includes (see 2.23). Files that can not carry a comment, or that a program rewrites, carry none: scenarios (`*.xml`, which Designer writes anew on every save), documentation (`*.dox-part`), `pixi.lock` and test input data. Section 3 lists them all the same. To list the tags:
 
 ```bash
 git grep -n "UG fork"
@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 31 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 45 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 242 files, about 24,900 lines added and 2,000 removed |
+| Size | 307 files, about 34,000 lines added and 3,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -63,13 +63,18 @@ Everything outside the files listed here is identical to upstream.
 | Designer configuration | A `designer.conf` that is not found is skipped without a word; the user's settings are then not loaded, and every session save fails with `${Designer_CustomConfigurationFile} is empty` | The missing file is named in the log, and the user configuration file falls back to `${Path_UserData}/openvibe-designer.conf` |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
+| Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
+| LSL streams | Seen through the acquisition server's LSL driver: one data stream and one marker stream, numbers only, timed when they arrive | "LSL display (UG)" box: any number of data streams of any rate, stacked on one time axis by their LSL times, and number and text markers on all; streams ticked while it runs. "LSL XDF writer (UG)" connected to it records the ticked streams as LabRecorder does, a file each time Record is pressed, of each stream only the channels shown |
+| BrainVision file integrity | eego data in volt in a microvolt file; TMSi BIP and AUX channels unscaled; markers counted from the scenario's start, not the file's first sample; the header written only at the end | eego in microvolt and its stream order checked; markers on their own sample; files written out at every step; a script that checks a recording |
 | P300 speller | Display box not ported to Qt and not built, so 6 of the 11 speller scenarios can not run; the Lua online scripts also stop with an error | Ported, and the error repaired; markers are sent once the flash is on screen; also a set of scenarios with Python scripts |
 | Player timing | Designer's player runs in rounds with a 50 ms sleep between them, so stimuli can be up to about 60 ms off | 1 ms sleep |
 | Kernel tokens | no `Path_Documents`; the Foldername setting type is unregistered | `${Path_Documents}` added; `Foldername` setting type registered |
 | Designer | Clicking two outputs could try to link a box to itself and wedge link creation | Second click on a port of the same kind restarts the link; failures end link creation |
 | Path parameters | Re-choosing the same file in the file dialog does nothing | Re-choosing the same file applies it again (reloads an edited montage) |
 | Client memory | Acquisition client leaked every received message's arrays | Arrays freed |
+| Server restarted under a running scenario | Connected clients keep the first settings; blocks larger than they expect are cut, the rest dropped without a word (a block size of 64 after 4 keeps one sample in 16), other channels are misread | Clients get the new settings; every sample is kept whatever the block size; another rate or other channels stop the scenario with an error that says so |
+| Second acquisition server | Starts on the port the first one uses, and Designer connects to either | Says the port is in use, and quits |
 | Client box in scenarios | 31 scenarios, among them all of the speller, use the legacy box, which gets nothing from this server | They use the current `Acquisition client`, on port 8088 |
 | Quiet connections | A client silent for 5 s is no longer read; a server silent for 5 s loses its client | They keep the connection |
 | Late TCP markers | A marker that reaches the server after its chunk has gone lands on the next chunk's first sample | It lands on its own sample, as the Acquisition client sends markers at least 100 ms behind the signal, which itself is not delayed |
@@ -149,6 +154,7 @@ The driver reports how full the TMSi library's buffer is and how many samples it
 - Channels are handed to the SDK as an explicit list. This also removes the 64-bit mask limit.
 - The trigger and sample-counter channels are always appended, as upstream does.
 - Every sample is timestamped, and each trigger is dated at its own sample (see 2.5).
+- The EEG and bipolar channels are sent in microvolt, as the TMSi driver sends them; the SDK, and upstream, give volt. Start checks that the stream lists the channels in the order they were named (see 2.27).
 - The driver reports how much data waited at each read, and counts lost samples from the sample counter (see 2.4). It uses Charmeleon for impedances when it is installed.
 - When it cannot start, it says why under the settings (see 2.16).
 
@@ -222,7 +228,7 @@ Samples are lost only when the amplifier's own buffer overflows. The server read
 - **Reader priority.** The reader thread registers with the Windows multimedia scheduler (MMCSS) as a "Pro Audio" task at high priority, and opts out of Windows 11's power throttling, which may slow down minimised programs. It waits whenever there is nothing to read, so it takes no more CPU than before; it gets it sooner.
 - **Empty reads.** A driver that returns at once with nothing (the generic oscillator, LSL) would keep that high-priority reader spinning, so the reader pauses 1 ms after a quick, empty read. Drivers that wait for data themselves (TMSi, eego) take longer than that and are not slowed down. An empty buffer is kept for the next read instead of going round the cleaning thread.
 - **Buffers panel.** Where upstream shows the drift, the server shows, twice a second, during an acquisition:
-  - **Amplifier buffer.** TMSi: how full the TMSi library's buffer is (`GetBufferInfo`), as a percentage of its 10 seconds. eego: the SDK does not say how full its buffer is, so the panel shows how much data waited at each read. For both, a reader that is held up counts as a growing backlog.
+  - **Amplifier buffer.** Shown as the time of data waiting, in milliseconds, with the worst since Play. TMSi: how many samples each read found waiting, which is exact, as a read empties the TMSi library's buffer; and how full the library says its buffer is (`GetBufferInfo`), whichever is more. `GetBufferInfo` gives whole percents of the 10 s buffer, so it reads 0 below 100 ms, which is where a working acquisition stays; the panel first showed only that percentage, and so always 0 %. The bar shows the part of the 10 s used. eego: the SDK does not say how full its buffer is, so the panel shows how much data waited at each read. For both, a reader that is held up counts as a growing backlog.
   - **Server buffers:** how many of the 10 are free. The reader and the processing thread hold one each, so 8 free is normal.
   - **Lost samples.** TMSi: the library's overflow count, times its buffer size. eego: gaps in the amplifier's sample counter channel, counted exactly. Lost samples also show in red in the panel's header and are logged as an error.
 
@@ -427,11 +433,9 @@ The label sits in a flag at the top of the marker line:
 
 ### 2.14 Session settings
 
-**Files**
-- `extras/applications/platform/acquisition-server/settings/SessionManager.h`
-- `extras/applications/platform/acquisition-server/settings/SessionManager.cpp`
+**Files:** none any more. `SessionManager.h` and `.cpp` are back to upstream's, since the drift correction settings they stored are gone (2.4).
 
-**What it does:** the driver parameters stored for TMSi and eego follow their new settings. Sessions saved by earlier versions of the fork may carry `driftCorrectionPolicy`, `driftCorrection` and `driftToleranceMs`. These are ignored, and the next save drops them.
+**What it does:** the server stores each driver's parameters as the driver lists them, so the TMSi and eego entries follow their new settings without a change here. Sessions saved by earlier versions of the fork may carry `driftCorrectionPolicy`, `driftCorrection` and `driftToleranceMs`. These are ignored, and the next save drops them, as a save writes the session anew.
 
 **Consequences**
 - A UG session file opened by upstream ignores the extra keys.
@@ -666,7 +670,220 @@ The label sits in a flag at the top of the marker line:
 - A trigger leaves the server one sample later than before, with the same date.
 - Tested with `SteadyTriggerTest`. Not yet run with an amplifier.
 
-### 2.26 Designer finds its user configuration file without designer.conf
+### 2.26 Signal display: scaling by page and by type, antialiased lines, channel selection buttons, a panel that hides, repairs
+
+**Files**
+- `extras/plugins/processing/simple-visualization/src/SignalScaling.h` (new), `CSignalTraceItem.cpp`, `CSignalTraceItem.h`, `CSignalDisplayController.cpp`, `CSignalDisplayController.h`, `CTraceBuffer.cpp`, `CTraceBuffer.h`, `SDisplaySettings.h`, `defines.hpp`, `main.cpp`, `box-algorithms/CSignalDisplay.cpp`, `box-algorithms/CSignalDisplay.h`, `CMakeLists.txt`
+- `extras/plugins/processing/simple-visualization/qml/SignalDisplay.qml`, `qml/AmplitudeScaleBar.qml`, `qml/TimeRuler.qml`, `doc/Doc_BoxAlgorithm_SignalDisplay.dox-part`
+- `extras/applications/qml/OVParameters/src/parameterObject.h`, `parameterObject.cpp`, `extras/applications/qml/OVParameters/MultiSelectParameter.qml`
+- `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp` (new), `test/TraceBufferTest.cpp` (new), `test/CMakeLists.txt`
+- 59 demo, tutorial and test scenarios (`*.xml`) with a Signal display
+
+**What it does**
+- **Centring.** In every automatic mode each channel is centred on the middle of its own signal. Upstream's Global mode gave all channels one centre, the middle of all of them together. A channel with a DC offset, as an amplifier without a high-pass filter gives, was then drawn outside its lane, and the shared range spanned the offsets, so the ruler showed numbers like ±1.2e+5. Global now shares the scale only.
+- **By type**, a new scaling mode: the EEG channels share one scale, the EOG channels one and the digital channels one. Other channels (ECG, EMG, GSR, unnamed BIP and AUX inputs) keep a scale of their own. The kind comes from the channel name: names with EOG, and HEO and VEO, are EOG; Trigger, SampleCounter, Digi, DIG, Saw, Status and Marker are digital; ECG, EMG, GSR, Resp, BIP, AUX and the like are other; everything else is EEG.
+- **Once per page.** An automatic scale is worked out again at every new page, from the page just drawn: in Scan mode when the cursor starts again at the left, in Scroll mode once per Time Scale. It then fits that page at once. While the first page fills, twice a second. Upstream refreshed it on a timer, every 5 s by default, and moved it only part of the way, with hysteresis. The setting "Scale refresh interval (secs)" is gone from the box and the panel.
+- **Round numbers.** A scale is rounded up to 1, 2 or 5 times a power of ten, after 5 % headroom, and the ruler shows it without trailing zeros: ±50, ±0.5, ±200.
+- **Greyed out.** Vertical Scale and Vertical Offset are used only when the scaling is None, and Channels per page is not used in Multiview. The panel now shows them greyed out and they can not be changed then. For this, a parameter object has an `enabled` property, true unless set otherwise.
+- **Antialiasing.** The traces are drawn into a layer with 4× multisampling, so the lines are smooth. A layer is a texture, so it is left out when the scrolling content is taller than 8192 device pixels; the lines are then drawn as before.
+- **Channel selection.** The Channels list has three buttons above it: Select all and Deselect all side by side, Invert selection under them, white with a blue outline. Each sets the whole selection at once. The channels are listed in two columns, row by row (Fp1 Fp2, F3 F4, …), with check boxes in the same style: white with a blue outline, and a blue check. They are part of the shared multi-select control (`MultiSelectParameter.qml`), so any other multi-select list gets them too.
+- **Hiding the panel.** A gear button next to the settings panel hides it, so the traces get the whole width, and shows it again. The panel keeps its width meanwhile. It is shown when playback starts.
+- **Label width.** The column with the channel labels was 96 px wide whatever the labels, so short names such as `Cz` stood far from the amplitude ruler. It is now as wide as the longest label, name or unit, up to twice that; longer labels are cut short.
+
+Repairs, found by reading the display's code through:
+- **Times after a long chunk.** A chunk longer than the displayed window keeps only its last samples, but upstream counted only those. Every later sample was then dated too early by the samples left out, and the time ruler and the markers with it. It happens when the Time Scale is shorter than a chunk, such as 0.1 s at 256 Hz, which is 26 samples, with chunks of 32. Now all samples count, and the kept ones go to the slots they would have reached.
+- **First chunks dropped.** The ring took the stream's shape at the next screen update, up to 16 ms after the header, and dropped the chunks that came before. It now takes it at once, on the player thread. That also stops the player thread from reading the Time Scale, which the panel changes.
+- **Undefined behaviour.** For a Signal input the box cast its decoder to `TStreamedMatrixDecoder`, a class `TSignalDecoder` does not derive from. It worked because the two happen to be laid out alike. The box now casts to the decoder it made.
+- **Colours.** With Colour per channel and a channel hidden, the traces took their colour by row and the Multiview legend by channel, so they disagreed. Both go by channel now, and a channel keeps its colour when others are hidden.
+- **Time ruler.** It made a new list of ticks at every screen update, and so rebuilt all of them 60 times a second. It now counts the ticks and moves them.
+- **One source of truth.** The names of the modes and scalings were spelled in `main.cpp` and again in the panel; both now take them from `SDisplaySettings`. The amplitude ruler took the share of a lane a trace may fill from a copy of the value; it now reads it from the trace.
+- **Channels with the same name** were shown and hidden together, as the selection goes by name. A name that is taken now gets the channel's number: `EOG`, `EOG (12)`.
+- **Units before the header.** Channel units that came before the signal's header were dropped; another box feeds that input, so it can happen. They are now kept until the channels are known.
+- **Multiview's amplitude bracket** showed the first channel's scale, also when the others had another one (Per channel, By type). It now shows a number only when all channels share the scale, and "varies" otherwise.
+- **Unknown setting values.** A Display Mode or Auto vertical scale the box does not know, from a hand-edited scenario or one made with a newer build, was used as it was: it scaled as Per channel while the panel showed None. The box now stops with an error that names the setting.
+- **Infinite samples.** A channel with an infinite sample gave its whole group the fallback scale of ±1. Such a channel now keeps its previous scale, and its group is scaled without it.
+- **Antialiasing on wide screens.** The size limit of the antialiasing layer checked only the height; it now checks the width too.
+- Removed unused code (`CTraceBuffer::clear`, `channelAt`, `visibleCount`); a change of scaling no longer works the scale out twice.
+
+**Scenarios.** Designer asks to update a box whose stored prototype hash (attribute `0x4e7b798a, 0x183beafb`) differs from that of the box as built. All 118 Signal display boxes in the repository's 59 scenarios had a hash that matched no version of the box, so Designer flagged them already upstream. Their "Scale refresh interval (secs)" setting is now removed and their hash set to that of the current box, `(0x749ffce0, 0x5335cebd)`. That hash was computed with the kernel's own `SBoxProto`. Nothing else in them differed from the current box.
+
+**Consequences**
+- Scenarios outside the repository that still have "Scale refresh interval (secs)" play as before: settings are read by name, so it is ignored. Designer marks such a box as one to update; updating it in Designer removes the setting.
+- "By type" is in the box setting and the panel. A box with "None", "Global" or "Per channel" keeps its value.
+- A channel whose name says nothing (`Channel 3`) counts as EEG. Under By type, a recording that names its EOG channel `BIP1` scales it on its own, not with the EOG.
+- A new page can change the scale in a jump, once per page. That is the intent: within a page the scale stays put.
+- Unchanged from upstream: the display keeps at most 512 markers. With more in the window, such as 90 pulses a second over 10 s, the oldest ones, on the left, are not drawn.
+- In the Designer settings dialog, settings that do not apply are not greyed out; only the panel next to the display does that.
+- Tested with `test-signal-display` (14 tests: the scaling, and the ring after long chunks). The whole test suite passes, and the Simple-visualization scenario plays without QML errors. Not yet looked at on screen.
+
+### 2.27 BrainVision recordings from eego and TMSi: the integrity of the files
+
+**Files**
+- `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp`, `CDriverEEGO.h`
+- `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp`, `CDriverTMSi.h`
+- `extras/contrib/plugins/processing/file-io/src/box-algorithms/BrainVisionUG.h` (new), `ovpCBoxAlgorithmBrainampFileWriterUG.cpp`, `ovpCBoxAlgorithmBrainampFileWriterUG.h`
+- `extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py` (new)
+- `extras/contrib/plugins/processing/file-io/test/BrainVisionUGTest.cpp` (new), `test/CMakeLists.txt`, `test/scenarios-tests/BrainVision-UG-Write-test.xml` and `-input.csv` (new)
+
+The path checked: eego amplifier, a Charmeleon montage with part of the EEG channels, hardware triggers, the acquisition server, the Acquisition client box, and the BrainVision Format file writer (UG). Every step was read for what reaches the files. These were wrong:
+
+- **Volt in a microvolt file.** The eego SDK gives volt, and the driver passed them on, as upstream's did. The writer declares no unit, which BrainVision means as microvolt, and the TMSi driver does deliver microvolt. So an eego file read a million times too small. The driver now sends the EEG and bipolar channels in microvolt. Trigger and SampleCounter are sent as they are.
+- **Names on the wrong data.** The driver names the channels in the order it asks the SDK for them, then `Trigger` and `SampleCounter`, and checked only that the stream had as many channels. The SDK does not promise the order. Start now checks the kind of every channel of the stream against the names: the selected referential and bipolar channels in order, then the trigger, then the sample counter. If it differs, nothing is recorded, and the server says why under the settings. When the SDK numbers the stream's channels differently from the amplifier, only the kinds can be checked, and the log says so.
+- **Markers off their samples.** The writer took a marker's position from its date counted from the scenario's start. The Acquisition client starts its signal when the server's configuration comes in, so the data file starts later than that, and every marker lay too late by that time. And it rounded down: a chunk's start is a sum of durations rounded down to OpenViBE's fixed point, which at 500 Hz puts a sample's date just short of its time, and the marker one sample early. A marker's position is now counted from the first sample in the file, and rounded to the nearest sample. A marker that comes before any signal waits for it; one dated before the first sample is left out, with a warning.
+- **Files that end short.** The writer kept the `.vhdr` in memory until the end, so a crash left it empty. It now writes all three files out at every step. A file that can not be written, e.g. on a full disk, stops the recording with an error; before, the files silently ended short of what they claim.
+- **16-bit formats.** INT_16 and UINT_16 truncated the values, and a value out of range, such as an amplifier's DC offset, wrapped around. They are now rounded and held at the format's limits, with a warning. IEEE_FLOAT_32, the default, is not affected.
+- **Smaller.** A comma in a channel name is coded as `\1`, as BrainVision has it. The files say `Codepage=UTF-8`, which is what is written; they said ANSI. A second signal header stops the recording, where it was appended to the `.vhdr`.
+
+The TMSi path, checked the same way afterwards:
+
+- **Unit exponent.** The SDK gives each channel's values in its unit times 10 to the channel's exponent. The driver ignored the exponent, as the 3.x driver it was ported from did. EXG channels come in 1e-6 V, so EEG was in microvolt and is unchanged. A BIP or AUX channel with another exponent was recorded a thousand or a million times off. Every channel in volt now goes out in microvolt, and the log names each channel that needed scaling. An analog channel in another unit is recorded as the device gives it, and the log says so. The volt unit is taken to be the SDK's unit number 1; if that were wrong, nothing would be scaled, as before, and the log would call every analog channel "not in volt".
+- **Out of range.** A sample out of the amplifier's range, e.g. from an electrode come loose, is recorded as 0, as before, which the recording does not show. The log now counts them.
+- **Part of a sample.** A block from the SDK that is not a whole number of samples lost its partial sample silently; the log now says so.
+- **Right already:** the names and the data come from one list of the device's channels, so a name can not land on another channel's data; the montage subset and the triggers are as for eego.
+
+These were checked and found right:
+- **Montage subset.** Only EEG channels the montage names are recorded, under the montage's names. Their positions go to `[Coordinates]` by name, and other channels get `0,0,0` (2.3, 2.7, 2.9).
+- **Triggers.** Dated at their own sample (2.24), without values caught while the lines switch (2.25), and placed by the client on the last sample stamped at or before them (2.5, 2.20). eego's code is the lines that came on, so a pulse must return to 0 between codes, or a code that only switches lines off gives no marker.
+- **Samples.** The server sends whole chunks only, so the client never pads one with zeros. No sample is repeated or dropped between the server and the file. Samples the amplifier lost are counted (2.4), but the file has no gap for them; the SampleCounter channel shows where they were.
+
+**Checking a recording.** `check_brainvision.py` checks a recording itself:
+
+```bash
+pixi run python extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py recording.vhdr
+```
+
+It checks the header, that the data is a whole number of samples without NaN, and that EEG is in microvolt. It checks that every stimulus marker sits on the sample where the recorded trigger channel switches on its code, and that every switch has its marker. It also checks that the sample counter counts every sample. The trigger channel is eego's `Trigger` or the name given to TMSi's digital channel, and the sample counter eego's `SampleCounter` or TMSi's sawtooth channel, when that is recorded; `--trigger` and `--counter` name them otherwise. It reads TMSi and eego codes alike, and ends with exit code 1 when something is wrong.
+
+**Consequences**
+- eego recordings, and everything else downstream of the eego driver (Signal display, filters, LSL Output), are now in microvolt. Scenarios or scripts that compensated for volt need changing.
+- Marker positions in UG BrainVision files are exact, also when the Acquisition client started late, and at every sampling rate.
+- Tested with `test-brainvision-ug` (6 tests: positions, names, 16-bit values) and `BrainVision-UG-Write`. That test sends a signal with a 25 mV DC offset, a Trigger channel and a SampleCounter, and 10 hardware triggers, through the writer, and `check_brainvision.py` then checks the file. The checker itself was tried on damaged copies: a marker one sample late, a data file cut short, and data in volt. It found each. The whole test suite passes, except `run_TagStream` while an installed acquisition server holds its port.
+- With TMSi, record the sawtooth channel (give it a name, e.g. `Saw`) to have the check find lost samples.
+- **Not verified with an amplifier:** the eego microvolt and the stream order check, and the TMSi scaling of BIP and AUX channels. The stream order check refuses to record if the SDK lists the channels in another order than asked. That would show at the first Play, with the reason under the settings.
+- The SampleCounter is a 32-bit float in the server, so beyond 16.7 million samples (2.3 h at 2048 Hz) it no longer counts exactly. The checker then reports jumps as warnings, not errors.
+
+---
+
+### 2.28 LSL display (new box)
+
+**Files**
+- `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLDisplay.cpp`, `CLSLDisplay.h` (new): the box
+- `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp`, `.h`, `CLSLReader.cpp`, `.h`, `TracePalette.h` (new)
+- `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml`, `qml/SettingsPanel.qml` (new), `qml/SignalDisplay.qml`
+- `CTraceBuffer.cpp`, `CTraceBuffer.h`, `CSignalTraceItem.cpp`, `CSignalTraceItem.h`, `CSignalDisplayController.cpp`, `box-algorithms/CSignalDisplay.cpp`, `box-algorithms/CSignalDisplay.h`, `defines.hpp`, `main.cpp`, `CMakeLists.txt` (links LSL)
+- `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` (new)
+- `extras/plugins/processing/simple-visualization/test/LSLReaderTest.cpp` (new), `test/TraceBufferTest.cpp`, `test/CMakeLists.txt`
+
+**What it does**
+
+"LSL display (UG)", under *Visualization/Basic*, shows LabStreamingLayer streams from the network; the LSL XDF writer (2.29) connected to it records them. The acquisition server's LSL driver can not do this: a driver carries one stream, at one rate.
+
+- **No acquisition server and no inputs.** The box finds the streams itself. Put it in a scenario on its own (`box-tutorials/lsl-display.xml`) and press Play.
+- **Streams are chosen while it runs.** The panel lists the streams on the network under *Streams*, brought up to date every second, as "name (type, 32 ch, 2048 Hz)" or "name (type, text markers)". Tick a stream to show it, untick it to close it. A stream that goes away stays listed while it is ticked, and comes back by itself when it does.
+- **Data streams**, any regular rate and any number type, are stacked in panels, each with its name above it. A panel's height goes by the channels it shows, so lanes are alike across streams. The panels share one time axis and the time ruler at the bottom.
+- **Marker streams**, numbers or text, are drawn as flags on every panel, at their LSL times. A stream of text, or one without a regular rate, counts as markers. Of a marker stream with several channels, the first is the code, as in the two-channel sync sender.
+- **The options are the Signal display's:** Display Mode, Auto vertical scale (Per channel, By type, Global, None), Time Scale, Vertical Scale and Offset, Multiview, Colour per channel, and the rulers. They apply to every stream. Each data stream adds its own channel selection, *Channels: name*, with Select all, Deselect all and Invert selection. The box settings are where the panel starts.
+
+How streams of different rates line up:
+- Each sample is placed by its LSL time, corrected to this computer's clock and smoothed, as LabRecorder's files are when loaded. Every stream's ring is locked to one clock (`CTraceBuffer::setTimeOrigin()`). In Scan mode a time is at the same x in every panel, whatever the stream's rate or start. In Scroll mode each stream is drawn as far behind the newest as it lags, so that the panels scroll together.
+- A stream's samples do not come exactly at its nominal rate. When the count of samples and their LSL times drift two samples apart, the ring follows the times: a gap is drawn with the last values, and samples that come early overwrite the last ones. So the times stay right for hours.
+- Every ring starts at the grid point of its first sample on the shared clock, and every chunk is measured on that grid. So the time of a slot is the same in every stream, and each sample lies less than two samples, plus half a sample of grid, from its date. A test runs two streams for an hour: 500 Hz running 500 ppm fast in chunks of 20, its first date 15 ms off; and 128 Hz running 0.1 % slow in chunks of 4. At the end, each still draws a time on the sample of that time.
+
+Why the streams' cursors differ, and move against each other:
+- A stream's cursor is where its newest sample is, which is its date of that sample, not the time now. Each panel's header shows how far that is behind now, e.g. "42 ms behind". The distance between two cursors is the difference between their delays.
+- **The delay depends on how the sender sends.** A stream pushed in chunks of 32 samples at 512 Hz arrives up to 62 ms after its first sample's date; one pushed sample by sample arrives within milliseconds. Chunks of different streams come at their own moments, so their cursors jump against each other.
+- **The dates settle over the first minutes.** LSL corrects each sample's date to this computer's clock and smooths it (clock sync and dejitter), as `load_xdf` does when it loads a LabRecorder file. Online, the clock offset is measured again every few seconds, and the smoothing learns the stream's real rate over about a minute and a half. The dates, and with them the cursors, shift a little until it has. `load_xdf` fits the whole recording at once, so its times can differ from the display's by that much in the first minute.
+- None of this moves the data: every sample is drawn at its own date. A marker sent at the same moment as a sample in two streams stands on that sample in both, wherever the cursors are.
+
+For this, the Signal display's parts became shared, each in one place:
+- `SettingsPanel.qml` is the panel with its gear button, used by both displays.
+- `TracePalette.h` holds the trace colours.
+- `addDisplaySettings()` and `readDisplaySettings()`, with `DISPLAY_SETTING_NAMES`, hold the box settings. The Signal display's settings are unchanged, so its prototype and the scenarios' hashes are too.
+
+**Consequences**
+- Seeing LSL streams no longer needs the acquisition server or a scenario per stream.
+- The streams ticked are not saved with the scenario: they are ticked again after Play. Their uids change with every start of the sending program anyway.
+- There is no Channels per page: the panels share the window's height.
+- At most 2048 markers are kept.
+- Tested with `test-lsl-reader` (3 tests), which sends its own LSL streams on this computer: a data stream comes in with its labels, units and times; number and text markers with their times; a stream unticked is closed. Also tested with `test-signal-display` (19 tests, among them the time-locked rings: rates lining up, gaps, early samples, jitter, and the hour of two drifting streams). The box plays in Designer without errors, and the whole test suite passes. **Not yet looked at on screen**, with real streams.
+
+---
+
+### 2.29 LSL XDF writer (new box)
+
+**Files**
+- `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLXDFWriter.cpp`, `CLSLXDFWriter.h` (new): the box
+- `extras/plugins/processing/simple-visualization/src/CLSLRecorder.cpp`, `.h`, `XDFWriter.cpp`, `.h` (new)
+- `box-algorithms/CLSLDisplay.cpp`, `CLSLDisplay.h`, `CLSLDisplayController.cpp`, `CLSLDisplayController.h`, `defines.hpp`, `main.cpp`, `CMakeLists.txt`
+- `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display-xdf.xml` (new), `box-tutorials/lsl-display.xml`
+- `extras/plugins/processing/simple-visualization/test/LSLRecorderTest.cpp` (new), `test/CMakeLists.txt`
+
+**What it does**
+
+"LSL XDF writer (UG)", under *File reading and writing/XDF*, records LSL streams into an XDF file, as LabRecorder does. Connect it to the LSL display's new output, *LSL streams* (`box-tutorials/lsl-display-xdf.xml`).
+
+- **The display's Record button** starts a recording of the streams ticked, to a new file, and stops it again ("Stop recording 1:23"). The button sits at the top right of the plot, so it stays at hand when the settings panel is hidden; it can not be pressed while nothing is ticked.
+- **Only the channels shown are recorded.** Of each data stream, the file holds the channels ticked under its *Channels: name*. Its header in the file gives their number and only their descriptions, so that `load_xdf` and pyxdf load them as a stream of that many channels. It notes which channels of the stream they are, under `desc/openvibe_ug/recorded_channels`, counted from 1 (e.g. `1,3`), with the stream's own channel count. A data stream with no channel ticked is left out; a marker stream is recorded whole, and so is a stream that is ticked but not shown yet when Record is pressed.
+- **While recording, the Streams list and the channel selections are locked** (greyed out), so that a file holds the same channels from start to end. The options can still be changed: they only change what is drawn.
+- **One file per recording.** The first gets the name set, the next ones in the same Play `-2`, `-3`, ... before the extension. Nothing is written until Record is pressed; Stop in Designer ends a recording too.
+
+- **The file is LabRecorder's format.** A FileHeader; for each stream a StreamHeader with the stream's whole LSL info, channel labels included. Then Samples chunks with every sample and its own time stamp, in the stream's own type (float, double, integers, text); a ClockOffset every 5 s; and a StreamFooter with the first and last time stamp, the sample count and the clock offsets. Boundary chunks every 10 s.
+- **The time stamps are the senders' own,** as LabRecorder keeps them: the writer reads the streams through inlets of its own, without LSL's corrections. `load_xdf` and pyxdf correct them from the clock offsets, and smooth them, when they load the file, as they do LabRecorder's files. The display's inlets do apply the corrections, as they draw at once.
+- **Written out chunk by chunk,** so a crash loses no more than the last moments. A file that can not be written, e.g. on a full disk, stops the recording with an error.
+- **Settings:** Output directory, `${Path_Documents}/data` by default and made if needed; Filename, `lsl-[$core{date}-$core{time}].xdf` by default. A filename with a full path replaces the directory.
+
+How the boxes connect: the display's output is a new stream type, *LSL streams*, registered by the plugin. It is a streamed matrix whose header lists the streams to record, one row each: the stream's LSL uid, with `#` and its channels counted from 0 when not all of them (`uid#0,2`), while Record is on; none (one empty label) otherwise. It is sent again on every change, and the writer opens a file when the list fills and closes it when it empties. Only the writer's input takes it, so Designer connects nothing else to it.
+
+**Consequences**
+- Seeing and recording LSL streams together needs one scenario and no other program. LabRecorder remains the tried tool; this writer's files load as LabRecorder's do.
+- The display's prototype gained the output, so a scenario with the LSL display from before this has it outdated; Designer offers to update it.
+- Tested with `test-lsl-recorder` (3 tests). It records three streams the test sends itself: 3 float channels at 200 Hz with labels, of which only Fp1 and Pz; an int16 stream; and text markers. Then it reads the file back with a parser of its own: every sample and time stamp as sent, the two channels with their descriptions and the note `1,3`, the footers, a clock offset. The same file loaded in pyxdf 1.17 and in MATLAB with `load_xdf` (EEGLAB's xdfimport 1.2): all 400, 100 and 3 samples, the EEG as 2 channels labelled Fp1 and Pz, the markers 0.25 s after the first sample as sent, the footers and clock offsets. Both tutorials load without being out of date, and the writer waits for Record without writing a file. **Not yet tried:** the Record button with streams ticked; that needs the display on screen.
+
+### 2.30 No sample dropped when the server's settings change under a running scenario
+
+**Files**
+- `extras/plugins/processing/acquisition/src/box-algorithms/SampleBlocks.h` (new), `BoxAcquisitionClient.cpp`, `BoxAcquisitionClient.h`
+- `extras/applications/platform/acquisition-server/core/Acquisition.cpp`
+- `extras/plugins/processing/acquisition/test/SampleBlocksTest.cpp` (new), `test/CMakeLists.txt`
+- `extras/applications/platform/acquisition-server/test/AcquisitionConfigTest.cpp` (new)
+
+**What went wrong**
+
+The server tells a client its settings (rate, channels, "Sample count per sent block") once, when the client connects. Restarted with other settings, it did not tell the clients still connected, and the Acquisition client box took only the first settings it got. It wrote each block into one chunk of the size it knew, and dropped what did not fit, without a word. With the block size raised from 4 to 64 under a running scenario, the box kept the first 4 samples of every 64: one sample in 16. The Signal display took 15 to 16 s to fill a page of 1 s, and its ruler still read 1 s a page, as it counts the samples it gets. A recording would have held the same sixteenth. Other channels would have been worse: the box read each block with the old channel count, mixing the channels up, and past the end of a smaller block.
+
+**What it does now**
+- **The server sends its settings to every connected client** each time it sets up an acquisition, not only to a client that connects.
+- **The client never drops a sample.** `SampleBlocks` cuts the server's blocks, of any size, into the chunks of the scenario's signal stream: blocks of 64 into 16 chunks of 4, blocks of 4 gathered into chunks of 32. A stimulation goes with the chunk that holds the last sample of the block it came with, never an earlier one. A changed block size only gets a warning in the log.
+- **A change the stream can not take stops the scenario, with an error that says so:** another sampling rate, another channel count, other channel names or another montage. A signal stream keeps its header from start to end, and no box can take one that changes midway. The message gives both settings and says to start the scenario again. A block whose values are not a whole number of samples of the stream's channels stops it too, also from a server without this change, which does not send the new settings.
+- Settings that come before the stream has begun replace the earlier ones; samples received under those earlier ones are left out, with a warning.
+
+**Consequences**
+- A recording or display can no longer be silently thinned out or scrambled by changing the server's settings during a run. A changed block size goes on without loss; any other change stops the scenario.
+- Tested with `test-sample-blocks` (4 tests): blocks of 64 into chunks of 4 keep all 128 samples, in order, with their stamps; blocks of 4 wait to fill a chunk of 32; a stimulation waits for the chunk with its block's last sample; a block of other channels is refused, not misread. `AcquisitionConfigTest` (server core, 67 tests in all): after the acquisition is set up again with blocks of 64, the connected client is sent the new settings; it fails without the change. **Not yet tried:** the whole path, server restarted under a running scenario in Designer.
+
+### 2.31 A second acquisition server refuses a port already in use
+
+**Files**
+- `sdk/modules/network/Server/CServer.cpp`, `CServer.h`
+- `extras/applications/platform/acquisition-server/main.cpp`
+
+**What went wrong**
+
+The network server binds its port with `SO_REUSEADDR`, which on Windows lets a second program bind a port another one listens on. A second acquisition server, started by mistake, therefore ran next to the first without a word, and Designer connected to either one. Channels renamed in one server did not reach the scenario, which read the other.
+
+**What it does now**
+- Before it binds, the server connects to its port on this computer. When something answers, it does not listen, and says so in the console log. This holds for the acquisition port (8088) and the TCP tagging port (15361).
+- The acquisition server then shows "Port 8088 is already in use, most likely by another OpenViBE acquisition server that is still running", and quits.
+- A socket whose `bind()` or `listen()` failed is closed; upstream kept it open.
+
+**Consequences**
+- Only one server per port. Two servers side by side need different ports (Preferences).
+- Start-up takes up to 0.3 s longer when the port is free: how long the check waits for an answer.
+- Tried: a second server started while one ran on 8088 found both ports in use, showed the message and quit. **Not yet checked:** that the server already running is unaffected by the check's brief connection; in the one trial it closed about then, with a normal stop in its log.
+
+---
+
+### 2.32 Designer finds its user configuration file without designer.conf
 
 **Files**
 - `designer/applications/platform/designer/src/OVDesigner.cpp` (`loadDesignerConfiguration()`)
@@ -679,6 +896,7 @@ The label sits in a flag at the top of the marker line:
 
 **Consequences**
 - The scenario file itself was always saved; only the session (the scenarios to reopen) was lost. Both now work.
+- The usual cause is a copy of `bin` alone to another computer: Designer looks for its data in `..\share\openvibe` next to `bin`. Copy the whole installation (`pixi run install` writes it to `dist\`).
 - The default is written in two places, `designer.conf-base` and `OVDesigner.cpp`. A comment next to the constant says to keep them in step.
 - Designer still runs on its built-in defaults without `designer.conf`: its other tokens, such as `Designer_DefaultWorkingDirectory` and the help URLs, are not set. The error says which file to restore.
 - Not yet built or run on Windows.
@@ -698,7 +916,7 @@ The label sits in a flag at the top of the marker line:
 | M | `conda/env_windows.yaml` | 2.21 |
 | M | `conda/recipe/meta.yaml` | 2.21 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12 |
-| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.26 |
+| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32 |
 | M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18, 2.23 |
 | M | `designer/applications/platform/designer/src/main.cpp` | 2.17 |
 | M | `extras/applications/developer-tools/plugin-inspector/src/CAlgorithmGlobalDefinesGen.cpp` | 2.23 |
@@ -715,19 +933,18 @@ The label sits in a flag at the top of the marker line:
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/SteadyTrigger.h` | 2.25 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7, 2.21 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` | 2.21 |
-| M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21 |
+| M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21, 2.30 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.h` | 2.4, 2.6, 2.7, 2.8, 2.16 |
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.cpp` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.h` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.cpp` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.h` | 2.4 |
-| M | `extras/applications/platform/acquisition-server/main.cpp` | 2.17 |
-| M | `extras/applications/platform/acquisition-server/settings/SessionManager.cpp` | 2.14 |
-| M | `extras/applications/platform/acquisition-server/settings/SessionManager.h` | 2.14 |
+| M | `extras/applications/platform/acquisition-server/main.cpp` | 2.17, 2.31 |
+| A | `extras/applications/platform/acquisition-server/test/AcquisitionConfigTest.cpp` | 2.30 |
 | A | `extras/applications/platform/acquisition-server/test/CharmeleonMontageTest.cpp` | 2.3 |
 | A | `extras/applications/platform/acquisition-server/test/CircularBufferTest.cpp` | 2.4 |
 | A | `extras/applications/platform/acquisition-server/test/OvMsgSerializerTest.cpp` | 2.7 |
@@ -744,23 +961,34 @@ The label sits in a flag at the top of the marker line:
 | M | `extras/applications/platform/acquisition-server/ui/qml/Main.qml` | 2.4, 2.8, 2.16 |
 | M | `extras/applications/qml/OVControls/Logger.qml` | 2.23 |
 | M | `extras/applications/qml/OVParameters/CMakeLists.txt` | 2.22 |
+| M | `extras/applications/qml/OVParameters/MultiSelectParameter.qml` | 2.26 |
 | M | `extras/applications/qml/OVParameters/PathParameter.qml` | 2.13 |
+| M | `extras/applications/qml/OVParameters/src/parameterObject.cpp` | 2.26 |
+| M | `extras/applications/qml/OVParameters/src/parameterObject.h` | 2.26 |
 | M | `extras/applications/qml/OVParameters/src/parameterPathObject.cpp` | 2.13, 2.22 |
 | M | `extras/applications/qml/OVParameters/src/parameterPathObject.h` | 2.13 |
 | A | `extras/applications/qml/OVParameters/test/CMakeLists.txt` | 2.22 |
 | A | `extras/applications/qml/OVParameters/test/ParameterPathObjectTest.cpp` | 2.22 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9 |
+| A | `extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py` | 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/BrainVisionUG.h` | 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9, 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9, 2.27 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_defines.h` | 2.9 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_main.cpp` | 2.9 |
+| A | `extras/contrib/plugins/processing/file-io/test/BrainVisionUGTest.cpp` | 2.27 |
+| M | `extras/contrib/plugins/processing/file-io/test/CMakeLists.txt` | 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-input.csv` | 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-test.xml` | 2.27 |
 | M | `extras/contrib/plugins/server-drivers/CMakeLists.txt` | 2.2 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27 |
 | M | `extras/plugins/processing/acquisition/CMakeLists.txt` | 2.20 |
-| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7, 2.20 |
-| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7, 2.20 |
+| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7, 2.20, 2.30 |
+| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7, 2.20, 2.30 |
+| A | `extras/plugins/processing/acquisition/src/box-algorithms/SampleBlocks.h` | 2.30 |
 | A | `extras/plugins/processing/acquisition/src/box-algorithms/StimulationDelay.h` | 2.20 |
-| A | `extras/plugins/processing/acquisition/test/CMakeLists.txt` | 2.20 |
+| A | `extras/plugins/processing/acquisition/test/CMakeLists.txt` | 2.20, 2.30 |
+| A | `extras/plugins/processing/acquisition/test/SampleBlocksTest.cpp` | 2.30 |
 | A | `extras/plugins/processing/acquisition/test/StimulationDelayTest.cpp` | 2.20 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.18 |
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TagDate.h` | 2.18 |
@@ -792,23 +1020,60 @@ The label sits in a flag at the top of the marker line:
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmMatrix3dTo2d.cpp` | 2.23 |
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/connectivity/CBoxAlgorithmConnectivityMeasure.cpp` | 2.23 |
 | M | `extras/plugins/processing/stimulation/share/lua-stimulator-stim-codes.lua` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18, 2.26, 2.28 |
+| A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display-xdf.xml` | 2.29 |
+| A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` | 2.28, 2.29 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_P300SpellerVisualization.dox-part` | 2.18 |
+| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/qml/P300SpellerVisualization.qml` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/qml/SettingsPanel.qml` | 2.28 |
+| M | `extras/plugins/processing/simple-visualization/qml/SignalDisplay.qml` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/qml/StimulationOverlay.qml` | 2.11 |
+| M | `extras/plugins/processing/simple-visualization/qml/TimeRuler.qml` | 2.26 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.cpp` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.hpp` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CGrazMultiVisualization.cpp` | 2.23 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CP300SpellerView.h` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLDisplay.cpp` | 2.28, 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLDisplay.h` | 2.28, 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLXDFWriter.cpp` | 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLXDFWriter.h` | 2.29 |
+| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11, 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.h` | 2.26, 2.28 |
 | M | 35 demo and tutorial scenarios (`*.xml`) with a Signal display | 2.11 |
 | M | 31 demo and tutorial scenarios (`*.xml`) with an Acquisition client box | 2.19 |
+| M | 59 demo, tutorial and test scenarios (`*.xml`) with a Signal display | 2.26 |
 | M | `extras/plugins/server-extensions/tcp-tagging-service/test/test_tcptaggingservice.cpp` | 2.19 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.h` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/src/main.cpp` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/test/CMakeLists.txt` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp` | 2.28, 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.h` | 2.28, 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLReader.cpp` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLReader.h` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.cpp` | 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.h` | 2.29 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.cpp` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.h` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/SDisplaySettings.h` | 2.26 |
+| A | `extras/plugins/processing/simple-visualization/src/SignalScaling.h` | 2.26 |
+| A | `extras/plugins/processing/simple-visualization/src/TracePalette.h` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/src/XDFWriter.cpp` | 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/XDFWriter.h` | 2.29 |
+| M | `extras/plugins/processing/simple-visualization/src/defines.hpp` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/main.cpp` | 2.18, 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/test/CMakeLists.txt` | 2.18, 2.26, 2.28 |
+| A | `extras/plugins/processing/simple-visualization/test/LSLReaderTest.cpp` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/test/LSLRecorderTest.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/test/P300SpellerStateTest.cpp` | 2.18 |
+| A | `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp` | 2.26 |
+| A | `extras/plugins/processing/simple-visualization/test/TraceBufferTest.cpp` | 2.26, 2.28 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-lua-test.xml` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-check.py` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-test.xml` | 2.18 |
@@ -823,7 +1088,8 @@ The label sits in a flag at the top of the marker line:
 | M | `sdk/kernel/src/kernel/player/ovkCSimulatedBox.cpp` | 2.23 |
 | M | `sdk/kernel/src/kernel/scenario/ovkCScenarioManager.cpp` | 2.23 |
 | M | `sdk/modules/network/Client/CClient.cpp` | 2.19 |
-| M | `sdk/modules/network/Server/CServer.cpp` | 2.4 |
+| M | `sdk/modules/network/Server/CServer.cpp` | 2.4, 2.31 |
+| M | `sdk/modules/network/Server/CServer.h` | 2.31 |
 | M | `sdk/modules/network/Server/ConnectedClient.cpp` | 2.19 |
 | A | `sdk/openvibe/include/openvibe/ConsoleLog.hpp` | 2.17 |
 | A | `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h` | 2.7 |
@@ -882,7 +1148,7 @@ The label sits in a flag at the top of the marker line:
 - **Merging upstream.** The fork changes shared code that upstream may also change, so these are the likely merge conflicts:
   - acquisition message format and serializer
   - `AbstractWriter` signature
-  - `Acquisition`, `CircularBuffer`, `AcquisitionController`, `SessionManager`
+  - `Acquisition`, `CircularBuffer`, `AcquisitionController`
   - the network control API and `CServer`
   - Designer's and the server's `main.cpp`
   - `DesignerScenario::clickPort`
@@ -891,7 +1157,7 @@ The label sits in a flag at the top of the marker line:
 
   New files (TMSi driver, Charmeleon, UG writer, buffer display) merge cleanly.
 - **Charmeleon.** The montage round trip and the choice of amplifier need Charmeleon 2.2 (see 2.6). Charmeleon is a separate repository and installer.
-- **Tests.** The acquisition server unit tests (`test-acquisition-server-core`, 53 tests) pass. They include new tests for the circular buffer, the config message and the montage rules. So do the P300 speller tests (`test-p300-speller`, 12 tests), for the letter grid, what the display shows and when a frame showed it.
+- **Tests.** The acquisition server unit tests (`test-acquisition-server-core`, 53 tests) pass. They include new tests for the circular buffer, the config message and the montage rules. So do the P300 speller tests (`test-p300-speller`, 12 tests), for the letter grid, what the display shows and when a frame showed it. So do the Signal display tests (`test-signal-display`, 14 tests), for channel kinds, round and shared scales, and the ring of samples.
 - **Tested without an amplifier:**
   - the montage note and locked entries;
   - the error under the settings when Play fails;

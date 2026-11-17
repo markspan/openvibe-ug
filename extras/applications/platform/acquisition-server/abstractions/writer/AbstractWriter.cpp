@@ -158,7 +158,7 @@ size_t AbstractWriter::writeSamples(samplesBuffer* buffer)
                     msg.msgData.samplesStruct.timestamp    = buffer->timestampsBuff + bufferOffset;
                     msg.msgData.samplesStruct.samples      = buffer->samplesBuff + (bufferOffset * m_channelCount);
                     msg.msgData.samplesStruct.count        = samplesToWriteOrCopy;
-                    const uint32_t due = stimsDue(chunkLastTs);
+                    const uint32_t due = stimsDue(chunkLastTs);  // UG fork: only the stimulations due, see stimsDue
                     msg.msgData.samplesStruct.stimulations = m_msg.msgData.samplesStruct.stimulations;
                     msg.msgData.samplesStruct.stimCount    = due;
                     msg.msgSize = computeMsgSize(samplesToWriteOrCopy, m_channelCount, due);
@@ -181,6 +181,7 @@ size_t AbstractWriter::writeSamples(samplesBuffer* buffer)
 
                     if (currentMsgCount == m_chunkSamplesCount)
                     {
+                        // UG fork: only the stimulations due go with this chunk; the others wait, see stimsDue
                         const uint32_t pending = pendingStimCount;
                         const uint32_t due     = stimsDue(chunkLastTs);
                         pendingStimCount = due;

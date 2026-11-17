@@ -18,6 +18,8 @@ class OV_PARAMETERS_OBJECT_EXPORT ParameterObject : public QObject
     Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
     Q_PROPERTY(QString description READ description WRITE setDescription NOTIFY descriptionChanged)
     Q_PROPERTY(QString type READ type CONSTANT)
+    /// UG fork: false greys the parameter out, for a setting that does not apply while another has some value
+    Q_PROPERTY(bool enabled READ enabled WRITE setEnabled NOTIFY enabledChanged)
 
 public:
     ParameterObject(void) = default;
@@ -29,6 +31,8 @@ public:
     QString type() const;
     void setName(const QString &name);
     void setDescription(const QString &description);
+    bool enabled() const { return m_enabled; }  // UG fork
+    void setEnabled(bool enabled);              // UG fork
     ParameterTraits *parameter() const;
     void notifyNameChanged(const QString& n);
     void notifyDescriptionChanged(const QString& d);
@@ -39,12 +43,14 @@ public:
 signals:
     void nameChanged(const QString&);
     void descriptionChanged(const QString&);    
+    void enabledChanged();  // UG fork
 
 public:
     ParameterTraits *m_param = nullptr;
     bool m_deleteParam = true;
     uint64_t m_connectionId = 0;
     uint64_t m_destroyId = 0;
+    bool m_enabled = true;  // UG fork
 };
 
 QMap<std::string, std::function<ParameterObject*(ParameterTraits *)> > &object_factory();

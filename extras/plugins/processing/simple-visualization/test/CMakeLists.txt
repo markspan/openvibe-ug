@@ -25,3 +25,25 @@ target_link_libraries(test-p300-speller PRIVATE tinyxml2::tinyxml2 GTest::GTest 
 
 include(GoogleTest)
 gtest_discover_tests(test-p300-speller)
+
+# UG fork: the parts of the Signal display that need neither Qt nor the player: its automatic vertical scale
+# (SignalScaling.h) and its ring of samples (CTraceBuffer)
+add_executable(test-signal-display SignalScalingTest.cpp TraceBufferTest.cpp ../src/CTraceBuffer.cpp)
+target_include_directories(test-signal-display PRIVATE ../src)
+set_property(TARGET test-signal-display PROPERTY FOLDER ${TESTS_FOLDER})
+target_link_libraries(test-signal-display PRIVATE GTest::GTest GTest::Main)
+gtest_discover_tests(test-signal-display)
+
+# UG fork: the LSL display's reader, against LSL streams the test sends itself on this computer
+add_executable(test-lsl-reader LSLReaderTest.cpp ../src/CLSLReader.cpp ../src/CTraceBuffer.cpp)
+target_include_directories(test-lsl-reader PRIVATE ../src)
+set_property(TARGET test-lsl-reader PROPERTY FOLDER ${TESTS_FOLDER})
+target_link_libraries(test-lsl-reader PRIVATE LSL::lsl GTest::GTest GTest::Main)
+gtest_discover_tests(test-lsl-reader DISCOVERY_TIMEOUT 30)
+
+# UG fork: the LSL XDF writer: records LSL streams the test sends itself, and reads the file back
+add_executable(test-lsl-recorder LSLRecorderTest.cpp ../src/CLSLRecorder.cpp ../src/XDFWriter.cpp)
+target_include_directories(test-lsl-recorder PRIVATE ../src)
+set_property(TARGET test-lsl-recorder PROPERTY FOLDER ${TESTS_FOLDER})
+target_link_libraries(test-lsl-recorder PRIVATE LSL::lsl GTest::GTest GTest::Main)
+gtest_discover_tests(test-lsl-recorder DISCOVERY_TIMEOUT 30)

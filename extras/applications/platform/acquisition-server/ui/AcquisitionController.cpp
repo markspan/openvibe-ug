@@ -623,13 +623,14 @@ void AcquisitionController::setCurrentDriver(const QString& driverName)
     emit driverChanged();
     emit driverParametersChanged();
     emit channelNamesChanged();
-    emit driverStateChanged();
+    emit driverStateChanged();  // UG fork: the new driver's note and channel locks
     emit supportsImpedanceCheckChanged();
 
     // Save acquisition state
     saveSession();
 }
 
+// UG fork: the buffer levels, in place of upstream's instantDrift() and globalDrift()
 QVariantMap AcquisitionController::buffers() const
 {
     return d->m_buffers;

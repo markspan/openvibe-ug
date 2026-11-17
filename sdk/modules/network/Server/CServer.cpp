@@ -23,10 +23,62 @@
 #include <memory>
 #include "CClient.h"
 
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/select.h>
+#endif
+
 
 namespace Network
 {
     namespace CSC = common;
+
+    namespace
+    {
+        /**
+         * @brief Whether something on this computer already accepts connections on the port.
+         *
+         * UG fork: the server binds with SO_REUSEADDR, which on Windows lets a second server bind a port another one listens
+         * on. Both then run without a word, and a client reaches either one: a second acquisition server, started by mistake,
+         * took the Designer's connections, and the first server's channel names never reached the scenario. A listener on the
+         * port answers a connection from this computer at once; a port nobody listens on is given up after a short wait.
+         */
+        bool somethingListensOn(uint16_t port)
+        {
+            SOCKET probe = socket(AF_INET, SOCK_STREAM, 0);
+            if (probe == INVALID_SOCKET) { return false; }
+#ifdef _WIN32
+            u_long nonBlocking = 1;
+            ioctlsocket(probe, FIONBIO, &nonBlocking);
+#else
+            fcntl(probe, F_SETFL, fcntl(probe, F_GETFL, 0) | O_NONBLOCK);
+#endif
+            SOCKADDR_IN address = {};
+            address.sin_family      = AF_INET;
+            address.sin_port        = htons(port);
+            address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+            bool listening = connect(probe, reinterpret_cast<SOCKADDR*>(&address), sizeof(address)) == 0;
+            if (!listening)
+            {
+                fd_set writable, failed;
+                FD_ZERO(&writable);
+                FD_ZERO(&failed);
+                FD_SET(probe, &writable);
+                FD_SET(probe, &failed);
+                timeval wait = {0, 300000};  // a listener on this computer answers well within this
+                if (select(int(probe) + 1, nullptr, &writable, &failed, &wait) > 0 && FD_ISSET(probe, &writable))
+                {
+                    int error = 0;
+                    SOCKLEN_T size = sizeof(error);
+                    getsockopt(probe, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&error), &size);
+                    listening = error == 0;
+                }
+            }
+            closesocket(probe);
+            return listening;
+        }
+    }  // namespace
     /**
      * @internal
      * @class CServerPrivate
@@ -52,6 +104,7 @@ namespace Network
         uint16_t port = 0;
         SOCKET sock = INVALID_SOCKET;
         bool bRun = false;
+        bool listening = false;  // UG fork: see isListening()
 
         //declare condition variable and mutex for data reception
         std::condition_variable dataAvailable;
@@ -385,6 +438,7 @@ namespace Network
 
             bRes = d->threadLoopDataFromClient.get_id() != std::thread::id() && d->threadLoopEntranceConnection.get_id() != std::thread::id();
         }
+        d->listening = bRes;  // UG fork
 
         return bRes;
     }
@@ -395,6 +449,7 @@ namespace Network
     void CServer::stop()
     {
         d->bRun = false;
+        d->listening = false;  // UG fork
         d->dataAvailable.notify_all(); // triggers threadLoopDataFromClient in order let it exit
         // shutdown() reliably wakes a thread blocked in accept()/recv() on this socket from
         // another thread, unlike close() alone, which would make the join() below hang.
@@ -421,6 +476,9 @@ namespace Network
     {
         d->protocolHandler = handler;
     }
+
+    bool CServer::isListening() const { return d->listening; }
+    uint16_t CServer::port() const { return d->port; }
 
 
 
@@ -477,6 +535,14 @@ namespace Network
         SOCKADDR_IN* sa4 = (SOCKADDR_IN*)&sa;
         SOCKADDR_IN6* sa6 = (SOCKADDR_IN6*)&sa;
 
+        // UG fork: never share the port with another server, see somethingListensOn()
+        if (somethingListensOn(d->port))
+        {
+            fprintf(stderr, "Port %u is in use by another server (another acquisition server?); this one does not listen.\n", unsigned(d->port));
+            d->sock = INVALID_SOCKET;
+            return false;
+        }
+
         d->sock = socket(afInetType, SOCK_STREAM, 0);
 
         if (d->sock != INVALID_SOCKET)
@@ -507,6 +573,11 @@ namespace Network
                     if (bind(d->sock, &sa, sizeof(sa)) != SOCKET_ERROR)
                     {
                         bResult = listen(d->sock, d->maxClientsCount) != SOCKET_ERROR;
+                    }
+                    if (!bResult)  // UG fork: upstream kept the socket open when bind() or listen() failed
+                    {
+                        closesocket(d->sock);
+                        d->sock = INVALID_SOCKET;
                     }
                 }
                 else

@@ -26,6 +26,35 @@
 #include "Api.h"
 #include "SessionManager.h"
 
+#if defined TARGET_OS_Windows
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>  // UG fork: MessageBoxA
+#endif
+
+namespace {
+/**
+ * UG fork: a second acquisition server, started by mistake, used to run next to the first on the same port, and Designer
+ * connected to either one: names and settings changed in one server did not reach the scenario. The network server now
+ * refuses a port another server listens on (CServer::initConnection()); this says so, and stops, before anything else.
+ */
+bool portIsFree()
+{
+    Network::CServer& server = OpenViBE::Services::NetService::instance();
+    if (server.isListening()) { return true; }
+    const std::string text = "Port " + std::to_string(server.port())
+                             + " is already in use, most likely by another OpenViBE acquisition server that is still running.\n\n"
+                               "Close that one first, and start this one again. (To run two servers side by side, give the "
+                               "running one another port under Preferences.)";
+    std::cerr << "[Init] " << text << std::endl;
+#if defined TARGET_OS_Windows
+    MessageBoxA(nullptr, text.c_str(), "OpenViBE Acquisition Server", MB_OK | MB_ICONERROR);
+#endif
+    return false;
+}
+}  // namespace
+
 int main(int argc, char *argv[])
 {
     // UG fork: the server has no console window (WIN32_EXECUTABLE); what it prints goes to
@@ -36,6 +65,7 @@ int main(int argc, char *argv[])
 
     appInit.loadSettings();
     appInit.loadServices();
+    if (!portIsFree()) { return 1; }
     appInit.loadDriversAndWriters();
 
     // Shared default acquisition. Will be setup with restored session from SessionManager.

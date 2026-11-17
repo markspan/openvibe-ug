@@ -25,23 +25,8 @@ namespace {
 constexpr double LANE_FILL = 0.90;
 /** Floor on the half-range, so a DC-flat channel cannot produce an infinite gain. */
 constexpr double MIN_HALF_RANGE = 1e-9;
-/**
- * Only shrink the gain once the signal has dropped well below the current range: this is the
- * hysteresis band that stops the trace breathing on every refresh.
- */
-constexpr double SHRINK_RATIO = 0.6;
-/** Exponential settle factor for the lane centre. */
-constexpr double CENTRE_SETTLE = 0.30;
-/** Headroom kept above the observed peak. */
-constexpr double HEADROOM = 1.05;
-
-/** Grows the range at once but shrinks it only past the hysteresis band. */
-void applyHysteresis(QPair<double, double>& state, const double newCentre, const double newHalf)
-{
-    const double target = std::max(newHalf * HEADROOM, MIN_HALF_RANGE);
-    if (target > state.second || target < state.second * SHRINK_RATIO) { state.second = target; }
-    state.first += CENTRE_SETTLE * (newCentre - state.first);
-}
+// UG fork: no hysteresis and no gradual settling of the centre. The scale is worked out again once per page, which
+// is what keeps it still, and it then fits that page at once (SignalScaling.h).
 
 /**
  * \brief The existing child at this index, or null when one still has to be built.
@@ -117,30 +102,44 @@ void CSignalTraceItem::setPerChannelColors(const bool enabled)
     update();
 }
 
-void CSignalTraceItem::scaleFor(const int channel, double& centre, double& halfRange) const
+void CSignalTraceItem::setChannelKinds(const QVector<EChannelKind>& kinds)
+{
+    m_kinds = kinds;
+}
+
+int CSignalTraceItem::scaleGroup(const int channel) const
 {
     switch (m_settings.scaling)
     {
-        case ESignalDisplayScaling::None:
-            centre    = m_settings.baselineOffset;
-            halfRange = m_settings.verticalScale;
-            break;
-        case ESignalDisplayScaling::Global:
-            centre    = m_globalScale.first;
-            halfRange = m_globalScale.second;
-            break;
-        default:
-            if (channel >= 0 && channel < m_scale.size())
-            {
-                centre    = m_scale.at(channel).first;
-                halfRange = m_scale.at(channel).second;
-            }
-            else
-            {
-                centre    = 0.0;
-                halfRange = m_settings.verticalScale;
-            }
-            break;
+        case ESignalDisplayScaling::Global: return -1;
+        case ESignalDisplayScaling::ByType:
+        {
+            const EChannelKind kind = channel < m_kinds.size() ? m_kinds.at(channel) : EChannelKind::EEG;
+            // Other channels (ECG, EMG, BIP1, ...) have nothing in common with each other, so each keeps its own scale
+            return kind == EChannelKind::Other ? channel : -2 - int(kind);
+        }
+        default: return channel;
+    }
+}
+
+void CSignalTraceItem::scaleFor(const int channel, double& centre, double& halfRange) const
+{
+    if (m_settings.scaling == ESignalDisplayScaling::None)
+    {
+        centre    = m_settings.baselineOffset;
+        halfRange = m_settings.verticalScale;
+    }
+    // UG fork: every automatic mode keeps a scale per channel. Global and By type share the half-range, not the
+    // centre, so that a channel's DC offset does not push it out of its lane.
+    else if (channel >= 0 && channel < m_scale.size())
+    {
+        centre    = m_scale.at(channel).first;
+        halfRange = m_scale.at(channel).second;
+    }
+    else
+    {
+        centre    = 0.0;
+        halfRange = m_settings.verticalScale;
     }
     // Written so that a NaN half-range is caught too.
     if (!(halfRange > MIN_HALF_RANGE)) { halfRange = MIN_HALF_RANGE; }
@@ -165,9 +164,10 @@ void CSignalTraceItem::refreshAutoScale()
     const size_t head  = std::min(filled, capacity - first);
     const size_t tail  = filled - head;
 
-    double globalLo = std::numeric_limits<double>::max();
-    double globalHi = std::numeric_limits<double>::lowest();
-
+    // UG fork: the span of each visible channel, then their scales, shared by group (SignalScaling.h)
+    std::vector<int>          channels;
+    std::vector<SChannelSpan> spans;
+    std::vector<int>          groups;
     for (const int c : m_visible)
     {
         if (c < 0 || size_t(c) >= nChannel) { continue; }
@@ -187,16 +187,18 @@ void CSignalTraceItem::refreshAutoScale()
             lo            = std::min(lo, v);
             hi            = std::max(hi, v);
         }
-        if (!(lo <= hi)) { continue; }  // an all-NaN channel
-
-        applyHysteresis(m_scale[c], 0.5 * (double(lo) + double(hi)), 0.5 * (double(hi) - double(lo)));
-        globalLo = std::min(globalLo, double(lo));
-        globalHi = std::max(globalHi, double(hi));
+        channels.push_back(c);
+        // Not valid for a channel of NaN only, or with an infinite sample, which would give its whole group the
+        // fallback scale of niceHalfRange()
+        spans.push_back({ double(lo), double(hi), lo <= hi && std::isfinite(lo) && std::isfinite(hi) });
+        groups.push_back(scaleGroup(c));
     }
 
-    if (m_settings.scaling == ESignalDisplayScaling::Global && globalLo <= globalHi)
+    // UG fork: every mode gives each channel its own centre; upstream gave Global one centre, with hysteresis
+    const std::vector<SChannelScale> scales = scaleChannels(spans, groups);
+    for (size_t i = 0; i < channels.size(); ++i)
     {
-        applyHysteresis(m_globalScale, 0.5 * (globalLo + globalHi), 0.5 * (globalHi - globalLo));
+        if (spans[i].valid) { m_scale[channels[i]] = { scales[i].centre, scales[i].halfRange }; }
     }
 }
 
@@ -247,7 +249,15 @@ bool CSignalTraceItem::recomputeLayout()
     return true;
 }
 
-int CSignalTraceItem::buildRuns(const size_t capacity, const size_t filled, const size_t writePos, const qreal w, SRun out[2]) const
+void CSignalTraceItem::setScrollLagSeconds(const double seconds)
+{
+    if (seconds == m_scrollLagSeconds) { return; }
+    m_scrollLagSeconds = seconds;
+    emit timeWindowChanged();
+    update();
+}
+
+int CSignalTraceItem::buildRuns(const size_t capacity, const size_t filled, const size_t writePos, const qreal w, const double lagSamples, SRun out[2]) const
 {
     if (capacity == 0 || filled == 0 || w <= 0.0) { return 0; }
 
@@ -255,9 +265,10 @@ int CSignalTraceItem::buildRuns(const size_t capacity, const size_t filled, cons
 
     if (m_settings.timeMode == ESignalDisplayMode::Scroll)
     {
-        // The newest sample sits at the right edge; the span may wrap the ring.
+        // The newest sample sits at the right edge, or as far left of it as the stream lags, see setScrollLagSeconds();
+        // the span may wrap the ring.
         const size_t first = (writePos + capacity - filled) % capacity;
-        const qreal  x0    = w - qreal(filled - 1) * dx;
+        const qreal  x0    = w - (qreal(filled - 1) + lagSamples) * dx;
         const size_t head  = std::min(filled, capacity - first);
 
         out[0] = { first, head, x0, dx };
@@ -270,8 +281,14 @@ int CSignalTraceItem::buildRuns(const size_t capacity, const size_t filled, cons
     // across the sweep discontinuity between the old page and the new one.
     if (filled < capacity)
     {
-        out[0] = { 0, filled, 0.0, dx };
-        return 1;
+        // UG fork: the first page starts at the ring's slot offset, which a time-locked ring sets (CTraceBuffer::setTimeOrigin()),
+        // and may wrap; upstream's always started at slot 0
+        const size_t first = (writePos + capacity - filled) % capacity;
+        const size_t head  = std::min(filled, capacity - first);
+        out[0]             = { first, head, qreal(first) * dx, dx };
+        if (head == filled) { return 1; }
+        out[1] = { 0, filled - head, 0.0, dx };
+        return 2;
     }
 
     int n = 0;
@@ -302,7 +319,8 @@ QSGNode* CSignalTraceItem::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData
     }
 
     SRun      runs[2];
-    const int nRuns = buildRuns(r.capacity(), r.filled(), r.writePos(), w, runs);
+    // UG fork: the scroll lag, see setScrollLagSeconds()
+    const int nRuns = buildRuns(r.capacity(), r.filled(), r.writePos(), w, m_scrollLagSeconds * r.sampling(), runs);
     if (nRuns == 0)
     {
         trimChildren(root, 0);
@@ -479,6 +497,8 @@ QVariantList CSignalTraceItem::rowHalfRanges() const
     return out;
 }
 
+qreal CSignalTraceItem::laneFill() { return LANE_FILL; }  // UG fork
+
 qreal CSignalTraceItem::rowHeight() const
 {
     if (m_rows.isEmpty() || height() <= 0.0) { return 0.0; }
@@ -522,7 +542,8 @@ qreal CSignalTraceItem::timeAtX(const qreal x) const
     const qreal  dx       = width() / qreal(capacity);
 
     double index;
-    if (m_settings.timeMode == ESignalDisplayMode::Scroll) { index = total - 1.0 - (width() - x) / dx; }
+    // UG fork: the scroll lag, see setScrollLagSeconds()
+    if (m_settings.timeMode == ESignalDisplayMode::Scroll) { index = total - 1.0 - m_scrollLagSeconds * r.sampling() - (width() - x) / dx; }
     else
     {
         const double slot = x / dx;
@@ -547,8 +568,9 @@ qreal CSignalTraceItem::xAtTime(const qreal seconds) const
     if (index < oldest || index > total) { return -1.0; }
 
     const qreal dx = width() / qreal(capacity);
-    if (m_settings.timeMode == ESignalDisplayMode::Scroll) { return width() - (total - 1.0 - index) * dx; }
-    return std::fmod(index, double(capacity)) * dx;
+    if (m_settings.timeMode == ESignalDisplayMode::Scroll) { return width() - (total - 1.0 - index + m_scrollLagSeconds * r.sampling()) * dx; }
+    // UG fork: from the ring's slot offset, see CTraceBuffer::setTimeOrigin()
+    return std::fmod(index + double(r.slotOffset()), double(capacity)) * dx;
 }
 
 qreal CSignalTraceItem::cursorX() const
@@ -557,14 +579,6 @@ qreal CSignalTraceItem::cursorX() const
     CTraceBuffer::CReader r(*m_buffer);
     if (!r.valid() || r.capacity() == 0) { return -1.0; }
     return qreal(r.writePos()) * (width() / qreal(r.capacity()));
-}
-
-int CSignalTraceItem::channelAt(const qreal y) const
-{
-    if (m_rows.isEmpty() || height() <= 0.0 || m_settings.layout == ELayoutMode::Butterfly) { return -1; }
-    const int i = int(y / (height() / qreal(m_rows.size())));
-    if (i < 0 || i >= m_rows.size()) { return -1; }
-    return m_rows.at(i).channel;
 }
 
 }  // namespace SimpleVisualization

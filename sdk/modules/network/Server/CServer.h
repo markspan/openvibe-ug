@@ -75,6 +75,10 @@ namespace Network
         bool run();
         void stop();
 
+        /// UG fork: whether run() got the port, so clients reach this server. False when another server already listens on it.
+        bool isListening() const;
+        uint16_t port() const;
+
         void setCustomProtocolHandler(ProtocolMsgHandler* handler);
     
     protected:

@@ -12,7 +12,7 @@
  */
 #include "CircularBuffer.h"
 
-#include <algorithm>
+#include <algorithm>  // UG fork
 
  /**
   * @brief Constructor for the CircularBuffer class.
@@ -26,7 +26,7 @@ CircularBuffer::CircularBuffer(SampleBufferHandler* sampleBufferHandler, uint32_
 {
     m_allBuffers = new samplesBuffer*[m_internalBufferCount]();
     allocateRoundBuffer();
-    m_minFreeCount = m_internalBufferCount;
+    m_minFreeCount = m_internalBufferCount;  // UG fork: see takeMinFreeCount()
     m_bCancel = true;
 }
 
@@ -132,6 +132,7 @@ samplesBuffer* CircularBuffer::popBufferToProcess()
     return buffRes;
 }
 
+// UG fork: upstream's reader polls popBufferToProcess() in a loop; this waits instead
 samplesBuffer* CircularBuffer::waitBufferToProcess()
 {
     std::unique_lock<std::mutex> lock(m_mutexBuffToProcess);

@@ -61,6 +61,14 @@ void ParameterObject::setDescription(const QString &description)
     }
 }
 
+// UG fork
+void ParameterObject::setEnabled(const bool enabled)
+{
+    if (enabled == m_enabled) { return; }
+    m_enabled = enabled;
+    emit enabledChanged();
+}
+
 ParameterTraits *ParameterObject::parameter() const 
 {
     return m_param;

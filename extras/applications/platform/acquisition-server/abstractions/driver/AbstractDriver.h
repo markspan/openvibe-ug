@@ -17,11 +17,11 @@
 
 #include <OVAcquisitionAbstractions_Export.h>
 
-#include <functional>
+#include <functional>  // UG fork
 #include <memory>
-#include <mutex>
-#include <string>
-#include <vector>
+#include <mutex>  // UG fork
+#include <string>  // UG fork
+#include <vector>  // UG fork
 
  /**
   * @brief Abstract base class for hardware drivers.
@@ -297,6 +297,7 @@ public:
 
 protected:
     /// Sets the note, see note(); an empty @p text clears it.
+    /// UG fork: this, clearNote() and setChannelLocks().
     void setNote(Note::Level level, const std::string& text);
     void clearNote() { setNote(Note::Level::Info, {}); }
 
@@ -330,6 +331,7 @@ protected:
 	bool m_bAuxiliaryDriver = false;
 
 private:
+    // UG fork: the note, the channel locks and who hears of their changes
     void notifyStateChanged();
 
     mutable std::mutex m_stateMutex;  ///< Guards the note, the locks and the listener

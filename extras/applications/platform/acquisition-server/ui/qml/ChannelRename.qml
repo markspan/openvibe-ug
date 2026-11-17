@@ -122,8 +122,9 @@ Control {
 
                 visible: !_control.collapsed
                 clip: true
-                model: _namesModel
+                model: _namesModel  // UG fork: rows updated in place, see _namesModel
 
+                // UG fork: a row knows whether the montage decides its name (locked), and edit() moves the cursor to it
                 delegate: RowLayout {
                     id: _row
                     required property int index
@@ -219,7 +220,7 @@ Control {
                 var entries = fileContent.split("\n")
                 var newNames = _control._names()
                 for (var i = 0; i < entries.length && i < newNames.length; i++) {
-                    // The entries the montage decides keep its names
+                    // UG fork: the entries the montage decides keep its names
                     if (!_control._isLocked(i)) { newNames[i] = entries[i] }
                 }
                 _control._syncNames(newNames)
@@ -235,6 +236,7 @@ Control {
         nameFilters: ["Channel Names (*.txt)"]
         onAccepted: {
             if (_saveFileDialog.selectedFile) {
+                // UG fork: _names(), as the list model holds them
                 if (OV.QmlHelper.write(_saveFileDialog.selectedFile, _control._names().join("\n"))) {
                     console.log("Channel names saved to " + _saveFileDialog.selectedFile)
                 } else {

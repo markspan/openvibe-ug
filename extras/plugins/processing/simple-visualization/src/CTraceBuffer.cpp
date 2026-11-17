@@ -24,22 +24,22 @@ void CTraceBuffer::reallocate()
         if (slots >= 1.0) { capacity = slots > double(MAX_CAPACITY) ? MAX_CAPACITY : size_t(slots); }
     }
 
-    m_capacity = capacity;
-    m_writePos = 0;
-    m_total    = 0;
+    m_capacity   = capacity;
+    m_writePos   = 0;
+    m_total      = 0;
+    m_slotOffset = 0;  // UG fork
     m_samples.assign(m_channels * m_capacity, 0.0F);
 }
 
-void CTraceBuffer::reconfigure(const size_t channels, const double samplingRate, const double windowSeconds)
+void CTraceBuffer::reconfigure(const size_t channels, const double samplingRate)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
     const double sampling = samplingRate > 0.0 ? samplingRate : 0.0;
-    if (channels == m_channels && sampling == m_sampling && windowSeconds == m_windowSeconds) { return; }
+    if (channels == m_channels && sampling == m_sampling) { return; }
 
-    m_channels      = channels;
-    m_sampling      = sampling;
-    m_windowSeconds = windowSeconds;
+    m_channels = channels;
+    m_sampling = sampling;
     reallocate();
 }
 
@@ -50,14 +50,6 @@ void CTraceBuffer::setWindowSeconds(const double windowSeconds)
 
     m_windowSeconds = windowSeconds;
     reallocate();
-}
-
-void CTraceBuffer::clear()
-{
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_writePos = 0;
-    m_total    = 0;
-    std::fill(m_samples.begin(), m_samples.end(), 0.0F);
 }
 
 uint64_t CTraceBuffer::totalSamples() const
@@ -84,31 +76,91 @@ void CTraceBuffer::appendChunk(const double* buffer, const size_t channels, cons
 
     if (m_total == 0) { m_firstSampleSeconds = OVTimeToSeconds(startTime); }
 
-    // A chunk longer than the whole ring: keep only the tail that would survive anyway.
-    const size_t stride = samples;
-    size_t       offset = 0;
-    size_t       count  = samples;
-    if (count > m_capacity)
-    {
-        offset = count - m_capacity;
-        count  = m_capacity;
-    }
+    write(buffer, samples);
+}
+
+void CTraceBuffer::write(const double* buffer, const size_t samples)
+{
+    // A chunk longer than the whole ring: only its tail is kept, as the rest would be overwritten at once.
+    // UG fork: the skipped samples still count, and the tail goes to the slots it would have reached. Upstream
+    // counted only the tail, so every later sample, and so the time ruler and the markers, was dated too early by
+    // the samples skipped.
+    const size_t skipped = samples > m_capacity ? samples - m_capacity : 0;
+    const size_t count   = samples - skipped;
+    const size_t first   = (m_writePos + skipped) % m_capacity;
 
     // The write splits into at most two contiguous spans: up to the ring end, then from the start.
-    const size_t first = m_writePos;
-    const size_t head  = std::min(count, m_capacity - first);
-    const size_t tail  = count - head;
+    const size_t head = std::min(count, m_capacity - first);
+    const size_t tail = count - head;
 
     for (size_t c = 0; c < m_channels; ++c)
     {
-        const double* src = buffer + c * stride + offset;
+        const double* src = buffer + c * samples + skipped;
         float*        dst = m_samples.data() + c * m_capacity;
         for (size_t i = 0; i < head; ++i) { dst[first + i] = float(src[i]); }
         for (size_t i = 0; i < tail; ++i) { dst[i] = float(src[head + i]); }
     }
 
     m_writePos = (first + count) % m_capacity;
-    m_total += count;
+    m_total += samples;
+}
+
+void CTraceBuffer::setTimeOrigin(const double originSeconds)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_timeLocked    = true;
+    m_originSeconds = originSeconds;
+}
+
+void CTraceBuffer::appendTimed(const double* buffer, const size_t channels, const size_t samples, const double firstSampleSeconds)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (buffer == nullptr || samples == 0 || channels == 0 || channels != m_channels || m_capacity == 0) { return; }
+
+    // The chunk's first sample on the grid of the shared clock; without one, on its own
+    const double origin = m_timeLocked ? m_originSeconds : (m_total == 0 ? firstSampleSeconds : m_firstSampleSeconds - double(m_startIndex) / m_sampling);
+    const int64_t index = int64_t(std::llround((firstSampleSeconds - origin) * m_sampling));
+
+    if (m_total == 0)
+    {
+        // The ring starts at the grid point of its first sample, so that its times are the grid's
+        m_startIndex         = m_timeLocked ? index : 0;
+        m_firstSampleSeconds = origin + double(m_startIndex) / m_sampling;
+        const int64_t slot   = m_startIndex % int64_t(m_capacity);
+        m_slotOffset         = size_t(slot < 0 ? slot + int64_t(m_capacity) : slot);
+        m_writePos           = m_slotOffset;
+    }
+    else
+    {
+        // Measured on the shared grid, as every ring is, so that all rings follow their dates alike
+        const int64_t drift = (index - m_startIndex) - int64_t(m_total);
+        if (drift >= RESYNC_SAMPLES || drift <= -RESYNC_SAMPLES) { shift(drift); }
+    }
+    write(buffer, samples);
+}
+
+void CTraceBuffer::shift(const int64_t samples)
+{
+    if (samples < 0)
+    {
+        // Back over what is to be overwritten, but not before the first sample
+        const size_t back = size_t(std::min<int64_t>(-samples, int64_t(std::min<uint64_t>(m_total - 1, m_capacity))));
+        m_writePos        = (m_writePos + m_capacity - back % m_capacity) % m_capacity;
+        m_total -= back;
+        return;
+    }
+
+    // Forward over a gap, drawn as each channel's last value rather than as the page before
+    const size_t fill = size_t(std::min<int64_t>(samples, int64_t(m_capacity)));
+    const size_t last = (m_writePos + m_capacity - 1) % m_capacity;
+    for (size_t c = 0; c < m_channels; ++c)
+    {
+        float*      dst   = m_samples.data() + c * m_capacity;
+        const float value = dst[last];
+        for (size_t i = 0; i < fill; ++i) { dst[(m_writePos + i) % m_capacity] = value; }
+    }
+    m_writePos = size_t((uint64_t(m_writePos) + uint64_t(samples)) % m_capacity);
+    m_total += uint64_t(samples);
 }
 
 }  // namespace SimpleVisualization

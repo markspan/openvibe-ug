@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <any>
 #include <cctype>
+#include <cmath>
 #include <map>
 #include <chrono>
 #include <iostream>
@@ -49,6 +50,9 @@ constexpr ULONG CHANNELTYPE_ENVELOPE = 8;
 constexpr ULONG CHANNELTYPE_MARKER   = 9;
 constexpr ULONG CHANNELTYPE_SAW      = 10;
 constexpr ULONG CHANNELTYPE_SAO2     = 11;
+
+// UG fork: the unit of a channel's values, SSignalFormat::UnitId, as the TMSi SDK numbers it; only volt is converted
+constexpr ULONG UNIT_VOLT = 1;
 
 constexpr ULONG MAX_BUFFER_SIZE = 0xFFFFFFFF;
 
@@ -647,6 +651,29 @@ bool CDriverTMSi::init()
     }
     std::cout << "[TMSi] Recording " << recordedNames.size() << " of the " << m_nDeviceChannel << " channels" << std::endl;
 
+    // UG fork: every channel in volt goes out in microvolt, the unit the BrainVision writer declares. The SDK gives a channel's
+    // values in its UnitId times 10^UnitExponent: microvolt for EXG channels (-6), but BIP and AUX channels may differ. Upstream
+    // ignored the exponent, so such a channel was recorded a thousand or a million times off.
+    m_channelScale.assign(m_nDeviceChannel, 1.0);
+    for (uint32_t i = 0; i < m_nDeviceChannel; ++i) {
+        if (!m_isChannelActivated[i]) { continue; }
+        const signal_format_t& format = m_api->signalFormat[i];
+        const bool analog = format.Type == CHANNELTYPE_EXG || format.Type == CHANNELTYPE_BIP || format.Type == CHANNELTYPE_AUX;
+        if (format.UnitId == UNIT_VOLT) {
+            m_channelScale[i] = std::pow(10.0, double(format.UnitExponent + 6));
+            if (format.UnitExponent != -6) {
+                std::cout << "[TMSi] " << trim(m_configuredNames[i]) << " (" << channelType(i) << ") is given in 1e" << format.UnitExponent
+                          << " V; it is recorded in microvolt." << std::endl;
+            }
+        }
+        else if (analog) {
+            std::cout << "[TMSi] " << trim(m_configuredNames[i]) << " (" << channelType(i) << ") is not in volt (unit " << format.UnitId
+                      << ", 1e" << format.UnitExponent << "); it is recorded as the device gives it, not in microvolt." << std::endl;
+        }
+    }
+    m_overflowSamples = 0;
+    m_overflowReported = 0;
+
     // The trigger channel, named or else the first DIG channel that is not the sawtooth, which the SDK also types as DIG
     m_triggerChannel   = -1;
     m_trigger.reset(0);  // UG fork
@@ -707,6 +734,7 @@ bool CDriverTMSi::start()
 
     // The SDK resets its overflow count at Start
     m_bufferPeakPercent = 0;
+    m_peakFetched       = 0;
     m_bufferOverflows   = 0;
     m_lastBufferInfo    = {};
     m_lastReadNs        = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -743,7 +771,8 @@ AbstractDriver::DeviceBuffer CDriverTMSi::takeDeviceBuffer()
 
     result.reported        = true;
     result.capacitySeconds = double(m_bufferSamples) / rate;
-    result.peakSeconds     = m_bufferPeakPercent.exchange(0) / 100.0 * result.capacitySeconds;
+    // UG fork: the samples a read found waiting, to the sample; GetBufferInfo's whole percents read 0 below 100 ms
+    result.peakSeconds     = (std::max)(m_bufferPeakPercent.exchange(0) / 100.0 * result.capacitySeconds, double(m_peakFetched.exchange(0)) / rate);
     // While the reader is held up nothing is read and nothing is measured, but the backlog grows all the same
     const int64_t sinceRead = std::chrono::steady_clock::now().time_since_epoch().count() - m_lastReadNs;
     result.peakSeconds      = (std::max)(result.peakSeconds, std::chrono::duration<double>(std::chrono::steady_clock::duration(sinceRead)).count());
@@ -782,8 +811,15 @@ int CDriverTMSi::read(sampleType* data, const uint64_t size)
             return 0;
         }
         m_rawSampleCount = uint32_t(nBytesReceived / (m_nDeviceChannel * sizeof(m_rawBuffer[0])));
+        // UG fork: a block that is not a whole number of samples loses its last, partial one; upstream dropped it silently
+        if (nBytesReceived % (m_nDeviceChannel * sizeof(m_rawBuffer[0])) != 0) {
+            std::cout << "[TMSi] The SDK returned " << nBytesReceived << " bytes, not a whole number of samples; the part of a sample at the "
+                      << "end is lost." << std::endl;
+        }
         m_rawSampleIndex = 0;
         m_blockFetchTime = fetchTime;  // UG fork
+        // UG fork: what waited in the SDK's buffer, which GetSamples has just emptied into m_rawBuffer, as large as that buffer
+        if (m_rawSampleCount > m_peakFetched) { m_peakFetched = m_rawSampleCount; }
     }
 
     m_readFirst = m_rawSampleIndex;  // UG fork: where in the block this read starts, see getData()
@@ -804,11 +840,14 @@ int CDriverTMSi::read(sampleType* data, const uint64_t size)
             // For overflow of an analog channel, set the value to zero
             if (raw[c] == OVERFLOW_32BITS && (format.Type == CHANNELTYPE_EXG || format.Type == CHANNELTYPE_BIP || format.Type == CHANNELTYPE_AUX)) {
                 out[virtualChannel] = 0;
+                ++m_overflowSamples;  // UG fork: reported below, as a 0 in the recording does not show it
             }
             else {
+                // UG fork: in microvolt for a channel in volt, see init()
+                const double scale = m_channelScale[c];
                 switch (format.Format) {
-                    case SF_UNSIGNED: out[virtualChannel] = sampleType(raw[c] * format.UnitGain + format.UnitOffSet); break;
-                    case SF_INTEGER: out[virtualChannel] = sampleType(int(raw[c]) * format.UnitGain + format.UnitOffSet); break;
+                    case SF_UNSIGNED: out[virtualChannel] = sampleType((raw[c] * format.UnitGain + format.UnitOffSet) * scale); break;
+                    case SF_INTEGER: out[virtualChannel] = sampleType((int(raw[c]) * format.UnitGain + format.UnitOffSet) * scale); break;
                     default: out[virtualChannel] = 0; break;
                 }
             }
@@ -817,6 +856,13 @@ int CDriverTMSi::read(sampleType* data, const uint64_t size)
 
         // Only the trigger channel carries triggers: its low 8 bits, which getData() turns into triggers once it has the stamps
         if (m_triggerChannel >= 0) { m_triggerValues.push_back(raw[m_triggerChannel] & 0xFFU); }  // UG fork
+    }
+
+    // UG fork: an electrode out of range, e.g. come loose, is recorded as 0; say how often, at most once per block
+    if (m_overflowSamples != m_overflowReported) {
+        std::cout << "[TMSi] " << m_overflowSamples - m_overflowReported << " more samples out of the amplifier's range, recorded as 0 ("
+                  << m_overflowSamples << " since Play)." << std::endl;
+        m_overflowReported = m_overflowSamples;
     }
 
     return int(toRead);

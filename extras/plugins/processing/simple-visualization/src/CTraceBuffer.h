@@ -28,8 +28,12 @@ inline double OVTimeToSeconds(const uint64_t t) { return double(t >> 32) + doubl
  * firstTime + g / sampling, which makes a per-channel time cursor -- and the drift bug it used
  * to cause -- structurally impossible: x is derived from the ring slot index alone.
  *
- * Threading: every public method locks. The player thread only ever calls appendChunk();
+ * Threading: every public method locks. The player thread calls reconfigure() and appendChunk();
  * the GUI and render threads read through CReader.
+ *
+ * UG fork: the slot of global sample g is always (g + slotOffset()) % capacity, also after a chunk longer than the ring,
+ * and writePos() is always (totalSamples() + slotOffset()) % capacity(). The time ruler and the markers rely on both.
+ * slotOffset() is 0 unless the ring is time-locked, see setTimeOrigin().
  */
 class CTraceBuffer
 {
@@ -39,13 +43,15 @@ public:
     CTraceBuffer& operator=(const CTraceBuffer&) = delete;
 
     /**
-     * \brief Sets the geometry. Reallocates and drops history only if it actually changes.
+     * \brief Sets the stream's geometry. Reallocates and drops history only if it actually changes.
+     *
+     * UG fork: the duration held is kept, see setWindowSeconds(), so that the player thread can call this on a
+     * header without reading the display settings, which the GUI thread owns.
      *
      * \param channels Number of channels.
      * \param samplingRate Sampling rate in Hz, or <= 0 to have it estimated from the first chunk.
-     * \param windowSeconds Duration held by the ring.
      */
-    void reconfigure(size_t channels, double samplingRate, double windowSeconds);
+    void reconfigure(size_t channels, double samplingRate);
 
     /**
      * \brief Changes the displayed duration, keeping the channel count and sampling rate.
@@ -64,7 +70,33 @@ public:
      */
     void appendChunk(const double* buffer, size_t channels, size_t samples, uint64_t startTime, uint64_t endTime);
 
-    void clear();
+    /**
+     * \brief Locks the ring to a clock shared with other rings, so that rings of different rates line up.
+     *
+     * UG fork, for the LSL display. Sample slots then lie on a grid of that clock: the sample dated t sits in slot
+     * round((t - origin) * rate) % capacity, and the time of a slot is the grid's. So in Scan mode every ring with the same
+     * window draws a time at the same x, whatever its rate or when it started. Call before the first sample, with the same
+     * origin for every ring that is to line up; samples come through appendTimed().
+     */
+    void setTimeOrigin(double originSeconds);
+
+    /**
+     * \brief Appends one chunk dated by its first sample, keeping each sample at the slot of its time.
+     *
+     * UG fork, for the LSL display. Every chunk is placed by its own date on the grid of setTimeOrigin(): the ring starts at
+     * the grid point of its first sample, so that its times are the grid's, in every ring alike. A stream's samples do not
+     * come exactly at its nominal rate, and may have gaps. When a chunk's date and the samples counted so far disagree by
+     * RESYNC_SAMPLES or more, the count follows the date: a gap is filled with each channel's last value, and samples come in
+     * early overwrite the last ones. So every sample lies less than RESYNC_SAMPLES from its date, plus half a sample of
+     * grid, for hours, at the cost of a sample skipped or repeated now and then.
+     *
+     * \param buffer             Channel-major [channels x samples].
+     * \param firstSampleSeconds The date of the chunk's first sample, on the clock of setTimeOrigin().
+     */
+    void appendTimed(const double* buffer, size_t channels, size_t samples, double firstSampleSeconds);
+
+    /// How far a chunk's date may be from the samples counted before appendTimed() corrects the count. UG fork.
+    static constexpr int64_t RESYNC_SAMPLES = 2;
 
     /** Cheap snapshot of the write counter, for change detection. */
     uint64_t totalSamples() const;
@@ -81,6 +113,8 @@ public:
         double       sampling() const { return m_b.m_sampling; }
         uint64_t     totalSamples() const { return m_b.m_total; }
         size_t       writePos() const { return m_b.m_writePos; }
+        /// UG fork: the slot of global sample 0; 0 unless the ring is time-locked
+        size_t       slotOffset() const { return m_b.m_slotOffset; }
         double       firstSampleSeconds() const { return m_b.m_firstSampleSeconds; }
         /** Number of slots currently holding valid data. */
         size_t       filled() const { return size_t(m_b.m_total < uint64_t(m_b.m_capacity) ? m_b.m_total : uint64_t(m_b.m_capacity)); }
@@ -98,15 +132,28 @@ private:
     /** Reallocates m_samples from m_channels / m_sampling / m_windowSeconds. Caller holds the lock. */
     void reallocate();
 
+    /**
+     * \brief Writes a chunk at m_writePos and moves on by all its samples. UG fork: shared by both appends.
+     * \param buffer Channel-major [channels x samples]; of a chunk longer than the ring, only the tail is written.
+     */
+    void write(const double* buffer, size_t samples);
+
+    /// Moves the count by \p samples: forward over a gap, filled with the last values, or back over samples to overwrite. UG fork.
+    void shift(int64_t samples);
+
     mutable std::mutex m_mutex;
     std::vector<float> m_samples;               ///< channel-major, m_channels * m_capacity entries
     size_t             m_channels      = 0;
     size_t             m_capacity      = 0;     ///< slots per channel
     size_t             m_writePos      = 0;     ///< next slot to write
-    uint64_t           m_total         = 0;     ///< samples per channel written since the last clear()
+    uint64_t           m_total         = 0;     ///< samples per channel received since the last reallocation
     double             m_sampling      = 0.0;   ///< Hz, 0 until known
     double             m_windowSeconds = 10.0;
     double             m_firstSampleSeconds = 0.0;  ///< time of global sample 0
+    bool               m_timeLocked    = false; ///< UG fork: see setTimeOrigin()
+    double             m_originSeconds = 0.0;   ///< UG fork: see setTimeOrigin()
+    size_t             m_slotOffset    = 0;     ///< UG fork: the slot of global sample 0
+    int64_t            m_startIndex    = 0;     ///< UG fork: the grid index of global sample 0, see setTimeOrigin()
 };
 
 }  // namespace SimpleVisualization

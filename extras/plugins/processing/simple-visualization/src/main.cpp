@@ -30,6 +30,8 @@
 #include "box-algorithms/CBoxAlgorithmLevelMeasure.h"
 
 #include "box-algorithms/CSignalDisplay.h"
+#include "box-algorithms/CLSLDisplay.h"  // UG fork
+#include "box-algorithms/CLSLXDFWriter.h"  // UG fork
 
 // Presentation
 #include "box-algorithms/CDisplayCueImage.h"
@@ -46,14 +48,19 @@ OVP_Declare_Begin()
     context.getTypeManager().registerEnumerationEntry(OV_TypeId_BoxAlgorithmFlag, OV_AttributeId_Box_FlagIsUnstable.toString(),
                                                       OV_AttributeId_Box_FlagIsUnstable.id());
 
+    // UG fork: what an LSL display tells an LSL XDF writer, see defines.hpp
+    context.getTypeManager().registerStreamType(TypeId_LSLStreams, "LSL streams", OV_TypeId_StreamedMatrix);
+
     context.getTypeManager().registerEnumerationType(TypeId_SignalDisplayMode, "Signal display mode");
-    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayMode, "Scroll", uint64_t(ESignalDisplayMode::Scroll));
-    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayMode, "Scan", uint64_t(ESignalDisplayMode::Scan));
+    // UG fork: the names come from SDisplaySettings, which the Signal display's panel uses too
+    for (const ESignalDisplayMode mode : SDisplaySettings::TIME_MODES) {
+        context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayMode, SDisplaySettings::toString(mode), uint64_t(mode));
+    }
 
     context.getTypeManager().registerEnumerationType(TypeId_SignalDisplayScaling, "Signal display scaling");
-    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayScaling, "Per channel", uint64_t(ESignalDisplayScaling::PerChannel));
-    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayScaling, "Global", uint64_t(ESignalDisplayScaling::Global));
-    context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayScaling, "None", uint64_t(ESignalDisplayScaling::None));
+    for (const ESignalDisplayScaling scaling : SDisplaySettings::SCALINGS) {  // UG fork, as above
+        context.getTypeManager().registerEnumerationEntry(TypeId_SignalDisplayScaling, SDisplaySettings::toString(scaling), uint64_t(scaling));
+    }
 
 
     context.getTypeManager().registerEnumerationType(TypeId_FeedbackMode, "Feedback display mode");
@@ -66,6 +73,8 @@ OVP_Declare_Begin()
     OVP_Declare_New(CDisplayCueImageDesc)
     OVP_Declare_New(CBoxAlgorithmErpPlotDesc)
     OVP_Declare_New(CSignalDisplayDesc)
+    OVP_Declare_New(CLSLDisplayDesc)  // UG fork
+    OVP_Declare_New(CLSLXDFWriterDesc)  // UG fork
     OVP_Declare_New(CGrazVisualizationDesc)
     OVP_Declare_New(CGrazMultiVisualizationDesc)
     OVP_Declare_New(CBoxAlgorithmLevelMeasureDesc)

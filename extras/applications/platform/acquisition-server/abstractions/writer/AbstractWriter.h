@@ -14,7 +14,7 @@
 #include <samplesBuffer.h>
 
 #include <openvibe/acquisition-messaging/drift.h>
-#include <openvibe/acquisition-messaging/ovChannelInfo.h>
+#include <openvibe/acquisition-messaging/ovChannelInfo.h>  // UG fork
 #include <openvibe/acquisition-messaging/ovMsg.h>
 #include <openvibe/parameters/parameters.h>
 

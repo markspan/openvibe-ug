@@ -111,6 +111,7 @@ signals:
 
 protected:
     /// Path of Charmeleon.exe when the current driver hands impedance checking to it and it is installed, else empty.
+    /// UG fork: upstream has no Charmeleon.
     std::string charmeleonExecutable();
 
     struct AcquisitionControllerPrivate *d = nullptr;

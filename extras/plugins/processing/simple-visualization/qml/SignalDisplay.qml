@@ -3,8 +3,8 @@
 
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Window  // UG fork: Screen, for the trace's layer
 
-import OVParameters as OVP
 import DesignSystem as DS
 
 // The window manager reparents this item and installs width/height bindings on it, so it must not
@@ -13,7 +13,17 @@ Item {
     id: _root
 
     readonly property int ampWidth: dataSource.showAmplitudeRuler ? DS.Theme.spacing5xl : 0
-    readonly property int gutterWidth: DS.Theme.labelWidthSm
+    // UG fork: as wide as the longest channel label, with ChannelGutter's margins, rather than a fixed 96 px, which left
+    // short names such as Cz far from the amplitude ruler. Long labels are elided past twice the old width.
+    readonly property int gutterWidth: {
+        let widest = 0
+        for (const channel of dataSource.channels) {
+            widest = Math.max(widest, _nameMetrics.advanceWidth(channel.name), _unitMetrics.advanceWidth(channel.unit ?? ""))
+        }
+        // Multiview's legend puts a coloured dot before each name
+        const dot = dataSource.butterfly ? DS.Theme.spacingSm + DS.Theme.spacingXs : 0
+        return Math.min(2 * DS.Theme.labelWidthSm, Math.ceil(widest + dot) + DS.Theme.spacingMd)
+    }
     readonly property int rulerHeight: dataSource.showTimeRuler ? DS.Theme.labelHeightLg : 0
 
     // Fit every lane in the viewport by default; above the requested density, scroll instead.
@@ -25,115 +35,23 @@ Item {
         return _scroll.height
     }
 
-    Rectangle {
-        id: _panel
+    // UG fork: the fonts ChannelGutter shows the names and units in, to size the gutter by
+    FontMetrics { id: _nameMetrics; font: DS.Theme.textSmallRegular }
+    FontMetrics { id: _unitMetrics; font: DS.Theme.textXsRegular }
 
-        readonly property int minWidth: 200
-        readonly property int maxWidth: DS.Theme.boxSettingsMaximumWidth
+    // UG fork: the settings panel and its gear button, shared with the LSL display; before, written out here
+    SettingsPanel {
+        id: _settings
 
-        anchors.top: parent.top
-        anchors.left: parent.left
-        anchors.bottom: parent.bottom
-        
-        // A plain value, not a binding: the drag handle assigns it, which would destroy a binding.
-        width: DS.Theme.boxSettingsMinimumWidth
-
-        color: DS.Theme.white
-
-        OVP.Parameters {
-            id: _params
-            parameters: dataSource.parameters
-        }
-
-        ScrollView {
-            id: _scrollView
-
-            anchors.fill: parent
-            anchors.margins: DS.Theme.spacingMd
-            // Run right up to the drag handle so the scroll bar sits at the panel edge instead of
-            // floating inward over the controls.
-            anchors.rightMargin: _resize.width
-            contentWidth: availableWidth
-            clip: true
-
-            ScrollBar.vertical: ScrollBar {
-                parent: _scrollView
-                x: _scrollView.width - width
-                y: 0
-                height: _scrollView.height
-                width: DS.Theme.scrollBarWidth
-                policy: ScrollBar.AsNeeded
-            }
-
-            Column {
-                spacing: DS.Theme.spacingSm
-                // Reserve the scroll bar's lane unconditionally. Keying this off the bar's
-                // visibility would loop: width drives content height drives visibility.
-                width: _scrollView.availableWidth - DS.Theme.scrollBarWidth - DS.Theme.spacingXs
-
-                Label {
-                    width: parent.width
-                    text: dataSource.name
-                    font: DS.Theme.textSmallBold
-                    color: DS.Theme.textPrimary
-                    elide: Text.ElideRight
-                }
-
-                Repeater {
-                    model: _params.params_model
-                    delegate: Loader {
-                        required property var param
-                        required property var component
-
-                        property var lparam: param
-
-                        width: parent.width
-                        sourceComponent: component
-                    }
-                }
-            }
-        }
-
-        // Drag-to-resize handle on the right edge, following the pattern of the designer's own
-        // settings panel (BoxSettings.qml).
-        Rectangle {
-            id: _edge
-
-            anchors.right: parent.right
-            anchors.top: parent.top
-            anchors.bottom: parent.bottom
-
-            width: DS.Theme.borderSm
-            color: _resize.pressed ? DS.Theme.primary : DS.Theme.stroke
-        }
-
-        MouseArea {
-            id: _resize
-
-            anchors { right: parent.right; top: parent.top; bottom: parent.bottom }
-            width: DS.Theme.spacingSm
-            cursorShape: Qt.SizeHorCursor
-
-            property real mouseToEdgeX: 0
-
-            onPressed: mouse => {
-                const global = mapToGlobal(mouse.x, mouse.y)
-                mouseToEdgeX = _panel.x + _panel.width - global.x
-            }
-
-            onPositionChanged: mouse => {
-                if (!pressed) { return }
-                const global = mapToGlobal(mouse.x, mouse.y)
-                const target = global.x - _panel.x + mouseToEdgeX
-                _panel.width = Math.max(_panel.minWidth, Math.min(_panel.maxWidth, target))
-            }
-        }
+        anchors { top: parent.top; left: parent.left; bottom: parent.bottom }
+        parameters: dataSource.parameters
+        title: dataSource.name
     }
 
     Item {
         id: _plot
 
-        anchors { top: parent.top; left: _panel.right; right: parent.right; bottom: parent.bottom }
+        anchors { top: parent.top; left: _settings.right; right: parent.right; bottom: parent.bottom }
         anchors.margins: DS.Theme.spacingSm
 
         Flickable {
@@ -182,6 +100,13 @@ Item {
                     anchors { top: parent.top; left: _gutter.right; right: parent.right; bottom: parent.bottom }
                     clip: true
                     traceColor: DS.Theme.textPrimary
+
+                    // UG fork: antialiased lines. The traces are drawn into a multisampled layer, which smooths the lines
+                    // the scene graph draws without it. A layer is a texture, so it is left out when the trace is
+                    // wider or, scrolling, taller than graphics cards are sure to allow; the lines are then drawn as before.
+                    layer.enabled: Math.max(width, height) * Screen.devicePixelRatio <= 8192
+                    layer.samples: 4
+                    layer.smooth: true
                 }
 
                 // Sweep cursor, Scan mode only.

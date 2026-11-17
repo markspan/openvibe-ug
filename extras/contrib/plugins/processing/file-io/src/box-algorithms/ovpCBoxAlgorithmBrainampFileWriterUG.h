@@ -15,11 +15,15 @@
 #pragma once
 
 #include "../ovp_defines.h"
+#include "BrainVisionUG.h"  // UG fork
 #include <openvibe/ov_all.h>
 #include <toolkit/ovtk_all.h>
 
 #include <fstream>
 #include <map>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <boost/date_time/posix_time/posix_time.hpp>
 
@@ -43,6 +47,7 @@ public:
     static std::string formatTime(boost::posix_time::ptime now);
 
 
+    /// Writes the current chunk to the data file, multiplexed: all channels of the first sample, then of the next.
     template <class T>
     bool saveBuffer(const T /*myDummy*/)
     {
@@ -56,8 +61,11 @@ public:
 
         for (size_t k = 0; k < nChannel; ++k) {
             for (size_t j = 0; j < nSamplesPerChunk; ++j) {
-                const size_t index       = (k * nSamplesPerChunk) + j;
-                output[j * nChannel + k] = T(input[index]);
+                const size_t index = (k * nSamplesPerChunk) + j;
+                // UG fork: integers are rounded and held at their limits; upstream truncated them, and a value out of
+                // range, such as an amplifier's DC offset in INT_16, wrapped around
+                if constexpr (std::is_integral_v<T>) { output[j * nChannel + k] = BrainVisionUG::toInteger<T>(input[index], m_clipped); }
+                else { output[j * nChannel + k] = T(input[index]); }
             }
         }
 
@@ -98,6 +106,19 @@ protected:
     size_t m_stimulationCounter = 2;     //because the first is outputed manually
 
     bool m_isVmrkHeaderFileWritten = false; //Is the beginning of the .vmrk (file with stimulations is written)
+
+    // UG fork: what keeps the three files consistent, see process()
+    bool m_isHeaderWritten   = false;  ///< The .vhdr is written once, for the first signal header
+    bool m_hasFirstSample    = false;  ///< Whether m_firstSampleTime is known
+    uint64_t m_firstSampleTime = 0;    ///< The date of the first sample in the .eeg, which markers are counted from
+    std::vector<std::pair<uint64_t, uint64_t>> m_earlyMarkers;  ///< {code, date} of markers that came before any signal
+    bool m_clipped           = false;  ///< Whether a sample did not fit the integer format, see saveBuffer()
+    bool m_clipReported      = false;
+
+    /// Writes a hardware trigger to the .vmrk, at its sample. UG fork.
+    void writeMarker(uint64_t code, uint64_t date);
+    /// Writes what the streams hold to disk, and reports a file that could not be written. UG fork.
+    bool flushFiles();
 
     /// A position on a unit sphere, as BrainVision's [Coordinates] has it: theta from the vertex, negative on the
     /// left half of the head, and phi from the right towards the front, between -90 and 90; in degrees.

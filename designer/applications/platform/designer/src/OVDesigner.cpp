@@ -51,7 +51,7 @@ namespace Designer {
 
 namespace {
 
-// UG fork: the user configuration file is found even when designer.conf is not. See UG.md, 2.26.
+// UG fork: the user configuration file is found even when designer.conf is not. See UG.md, 2.32.
 
 /// Token naming the user configuration file, which holds the user's own tokens and the session.
 constexpr const char* USER_CONFIGURATION_TOKEN = "Designer_CustomConfigurationFile";
