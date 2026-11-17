@@ -621,6 +621,12 @@ void OVDesigner::initialize()
 
     int restoredScenarioIndex = -1;
     const SessionManager::Session session = d->m_session->restore();
+
+    // UG fork: a scenario that brings Designer down while it loads would do so at every start, since
+    // the session reopens it, and Designer would never start again. So while a scenario is being
+    // reopened, the saved session leaves it out: should loading it crash, the next start reopens the
+    // others. Once all are open, the session is whole again. See UG.md, 2.39.
+    SessionManager::Session reopened;
     for (int i = 0; i < session.scenarioFiles.size(); ++i)
     {
         const QString& scenarioFile = session.scenarioFiles[i];
@@ -629,7 +635,13 @@ void OVDesigner::initialize()
             logMgr << Kernel::LogLevel_Warning << "Not restoring scenario [" << scenarioFile.toStdString() << "]: the file no longer exists\n";
             continue;
         }
-        logMgr << Kernel::LogLevel_Trace << "Restoring scenario [" << scenarioFile.toStdString() << "]\n";
+
+        SessionManager::Session withoutThisOne = reopened;
+        withoutThisOne.scenarioFiles << session.scenarioFiles.mid(i + 1);
+        d->m_session->save(withoutThisOne);
+
+        // Information rather than trace, so that the log names the scenario should loading it crash
+        logMgr << Kernel::LogLevel_Info << "Reopening scenario [" << scenarioFile.toStdString() << "] from the last session\n";
         if(!d->openScenario(scenarioFile.toStdString()))
         {
             continue; //openScenario already reported the failure
@@ -637,9 +649,12 @@ void OVDesigner::initialize()
         //compute the index from the tabs actually restored, some of them may have failed to open
         if (i == session.selectedIndex)
         {
-            restoredScenarioIndex = int(d->m_scenarios.size()) - 1;
+            restoredScenarioIndex     = int(d->m_scenarios.size()) - 1;
+            reopened.selectedIndex    = int(reopened.scenarioFiles.size());
         }
+        reopened.scenarioFiles << scenarioFile;
     }
+    d->m_session->save(reopened);
 
     bool aborted = false;
     if(parser.isSet("open") || parser.isSet("play") || parser.isSet("play-fast"))
