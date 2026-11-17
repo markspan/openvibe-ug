@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 45 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 59 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 307 files, about 34,000 lines added and 3,400 removed (of which 3,000 a test input) |
+| Size | 325 files, about 35,000 lines added and 3,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -944,7 +944,7 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 - A build takes in the order of an hour or more: the whole of OpenViBE, then the documentation, then CPack. The workflow stops after 6 hours.
 - The installer contains what `cmake --install` puts in `dist\`: the programs, the pixi environment's DLLs, Qt, the Python runtime and the Visual C++ runtime. Amplifier software such as Charmeleon is not in it.
 - The tag must read `MAJOR.MINOR.PATCH`, optionally with `-something`. Other tags do not start it, and CMake would refuse them anyway.
-- Not yet run. The first run may need adjusting, most likely the list of Qt modules or the disk the build goes to (`C:\ovb`).
+- Qt is installed with the modules qtcharts, qtgraphs, qtquick3d, qtshadertools and qt5compat. Designer's Icon control imports `Qt5Compat.GraphicalEffects`: the 4.0.1-ug.2 installer lacked qt5compat, and its Designer ran without a window.
 
 ---
 

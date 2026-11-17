@@ -51,7 +51,9 @@ jobs:
 
       # Qt is not taken from conda-forge on Windows (see pixi.toml); the lab machines use the
       # official build, so the installer does too. Installed to C:\Qt\<version>\msvc2022_64, the
-      # path pixi.toml points Qt6_DIR at. Qt Graphs needs Quick 3D and the shader tools.
+      # path pixi.toml points Qt6_DIR at. Qt Graphs needs Quick 3D and the shader tools. Designer's
+      # Icon control (OVControls/Icon.qml) imports Qt5Compat.GraphicalEffects: without qt5compat
+      # Designer's window does not load, and Designer runs on without one.
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
@@ -60,7 +62,7 @@ jobs:
           target: desktop
           arch: win64_msvc2022_64
           dir: C:\
-          modules: qtcharts qtgraphs qtquick3d qtshadertools
+          modules: qtcharts qtgraphs qtquick3d qtshadertools qt5compat
           cache: true
 
       - name: Install the pixi environment
