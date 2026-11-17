@@ -63,6 +63,7 @@ Everything outside the files listed here is identical to upstream.
 | Designer configuration | A `designer.conf` that is not found is skipped without a word; the user's settings are then not loaded, and every session save fails with `${Designer_CustomConfigurationFile} is empty` | The missing file is named in the log, and the user configuration file falls back to `${Path_UserData}/openvibe-designer.conf` |
 | Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; red dot while running, amber while paused |
 | Comments on the canvas | Shown, edited, moved and deleted, but a new one can not be made: nothing starts it | Edit > Add comment, or Ctrl+Shift+C: the text dialog opens at once |
+| Acquisition server icon | The same as Designer's | Its own, in the same style: three channels merging into one |
 | Installer on GitHub | none; the installer is built on Inria's GitLab runners | A GitHub Actions workflow builds the NSIS installer and a ZIP, by hand or on a version tag, and attaches them to a release |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
@@ -981,6 +982,24 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 
 ---
 
+### 2.37 The acquisition server's own icon
+
+**Files**
+- `share/ov-acquisition-server-icon.ico` (new), drawn by `share/tools/make_acquisition_server_icon.py` (new)
+- `CMakeLists.txt` (`OV_ACQUISITION_SERVER_ICON_FILE`), `extras/applications/platform/acquisition-server/CMakeLists.txt`
+
+**What it does**
+- The acquisition server had Designer's icon, so the two were hard to tell apart in the taskbar and the Start Menu. It now has its own, in the same style: the white tile with rounded corners, the pink to blue gradient, the same stroke width and round nodes, and the faint glow. Designer's shows one trace with a spike between two nodes; the server's shows three channels coming in on the left, the middle one with Designer's spike, merging into one node on the right.
+- It is in the executable (taskbar, Explorer, the installer's Start Menu shortcut) and is the window icon. Sizes 16, 24, 32, 48, 64, 128 and 256 px.
+- The icon is drawn by a script rather than by hand, so it can be changed and redrawn: `pip install pillow`, then `python share/tools/make_acquisition_server_icon.py`. Its measurements are those of Designer's icon, at the top of the script.
+
+**Consequences**
+- The installer itself, and Designer, keep `ov-icon.ico`.
+- In the resources the icon keeps the alias `ov-icon.ico`, so `main.cpp` is unchanged.
+- Looked at side by side with Designer's icon at 16, 32, 48 and 256 px. Not yet built into the server.
+
+---
+
 ## 3. All modified files
 
 `A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
@@ -989,6 +1008,7 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 |---|---|---|
 | A | `.github/workflows/windows-installer.yml` | 2.34 |
 | M | `CMake/FindThirdPartyLSL.cmake` | 2.21 |
+| M | `CMakeLists.txt` | 2.37 |
 | M | `conda/env_linux.yaml` | 2.21 |
 | M | `conda/env_osx.yaml` | 2.21 |
 | M | `conda/env_osx_arm64.yaml` | 2.21 |
@@ -1012,7 +1032,7 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `extras/applications/developer-tools/skeleton-generator/src/CDriverSkeletonGenerator.cpp` | 2.23 |
 | M | `extras/applications/developer-tools/skeleton-generator/src/CSkeletonGenerator.cpp` | 2.23 |
 | M | `extras/applications/developer-tools/skeleton-generator/src/main.cpp` | 2.23 |
-| M | `extras/applications/platform/acquisition-server/CMakeLists.txt` | 2.1, 2.4, 2.6, 2.17 |
+| M | `extras/applications/platform/acquisition-server/CMakeLists.txt` | 2.1, 2.4, 2.6, 2.17, 2.37 |
 | M | `extras/applications/platform/acquisition-server/abstractions/CMakeLists.txt` | 2.3, 2.24, 2.25 |
 | M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.cpp` | 2.16 |
 | M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` | 2.4, 2.6, 2.7, 2.8, 2.16 |
@@ -1222,6 +1242,8 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `sdk/plugins/processing/tools/src/box-algorithms/CBoxAlgorithmExternalProcessing.cpp` | 2.23 |
 | M | `sdk/plugins/processing/tools/src/box-algorithms/CBoxAlgorithmMatrixValidityChecker.cpp` | 2.23 |
 | M | `sdk/toolkit/src/algorithms/scenario-io/ovtkCAlgorithmScenarioImporter.cpp` | 2.23 |
+| A | `share/ov-acquisition-server-icon.ico` | 2.37 |
+| A | `share/tools/make_acquisition_server_icon.py` | 2.37 |
 | A | `UG.md` | this document |
 | A | `montages.md` | 2.3: the montage how-to |
 | A | `speller.md` | 2.18: the speller how-to |

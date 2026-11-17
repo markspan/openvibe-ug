@@ -129,7 +129,8 @@ if(WIN32)
     # Add/Remove Programs display. The generated .rc embeds the icon into the executable, which is
     # also where the NSIS Start-Menu shortcut picks it up from.
     set(PROJECT_PRODUCT_NAME "OpenViBE Acquisition Server")
-    ov_configure_rc(NAME ${TARGET_NAME} ICON_PATH ${OV_ICON_FILE})
+    # UG fork: its own icon, not Designer's (UG.md, 2.37)
+    ov_configure_rc(NAME ${TARGET_NAME} ICON_PATH ${OV_ACQUISITION_SERVER_ICON_FILE})
     set(OV_ACQUISITION_SERVER_RC "${CMAKE_BINARY_DIR}/resource-files/${TARGET_NAME}.rc")
 endif()
 
@@ -149,7 +150,8 @@ target_include_directories(${TARGET_NAME}
 target_compile_definitions(${TARGET_NAME} PRIVATE -DWIN32_LEAN_AND_MEAN)
 
 # Keep main.cpp on ":/qt/qml/AcquisitionServer/ov-icon.ico" and not worrying about the real file path
-set_source_files_properties(${OV_ICON_FILE} PROPERTIES QT_RESOURCE_ALIAS ov-icon.ico)
+# UG fork: the alias keeps that name, but the file is the server's own icon (UG.md, 2.37)
+set_source_files_properties(${OV_ACQUISITION_SERVER_ICON_FILE} PROPERTIES QT_RESOURCE_ALIAS ov-icon.ico)
 
 qt_add_qml_module(${TARGET_NAME}
     URI
@@ -171,7 +173,7 @@ qt_add_qml_module(${TARGET_NAME}
         ui/Charmeleon.cpp         # UG fork
         ui/ImpedanceItem.h
     RESOURCES
-        ${OV_ICON_FILE}
+        ${OV_ACQUISITION_SERVER_ICON_FILE}
 )
 
 

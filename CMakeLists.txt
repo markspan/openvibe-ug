@@ -57,6 +57,9 @@ string(TIMESTAMP COPYRIGHT_DATE "2012-%Y")
 
 # Icon shared by applications & installer
 set(OV_ICON_FILE "${CMAKE_SOURCE_DIR}/share/ov-icon.ico")
+# UG fork: the acquisition server's own icon, in the same style; drawn by
+# share/tools/make_acquisition_server_icon.py. See UG.md, 2.37.
+set(OV_ACQUISITION_SERVER_ICON_FILE "${CMAKE_SOURCE_DIR}/share/ov-acquisition-server-icon.ico")
 
 set(CMAKE_INSTALL_LIBDIR lib)  # Enforce as all distros may not have the same default (e.g. lib, lib32/lib64)
 # Set CMake variables
