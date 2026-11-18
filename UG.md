@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 62 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 63 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 336 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 337 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -98,6 +98,7 @@ Everything outside the files listed here is identical to upstream.
 - `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` (new)
 - `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` (new)
 - `extras/applications/platform/acquisition-server/CMakeLists.txt` (adds the driver on Windows)
+- `documentation/TMSiSDK.chm` (new): TMSi's reference of the SDK the driver calls, for whoever works on the driver
 
 **What it does**
 
@@ -1135,6 +1136,7 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 | M | `conda/env_osx_arm64.yaml` | 2.21 |
 | M | `conda/env_windows.yaml` | 2.21 |
 | M | `conda/recipe/meta.yaml` | 2.21 |
+| A | `documentation/TMSiSDK.chm` | 2.1 |
 | M | `designer/applications/platform/designer/CMakeLists.txt` | 2.33, 2.37 |
 | M | `designer/applications/platform/designer/Main.qml` | 2.33, 2.36 |
 | M | `designer/applications/platform/designer/MenuModel.qml` | 2.36 |
