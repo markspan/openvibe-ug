@@ -72,7 +72,8 @@ public:
     /**
      * \brief Recomputes the per-channel centre and half-range from the ring.
      *
-     * No-op when scaling is None. UG fork: no hysteresis; the caller calls it once per page (CSignalDisplayController::onTick()).
+     * UG fork: also when scaling is None, which uses the centres only. No hysteresis; the caller calls it once per page
+     * (CSignalDisplayController::onTick()).
      */
     void refreshAutoScale();
 
@@ -162,7 +163,7 @@ private:
     QVector<QColor>  m_colors;
     QVector<SRow>    m_rows;
 
-    /** Per-channel {centre, halfRange}, from the last refreshAutoScale(), in every automatic mode. */
+    /** Per-channel {centre, halfRange}, from the last refreshAutoScale(), in every mode. UG fork: None too. */
     QVector<QPair<double, double>> m_scale;
     QVector<EChannelKind>          m_kinds;  ///< UG fork: see setChannelKinds()
 

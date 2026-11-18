@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 59 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 60 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 325 files, about 35,000 lines added and 3,400 removed (of which 3,000 a test input) |
+| Size | 325 files, about 35,000 lines added and 4,300 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -68,7 +68,7 @@ Everything outside the files listed here is identical to upstream.
 | Installer on GitHub | none; the installer is built on Inria's GitLab runners | A GitHub Actions workflow builds the NSIS installer and a ZIP, by hand or on a version tag, and attaches them to a release |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
-| Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
+| Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal, also without automatic scaling, so no Vertical Offset; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
 | LSL streams | Seen through the acquisition server's LSL driver: one data stream and one marker stream, numbers only, timed when they arrive | "LSL display (UG)" box: any number of data streams of any rate, stacked on one time axis by their LSL times, and number and text markers on all; streams ticked while it runs. "LSL XDF writer (UG)" connected to it records the ticked streams as LabRecorder does, a file each time Record is pressed, of each stream only the channels shown |
 | BrainVision file integrity | eego data in volt in a microvolt file; TMSi BIP and AUX channels unscaled; markers counted from the scenario's start, not the file's first sample; the header written only at the end | eego in microvolt and its stream order checked; markers on their own sample; files written out at every step; a script that checks a recording |
@@ -689,7 +689,7 @@ The label sits in a flag at the top of the marker line:
 - **By type**, a new scaling mode: the EEG channels share one scale, the EOG channels one and the digital channels one. Other channels (ECG, EMG, GSR, unnamed BIP and AUX inputs) keep a scale of their own. The kind comes from the channel name: names with EOG, and HEO and VEO, are EOG; Trigger, SampleCounter, Digi, DIG, Saw, Status and Marker are digital; ECG, EMG, GSR, Resp, BIP, AUX and the like are other; everything else is EEG.
 - **Once per page.** An automatic scale is worked out again at every new page, from the page just drawn: in Scan mode when the cursor starts again at the left, in Scroll mode once per Time Scale. It then fits that page at once. While the first page fills, twice a second. Upstream refreshed it on a timer, every 5 s by default, and moved it only part of the way, with hysteresis. The setting "Scale refresh interval (secs)" is gone from the box and the panel.
 - **Round numbers.** A scale is rounded up to 1, 2 or 5 times a power of ten, after 5 % headroom, and the ruler shows it without trailing zeros: ±50, ±0.5, ±200.
-- **Greyed out.** Vertical Scale and Vertical Offset are used only when the scaling is None, and Channels per page is not used in Multiview. The panel now shows them greyed out and they can not be changed then. For this, a parameter object has an `enabled` property, true unless set otherwise.
+- **Greyed out.** Vertical Scale is used only when the scaling is None (and Vertical Offset was, until 2.39), and Channels per page is not used in Multiview. The panel now shows them greyed out and they can not be changed then. For this, a parameter object has an `enabled` property, true unless set otherwise.
 - **Antialiasing.** The traces are drawn into a layer with 4× multisampling, so the lines are smooth. A layer is a texture, so it is left out when the scrolling content is taller than 8192 device pixels; the lines are then drawn as before.
 - **Channel selection.** The Channels list has three buttons above it: Select all and Deselect all side by side, Invert selection under them, white with a blue outline. Each sets the whole selection at once. The channels are listed in two columns, row by row (Fp1 Fp2, F3 F4, …), with check boxes in the same style: white with a blue outline, and a blue check. They are part of the shared multi-select control (`MultiSelectParameter.qml`), so any other multi-select list gets them too.
 - **Hiding the panel.** A gear button next to the settings panel hides it, so the traces get the whole width, and shows it again. The panel keeps its width meanwhile. It is shown when playback starts.
@@ -787,7 +787,7 @@ It checks the header, that the data is a whole number of samples without NaN, an
 - **Streams are chosen while it runs.** The panel lists the streams on the network under *Streams*, brought up to date every second, as "name (type, 32 ch, 2048 Hz)" or "name (type, text markers)". Tick a stream to show it, untick it to close it. A stream that goes away stays listed while it is ticked, and comes back by itself when it does.
 - **Data streams**, any regular rate and any number type, are stacked in panels, each with its name above it. A panel's height goes by the channels it shows, so lanes are alike across streams. The panels share one time axis and the time ruler at the bottom.
 - **Marker streams**, numbers or text, are drawn as flags on every panel, at their LSL times. A stream of text, or one without a regular rate, counts as markers. Of a marker stream with several channels, the first is the code, as in the two-channel sync sender.
-- **The options are the Signal display's:** Display Mode, Auto vertical scale (Per channel, By type, Global, None), Time Scale, Vertical Scale and Offset, Multiview, Colour per channel, and the rulers. They apply to every stream. Each data stream adds its own channel selection, *Channels: name*, with Select all, Deselect all and Invert selection. The box settings are where the panel starts.
+- **The options are the Signal display's:** Display Mode, Auto vertical scale (Per channel, By type, Global, None), Time Scale, Vertical Scale, Multiview, Colour per channel, and the rulers. They apply to every stream. Each data stream adds its own channel selection, *Channels: name*, with Select all, Deselect all and Invert selection. The box settings are where the panel starts.
 
 How streams of different rates line up:
 - Each sample is placed by its LSL time, corrected to this computer's clock and smoothed, as LabRecorder's files are when loaded. Every stream's ring is locked to one clock (`CTraceBuffer::setTimeOrigin()`). In Scan mode a time is at the same x in every panel, whatever the stream's rate or start. In Scroll mode each stream is drawn as far behind the newest as it lags, so that the panels scroll together.
@@ -1016,6 +1016,26 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 - The editor no longer appears next to its comment; it always appears where Designer is.
 - Tested headless: with Designer's window at (100, 80), 800 by 600, the editor of a comment at (5000, 3000) on the canvas opens at (300, 180), inside it. Not yet run in Designer.
 
+### 2.39 No Vertical Offset: every channel centred on its own signal
+
+**Files**
+- `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp`, `CSignalTraceItem.h`, `CSignalDisplayController.cpp`, `CSignalDisplayController.h`, `CLSLDisplayController.cpp`, `CLSLDisplayController.h`, `SDisplaySettings.h`, `box-algorithms/CSignalDisplay.cpp`, `box-algorithms/CSignalDisplay.h`
+- `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part`
+- The 59 scenarios of 2.26 and the two LSL display tutorials (`box-tutorials/lsl-display.xml`, `lsl-display-xdf.xml`)
+
+**What it does**
+- With Auto vertical scale None, the Signal display and the LSL display drew every channel around one fixed value, the Vertical Offset. A channel with a DC offset, as an amplifier without a high-pass filter gives, then left its lane unless the offset was set for it, and one value can not suit channels with different offsets.
+- Now every channel is centred on its own signal in every mode, None included: the middle of a lane is the middle of what the channel spans on the page, worked out again for every page as an automatic scale is (2.26). None only keeps the scale fixed: Vertical Scale, the same for every channel.
+- The setting "Vertical Offset" is gone from both boxes and from their panels. It is one list for both (`addDisplaySettings()`), so the two boxes stay alike.
+
+**Scenarios.** All 120 boxes in the repository (118 Signal displays in 59 scenarios, 2 LSL displays) had the offset at 0. The setting is removed from them, and their prototype hash set to that of the current box: `(0x8cb5ea19, 0x160b59cb)` for the Signal display, `(0x9ceddf45, 0x8a942865)` for the LSL display. The hashes were computed as the kernel's `SBoxProto` does; the same computation gives the stored hashes of the boxes as they were.
+
+**Consequences**
+- With None, a trace no longer stays at one height from page to page: it is centred again at every new page, so a slow drift shows as a jump at the page boundary, not as a trace that wanders out of its lane.
+- Scenarios outside the repository that still have "Vertical Offset" play as before, without it: settings are read by name, so it is ignored. Designer marks such a box as one to update; updating it removes the setting.
+- A value of the offset other than 0 in such a scenario is lost; there is nothing to take its place.
+- Tested: the build, the documentation page (seven settings, Multiview the seventh), and the test suite, which passes except `run-command-with-spaces`, a test of the Run Command box that fails now and then without this change too. Designer opens `signal-display.xml`, `lsl-display.xml` and `erp-1-monitor-signal.xml` without asking to update a box; the old `signal-display.xml` it flags twice. Not yet looked at on screen.
+
 ---
 
 ## 3. All modified files
@@ -1150,10 +1170,10 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/connectivity/CBoxAlgorithmConnectivityMeasure.cpp` | 2.23 |
 | M | `extras/plugins/processing/stimulation/share/lua-stimulator-stim-codes.lua` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18, 2.26, 2.28 |
-| A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display-xdf.xml` | 2.29 |
-| A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` | 2.28, 2.29 |
+| A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display-xdf.xml` | 2.29, 2.39 |
+| A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` | 2.28, 2.29, 2.39 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_P300SpellerVisualization.dox-part` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26, 2.39 |
 | M | `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/qml/P300SpellerVisualization.qml` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml` | 2.28 |
@@ -1170,27 +1190,27 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLDisplay.h` | 2.28, 2.29 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLXDFWriter.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/CLSLXDFWriter.h` | 2.29 |
-| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11, 2.26, 2.28 |
-| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.h` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11, 2.26, 2.28, 2.39 |
+| M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.h` | 2.26, 2.28, 2.39 |
 | M | 35 demo and tutorial scenarios (`*.xml`) with a Signal display | 2.11 |
 | M | 31 demo and tutorial scenarios (`*.xml`) with an Acquisition client box | 2.19 |
-| M | 59 demo, tutorial and test scenarios (`*.xml`) with a Signal display | 2.26 |
+| M | 59 demo, tutorial and test scenarios (`*.xml`) with a Signal display | 2.26, 2.39 |
 | M | `extras/plugins/server-extensions/tcp-tagging-service/test/test_tcptaggingservice.cpp` | 2.19 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.h` | 2.18 |
-| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp` | 2.28, 2.29 |
-| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.h` | 2.28, 2.29 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp` | 2.28, 2.29, 2.39 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.h` | 2.28, 2.29, 2.39 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLReader.cpp` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLReader.h` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.h` | 2.29 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28, 2.39 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26, 2.39 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28, 2.39 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26, 2.28, 2.39 |
 | M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.cpp` | 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.h` | 2.26, 2.28 |
-| M | `extras/plugins/processing/simple-visualization/src/SDisplaySettings.h` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/src/SDisplaySettings.h` | 2.26, 2.39 |
 | A | `extras/plugins/processing/simple-visualization/src/SignalScaling.h` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/src/TracePalette.h` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/XDFWriter.cpp` | 2.29 |

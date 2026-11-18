@@ -209,16 +209,7 @@ void CSignalDisplayController::buildParameters()
     });
     m_parameters.push_back(m_pVerticalScale);
 
-    m_pBaselineOffset = new Parameters::ParameterDoubleObject("Vertical Offset", "DC level removed from every sample before it is scaled. Only used when Auto vertical scale is None",
-                                                             m_settings.baselineOffset,
-                                                             -1e6, 1e6, 3);
-    connect(m_pBaselineOffset, &Parameters::ParameterDoubleObject::valueChanged, this, [this](const double& value)
-    {
-        m_settings.baselineOffset = value;
-        if (m_trace != nullptr) { m_trace->setSettings(m_settings); }
-        m_layoutDirty = true;
-    });
-    m_parameters.push_back(m_pBaselineOffset);
+    // UG fork: no "Vertical Offset": every channel is centred on its own signal, also with Auto vertical scale None
 
     // UG fork: no "Scale refresh interval (secs)" here any more; the scale is worked out once per page
 
@@ -276,10 +267,9 @@ void CSignalDisplayController::buildParameters()
 
 void CSignalDisplayController::updateEnabledParameters()
 {
-    // UG fork: the fixed scale and offset apply only without automatic scaling, and pages only to stacked lanes
+    // UG fork: the fixed scale applies only without automatic scaling, and pages only to stacked lanes
     const bool fixedScale = m_settings.scaling == ESignalDisplayScaling::None;
     m_pVerticalScale->setEnabled(fixedScale);
-    m_pBaselineOffset->setEnabled(fixedScale);
     m_pChannelsPerPage->setEnabled(m_settings.layout != ELayoutMode::Butterfly);
 }
 
@@ -483,8 +473,8 @@ void CSignalDisplayController::onTick()
 
     // UG fork: the automatic scale is worked out again for every new page, from the page just drawn: in Scan mode when
     // the cursor starts again at the left, in Scroll mode every window length. While the first page fills, it is
-    // worked out every FIRST_PAGE_RESCALE_MS.
-    if (m_settings.scaling != ESignalDisplayScaling::None && capacity > 0)
+    // worked out every FIRST_PAGE_RESCALE_MS. With scaling None too, for the channels' centres.
+    if (capacity > 0)
     {
         const uint64_t page      = total / capacity;
         const bool     firstPage = page == 0 && m_sinceScaleRefresh.elapsed() >= FIRST_PAGE_RESCALE_MS;

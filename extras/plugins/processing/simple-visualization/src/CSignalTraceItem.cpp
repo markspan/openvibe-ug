@@ -124,30 +124,18 @@ int CSignalTraceItem::scaleGroup(const int channel) const
 
 void CSignalTraceItem::scaleFor(const int channel, double& centre, double& halfRange) const
 {
-    if (m_settings.scaling == ESignalDisplayScaling::None)
-    {
-        centre    = m_settings.baselineOffset;
-        halfRange = m_settings.verticalScale;
-    }
-    // UG fork: every automatic mode keeps a scale per channel. Global and By type share the half-range, not the
-    // centre, so that a channel's DC offset does not push it out of its lane.
-    else if (channel >= 0 && channel < m_scale.size())
-    {
-        centre    = m_scale.at(channel).first;
-        halfRange = m_scale.at(channel).second;
-    }
-    else
-    {
-        centre    = 0.0;
-        halfRange = m_settings.verticalScale;
-    }
+    // UG fork: every mode keeps a centre per channel, so that a channel's DC offset does not push it out of its lane.
+    // Global and By type share the half-range, not the centre; None takes the half-range from Vertical Scale.
+    const bool known = channel >= 0 && channel < m_scale.size();
+    centre           = known ? m_scale.at(channel).first : 0.0;
+    halfRange        = known && m_settings.scaling != ESignalDisplayScaling::None ? m_scale.at(channel).second : m_settings.verticalScale;
     // Written so that a NaN half-range is caught too.
     if (!(halfRange > MIN_HALF_RANGE)) { halfRange = MIN_HALF_RANGE; }
 }
 
 void CSignalTraceItem::refreshAutoScale()
 {
-    if (m_buffer == nullptr || m_settings.scaling == ESignalDisplayScaling::None) { return; }
+    if (m_buffer == nullptr) { return; }  // UG fork: also with scaling None, for the centres
 
     CTraceBuffer::CReader r(*m_buffer);
     if (!r.valid()) { return; }

@@ -176,7 +176,6 @@ private:
     Parameters::ParameterListStringObject*  m_pDisplayMode    = nullptr;
     Parameters::ParameterListStringObject*  m_pScaling        = nullptr;
     Parameters::ParameterDoubleObject*      m_pVerticalScale  = nullptr;
-    Parameters::ParameterDoubleObject*      m_pBaselineOffset = nullptr;
     Parameters::ParameterDoubleObject*      m_pTimeScale      = nullptr;
     Parameters::ParameterBoolObject*        m_pTimeRuler      = nullptr;
     Parameters::ParameterBoolObject*        m_pAmplitudeRuler = nullptr;

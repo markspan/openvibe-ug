@@ -226,7 +226,6 @@ private:
     Parameters::ParameterListStringObject*  m_pScaling       = nullptr;
     Parameters::ParameterDoubleObject*      m_pTimeScale     = nullptr;
     Parameters::ParameterDoubleObject*      m_pVerticalScale = nullptr;
-    Parameters::ParameterDoubleObject*      m_pOffset        = nullptr;
     Parameters::ParameterBoolObject*        m_pButterfly     = nullptr;
     Parameters::ParameterBoolObject*        m_pColors        = nullptr;
     Parameters::ParameterBoolObject*        m_pTimeRuler     = nullptr;

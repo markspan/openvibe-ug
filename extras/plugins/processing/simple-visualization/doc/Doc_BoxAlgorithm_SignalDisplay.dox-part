@@ -55,32 +55,26 @@ fills, it is worked out twice a second.
  
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting3|
 Amplitude that fills half a channel lane, in signal units, when automatic vertical scaling mode is
-None. With a value of 100, a trace touching the top of
-its lane is at +100 units.
+None. With a value of 100, a trace touching the top of its lane is 100 units above the middle of
+its page.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting3|
  
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting4|
-DC level subtracted from every sample before it is scaled, i.e. the signal value drawn on the lane
-baseline, when automatic vertical scaling mode is None. Channels are separated by the stacking
-itself, so this is a baseline correction and not a channel spacing control.
+Size of time window to display, in seconds.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting4|
  
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting5|
-Size of time window to display, in seconds.
- * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting5|
- 
- * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting6|
 Enable bottom (x) ruler?
+ * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting5|
+
+ * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting6|
+Enable the left amplitude ruler: a per-lane bracket showing the amplitude the lane spans.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting6|
 
  * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting7|
-Enable the left amplitude ruler: a per-lane bracket showing the amplitude the lane spans.
- * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting7|
-
- * |OVP_DocBegin_BoxAlgorithm_SignalDisplay_Setting8|
 Draw every channel on a single shared baseline instead of one lane each. This is the 'butterfly
 plot'. It is the same renderer as the stacked view, with all baselines collapsed to mid-height.
- * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting8|
+ * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_Setting7|
 
 __________________________________________________________________
 
@@ -95,7 +89,6 @@ hides the panel, giving the graph the whole width, and shows it again.
   - Auto vertical scale : Per channel, By type, Global, or None.
   - Time Scale : the time span displayed. Changing it resizes the buffer and clears history.
   - Vertical Scale : the amplitude filling half a channel lane. Greyed out unless auto scaling is None.
-  - Vertical Offset : DC level removed before scaling. Greyed out unless auto scaling is None.
   - Bottom ruler / Left ruler : toggle the time ruler and the amplitude scale bar.
   - Multiview : overlay every channel on a single baseline.
 
@@ -120,9 +113,9 @@ To get some signals displayed right, changing the automatic y scaling may be use
 	- Per channel (default) : Every channel will get centered and scaled separately. This should allow viewing arbitrary signals. This is suitable for unfiltered data which may have huge differences in scale and DC between channels.
 	- By type : The EEG channels share one scale, the EOG channels another and the digital (trigger, counter) channels a third, so that amplitudes can be compared within each kind. Other channels, such as ECG, EMG, GSR, or unnamed BIP and AUX inputs, keep a scale of their own. The kind is read from the channel name: names with EOG (HEOG, VEOG) are EOG, Trigger, SampleCounter, Digi, DIG and Saw are digital, and electrode names are EEG.
 	- Global : All channels are put to the same scale which is the maximum of all the channels. This mode is suitable for filtered EEG and data which may have long-term trends but where all channels generally stay in the same range. 
-	- None: User must specify global center and scale. Display is never automatically rescaled. This is suitable for filtered EEG data where the meaningful range is within known parameters and DC doesn't vary.
+	- None: User must specify the scale (Vertical Scale), shared by all channels. It is never changed automatically. This is suitable for filtered EEG data where the meaningful range is within known parameters.
 
-In every automatic mode each channel is centred on its own signal, so a DC offset does not push it out of its lane; By type and Global share only the scale. The scale is rounded up to 1, 2 or 5 times a power of ten, so the left ruler reads as ±50 or ±200.
+In every mode, None included, each channel is centred on its own signal, so a DC offset does not push it out of its lane: the middle of a lane is the middle of what the channel spans on the page. The centre is worked out again for every page, as an automatic scale is. By type and Global share only the scale. The scale is rounded up to 1, 2 or 5 times a power of ten, so the left ruler reads as ±50 or ±200.
 
 Practical example :
 

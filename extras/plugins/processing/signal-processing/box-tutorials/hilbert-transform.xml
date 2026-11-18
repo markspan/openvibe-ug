@@ -116,13 +116,6 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Vertical Offset</Name>
-                    <DefaultValue>0</DefaultValue>
-                    <Value>0</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
                     <Name>Time Scale</Name>
                     <DefaultValue>10</DefaultValue>
                     <Value>10</Value>
@@ -161,7 +154,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x749ffce0, 0x5335cebd)</Value>
+                    <Value>(0x8cb5ea19, 0x160b59cb)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -227,13 +220,6 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Vertical Offset</Name>
-                    <DefaultValue>0</DefaultValue>
-                    <Value>0</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
                     <Name>Time Scale</Name>
                     <DefaultValue>10</DefaultValue>
                     <Value>10</Value>
@@ -272,7 +258,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x749ffce0, 0x5335cebd)</Value>
+                    <Value>(0x8cb5ea19, 0x160b59cb)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -391,13 +377,6 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Vertical Offset</Name>
-                    <DefaultValue>0</DefaultValue>
-                    <Value>0</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
                     <Name>Time Scale</Name>
                     <DefaultValue>10</DefaultValue>
                     <Value>10</Value>
@@ -436,7 +415,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x749ffce0, 0x5335cebd)</Value>
+                    <Value>(0x8cb5ea19, 0x160b59cb)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>
@@ -502,13 +481,6 @@
                 </Setting>
                 <Setting>
                     <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
-                    <Name>Vertical Offset</Name>
-                    <DefaultValue>0</DefaultValue>
-                    <Value>0</Value>
-                    <Modifiability>false</Modifiability>
-                </Setting>
-                <Setting>
-                    <TypeIdentifier>(0x512a166f, 0x5c3ef83f)</TypeIdentifier>
                     <Name>Time Scale</Name>
                     <DefaultValue>10</DefaultValue>
                     <Value>10</Value>
@@ -547,7 +519,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x749ffce0, 0x5335cebd)</Value>
+                    <Value>(0x8cb5ea19, 0x160b59cb)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x527ad68d, 0x16d746a0)</Identifier>

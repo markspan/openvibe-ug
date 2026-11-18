@@ -171,8 +171,8 @@ void CLSLStreamView::tick(const double scrollLagSeconds)
     if (total == m_lastRenderedTotal && !m_layoutDirty) { return; }
 
     // The automatic scale, worked out again for every new page, as in the Signal display; a page starts where the cursor
-    // starts again at the left, which in a time-locked ring is not at sample 0
-    if (m_settings.scaling != ESignalDisplayScaling::None && capacity > 0)
+    // starts again at the left, which in a time-locked ring is not at sample 0. With scaling None too, for the centres.
+    if (capacity > 0)
     {
         const uint64_t page      = (total + offset) / capacity;
         const bool     firstPage = total < capacity && m_sinceScaleRefresh.elapsed() >= FIRST_PAGE_RESCALE_MS;
@@ -340,14 +340,7 @@ void CLSLDisplayController::buildParameters()
     });
     m_parameters.push_back(m_pVerticalScale);
 
-    m_pOffset = new Parameters::ParameterDoubleObject("Vertical Offset", "DC level removed from every sample before it is scaled. Only used when Auto vertical scale is None",
-                                                     m_settings.baselineOffset, -1e6, 1e6, 3);
-    connect(m_pOffset, &Parameters::ParameterDoubleObject::valueChanged, this, [this](const double& value)
-    {
-        m_settings.baselineOffset = value;
-        applySettings();
-    });
-    m_parameters.push_back(m_pOffset);
+    // No "Vertical Offset": every channel is centred on its own signal, also with Auto vertical scale None
 
     m_pButterfly = new Parameters::ParameterBoolObject("Multiview", "Overlay the channels of each stream on a single baseline, instead of one lane each",
                                                       m_settings.layout == ELayoutMode::Butterfly);
@@ -385,7 +378,6 @@ void CLSLDisplayController::updateEnabledParameters()
 {
     const bool fixedScale = m_settings.scaling == ESignalDisplayScaling::None;
     m_pVerticalScale->setEnabled(fixedScale);
-    m_pOffset->setEnabled(fixedScale);
 }
 
 void CLSLDisplayController::applySettings()
