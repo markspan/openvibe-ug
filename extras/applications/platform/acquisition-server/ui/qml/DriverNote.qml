@@ -9,17 +9,19 @@ import QtQuick.Layouts
 
 import DesignSystem as DS
 
+import AcquisitionServer as OV
+
 
 Rectangle {
     id: _note
 
     /// The text; the box is hidden while it is empty
     property string text: ""
-    /// "info", "warning" or "error"
-    property string level: "info"
+    /// AcquisitionController.NoteLevel
+    property int level: OV.AcquisitionController.NoteLevel.Info
 
-    readonly property color _accent: level === "error" ? DS.Theme.cpuUsageColors["high"]
-                                   : level === "warning" ? DS.Theme.cpuUsageColors["medium"]
+    readonly property color _accent: level === OV.AcquisitionController.NoteLevel.Error ? DS.Theme.statusColors["error"]
+                                   : level === OV.AcquisitionController.NoteLevel.Warning ? DS.Theme.statusColors["warning"]
                                    : DS.Theme.primary
 
     visible: text.length > 0

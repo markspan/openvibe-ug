@@ -81,3 +81,37 @@ TEST(SignalScaling, aChannelWithoutNumbersDoesNotCountForItsGroup)
     EXPECT_DOUBLE_EQ(scales[0].halfRange, 20.0);
     EXPECT_DOUBLE_EQ(scales[1].halfRange, SChannelScale().halfRange);
 }
+
+// When the scale is worked out again (CPageRescale), the rule the Signal display and the LSL display share
+TEST(SignalScaling, theScaleIsWorkedOutAtEveryNewPage)
+{
+    using namespace std::chrono_literals;
+    const auto start = std::chrono::steady_clock::time_point{} + 1h;
+    CPageRescale rescale;
+    EXPECT_TRUE(rescale.due(3, false, start)) << "the first call";
+    EXPECT_FALSE(rescale.due(3, false, start + 2s)) << "the same page";
+    EXPECT_TRUE(rescale.due(4, false, start + 2s)) << "a new page";
+    EXPECT_FALSE(rescale.due(4, false, start + 3s));
+}
+
+TEST(SignalScaling, theFirstPageIsScaledTwiceASecond)
+{
+    using namespace std::chrono_literals;
+    const auto start = std::chrono::steady_clock::time_point{} + 1h;
+    CPageRescale rescale;
+    EXPECT_TRUE(rescale.due(0, true, start));
+    EXPECT_FALSE(rescale.due(0, true, start + 400ms));
+    EXPECT_TRUE(rescale.due(0, true, start + 500ms));
+    EXPECT_FALSE(rescale.due(0, false, start + 1500ms)) << "once the first page is full, only a new page counts";
+}
+
+TEST(SignalScaling, aRequestCountsWhateverThePage)
+{
+    using namespace std::chrono_literals;
+    const auto start = std::chrono::steady_clock::time_point{} + 1h;
+    CPageRescale rescale;
+    EXPECT_TRUE(rescale.due(2, false, start));
+    rescale.request();
+    EXPECT_TRUE(rescale.due(2, false, start + 10ms));
+    EXPECT_FALSE(rescale.due(2, false, start + 20ms)) << "a request counts once";
+}

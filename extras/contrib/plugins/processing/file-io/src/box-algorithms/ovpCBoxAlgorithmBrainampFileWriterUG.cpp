@@ -55,6 +55,9 @@ bool CBoxAlgorithmBrainampFileWriterUG::initialize()
     //init input stimulation 1 
     m_stimDecoder = new Toolkit::TStimulationDecoder<CBoxAlgorithmBrainampFileWriterUG>(*this, 1);
 
+    // UG fork: where the electrodes sit
+    m_localisationDecoder = new Toolkit::TChannelLocalisationDecoder<CBoxAlgorithmBrainampFileWriterUG>(*this, 2);
+
     //Get parameters:
     const CString directory = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0);
     const CString filename  = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1);
@@ -142,6 +145,12 @@ bool CBoxAlgorithmBrainampFileWriterUG::uninitialize()
         delete m_stimDecoder;
     }
 
+    if (m_localisationDecoder)  // UG fork
+    {
+        m_localisationDecoder->uninitialize();
+        delete m_localisationDecoder;
+    }
+
     //close files
     m_headerFile.flush();
     m_headerFile.close();
@@ -164,6 +173,13 @@ bool CBoxAlgorithmBrainampFileWriterUG::processInput(const size_t /*index*/)
 bool CBoxAlgorithmBrainampFileWriterUG::process()
 {
     Kernel::IBoxIO& boxContext = this->getDynamicBoxContext();
+
+    // UG fork: where the electrodes sit, before the signal: the Acquisition client sends it with the signal's header
+    for (size_t i = 0; i < boxContext.getInputChunkCount(2); ++i)
+    {
+        m_localisationDecoder->decode(i);
+        if (m_localisationDecoder->isBufferReceived()) { readPositions(*m_localisationDecoder->getOutputMatrix()); }
+    }
 
     //1. Process signal
     for (size_t i = 0; i < boxContext.getInputChunkCount(0); ++i) //first input channel data
@@ -382,15 +398,6 @@ bool CBoxAlgorithmBrainampFileWriterUG::writeHeaderFile()
 
     m_headerFile << std::endl;
 
-    // UG fork: the montage of the acquisition server, which the Acquisition client box passed on before the signal's
-    // header (ovChannelInfo.h); none when the signal comes from elsewhere, e.g. a file
-    m_montage = this->getConfigurationManager().lookUpConfigurationTokenValue(OV_CHANNEL_INFO_MONTAGE_TOKEN).toASCIIString();
-    m_positions.clear();
-    if (!m_montage.empty()) {
-        const std::string positions = this->getConfigurationManager().lookUpConfigurationTokenValue(OV_CHANNEL_INFO_POSITIONS_TOKEN).toASCIIString();
-        for (const auto& [name, position] : decodeElectrodePositions(positions)) { m_positions.emplace(name, toBrainVision(position.theta, position.phi)); }
-    }
-
     // UG fork: where the electrodes sat, so that EEGLAB, MNE and BrainVision Analyzer load the layout with the data.
     // Radius 1 on a unit sphere; 0,0,0 for a channel the montage does not place (EOG, ECG, ...)
     size_t nPlaced = 0;
@@ -411,7 +418,7 @@ bool CBoxAlgorithmBrainampFileWriterUG::writeHeaderFile()
         }
         m_headerFile << std::endl;
         this->getLogManager() << Kernel::LogLevel_Info << "Electrode positions of " << nPlaced << " of the " << nChannel
-                << " channels recorded, from the acquisition server's montage " << m_montage << "\n";
+                << " channels recorded, from the channel localisation input\n";
     }
 
     m_headerFile << "[Comment]" << std::endl << std::endl
@@ -421,13 +428,37 @@ bool CBoxAlgorithmBrainampFileWriterUG::writeHeaderFile()
             << "Sampling Rate [Hz]: " << m_sampling << std::endl
             << "Interval [µS]: " << std::fixed << std::setprecision(5) << samplingInterval << std::endl
             << std::endl;
-    if (!m_montage.empty())
+    if (!m_positions.empty())
     {
-        m_headerFile << "Montage: " << m_montage << " (electrode positions of " << nPlaced << " channels)" << std::endl
+        m_headerFile << "Electrode positions of " << nPlaced << " channels, from the channel localisation input" << std::endl
                 << std::endl;
     }
 
     return true;
+}
+
+void CBoxAlgorithmBrainampFileWriterUG::readPositions(const CMatrix& localisation)
+{
+    if (localisation.getDimensionCount() != 2 || localisation.getDimensionSize(1) != 3)
+    {
+        this->getLogManager() << Kernel::LogLevel_Warning << "The channel localisation input is not one position (x, y, z) per channel; "
+                "the recording has no electrode positions\n";
+        return;
+    }
+    if (m_isHeaderWritten)
+    {
+        this->getLogManager() << Kernel::LogLevel_Warning << "The channel localisation came after the signal had started; the header "
+                "is written already, so the recording has no electrode positions\n";
+        return;
+    }
+
+    m_positions.clear();
+    const double* xyz = localisation.getBuffer();
+    for (size_t i = 0; i < localisation.getDimensionSize(0); ++i)
+    {
+        const ovChannelInfo::Position position = fromChannelLocalisation({xyz[3 * i], xyz[3 * i + 1], xyz[3 * i + 2]});
+        if (position.known) { m_positions[localisation.getDimensionLabel(0, i)] = toBrainVision(position.theta, position.phi); }
+    }
 }
 
 std::string CBoxAlgorithmBrainampFileWriterUG::getShortName(std::string fullpath)

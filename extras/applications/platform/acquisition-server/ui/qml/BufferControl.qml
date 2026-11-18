@@ -18,12 +18,12 @@ Control {
 
     property bool collapsed: false
     /// AcquisitionController.buffers
-    property var buffers: ({})
+    property bufferLevels buffers
 
-    readonly property bool _acquiring: buffers.acquiring === true
-    readonly property bool _deviceReported: _acquiring && buffers.deviceReported === true
+    readonly property bool _acquiring: buffers.acquiring
+    readonly property bool _deviceReported: _acquiring && buffers.deviceReported
     readonly property bool _deviceSizeKnown: _deviceReported && buffers.deviceCapacity > 0
-    readonly property bool _lossCounted: _deviceReported && buffers.lossCounted === true
+    readonly property bool _lossCounted: _deviceReported && buffers.lossCounted
     readonly property bool _lost: _lossCounted && buffers.lostSamples > 0
 
     // In time, not in percent: a backlog of tens of milliseconds, normal, is 0 % of a 10 s buffer
@@ -72,7 +72,7 @@ Control {
                     visible: _control._lost
                     text: Math.round(_control.buffers.lostSamples) + " samples lost"
                     font: DS.Theme.textSmallRegular
-                    color: DS.Theme.cpuUsageColors["high"]
+                    color: DS.Theme.statusColors["error"]
                     Layout.alignment: Qt.AlignVCenter
                     Layout.leftMargin: DS.Theme.spacingLg
                 }
@@ -193,7 +193,7 @@ Control {
                         : _control._lost ? Math.round(_control.buffers.lostSamples) + " samples lost"
                         : "none"
                     font: _control._lost ? DS.Theme.textSmallRegular : DS.Theme.textSmallLight
-                    color: _control._lost ? DS.Theme.cpuUsageColors["high"] : DS.Theme.textPrimary
+                    color: _control._lost ? DS.Theme.statusColors["error"] : DS.Theme.textPrimary
                 }
             }
         }

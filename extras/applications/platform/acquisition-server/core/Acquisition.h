@@ -94,7 +94,6 @@ public:
 
 	// Impedance check block
     bool supportsImpedanceCheck() const;
-    bool usesCharmeleonForImpedance() const;  ///< UG fork: see AbstractDriver::usesCharmeleonForImpedance().
     bool startImpedanceCheck();
     bool stopImpedanceCheck();
     int  readImpedances(double* values, size_t count);
@@ -111,13 +110,10 @@ public:
 
     std::vector<std::string> getDriverChannelNames() const { return !m_driver ? std::vector<std::string>{} : m_driver->channelNames().value(); }
     void setDriverChannelNames(const std::vector<std::string>& names) { if (m_driver) m_driver->channelNames().setValue(names); }
-    // UG fork: channel hints and Charmeleon, which upstream does not have; see the AbstractDriver methods of the same names
+    // UG fork: the hints in empty entries, see AbstractDriver::channelHints()
     std::vector<std::string> getDriverChannelHints() const { return !m_driver ? std::vector<std::string>{} : m_driver->channelHints(); }
-    std::string getCharmeleonMontage() const { return !m_driver ? std::string{} : m_driver->charmeleonMontage(); }
-    /// The arguments that make Charmeleon open the driver's amplifier; see AbstractDriver::charmeleonArguments().
-    std::vector<std::string> getCharmeleonArguments() const { return !m_driver ? std::vector<std::string>{} : m_driver->charmeleonArguments(); }
-    /// Hands the montage Charmeleon saved to the driver; see AbstractDriver::takeOverCharmeleonMontage().
-    void takeOverCharmeleonMontage(const std::string& path) { if (m_driver) { m_driver->takeOverCharmeleonMontage(path); } }
+    /// UG fork: the current driver, for what only some drivers offer (e.g. CharmeleonDriver); null when there is none.
+    AbstractDriver* driver() const { return m_driver.get(); }
     // UG fork: what the driver has to tell the user, and the channel names it decides itself, see AbstractDriver::note()
     AbstractDriver::Note getDriverNote() const { return !m_driver ? AbstractDriver::Note{} : m_driver->note(); }
     std::vector<bool> getDriverChannelLocks() const { return !m_driver ? std::vector<bool>{} : m_driver->channelLocks(); }

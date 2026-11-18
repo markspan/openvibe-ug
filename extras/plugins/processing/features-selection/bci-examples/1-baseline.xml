@@ -555,6 +555,10 @@
                     <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
                     <Name>Stimulations</Name>
                 </Output>
+                <Output>
+                    <TypeIdentifier>(0x013df452, 0xa3a8879a)</TypeIdentifier>
+                    <Name>Channel localisation</Name>
+                </Output>
             </Outputs>
             <Settings>
                 <Setting>
@@ -583,7 +587,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0x0d4656c0, 0xc95b1fa8)</Value>
+                    <Value>(0x20c03aa6, 0x90453afd)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0xc46b3d00, 0x3e0454e1)</Identifier>

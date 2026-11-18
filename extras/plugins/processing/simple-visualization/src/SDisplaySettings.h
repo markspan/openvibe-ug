@@ -43,8 +43,9 @@ struct SDisplaySettings
     bool                  showTimeRuler       = true;
     bool                  showAmplitudeRuler  = true;
     ELayoutMode           layout              = ELayoutMode::Stacked;
-    /** UG fork: the panel's "Trace shading". Not a box setting, so not saved with the scenario. */
-    ETraceShading         shading             = ETraceShading::Density;
+    // UG fork: panel entries only, not box settings, so not saved with the scenario
+    ETraceShading         shading             = ETraceShading::Density;  ///< "Trace shading"
+    bool                  perChannelColors    = false;                    ///< "Colour per channel"
 
     /**
      * \brief Lowercases and drops every non-alphanumeric character.

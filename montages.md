@@ -203,11 +203,13 @@ The montage is chosen in one place: the acquisition server's driver. On Play the
 
 ### 7.1 BrainVision files
 
-The **BrainVision Format file writer (UG)** box writes them into the header (`.vhdr`):
+The **Acquisition client** box sends the positions on its third output, **Channel localisation** (OpenViBE's channel localisation stream: one row per placed channel, by name, with x, y and z on a unit sphere). Connect it to the third input of the **BrainVision Format file writer (UG)**, also called *Channel localisation*. The writer then writes into the header (`.vhdr`):
 - a `[Coordinates]` section, one line per channel: `Ch<n>=1,<theta>,<phi>`, on a unit sphere, in BrainVision's convention (theta negative on the left half of the head);
-- a line under `[Comment]` naming the montage: `Montage: Refa-64.json (electrode positions of 62 channels)`.
+- a line under `[Comment]`: `Electrode positions of 62 channels, from the channel localisation input`.
 
-The positions travel, not the file, so this also works with the server on another PC. Boxes between the Acquisition client and the writer (a channel selector, a filter) do not lose them.
+The positions travel, not the file, so this also works with the server on another PC. Boxes between the Acquisition client and the writer on the signal's way (a channel selector, a filter) do not matter: the positions go straight from the one box to the other, and the writer matches them to the channels it records by name.
+
+**Connect the two in every recording scenario.** A writer whose third input is not connected records no positions.
 
 Channels are matched to electrodes **by name**. A channel the montage does not place on the head (EOG, ECG, ...) gets `0,0,0`, "no position".
 
@@ -215,7 +217,7 @@ Where the positions come from:
 - **Exact,** when the montage has `Theta` and `Phi`. Charmeleon writes these for the equidistant layout, from the cap's 3-D coordinates.
 - **From the head map** otherwise: Charmeleon's rings are 22.5 degrees apart, so ring 4 (Fpz, T7, Oz) lies on the equator, as in the 10-20 system. This is exact for the standard 10/20 positions and close for the positions between them.
 
-Without a montage in the server, or when the signal comes from a file rather than the server, the header has no positions and no montage line.
+Without a montage in the server, with the third input left unconnected, or when the signal comes from a file rather than the server, the header has no positions. The header no longer names the montage file; the server's log and Designer's log do ("Montage Refa-64.json, from the acquisition server").
 
 Up to version 1.3 the writer box had a **Montage (electrode positions)** setting of its own. A scenario saved with it still opens; the setting is ignored.
 
@@ -276,6 +278,7 @@ An electrode is **in use** when it is active and on a channel (`HardwareChannel`
 ## 10. For developers
 
 - The montage rules live in **`CharmeleonMontage`**, in the acquisition server's driver library (`extras/applications/platform/acquisition-server/abstractions/driver/`). Both drivers call them, so a montage means the same to both. They are tested in `test/CharmeleonMontageTest.cpp`.
-- A driver reports to the server through `AbstractDriver::note()`, shown under the settings, and `AbstractDriver::channelLocks()`, the read-only entries. It talks to Charmeleon through `charmeleonArguments()`, `charmeleonMontage()` and `takeOverCharmeleonMontage()`.
+- The TMSi and eego drivers derive from **`CharmeleonDriver`** (same folder), which holds what they share: the Montage setting, the channel list, the hints, the channel information sent to the clients, and Charmeleon. A driver supplies its amplifier's channels, whether it is acquiring, and the arguments that make Charmeleon open it. `AbstractDriver` knows nothing of Charmeleon; the server finds such a driver with `dynamic_cast`.
+- A driver reports to the server through `AbstractDriver::note()`, shown under the settings, and `AbstractDriver::channelLocks()`, the read-only entries, and gives its channels' names and positions through `AbstractDriver::channelInfo()`.
 - Charmeleon's command line: `Charmeleon.exe [montage.json] [--save-on-close] [--result file] [--amplifier eego|tmsi] [--device name] [--protocol USB|WiFi|Network|Bluetooth]`. With `--result`, it writes `{"File": ..., "Saved": ..., "Unsaved": ...}` there on closing.
 - Every place where this fork differs from upstream OpenViBE is marked `UG fork:` in the code. UG.md lists the differences.

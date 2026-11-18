@@ -23,6 +23,7 @@
 
 #define LAST_NETWORK_ERROR (WSAGetLastError()) /// @brief Retrieves the last network-related error code for the current thread.
 #define NETWORK_ERROR_TIMEOUT (LAST_NETWORK_ERROR == WSAETIMEDOUT || LAST_NETWORK_ERROR == WSAEWOULDBLOCK) /// @brief Checks if the current network error represents a non-fatal "would block" or "timeout" condition.
+#define NETWORK_ERROR_ADDRESS_IN_USE (LAST_NETWORK_ERROR == WSAEADDRINUSE) /// @brief UG fork: checks if bind() failed because another socket has the port.
 #define NAL_SNPRINTF(buffer, size, ...) _snprintf_s((buffer), (size), _TRUNCATE, __VA_ARGS__) /// @brief Platform-independent secure string formatting macro.
 
 
@@ -91,6 +92,7 @@ inline void GetNetworkErrorString(int errorCode, char* outBuffer, size_t bufferS
 #define closesocket(s) close(s)    /// @brief Maps the closesocket function to the POSIX close function.
 #define LAST_NETWORK_ERROR (errno) /// @brief Retrieves the last network-related error code for the current thread.
 #define NETWORK_ERROR_TIMEOUT (LAST_NETWORK_ERROR == EAGAIN || LAST_NETWORK_ERROR == EWOULDBLOCK || LAST_NETWORK_ERROR == ETIMEDOUT) /// @brief Checks if the current network error represents a non-fatal "would block" or "timeout" condition.
+#define NETWORK_ERROR_ADDRESS_IN_USE (LAST_NETWORK_ERROR == EADDRINUSE) /// @brief UG fork: checks if bind() failed because another socket has the port.
 #define NAL_SNPRINTF(buffer, size, ...) snprintf((buffer), (size), __VA_ARGS__) /// @brief Platform-independent secure string formatting macro.
 
 

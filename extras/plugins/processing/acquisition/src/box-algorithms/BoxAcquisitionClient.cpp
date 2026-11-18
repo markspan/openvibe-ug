@@ -36,9 +36,7 @@ bool CBoxAcquisitionClient::initialize()
 
   m_stimEncoder.initialize(*this, 1);
 
-  // UG fork: no montage until the server sends one
-  this->getConfigurationManager().addOrReplaceConfigurationToken(OV_CHANNEL_INFO_MONTAGE_TOKEN, "");
-  this->getConfigurationManager().addOrReplaceConfigurationToken(OV_CHANNEL_INFO_POSITIONS_TOKEN, "");
+  m_localisationEncoder.initialize(*this, 2);  // UG fork
 
   m_client = network.createClient();
 
@@ -92,6 +90,7 @@ bool CBoxAcquisitionClient::uninitialize()
 
   m_signalEncoder.uninitialize();
   m_stimEncoder.uninitialize();
+  m_localisationEncoder.uninitialize();  // UG fork
 
   return true;
 }
@@ -118,9 +117,6 @@ bool CBoxAcquisitionClient::process()
 
   if (m_acquisitionConfigured && !m_headerSent) {
     Kernel::IBoxIO& boxContext = this->getDynamicBoxContext();
-    // UG fork: before the header, with which the BrainVision writer writes its own
-    this->getConfigurationManager().addOrReplaceConfigurationToken(OV_CHANNEL_INFO_MONTAGE_TOKEN, m_montage.c_str());
-    this->getConfigurationManager().addOrReplaceConfigurationToken(OV_CHANNEL_INFO_POSITIONS_TOKEN, m_electrodePositions.c_str());
     if (!m_montage.empty()) {
       this->getLogManager() << Kernel::LogLevel_Info << "Montage " << m_montage << ", from the acquisition server\n";
     }
@@ -131,6 +127,28 @@ bool CBoxAcquisitionClient::process()
     m_startTime = m_lastEndTime;
     boxContext.markOutputAsReadyToSend(0, m_startTime, m_lastEndTime);
     boxContext.markOutputAsReadyToSend(1, m_startTime, m_lastEndTime);
+
+    // UG fork: where the montage places the channels, once, at the same time as the signal's header, so that a box that
+    // takes both (the BrainVision writer (UG)) has the positions when the signal starts
+    if (!m_localisation.empty()) {
+      CMatrix* matrix = m_localisationEncoder.getInputMatrix();
+      matrix->resize(m_localisation.size(), 3);
+      matrix->setDimensionLabel(1, 0, "x");
+      matrix->setDimensionLabel(1, 1, "y");
+      matrix->setDimensionLabel(1, 2, "z");
+      double* buffer = matrix->getBuffer();
+      for (size_t i = 0; i < m_localisation.size(); ++i) {
+        matrix->setDimensionLabel(0, i, m_localisation[i].first.c_str());
+        buffer[3 * i]     = m_localisation[i].second.x;
+        buffer[3 * i + 1] = m_localisation[i].second.y;
+        buffer[3 * i + 2] = m_localisation[i].second.z;
+      }
+      m_localisationEncoder.getInputDynamic() = false;
+      m_localisationEncoder.encodeHeader();
+      boxContext.markOutputAsReadyToSend(2, m_startTime, m_startTime);
+      m_localisationEncoder.encodeBuffer();
+      boxContext.markOutputAsReadyToSend(2, m_startTime, m_startTime);
+    }
     m_stimulationDelay.configure(StimulationDelay::chunksFor(m_sampleChunk, m_sampleRate),
                                  [this](const size_t sample) { return CTime(m_sampleRate, sample).time(); });
     m_headerSent = true;
@@ -302,7 +320,10 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
             for (size_t i = 0; i < m_channelCount; ++i) { m_signalMatrix->setDimensionLabel(0, i, names[i].c_str()); }
             m_channelNames       = std::move(names);
             m_montage            = info.montage;
-            m_electrodePositions = encodeElectrodePositions(info);
+            m_localisation.clear();
+            for (size_t i = 0; i < info.positions.size() && i < m_channelNames.size(); ++i) {
+              if (info.positions[i].known) { m_localisation.emplace_back(m_channelNames[i], toChannelLocalisation(info.positions[i])); }
+            }
             m_blocks.configure(m_channelCount, m_sampleChunk);
 
             m_acquisitionConfigured = true;

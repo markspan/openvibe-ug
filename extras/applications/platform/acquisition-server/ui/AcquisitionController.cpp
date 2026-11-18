@@ -5,9 +5,7 @@
 
 #include "AcquisitionController.h"
 #include "Charmeleon.h"  // UG fork: impedances in Charmeleon
-
-#include <QWinEventNotifier>
-#include <Windows.h>
+#include <CharmeleonDriver.h>  // UG fork
 
 #include <QCoreApplication>
 #include <QQmlContext>
@@ -74,7 +72,10 @@ struct AcquisitionControllerPrivate {
 
     // UG fork: the Charmeleon the impedance button started, whose montage the driver takes over when it closes
     Charmeleon::Launched m_charmeleon;
-    QWinEventNotifier* m_charmeleonWatcher = nullptr;
+    Charmeleon::Watcher* m_charmeleonWatcher = nullptr;
+
+    /// The current driver when Charmeleon can open its amplifier and name its channels, else null
+    CharmeleonDriver* charmeleonDriver() const { return m_acquisition ? dynamic_cast<CharmeleonDriver*>(m_acquisition->driver()) : nullptr; }
 
     OpenViBE::Parameters::ParameterIntObject* m_connectionPort;
     OpenViBE::Parameters::ParameterIntObject* m_tcpTaggingPort;
@@ -85,7 +86,7 @@ struct AcquisitionControllerPrivate {
     QTimer* m_impedanceTimer = nullptr;
 
     // UG fork: the buffer levels, in place of upstream's drift; see AcquisitionController::buffers()
-    QVariantMap m_buffers;
+    BufferLevels m_buffers;
     double m_deviceMaxSeconds = 0.0;  ///< Fullest the amplifier's buffer got since Play, in seconds
     uint32_t m_serverMinFree  = 0;    ///< Fewest free server buffers since Play
     uint64_t m_lostSamples    = 0;    ///< Samples the amplifier lost since Play, as last logged
@@ -310,7 +311,7 @@ bool AcquisitionController::isCheckingImpedance() {
 
 // UG fork: impedances in Charmeleon, for the drivers that hand them to it
 std::string AcquisitionController::charmeleonExecutable() {
-    if (!d->m_acquisition || !d->m_acquisition->usesCharmeleonForImpedance()) { return {}; }
+    if (!d->charmeleonDriver()) { return {}; }
     const CString configured = d->m_kernelCtx.getConfigurationManager().expand("${AcquisitionServer_CharmeleonPath}");
     return Charmeleon::findExecutable(configured.toASCIIString());
 }
@@ -326,11 +327,12 @@ bool AcquisitionController::toggleImpedanceCheck() {
     // UG fork: Charmeleon checks the impedances in its own window; Play closes it again
     const std::string charmeleon = charmeleonExecutable();
     if (!charmeleon.empty() && d->m_acquisition->state() == Acquisition::State::Idle) {
-        const std::string montage = d->m_acquisition->getCharmeleonMontage();
+        CharmeleonDriver* driver   = d->charmeleonDriver();
+        const std::string montage = driver->charmeleonMontage();
         d->getLogManager() << Kernel::LogLevel_Info << "Checking impedances with " << charmeleon
                            << (montage.empty() ? std::string() : " and montage " + montage) << "\n";
         Charmeleon::Launched launched;
-        if (!Charmeleon::launch(charmeleon, montage, d->m_acquisition->getCharmeleonArguments(), &launched)) {
+        if (!Charmeleon::launch(charmeleon, montage, driver->charmeleonArguments(), &launched)) {
             d->getLogManager() << Kernel::LogLevel_Error << "Could not start " << charmeleon << "\n";
             return false;
         }
@@ -338,8 +340,8 @@ bool AcquisitionController::toggleImpedanceCheck() {
         if (launched.process) {
             takeOverCharmeleonMontage();  // a previous one that has not been dealt with yet
             d->m_charmeleon        = launched;
-            d->m_charmeleonWatcher = new QWinEventNotifier(static_cast<HANDLE>(launched.process), this);
-            connect(d->m_charmeleonWatcher, &QWinEventNotifier::activated, this, &AcquisitionController::takeOverCharmeleonMontage);
+            d->m_charmeleonWatcher = new Charmeleon::Watcher(launched, this);
+            connect(d->m_charmeleonWatcher, &Charmeleon::Watcher::ended, this, &AcquisitionController::takeOverCharmeleonMontage);
         }
         return true;
     }
@@ -523,8 +525,10 @@ void AcquisitionController::takeOverCharmeleonMontage()
     if (result.unsaved) { d->getLogManager() << Kernel::LogLevel_Warning << "Charmeleon closed with montage changes that are not saved.\n"; }
     if (!result.saved || result.file.empty()) { return; }
 
+    CharmeleonDriver* driver = d->charmeleonDriver();
+    if (!driver) { return; }  // another driver was chosen meanwhile
     d->getLogManager() << Kernel::LogLevel_Info << "Taking over the montage Charmeleon saved: " << result.file << "\n";
-    d->m_acquisition->takeOverCharmeleonMontage(result.file);
+    driver->takeOverCharmeleonMontage(result.file);
     emit driverParametersChanged();
     saveSession();
 }
@@ -534,12 +538,12 @@ QString AcquisitionController::driverNote() const
     return QString::fromStdString(d->m_acquisition->getDriverNote().text);
 }
 
-QString AcquisitionController::driverNoteLevel() const
+AcquisitionController::NoteLevel AcquisitionController::driverNoteLevel() const
 {
     switch (d->m_acquisition->getDriverNote().level) {
-        case AbstractDriver::Note::Level::Warning: return "warning";
-        case AbstractDriver::Note::Level::Error: return "error";
-        default: return "info";
+        case AbstractDriver::Note::Level::Warning: return NoteLevel::Warning;
+        case AbstractDriver::Note::Level::Error: return NoteLevel::Error;
+        default: return NoteLevel::Info;
     }
 }
 
@@ -631,7 +635,7 @@ void AcquisitionController::setCurrentDriver(const QString& driverName)
 }
 
 // UG fork: the buffer levels, in place of upstream's instantDrift() and globalDrift()
-QVariantMap AcquisitionController::buffers() const
+BufferLevels AcquisitionController::buffers() const
 {
     return d->m_buffers;
 }
@@ -639,24 +643,24 @@ QVariantMap AcquisitionController::buffers() const
 void AcquisitionControllerPrivate::updateBuffers()
 {
     const Acquisition::BufferStatus status = m_acquisition->takeBufferStatus();
-    QVariantMap buffers;
-    buffers["acquiring"] = status.serverBuffers > 0;
+    BufferLevels buffers;
+    buffers.acquiring = status.serverBuffers > 0;
     if (status.serverBuffers > 0) {
-        m_serverMinFree           = (std::min)(m_serverMinFree, status.minFreeServerBuffers);
-        buffers["serverBuffers"]  = status.serverBuffers;
-        buffers["serverFree"]     = status.minFreeServerBuffers;
-        buffers["serverMinFree"]  = m_serverMinFree;
+        m_serverMinFree       = (std::min)(m_serverMinFree, status.minFreeServerBuffers);
+        buffers.serverBuffers = int(status.serverBuffers);
+        buffers.serverFree    = int(status.minFreeServerBuffers);
+        buffers.serverMinFree = int(m_serverMinFree);
     }
 
     const AbstractDriver::DeviceBuffer& device = status.device;
-    buffers["deviceReported"] = device.reported;
+    buffers.deviceReported = device.reported;
     if (device.reported) {
-        m_deviceMaxSeconds          = (std::max)(m_deviceMaxSeconds, device.peakSeconds);
-        buffers["deviceSeconds"]    = device.peakSeconds;
-        buffers["deviceMaxSeconds"] = m_deviceMaxSeconds;
-        buffers["deviceCapacity"]   = device.capacitySeconds;
-        buffers["lossCounted"]      = device.lossCounted;
-        buffers["lostSamples"]      = double(device.lostSamples);
+        m_deviceMaxSeconds       = (std::max)(m_deviceMaxSeconds, device.peakSeconds);
+        buffers.deviceSeconds    = device.peakSeconds;
+        buffers.deviceMaxSeconds = m_deviceMaxSeconds;
+        buffers.deviceCapacity   = device.capacitySeconds;
+        buffers.lossCounted      = device.lossCounted;
+        buffers.lostSamples      = double(device.lostSamples);
         if (device.lostSamples > m_lostSamples) {
             getLogManager() << Kernel::LogLevel_Error << "The amplifier lost " << device.lostSamples - m_lostSamples << " samples ("
                             << device.lostSamples << " since Play): the server did not read it in time.\n";
@@ -731,7 +735,7 @@ bool AcquisitionController::stopAcquisition()
         delete d->m_bufferTimer;
         d->m_bufferTimer = nullptr;
     }
-    d->m_buffers.clear();
+    d->m_buffers = {};
     emit buffersChanged();
 
     if (d->m_acqManager.stopAcquisition(LOCAL_CLIENT_ID, d->m_acquisitionName)) {

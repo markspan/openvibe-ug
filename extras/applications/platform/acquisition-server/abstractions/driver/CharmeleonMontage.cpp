@@ -36,19 +36,6 @@ const char* const AMPLIFIER_KEY = "Amplifier";
 /// How many electrodes a summary names before it counts the rest
 constexpr size_t LISTED_ELECTRODES = 6;
 
-std::string trim(const std::string& s)
-{
-    const auto begin = std::find_if_not(s.begin(), s.end(), [](unsigned char c) { return std::isspace(c); });
-    const auto end   = std::find_if_not(s.rbegin(), s.rend(), [](unsigned char c) { return std::isspace(c); }).base();
-    return begin < end ? std::string(begin, end) : std::string();
-}
-
-std::string toUtf8(const fs::path& path)
-{
-    const auto utf8 = path.u8string();
-    return std::string(utf8.begin(), utf8.end());
-}
-
 std::string address(const CharmeleonMontage::Electrode& electrode)
 {
     return electrode.kind == MontageChannelKind::EEG ? "EEG " + std::to_string(electrode.number)
@@ -95,7 +82,7 @@ bool readNumber(const nlohmann::ordered_json& entry, const char* key, double& va
 
 std::string readString(const nlohmann::ordered_json& entry, const char* key)
 {
-    return entry.contains(key) && entry[key].is_string() ? trim(entry[key].get<std::string>()) : std::string();
+    return entry.contains(key) && entry[key].is_string() ? trimWhitespace(entry[key].get<std::string>()) : std::string();
 }
 
 /// Parses "BIP1", "aux 2", ...; false for anything else.
@@ -146,13 +133,26 @@ fs::path keptCopyPath(const std::string& setting)
     return folder / name;
 }
 
-bool isFile(const fs::path& path)
+}  // namespace
+
+std::string trimWhitespace(const std::string& text)
+{
+    const auto begin = std::find_if_not(text.begin(), text.end(), [](unsigned char c) { return std::isspace(c); });
+    const auto end   = std::find_if_not(text.rbegin(), text.rend(), [](unsigned char c) { return std::isspace(c); }).base();
+    return begin < end ? std::string(begin, end) : std::string();
+}
+
+std::string pathToUtf8(const fs::path& path)
+{
+    const auto utf8 = path.u8string();  // char8_t from C++20 on, char before
+    return std::string(utf8.begin(), utf8.end());
+}
+
+bool isRegularFile(const fs::path& path)
 {
     std::error_code ec;
     return !path.empty() && fs::is_regular_file(path, ec);
 }
-
-}  // namespace
 
 std::string montageChannelPrefix(const MontageChannelKind kind)
 {
@@ -258,7 +258,7 @@ MontageApplication applyCharmeleonMontage(const CharmeleonMontage& montage, cons
             names[i].clear();
             result.locked[i] = true;
         }
-        else if (montageNames.count(trim(names[i])) != 0) { names[i].clear(); }
+        else if (montageNames.count(trimWhitespace(names[i])) != 0) { names[i].clear(); }
     }
 
     size_t nEEG = 0, nExtra = 0;
@@ -329,7 +329,7 @@ std::string charmeleonInstallFolder()
         wchar_t value[MAX_PATH] = {};
         DWORD size              = sizeof(value);
         if (RegGetValueW(root, key, L"InstallLocation", RRF_RT_REG_SZ, nullptr, value, &size) == ERROR_SUCCESS && value[0] != 0) {
-            return toUtf8(fs::path(value));
+            return pathToUtf8(fs::path(value));
         }
     }
 #endif
@@ -339,20 +339,20 @@ std::string charmeleonInstallFolder()
 MontageLocation locateCharmeleonMontage(const std::string& setting)
 {
     MontageLocation location;
-    if (trim(setting).empty()) { return location; }
+    if (trimWhitespace(setting).empty()) { return location; }
 
     const fs::path given = fs::u8path(setting);
-    if (isFile(given)) { return {toUtf8(given), MontageLocation::Source::AsGiven}; }
+    if (isRegularFile(given)) { return {pathToUtf8(given), MontageLocation::Source::AsGiven}; }
 
     // Charmeleon's library ("ca-208.json"), then its default layouts ("1020Layout.json")
     if (const std::string folder = charmeleonInstallFolder(); !folder.empty() && given.has_filename()) {
         for (const wchar_t* sub : {L"montages", L"Resources"}) {
             const fs::path candidate = fs::u8path(folder) / sub / given.filename();
-            if (isFile(candidate)) { return {toUtf8(candidate), MontageLocation::Source::CharmeleonFolder}; }
+            if (isRegularFile(candidate)) { return {pathToUtf8(candidate), MontageLocation::Source::CharmeleonFolder}; }
         }
     }
 
-    if (const fs::path kept = keptCopyPath(setting); isFile(kept)) { return {toUtf8(kept), MontageLocation::Source::KeptCopy}; }
+    if (const fs::path kept = keptCopyPath(setting); isRegularFile(kept)) { return {pathToUtf8(kept), MontageLocation::Source::KeptCopy}; }
     return location;
 }
 
@@ -362,17 +362,29 @@ void keepCharmeleonMontageCopy(const std::string& setting, const std::string& pa
     if (kept.empty() || kept == fs::u8path(path)) { return; }
 
     const std::string contents = readFile(fs::u8path(path));
-    if (contents.empty() || (isFile(kept) && readFile(kept) == contents)) { return; }
+    if (contents.empty() || (isRegularFile(kept) && readFile(kept) == contents)) { return; }
 
+    // Written next to it and then renamed over it, so that a reader never finds half a file
     std::error_code ec;
     fs::create_directories(kept.parent_path(), ec);
-    std::ofstream out(kept, std::ios::binary | std::ios::trunc);
-    out << contents;
+    fs::path written = kept;
+    written += ".part";
+    {
+        std::ofstream out(written, std::ios::binary | std::ios::trunc);
+        out << contents;
+        if (!out.good()) {
+            out.close();
+            fs::remove(written, ec);
+            return;
+        }
+    }
+    fs::rename(written, kept, ec);
+    if (ec) { fs::remove(written, ec); }
 }
 
 std::string montageSettingAfterSave(const std::string& setting, const std::string& savedPath)
 {
-    if (trim(savedPath).empty()) { return setting; }
+    if (trimWhitespace(savedPath).empty()) { return setting; }
     const MontageLocation location = locateCharmeleonMontage(setting);
     std::error_code ec;
     if (location.source != MontageLocation::Source::NotFound && fs::equivalent(fs::u8path(location.path), fs::u8path(savedPath), ec)) {
@@ -396,7 +408,7 @@ bool loadCharmeleonMontageSetting(const std::string& setting, CharmeleonMontage&
     return true;
 }
 
-std::string montageName(const std::string& setting) { return toUtf8(fs::u8path(trim(setting)).filename()); }
+std::string montageName(const std::string& setting) { return pathToUtf8(fs::u8path(trimWhitespace(setting)).filename()); }
 
 bool applyCharmeleonMontageSetting(const std::string& setting, const std::vector<MontageChannelKind>& layout, const std::vector<std::string>& names,
                                    MontageApplication& result, std::string& error, const bool assumed)

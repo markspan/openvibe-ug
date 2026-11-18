@@ -84,7 +84,7 @@ TEST(TraceBuffer, theRateOfAMatrixStreamComesFromItsFirstChunk)
     EXPECT_DOUBLE_EQ(r.firstSampleSeconds(), 1.0);
 }
 
-// UG fork: the time-locked ring of the LSL display
+// The time-locked ring of the LSL display
 
 TEST(TraceBuffer, ringsOfDifferentRatesDrawATimeAtTheSameX)
 {

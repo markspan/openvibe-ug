@@ -7,7 +7,6 @@
 
 #include <chrono>
 #include <cmath>
-#include <functional>
 #include <iostream>
 #include <sstream>
 
@@ -35,6 +34,18 @@ SLSLStreamInfo describe(const lsl::stream_info& info)
     out.text     = info.channel_format() == lsl::cf_string;
     return out;
 }
+
+/// The colour id of a text marker: the same text gets the same colour in every run and on every computer, which
+/// std::hash does not promise. FNV-1a, 64 bits.
+uint64_t textId(const std::string& text)
+{
+    uint64_t hash = 14695981039346656037ULL;
+    for (const unsigned char c : text) { hash = (hash ^ c) * 1099511628211ULL; }
+    return hash;
+}
+
+/// The colour id of a numeric marker: its code; 0 for a value with no integer to it (not a number, or too large).
+uint64_t numberId(const double value) { return std::isfinite(value) && std::fabs(value) < 9e18 ? uint64_t(int64_t(value)) : 0; }
 
 /// A marker's text for a number: without decimals when it is whole, as a code is.
 std::string numberText(const double value)
@@ -237,7 +248,7 @@ bool CLSLReader::readMarkers(SInlet& inlet)
         std::vector<std::string> sample(size_t(std::max(1, inlet.info.channels)));
         for (double t = inlet.inlet->pull_sample(sample, 0.0); t != 0.0; t = inlet.inlet->pull_sample(sample, 0.0))
         {
-            markers.push_back({t, sample[0], uint64_t(std::hash<std::string>{}(sample[0]))});
+            markers.push_back({t, sample[0], textId(sample[0])});
         }
     }
     else
@@ -246,7 +257,7 @@ bool CLSLReader::readMarkers(SInlet& inlet)
         std::vector<double> sample(size_t(std::max(1, inlet.info.channels)));
         for (double t = inlet.inlet->pull_sample(sample, 0.0); t != 0.0; t = inlet.inlet->pull_sample(sample, 0.0))
         {
-            markers.push_back({t, numberText(sample[0]), uint64_t(int64_t(sample[0]))});
+            markers.push_back({t, numberText(sample[0]), numberId(sample[0])});
         }
     }
     if (markers.empty()) { return false; }

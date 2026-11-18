@@ -582,10 +582,16 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
         this->stopLinkCreation();
     }
 
-    // UG fork: every way out of the second click ends link creation, so that a failed attempt does not leave it
-    // pending (upstream left the link dangling after an error)
     if(d->linkCreationStarted)
     {
+        // UG fork: every way out of the second click ends link creation, so that a failed attempt does not leave it
+        // pending (upstream left the link dangling after an error)
+        struct EndLinkCreation
+        {
+            DesignerScenario* scenario;
+            ~EndLinkCreation() { scenario->stopLinkCreation(); }
+        } endLinkCreation{this};
+
         for(auto *box : d->boxes)
         {
             QString current_id = box->id().toString().toASCIIString();
@@ -621,13 +627,11 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                 if(!srcBox)
                 {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to find the box details for " << boxSrcTypeID.toString() << " as a Source \n";
-                    this->stopLinkCreation();
                     return;
                 }
                 if(!dstBox)
                 {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to find the box details for " << boxDstTypeID.toString() << " as a Target \n";
-                    this->stopLinkCreation();
                     return;
                 }
 
@@ -642,14 +646,12 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                 if(hasDeprecatedIO)
                 {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Warning << "Cannot connect from deprecated Output :" << boxSrcTypeID.toString() << " \n";
-                    this->stopLinkCreation();
                     return;
                 }
                 dstBox->getInterfacorDeprecatedStatus(Kernel::Input, boxDstPort, hasDeprecatedIO);
                 if(hasDeprecatedIO)
                 {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Warning << "Cannot connect to deprecated Input : " << boxDstTypeID.toString()  << " \n";
-                    this->stopLinkCreation();
                     return;
                 }
 
@@ -661,7 +663,6 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                     {
                         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to create link between " << d->linkCreationSource->name().toStdString()
                                                       << " and " << boxId.toStdString() << "\n";
-                        this->stopLinkCreation();
                         return;
                     }
                 }
@@ -669,7 +670,6 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                 {
                     d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to create link between " << d->linkCreationSource->name().toStdString()
                                                       << " and " << boxId.toStdString() << "\n";
-                    this->stopLinkCreation();
                     return;
                 }
                 
@@ -708,15 +708,12 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                     emit linksChanged();
                 }
 
-                //link creation is ok and finished
-                //stop the link creation mode
-                this->stopLinkCreation();
+                //link creation is ok and finished; endLinkCreation stops the link creation mode
                 requestCommit(tr("Connect"));
                 return;
             }
         }
         d->kernelCtx->getLogManager() << Kernel::LogLevel_Error << "Failed to find the box " << boxId.toStdString() << " as a Target \n";
-        this->stopLinkCreation();
         return;
     }
 

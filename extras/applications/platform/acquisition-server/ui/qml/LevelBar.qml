@@ -32,9 +32,9 @@ Control {
             anchors.bottom: parent.bottom
             width: _control._clamped * parent.width
             radius: DS.Theme.radiusSm
-            color: _control._clamped >= _control.danger ? DS.Theme.cpuUsageColors["high"]
-                 : _control._clamped >= _control.warning ? DS.Theme.cpuUsageColors["medium"]
-                 : DS.Theme.cpuUsageColors["low"]
+            color: _control._clamped >= _control.danger ? DS.Theme.statusColors["error"]
+                 : _control._clamped >= _control.warning ? DS.Theme.statusColors["warning"]
+                 : DS.Theme.statusColors["ok"]
         }
     }
 }

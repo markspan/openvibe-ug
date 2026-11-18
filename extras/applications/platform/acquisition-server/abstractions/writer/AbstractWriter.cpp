@@ -44,6 +44,12 @@ bool AbstractWriter::init(uint32_t chunkSamplesCount, uint32_t chanelCount)
 
     if (m_chunkSamplesCount)
     {
+        // UG fork: init() runs at every Play; upstream allocated the arrays again without freeing those of the run before
+        delete[] m_msg.msgData.samplesStruct.timestamp;
+        delete[] m_msg.msgData.samplesStruct.samples;
+        delete[] m_msg.msgData.samplesStruct.stimulations;
+        m_pendingStimCount = 0;
+
         m_msg.msgType = ovMsg::OV_MSG_SAMPLES;
         m_msg.msgData.samplesStruct.count        = 0;
         m_msg.msgData.samplesStruct.stimCount    = 0;
@@ -102,7 +108,7 @@ size_t AbstractWriter::writeSamples(samplesBuffer* buffer)
 
     if (!(buffer == nullptr || m_chunkSamplesCount == 0))
     {
-        auto& pendingStimCount = m_msg.msgData.samplesStruct.stimCount;
+        uint32_t& pendingStimCount = m_pendingStimCount;  // UG fork: see m_pendingStimCount
         size_t bufferOffset    = 0;
         auto& currentMsgCount  = m_msg.msgData.samplesStruct.count;
         size_t stimIdx         = 0;
@@ -182,13 +188,11 @@ size_t AbstractWriter::writeSamples(samplesBuffer* buffer)
                     if (currentMsgCount == m_chunkSamplesCount)
                     {
                         // UG fork: only the stimulations due go with this chunk; the others wait, see stimsDue
-                        const uint32_t pending = pendingStimCount;
-                        const uint32_t due     = stimsDue(chunkLastTs);
-                        pendingStimCount = due;
+                        const uint32_t due = stimsDue(chunkLastTs);
+                        m_msg.msgData.samplesStruct.stimCount = due;
                         m_msg.msgSize = computeMsgSize(m_chunkSamplesCount, m_channelCount, due);
                         send(&m_msg);
-                        currentMsgCount  = 0;
-                        pendingStimCount = pending;
+                        currentMsgCount = 0;
                         keepStimsNotDue(due);
                     }
                 }

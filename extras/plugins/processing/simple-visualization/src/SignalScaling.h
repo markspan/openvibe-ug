@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <map>
 #include <string>
@@ -109,6 +110,44 @@ inline std::vector<SChannelScale> scaleChannels(const std::vector<SChannelSpan>&
     }
     return scales;
 }
+
+/**
+ * \brief When a display works its scale out again: at every new page, and while the first page fills, twice a second.
+ *
+ * A page ends where the cursor starts again at the left in Scan mode, and every window length in Scroll mode. The scale
+ * then fits the page just drawn, and stays put within a page. Shared by the Signal display and the LSL display, through
+ * CSignalTraceItem::refresh().
+ */
+class CPageRescale
+{
+public:
+    /// How often the scale is worked out while the first page fills, as it has no page before it to fit.
+    static constexpr std::chrono::milliseconds FIRST_PAGE_INTERVAL{500};
+
+    /// Works the scale out at the next due(), whatever the page: after a change of scaling, time scale or channels.
+    void request() { m_requested = true; }
+
+    /**
+     * \brief Whether to work the scale out now; when it is, this counts as done.
+     * \param page      The page the newest sample is on, counted from 0.
+     * \param firstPage True while the first page is still filling.
+     * \param now       The present, on the steady clock.
+     */
+    bool due(const uint64_t page, const bool firstPage, const std::chrono::steady_clock::time_point now)
+    {
+        const bool firstPageTime = firstPage && now - m_last >= FIRST_PAGE_INTERVAL;
+        if (!m_requested && page == m_page && !firstPageTime) { return false; }
+        m_requested = false;
+        m_page      = page;
+        m_last      = now;
+        return true;
+    }
+
+private:
+    bool m_requested = true;  ///< The first call is always due
+    uint64_t m_page  = 0;
+    std::chrono::steady_clock::time_point m_last{};
+};
 
 }  // namespace SimpleVisualization
 }  // namespace Plugins

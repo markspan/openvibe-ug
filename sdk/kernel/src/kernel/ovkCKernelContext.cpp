@@ -25,9 +25,7 @@
 #include <filesystem>
 
 #if defined TARGET_OS_Windows
-#include <ShlObj.h>
-#pragma comment(lib, "Shell32.lib")
-#pragma comment(lib, "Ole32.lib")
+#include <ShlObj.h>  // UG fork: Shell32 and Ole32, linked in CMakeLists.txt
 #endif
 
 namespace OpenViBE {

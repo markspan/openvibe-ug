@@ -24,11 +24,21 @@
 
 #include <OVAcquisitionAbstractions_Export.h>
 
+#include <filesystem>
 #include <string>
 #include <vector>
 
 /// The kinds of amplifier channel a montage can name.
 enum class MontageChannelKind { EEG, Bipolar, Auxiliary, Other };
+
+/// @p text without the white space around it; for names and settings typed by hand. Shared by the drivers.
+OVACQUISITIONABSTRACTIONS_EXPORT std::string trimWhitespace(const std::string& text);
+
+/// @p path as UTF-8, the encoding of every path in the server's settings, whatever the platform's.
+OVACQUISITIONABSTRACTIONS_EXPORT std::string pathToUtf8(const std::filesystem::path& path);
+
+/// True when @p path is an existing regular file; false, without throwing, for anything else.
+OVACQUISITIONABSTRACTIONS_EXPORT bool isRegularFile(const std::filesystem::path& path);
 
 /// Prefix of the channels of a kind in a montage's "Channel" field (BIP, AUX), empty for EEG and Other.
 OVACQUISITIONABSTRACTIONS_EXPORT std::string montageChannelPrefix(MontageChannelKind kind);

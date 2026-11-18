@@ -14,6 +14,42 @@
 namespace OpenViBE {
 namespace AcquisitionServer {
 
+/**
+ * @brief How full the buffers between the amplifier and the clients got, shown where upstream shows the drift; see
+ *        Acquisition::BufferStatus.
+ *
+ * UG fork. "Free" and "Seconds" are the worst since the previous update, twice a second; "Min" and "Max" the worst since
+ * Play. The device's values hold only when deviceReported, the server's only when acquiring.
+ */
+struct BufferLevels
+{
+    Q_GADGET
+    QML_VALUE_TYPE(bufferLevels)
+
+    Q_PROPERTY(bool acquiring MEMBER acquiring)
+    Q_PROPERTY(int serverBuffers MEMBER serverBuffers)
+    Q_PROPERTY(int serverFree MEMBER serverFree)
+    Q_PROPERTY(int serverMinFree MEMBER serverMinFree)
+    Q_PROPERTY(bool deviceReported MEMBER deviceReported)
+    Q_PROPERTY(double deviceSeconds MEMBER deviceSeconds)
+    Q_PROPERTY(double deviceMaxSeconds MEMBER deviceMaxSeconds)
+    Q_PROPERTY(double deviceCapacity MEMBER deviceCapacity)
+    Q_PROPERTY(bool lossCounted MEMBER lossCounted)
+    Q_PROPERTY(double lostSamples MEMBER lostSamples)
+
+public:
+    bool acquiring          = false;  ///< An acquisition runs
+    int serverBuffers       = 0;      ///< Buffers in the server's pool
+    int serverFree          = 0;      ///< Fewest of them free since the previous update
+    int serverMinFree       = 0;      ///< Fewest of them free since Play
+    bool deviceReported     = false;  ///< The driver tells how full the amplifier's buffer is
+    double deviceSeconds    = 0.0;    ///< Most data waiting in the amplifier's buffer since the previous update
+    double deviceMaxSeconds = 0.0;    ///< Most data waiting in it since Play
+    double deviceCapacity   = 0.0;    ///< How much it holds, in seconds; 0 when unknown
+    bool lossCounted        = false;  ///< The driver counts lost samples
+    double lostSamples      = 0.0;    ///< Samples the amplifier lost since Play (a double, as QML numbers are)
+};
+
 class AcquisitionController : public QObject
 {
     Q_OBJECT
@@ -31,24 +67,22 @@ class AcquisitionController : public QObject
     Q_PROPERTY(QObject* tcpTaggingPort READ tcpTaggingPort CONSTANT) // Pointer is constant although value may change
     Q_PROPERTY(QObject* sampleCountPerBlock READ getSampleCountPerBlock CONSTANT)
     Q_PROPERTY(QQmlListProperty<ImpedanceItem> impedances READ impedances NOTIFY impedancesChanged)
-    /**
-     * UG fork: how full the buffers between the amplifier and the clients got, shown where upstream shows the drift;
-     * see Acquisition::BufferStatus. Keys: acquiring; serverBuffers, serverFree, serverMinFree; deviceReported,
-     * deviceSeconds, deviceMaxSeconds, deviceCapacity (seconds, 0 when unknown), lossCounted, lostSamples. "Free",
-     * "Seconds" are the worst since the previous update, "Min", "Max" the worst since Play.
-     */
-    Q_PROPERTY(QVariantMap buffers READ buffers NOTIFY buffersChanged)
+    /// UG fork: see BufferLevels
+    Q_PROPERTY(BufferLevels buffers READ buffers NOTIFY buffersChanged)
     Q_PROPERTY(QStringList channelNames READ getChannelNames NOTIFY channelNamesChanged)
     Q_PROPERTY(QStringList channelHints READ getChannelHints NOTIFY channelNamesChanged)  // UG fork
     // UG fork: what the driver says about its settings (e.g. what its montage did, why Play failed) and the
     // channel names it decides itself; upstream shows neither
     Q_PROPERTY(QString driverNote READ driverNote NOTIFY driverStateChanged)
-    /// "info", "warning" or "error"
-    Q_PROPERTY(QString driverNoteLevel READ driverNoteLevel NOTIFY driverStateChanged)
+    Q_PROPERTY(NoteLevel driverNoteLevel READ driverNoteLevel NOTIFY driverStateChanged)
     /// One flag per channel name, true for an entry the driver decides; empty when the user decides them all
     Q_PROPERTY(QVariantList channelLocks READ channelLocks NOTIFY driverStateChanged)
 
 public:
+    /// UG fork: how much a driver's note matters, as AbstractDriver::Note::Level, for QML
+    enum class NoteLevel { Info, Warning, Error };
+    Q_ENUM(NoteLevel)
+
     AcquisitionController();
     ~AcquisitionController();
 
@@ -61,7 +95,7 @@ public:
     QJSValue configParameters();
     QJSValue deviceParameters();
     QJSValue driverParameters();
-    QVariantMap buffers() const;
+    BufferLevels buffers() const;
 
     QObject* connectionPort() const;
     QObject* tcpTaggingPort() const;
@@ -89,7 +123,7 @@ public:
      */
     void takeOverCharmeleonMontage();
     QString driverNote() const;
-    QString driverNoteLevel() const;
+    NoteLevel driverNoteLevel() const;
     QVariantList channelLocks() const;
     Q_INVOKABLE void setChannelNames(const QStringList& channelNames);
     Q_INVOKABLE void setChannelName(int index, const QString& name);

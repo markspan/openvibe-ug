@@ -9,6 +9,8 @@ set(SRC_FILES
     src/SDisplaySettings.h
     src/SignalScaling.h  # UG fork
     src/TraceShading.h  # UG fork
+    src/DisplayPanel.cpp  # UG fork: the panel entries the Signal display and the LSL display share
+    src/DisplayPanel.h
     src/CTraceBuffer.cpp
     src/CTraceBuffer.h
     src/CSignalDisplayController.cpp
@@ -76,6 +78,7 @@ qt_add_qml_module(${PROJECT_NAME}
       qml/StimulationOverlay.qml
       qml/SettingsPanel.qml  # UG fork
       qml/LSLDisplay.qml  # UG fork
+      qml/TracePanel.qml  # UG fork: the trace and what goes around it, shared by both displays
 )
 
 qt_add_resources(${PROJECT_NAME} "resourcesSimpleVisualization"

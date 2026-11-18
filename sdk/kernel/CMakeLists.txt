@@ -17,6 +17,10 @@ target_link_libraries(${PROJECT_NAME}
 					  openvibe-module-xml
 					  Boost::boost
 )
+if(WIN32)
+	# UG fork: SHGetKnownFolderPath and CoTaskMemFree, for ${Path_Documents} (ovkCKernelContext.cpp)
+	target_link_libraries(${PROJECT_NAME} Shell32 Ole32)
+endif()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
 					  VERSION ${PROJECT_VERSION}

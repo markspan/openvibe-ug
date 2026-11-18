@@ -3,7 +3,6 @@
 
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Window  // UG fork: Screen, for the trace's layer
 
 import DesignSystem as DS
 
@@ -71,58 +70,18 @@ Item {
                 width: _scroll.width
                 height: _root.contentHeight
 
-                AmplitudeScaleBar {
-                    id: _amp
+                // UG fork: the trace and what goes around it, shared with the LSL display; before, written out here
+                TracePanel {
+                    id: _tracePanel
 
-                    anchors { top: parent.top; left: parent.left; bottom: parent.bottom }
-                    width: _root.ampWidth
-                    visible: dataSource.showAmplitudeRuler
-                    trace: _trace
+                    anchors.fill: parent
+                    // The controller finds the trace by this name to drive it from C++.
+                    traceName: "signalTrace"
+                    ampWidth: _root.ampWidth
+                    gutterWidth: _root.gutterWidth
+                    showAmplitudeRuler: dataSource.showAmplitudeRuler
                     butterfly: dataSource.butterfly
-                }
-
-                ChannelGutter {
-                    id: _gutter
-
-                    anchors { top: parent.top; left: _amp.right; bottom: parent.bottom }
-                    width: _root.gutterWidth
-                    trace: _trace
                     channels: dataSource.channels
-                    butterfly: dataSource.butterfly
-                }
-
-                SignalTrace {
-                    id: _trace
-
-                    // The controller finds this item by name to drive it from C++.
-                    objectName: "signalTrace"
-
-                    anchors { top: parent.top; left: _gutter.right; right: parent.right; bottom: parent.bottom }
-                    clip: true
-                    traceColor: DS.Theme.textPrimary
-
-                    // UG fork: antialiased lines. The traces are drawn into a multisampled layer, which smooths the lines
-                    // the scene graph draws without it. A layer is a texture, so it is left out when the trace is
-                    // wider or, scrolling, taller than graphics cards are sure to allow; the lines are then drawn as before.
-                    layer.enabled: Math.max(width, height) * Screen.devicePixelRatio <= 8192
-                    layer.samples: 4
-                    layer.smooth: true
-                }
-
-                // Sweep cursor, Scan mode only.
-                Rectangle {
-                    visible: _trace.cursorX >= 0
-                    x: _trace.x + _trace.cursorX
-                    y: _trace.y
-                    width: DS.Theme.borderMd
-                    height: _trace.height
-                    color: DS.Theme.primary
-                    opacity: 0.7
-                }
-
-                StimulationOverlay {
-                    anchors.fill: _trace
-                    trace: _trace
                     stimulations: dataSource.stimulations
                 }
             }
@@ -135,7 +94,7 @@ Item {
             anchors.leftMargin: _root.ampWidth + _root.gutterWidth
             height: _root.rulerHeight
             visible: dataSource.showTimeRuler
-            trace: _trace
+            trace: _tracePanel.trace
         }
 
         Label {

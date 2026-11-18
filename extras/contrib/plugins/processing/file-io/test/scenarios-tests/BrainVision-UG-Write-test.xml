@@ -77,6 +77,10 @@
                     <TypeIdentifier>(0x6f752dd0, 0x082a321e)</TypeIdentifier>
                     <Name>Input stimulation channel</Name>
                 </Input>
+                <Input>
+                    <TypeIdentifier>(0x013df452, 0xa3a8879a)</TypeIdentifier>
+                    <Name>Channel localisation</Name>
+                </Input>
             </Inputs>
             <Settings>
                 <Setting>
@@ -112,7 +116,7 @@
                 </Attribute>
                 <Attribute>
                     <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
-                    <Value>(0xebfa6d36, 0x042faacd)</Value>
+                    <Value>(0xeac7f79e, 0xa7db2d9f)</Value>
                 </Attribute>
                 <Attribute>
                     <Identifier>(0xce18836a, 0x9c0eb403)</Identifier>

@@ -9,7 +9,7 @@ This repository (`markspan/openvibe-ug`) is a fork of the Inria OpenViBE 4.0 rep
 
 This document lists every change against upstream, what each change does and what it means in use.
 
-**In the code**, every place where the fork differs from upstream is marked with a comment that starts with `UG fork:`, in C++, QML, CMake and TOML alike. A new file says so at its top, and so does a file rewritten as a whole (the P300 speller box, the eego driver). The files marked 2.23 in section 3 say it once, above their includes (see 2.23). Files that can not carry a comment, or that a program rewrites, carry none: scenarios (`*.xml`, which Designer writes anew on every save), documentation (`*.dox-part`), `pixi.lock` and test input data. Section 3 lists them all the same. To list the tags:
+**In the code**, every place where the fork differs from upstream is marked with a comment that starts with `UG fork:`, in C++, QML, CMake and TOML alike. A new file says so at its top, and so does a file rewritten as a whole (the P300 speller box, the eego driver). A new file ported or copied from another, the TMSi driver from the 3.x driver and the BrainVision writer (UG) from the Gipsa writer, also marks what differs from that original. The files marked 2.23 in section 3 say it once, above their includes (see 2.23). Files that can not carry a comment, or that a program rewrites, carry none: scenarios (`*.xml`, which Designer writes anew on every save), documentation (`*.dox-part`), `pixi.lock` and test input data. Section 3 lists them all the same. To list the tags:
 
 ```bash
 git grep -n "UG fork"
@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 61 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 62 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 327 files, about 35,000 lines added and 4,300 removed (of which 3,000 a test input) |
+| Size | 336 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -84,7 +84,7 @@ Everything outside the files listed here is identical to upstream.
 | Quiet connections | A client silent for 5 s is no longer read; a server silent for 5 s loses its client | They keep the connection |
 | Late TCP markers | A marker that reaches the server after its chunk has gone lands on the next chunk's first sample | It lands on its own sample, as the Acquisition client sends markers at least 100 ms behind the signal, which itself is not delayed |
 | LSL Output | Samples and markers get the moment of sending as their time, so a marker can be a chunk off; a stream ID that changes at each start | They keep the server's times; markers within 0.26 ms of their dates, and a client recovers after a restart |
-| File settings on Windows | A file picked with the dialog gets backslashes, which a box loses, so it can't open the file | Forward slashes, so the box opens it |
+| File settings on Windows | A file picked with the dialog gets backslashes, which a box loses, so it can't open the file | Forward slashes, so the box opens it; a box also reads backslashes typed in a file or folder setting as separators |
 | Error messages | `{Error description} : {Invalid channel [25]}`, and the log panel cuts long lines off | An apology first and developer details last; the Channel Selector explains what is wrong and what to check; long lines wrap |
 | Build | Fixed CMake 3.25 / Ninja 1.10 versions, `ninja -C build` | Any CMake ≥ 3.20 and any Ninja, `cmake --build build`; Qt located through `CMAKE_PREFIX_PATH` |
 
@@ -274,12 +274,12 @@ Samples are lost only when the amplifier's own buffer overflows. The server read
 - `extras/applications/platform/acquisition-server/ui/AcquisitionController.cpp`
 - `extras/applications/platform/acquisition-server/core/Acquisition.h`
 - `extras/applications/platform/acquisition-server/core/Acquisition.cpp`
-- `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` (`usesCharmeleonForImpedance()`, `charmeleonArguments()`, `charmeleonMontage()`, `takeOverCharmeleonMontage()`)
+- `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonDriver.h` and `.cpp` (2.41: `charmeleonArguments()`, `charmeleonMontage()`, `takeOverCharmeleonMontage()`)
 - `extras/applications/platform/acquisition-server/CMakeLists.txt`
 - `CDriverTMSi.*` and `CDriverEEGO.*`
 
 **What it does**
-- Drivers opt in with `usesCharmeleonForImpedance()`; eego and TMSi do. The impedance button is then enabled even when the driver has no built-in check (TMSi).
+- Drivers derived from `CharmeleonDriver` (2.41) hand impedances to Charmeleon; eego and TMSi are. The impedance button is then enabled even when the driver has no built-in check (TMSi).
 - When Charmeleon is installed, the impedance button starts it instead of the built-in check, or brings it to the front if it is already running. Charmeleon is found in this order:
   1. the `AcquisitionServer_CharmeleonPath` configuration token;
   2. the installer's uninstall registry key (`Charmeleon_is1`);
@@ -306,22 +306,22 @@ Samples are lost only when the amplifier's own buffer overflows. The server read
 - `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h`
 - `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp`
 - `extras/applications/platform/acquisition-server/core/Acquisition.h` and `.cpp`
-- `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` (`montageSetting()`)
+- `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` and `.cpp` (`channelInfo()`), `CharmeleonDriver.cpp` (2.41)
 - `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` and `.cpp`
 - `extras/applications/platform/acquisition-server/test/OvMsgSerializerTest.cpp` (new)
 
 **What it does**
 - The `OV_MSG_ACQUISITION_CONFIG` message now carries the channel names, each ended by `\0`, after the three counts. The wire format is `[type][size][channelCount][sampleRate][sampleChunk][names…]`.
 - The serializer writes and reads this format field by field, instead of copying the in-memory struct.
-- After the names, when a montage named the channels, come the montage's file name and one position per channel, `<theta> <phi>` in degrees or empty (`ovChannelInfo.h` defines the format, in one place for both sides). The server reads them from the driver's montage (`montageSetting()`, implemented by TMSi and eego) when the acquisition starts, matched to the channels by name.
+- After the names, when a montage named the channels, come the montage's file name and one position per channel, `<theta> <phi>` in degrees or empty (`ovChannelInfo.h` defines the format, in one place for both sides). The driver gives them when the acquisition starts (`AbstractDriver::channelInfo()`: the names; `CharmeleonDriver` adds the montage, matched to the channels by name).
 - `AbstractWriter::writeAcquisitionConfig()` takes the names and montage (`ovChannelInfo`) as a new argument. This changes the API.
-- The Acquisition client box passes the montage on to the scenario as two configuration tokens of the run, `${AcquisitionServer_Montage}` and `${AcquisitionServer_ElectrodePositions}`, before it sends the signal header. The UG BrainVision writer reads them (2.9). Unlike a stream, they survive boxes between the two.
+- The Acquisition client box sends the positions on a third output, *Channel localisation* (`OV_TypeId_ChannelLocalisation`, the stream type OpenViBE has for this), once, with the signal header: one row per channel the montage places, by name, x, y, z on a unit sphere in OpenViBE's frame (x to the nose, y to the left ear, z up). The UG BrainVision writer takes it on its third input (2.9). Upstream's box had this output prepared, commented out. Until 2.41 the montage went to the writer as two configuration tokens of the run instead (see 2.41 for why that changed).
 - The Acquisition client box labels its signal channels with the received names. A channel without a name, or a server that sends no names, gets numbered from 1.
 - The client now frees the arrays `deserializeOvMsg()` allocates for every message. Upstream leaked them for the whole recording.
 
 **Consequences**
 - Channel names typed in the acquisition server appear in the Signal display, in the channel selectors and in every file writer (BrainVision, GDF, CSV, …). Upstream shows 1, 2, 3, ….
-- The montage is chosen once, in the server. `${AcquisitionServer_Montage}` can also be used in a scenario's settings, e.g. in a file name.
+- The montage is chosen once, in the server. A recording scenario connects the client's *Channel localisation* output to the writer's third input.
 - **Compatibility:** a UG client reading an upstream server's message (20 bytes, no names) falls back to numbers; this case is covered by a unit test. A client from before the montage reads the names and ignores the rest; a server from before it sends no montage. The upstream client reads the three counts the same way, so it should take a UG server's message, but this has not been tested.
 - Writer plugins built against upstream's `AbstractWriter` need recompiling because the signature changed.
 - Memory use of the Designer and Scenario Player no longer grows during long recordings.
@@ -360,7 +360,7 @@ Editing a name updates that entry in place, so the list keeps its scroll positio
 
 **What it does**
 
-This is a new box next to upstream's "BrainVision Format file writer (Gipsa)", which is unchanged. It sits in *File reading and writing/BrainVision Format* and is at version 1.4.
+This is a new box next to upstream's "BrainVision Format file writer (Gipsa)", which is unchanged. It sits in *File reading and writing/BrainVision Format* and is at version 1.5: a third input, *Channel localisation*, takes the electrode positions (2.41).
 
 Settings:
 
@@ -370,14 +370,14 @@ Settings:
 | Header filename | `record-[$core{date}-$core{time}].vhdr` | A filename with a full path ignores the directory |
 | Binary format | `IEEE_FLOAT_32` | Gipsa's default is `INT_16` |
 
-Version 1.3 had a fourth setting, *Montage (electrode positions)*. It is gone: the montage is the acquisition server's (2.7). Scenarios saved with it still open, and it is ignored.
+Version 1.3 had a fourth setting, *Montage (electrode positions)*. It is gone: the montage is the acquisition server's (2.7), and its positions come in on the third input. Scenarios saved with it still open, and it is ignored.
 
 Behaviour:
 - `.eeg` and `.vmrk` files are written next to the `.vhdr`.
 - The full path is logged when recording starts.
 - **Only hardware triggers** (`OVTK_StimulationId_Label(1..255)`) are written to the `.vmrk`. They are named as BrainVision Recorder names them: `Mk2=Stimulus,S  1,…`, `S 12`, `S233`.
 - All other stimulations (OpenViBE's own, e.g. experiment start or end) are left out.
-- **Electrode positions**, when the acquisition server named the channels with a montage. The header gets a `[Coordinates]` section, `Ch<n>=1,<theta>,<phi>` in BrainVision's convention (theta negative on the left), and the montage's name under `[Comment]`.
+- **Electrode positions**, from the third input: the Acquisition client's *Channel localisation* output when the acquisition server named the channels with a montage. The header gets a `[Coordinates]` section, `Ch<n>=1,<theta>,<phi>` in BrainVision's convention (theta negative on the left), and a line under `[Comment]` saying how many channels have a position.
   - Channels are matched to electrodes by name. A channel the montage does not place on the head (EOG, ECG) gets `0,0,0`.
   - Positions come from the montage's `Theta`/`Phi` when it has them (Charmeleon writes these for the equidistant layout). Otherwise they come from the head map: theta = 22.5° × ring, phi = angle. The server works them out (`loadCharmeleonMontage()`, 2.3); the writer only turns them into BrainVision's convention.
 
@@ -608,7 +608,7 @@ The label sits in a flag at the top of the marker line:
 - A Windows path typed or pasted into the field gets the same treatment.
 
 **Consequences**
-- A scenario saved earlier with backslashes in a path still has them: pick the file again.
+- A scenario saved earlier with backslashes in a path still has them. Since 2.41 a box reads them as separators on Windows anyway.
 - Measured with the speller's training scenario: with backslashes the Generic stream reader stops with `Error opening file`; with forward slashes it trains. The file dialog itself was not clicked through: the test gives the control the kind of address the dialog gives.
 
 ### 2.23 Error messages that explain themselves, politely
@@ -877,14 +877,13 @@ The server tells a client its settings (rate, channels, "Sample count per sent b
 The network server binds its port with `SO_REUSEADDR`, which on Windows lets a second program bind a port another one listens on. A second acquisition server, started by mistake, therefore ran next to the first without a word, and Designer connected to either one. Channels renamed in one server did not reach the scenario, which read the other.
 
 **What it does now**
-- Before it binds, the server connects to its port on this computer. When something answers, it does not listen, and says so in the console log. This holds for the acquisition port (8088) and the TCP tagging port (15361).
+- On Windows the server binds its port with `SO_EXCLUSIVEADDRUSE` instead of `SO_REUSEADDR` (2.41), so `bind()` fails when another program listens on it; the server then does not listen, and says so in the console log. Elsewhere it keeps `SO_REUSEADDR`, which there never lets two programs listen on one port. This holds for the acquisition port (8088) and the TCP tagging port (15361). Until 2.41 the server probed the port with a connection first.
 - The acquisition server then shows "Port 8088 is already in use, most likely by another OpenViBE acquisition server that is still running", and quits.
 - A socket whose `bind()` or `listen()` failed is closed; upstream kept it open.
 
 **Consequences**
 - Only one server per port. Two servers side by side need different ports (Preferences).
-- Start-up takes up to 0.3 s longer when the port is free: how long the check waits for an answer.
-- Tried: a second server started while one ran on 8088 found both ports in use, showed the message and quit. **Not yet checked:** that the server already running is unaffected by the check's brief connection; in the one trial it closed about then, with a normal stop in its log.
+- Tried with the probe (before 2.41): a second server started while one ran on 8088 found both ports in use, showed the message and quit. The exclusive bind is checked in 2.41.
 
 ---
 
@@ -1056,6 +1055,70 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 - The shading of a trace changes in steps as the Time Scale grows: from one sample per pixel to four, the sub-columns go from one to four.
 - Tested with `test-signal-display` (6 new tests: the sub-columns, the opacity, the names) and the Simple-visualization scenario. Not yet looked at on screen.
 
+### 2.41 Fixes from a review of the fork: no Charmeleon in the driver interface, one panel, explicit positions
+
+A review of all of the fork's code, on 18 November 2026, found duplicated logic, a Linux and macOS build that no longer compiled, hidden state between boxes and two workarounds where the cause could be fixed. This section fixes those.
+
+**Files**
+- `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonDriver.h` and `.cpp` (new), `AbstractDriver.h` and `.cpp`, `CharmeleonMontage.h` and `.cpp`, `abstractions/CMakeLists.txt`
+- `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` and `.cpp`, `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` and `.cpp`
+- `extras/applications/platform/acquisition-server/core/Acquisition.h` and `.cpp`, `ui/AcquisitionController.cpp`, `ui/Charmeleon.h` and `.cpp`
+- `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h`, `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` and `.cpp`, `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` and `.cpp`, `extras/applications/platform/acquisition-server/test/OvMsgSerializerTest.cpp`
+- `sdk/modules/network/Server/CServer.cpp`, `sdk/modules/network/AbstractionLayer/NAL.h`
+- `sdk/toolkit/include/toolkit/box-algorithms/ovtkTBoxAlgorithm.h`, six file boxes in `sdk/plugins/processing/file-io/src/box-algorithms/` (their messages)
+- `extras/plugins/processing/simple-visualization/src/DisplayPanel.h` and `.cpp` (new), `qml/TracePanel.qml` (new), `CSignalDisplayController.*`, `CLSLDisplayController.*`, `CSignalTraceItem.*`, `SDisplaySettings.h`, `SignalScaling.h`, `qml/SignalDisplay.qml`, `qml/LSLDisplay.qml`, `CMakeLists.txt`, `test/SignalScalingTest.cpp`
+- The 31 scenarios with an Acquisition client box, and `BrainVision-UG-Write-test.xml`
+
+**What it does**
+- **Charmeleon out of the driver interface; one copy of the montage code.** `AbstractDriver` had five Charmeleon functions, and `Acquisition` seven more that passed them on; the TMSi and eego drivers each had their own copy of the montage handling (applying it, the channel list, the hints, recording only named channels, the error note), about 90 lines each. All of it is now in `CharmeleonDriver`, a driver base class in the abstractions library. TMSi and eego derive from it and supply only their channels, whether they are acquiring, the arguments for Charmeleon and, for TMSi, the layout it assumes without a device. `AbstractDriver` has one generic function instead, `channelInfo()`: the names and, for a driver that knows them, the montage and positions sent to the clients. The server's own second reading of the montage file (`describeChannels()`) is gone with it. The acquisition server finds a Charmeleon driver with `dynamic_cast`. One `trimWhitespace()` replaces three copies.
+- **The acquisition server compiles on Linux and macOS again.** `AcquisitionController.cpp` included `<Windows.h>` and `QWinEventNotifier` without a guard, for the watcher that notices Charmeleon closing. The watcher is now `Charmeleon::Watcher`, in `Charmeleon.cpp`, behind a platform test; it never signals where Charmeleon is not started.
+- **The montage reaches the writer as a stream.** It went from the Acquisition client to the BrainVision writer (UG) as two configuration tokens of the run: state shared by every box of the player, invisible in the scenario, overwritten by a second client, and read by a writer fed from a file. The client now has a *Channel localisation* output, OpenViBE's own stream type for electrode positions, and the writer a matching input (version 1.5). The conversion between Charmeleon's angles and OpenViBE's frame (x to the nose, y to the left ear, z up, as `share/openvibe/electrode_sets/electrode_set_standard_cartesian.txt`) is in `ovChannelInfo.h`, tested both ways. The header's montage line now gives the number of positions instead of the montage's file name, which the stream does not carry.
+- **Exclusive port binding.** The server set `SO_REUSEADDR`, which on Windows lets two servers share a port, and so probed the port with a connection before binding (2.31), with a race between two servers starting together and up to 0.3 s more at start-up. On Windows it now sets `SO_EXCLUSIVEADDRUSE`, the standard way, and `bind()` itself refuses a taken port (`NETWORK_ERROR_ADDRESS_IN_USE`). The probe is gone.
+- **Backslashes in paths.** A backslash in a file or folder setting was lost in token expansion, where it is an escape character; the file boxes' errors explained this ("Paths need forward slashes..."). On Windows `FSettingValueAutoCast`, through which boxes read their settings, now reads a backslash in a Filename or Foldername setting as a forward slash before the expansion. The explanation is gone from the six messages.
+- **One display panel, one trace block, one refresh.** The Signal display and the LSL display built the same nine panel entries by hand, with help texts that had begun to differ; their QML repeated the same trace block (rulers, names, the antialiasing layer, cursor, markers); and both had the "work the scale out once per page" logic, each with its own constant. Now:
+  - `CDisplayPanel` builds the shared entries, bound to the display's `SDisplaySettings`, greys out Vertical Scale by one rule, and tells the display what a change affects (`EDisplayChange`). *Colour per channel* became a display setting, like *Trace shading*.
+  - `TracePanel.qml` is the trace with what goes around it, used by both views.
+  - `CSignalTraceItem::refresh()` is the screen update both displays share: the scale for a new page, by the rule in `CPageRescale` (`SignalScaling.h`, tested), the layout, the redraw.
+
+**Consequences**
+- **Recording scenarios need one more link** for electrode positions: Acquisition client, output 3, to BrainVision writer (UG), input 3. Without it the recording has no positions (montages.md, 7.1). The repository's scenarios have no client and writer together, so none needed it.
+- The 31 scenarios with an Acquisition client box carry the new output and the box's current prototype hash. Their stored hash was that of upstream's full prototype, with all five outputs that upstream has since commented out, so Designer had flagged them as out of date. The writer's test scenario has the new input.
+- A plugin driver built against the fork's `AbstractDriver` needs rebuilding: the Charmeleon functions moved to `CharmeleonDriver`.
+- On Windows a backslash in a file or folder setting can no longer escape a `$` there; nobody is known to have done so.
+- Tested: the build, the whole test suite, Designer opening the changed scenarios without asking to update a box. **Not yet checked on hardware:** the montage reaching a BrainVision file through the new link, the Charmeleon round trip with the base class, and a second server refused by the exclusive bind.
+
+### 2.42 Smaller fixes from the review
+
+The smaller findings of the review of 2.41, each fixed where it was found.
+
+**Files**
+- `extras/applications/platform/acquisition-server/CMakeLists.txt`, `test/CMakeLists.txt`, `core/Acquisition.cpp`, `sdk/kernel/CMakeLists.txt`, `sdk/kernel/src/kernel/ovkCKernelContext.cpp`
+- `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` and `.cpp`, `abstractions/driver/AbstractDriver.h`, `builtin/drivers/tmsi/CDriverTMSi.cpp`, `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp`, `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsgSerializer.h`
+- `extras/applications/platform/acquisition-server/ui/AcquisitionController.h` and `.cpp`, `ui/qml/BufferControl.qml`, `ui/qml/DriverNote.qml`, `ui/qml/LevelBar.qml`, `extras/applications/qml/OVDesignSystem/Theme.qml`
+- `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.h` and `.cpp`, `ui/Charmeleon.cpp`
+- `designer/applications/platform/designer/src/DesignerScenario.cpp`, `extras/plugins/processing/simple-visualization/src/CLSLReader.cpp`, `sdk/modules/network/Server/CServer.cpp`
+
+**What it does**
+- **Libraries are linked in CMake.** `Avrt` (the multimedia scheduler) and `Shell32`/`Ole32` (`${Path_Documents}`) were pulled in with `#pragma comment(lib, ...)` in the source; the build files now say so.
+- **The writer counts its waiting stimulations itself.** `AbstractWriter` used the message's own stimulation count to hold those still waiting for their sample (2.21), and so had to swap it for the count sent around each send. They now have a counter of their own. `init()` also frees the arrays of the previous run; it runs at every Play, and upstream allocated them anew each time without freeing the old ones.
+- **One place backs off after an empty read:** `Acquisition::read()`. The TMSi and eego drivers slept a millisecond themselves as well; `AbstractDriver::read()` now says a driver need not.
+- **Typed values for the server's QML.** The buffer levels (2.4) were a `QVariantMap` of ten keys named in a comment; they are a value type now, `BufferLevels`, with a property per value, so QML reads them as before but by declared name. The driver note's level (2.16) is an enum, `AcquisitionController.NoteLevel`, not the strings "info", "warning" and "error". The theme has status colours (`statusColors`: ok, warning, error), which the note, the level bars and the lost-sample count use, in place of the CPU meter's colours.
+- **Charmeleon.** Closing it at Play waits on the processes themselves, so the wait ends as soon as they have gone, rather than in steps of 200 ms. Its command line quotes each argument by Windows's rules, so that a path ending in a backslash or holding a quote reaches it whole. `pathToUtf8()` and `isRegularFile()` are in `CharmeleonMontage.h` once, not copied into `Charmeleon.cpp`. The kept copy of a montage (2.3) is written next to it and renamed over it, so that it is never half written.
+- **Designer:** every way out of a second click on a port ends link creation through one guard, instead of a call on each of eight paths (2.12).
+- **eego:** the amplifier type is tested with a substring search, not a regular expression.
+- **LSL display:** a text marker's colour comes from a hash that is the same in every run and on every computer; a numeric marker that is not a number no longer goes through an undefined conversion.
+- **Network server** (upstream): an IPv6 address was written into a 16-byte `struct sockaddr`, too small for it (MSVC warning C4789); it now has a `sockaddr_storage`.
+- Files new to the fork no longer carry `UG fork:` tags line by line, except those that mark what differs from the code they were ported from (see the start of this file).
+
+**Left as they are**
+- Designer's player loop wakes every millisecond (2.18). Waiting exactly until the next scheduler step needs the kernel's time to reach, which `IPlayer` does not expose; guessing it from outside goes wrong around pause, step and fast-forward, and the wake-ups cost next to nothing.
+- `CharmeleonMontage` words its summaries in English inside the driver library: there is one language, and the tests read them.
+- Designer started from a terminal prints to its log file, not to the terminal (2.17); the stimulations stay about 100 ms behind the signal (speller.md, 3.3). Both are by design.
+
+**Consequences**
+- None in use. A writer plugin built against the fork's `AbstractWriter` needs rebuilding, as its layout changed.
+- Tested: the build and the whole test suite. **Not looked at on screen:** the buffer levels and driver note with their new colours.
+
 ---
 
 ## 3. All modified files
@@ -1081,7 +1144,7 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | A | `designer/applications/platform/designer/RuntimeOverlay.qml` | 2.33 |
 | M | `designer/applications/platform/designer/ShortcutManager.qml` | 2.36 |
 | M | `designer/applications/platform/designer/share/designer.conf-base` | 2.33 |
-| M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12 |
+| M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12, 2.42 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.h` | 2.36 |
 | M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33 |
 | M | `designer/applications/platform/designer/src/OVDesigner.h` | 2.33 |
@@ -1092,22 +1155,24 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `extras/applications/developer-tools/skeleton-generator/src/CDriverSkeletonGenerator.cpp` | 2.23 |
 | M | `extras/applications/developer-tools/skeleton-generator/src/CSkeletonGenerator.cpp` | 2.23 |
 | M | `extras/applications/developer-tools/skeleton-generator/src/main.cpp` | 2.23 |
-| M | `extras/applications/platform/acquisition-server/CMakeLists.txt` | 2.1, 2.4, 2.6, 2.17, 2.37 |
-| M | `extras/applications/platform/acquisition-server/abstractions/CMakeLists.txt` | 2.3, 2.24, 2.25 |
-| M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.cpp` | 2.16 |
-| M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` | 2.4, 2.6, 2.7, 2.8, 2.16 |
+| M | `extras/applications/platform/acquisition-server/CMakeLists.txt` | 2.1, 2.4, 2.6, 2.17, 2.37, 2.42 |
+| M | `extras/applications/platform/acquisition-server/abstractions/CMakeLists.txt` | 2.3, 2.24, 2.25, 2.41 |
+| M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.cpp` | 2.16, 2.41 |
+| M | `extras/applications/platform/acquisition-server/abstractions/driver/AbstractDriver.h` | 2.4, 2.6, 2.7, 2.8, 2.16, 2.41, 2.42 |
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/BlockStamps.h` | 2.24 |
-| A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.cpp` | 2.3 |
-| A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.h` | 2.3 |
+| A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonDriver.cpp` | 2.41 |
+| A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonDriver.h` | 2.41 |
+| A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.cpp` | 2.3, 2.41, 2.42 |
+| A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.h` | 2.3, 2.41, 2.42 |
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/SteadyTrigger.h` | 2.25 |
-| M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7 |
-| M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7, 2.21 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27 |
+| M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7, 2.18, 2.42 |
+| M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7, 2.21, 2.42 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27, 2.41, 2.42 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27, 2.41 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` | 2.21 |
-| M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21, 2.30 |
-| M | `extras/applications/platform/acquisition-server/core/Acquisition.h` | 2.4, 2.6, 2.7, 2.8, 2.16 |
+| M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21, 2.30, 2.41, 2.42 |
+| M | `extras/applications/platform/acquisition-server/core/Acquisition.h` | 2.4, 2.6, 2.7, 2.8, 2.16, 2.41 |
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.cpp` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.h` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.cpp` | 2.4 |
@@ -1116,19 +1181,20 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | A | `extras/applications/platform/acquisition-server/test/AcquisitionConfigTest.cpp` | 2.30 |
 | A | `extras/applications/platform/acquisition-server/test/CharmeleonMontageTest.cpp` | 2.3 |
 | A | `extras/applications/platform/acquisition-server/test/CircularBufferTest.cpp` | 2.4 |
-| A | `extras/applications/platform/acquisition-server/test/OvMsgSerializerTest.cpp` | 2.7 |
-| M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.cpp` | 2.4, 2.6, 2.8, 2.16 |
-| M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.h` | 2.4, 2.6, 2.8, 2.16 |
-| A | `extras/applications/platform/acquisition-server/ui/Charmeleon.cpp` | 2.6 |
-| A | `extras/applications/platform/acquisition-server/ui/Charmeleon.h` | 2.6 |
+| A | `extras/applications/platform/acquisition-server/test/OvMsgSerializerTest.cpp` | 2.7, 2.41 |
+| M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.cpp` | 2.4, 2.6, 2.8, 2.16, 2.41, 2.42 |
+| M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.h` | 2.4, 2.6, 2.8, 2.16, 2.42 |
+| A | `extras/applications/platform/acquisition-server/ui/Charmeleon.cpp` | 2.6, 2.41, 2.42 |
+| A | `extras/applications/platform/acquisition-server/ui/Charmeleon.h` | 2.6, 2.41 |
 | M | `extras/applications/platform/acquisition-server/ui/qml/ChannelRename.qml` | 2.8 |
-| A | `extras/applications/platform/acquisition-server/ui/qml/BufferControl.qml` | 2.4 |
+| A | `extras/applications/platform/acquisition-server/ui/qml/BufferControl.qml` | 2.4, 2.42 |
 | D | `extras/applications/platform/acquisition-server/ui/qml/DriftBar.qml` | 2.4 |
 | D | `extras/applications/platform/acquisition-server/ui/qml/DriftControl.qml` | 2.4 |
-| A | `extras/applications/platform/acquisition-server/ui/qml/DriverNote.qml` | 2.16 |
-| A | `extras/applications/platform/acquisition-server/ui/qml/LevelBar.qml` | 2.4 |
+| A | `extras/applications/platform/acquisition-server/ui/qml/DriverNote.qml` | 2.16, 2.42 |
+| A | `extras/applications/platform/acquisition-server/ui/qml/LevelBar.qml` | 2.4, 2.42 |
 | M | `extras/applications/platform/acquisition-server/ui/qml/Main.qml` | 2.4, 2.8, 2.16 |
 | M | `extras/applications/qml/OVControls/Logger.qml` | 2.23 |
+| M | `extras/applications/qml/OVDesignSystem/Theme.qml` | 2.42 |
 | M | `extras/applications/qml/OVParameters/CMakeLists.txt` | 2.22 |
 | M | `extras/applications/qml/OVParameters/MultiSelectParameter.qml` | 2.26 |
 | M | `extras/applications/qml/OVParameters/PathParameter.qml` | 2.13 |
@@ -1140,32 +1206,31 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | A | `extras/applications/qml/OVParameters/test/ParameterPathObjectTest.cpp` | 2.22 |
 | A | `extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py` | 2.27 |
 | A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/BrainVisionUG.h` | 2.27 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9, 2.27 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9, 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9, 2.27, 2.41 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9, 2.27, 2.41 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_defines.h` | 2.9 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_main.cpp` | 2.9 |
 | A | `extras/contrib/plugins/processing/file-io/test/BrainVisionUGTest.cpp` | 2.27 |
 | M | `extras/contrib/plugins/processing/file-io/test/CMakeLists.txt` | 2.27 |
 | A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-input.csv` | 2.27 |
-| A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-test.xml` | 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-test.xml` | 2.27, 2.41 |
 | M | `extras/contrib/plugins/server-drivers/CMakeLists.txt` | 2.2 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27, 2.41, 2.42 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27, 2.41 |
 | M | `extras/plugins/processing/acquisition/CMakeLists.txt` | 2.20 |
-| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7, 2.20, 2.30 |
-| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7, 2.20, 2.30 |
+| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7, 2.20, 2.30, 2.41 |
+| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7, 2.20, 2.30, 2.41 |
 | A | `extras/plugins/processing/acquisition/src/box-algorithms/SampleBlocks.h` | 2.30 |
 | A | `extras/plugins/processing/acquisition/src/box-algorithms/StimulationDelay.h` | 2.20 |
 | A | `extras/plugins/processing/acquisition/test/CMakeLists.txt` | 2.20, 2.30 |
 | A | `extras/plugins/processing/acquisition/test/SampleBlocksTest.cpp` | 2.30 |
 | A | `extras/plugins/processing/acquisition/test/StimulationDelayTest.cpp` | 2.20 |
-| M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.18 |
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TagDate.h` | 2.18 |
 | M | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TaggingDriver.cpp` | 2.18 |
 | A | `extras/applications/platform/acquisition-server/test/BlockStampsTest.cpp` | 2.24 |
 | A | `extras/applications/platform/acquisition-server/test/SteadyTriggerTest.cpp` | 2.25 |
 | A | `extras/applications/platform/acquisition-server/test/TcpTagTimingTest.cpp` | 2.18 |
-| M | `extras/applications/platform/acquisition-server/test/CMakeLists.txt` | 2.21 |
+| M | `extras/applications/platform/acquisition-server/test/CMakeLists.txt` | 2.21, 2.42 |
 | A | `extras/applications/platform/acquisition-server/test/lsl-output/CMakeLists.txt` | 2.21 |
 | A | `extras/applications/platform/acquisition-server/test/lsl-output/LSLOutputWriterTest.cpp` | 2.21 |
 | A | `extras/applications/demos/p300/bci-examples/p300-speller-python/` (5 scripts, 5 scenarios and a README) | 2.18 |
@@ -1189,17 +1254,18 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmMatrix3dTo2d.cpp` | 2.23 |
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/connectivity/CBoxAlgorithmConnectivityMeasure.cpp` | 2.23 |
 | M | `extras/plugins/processing/stimulation/share/lua-stimulator-stim-codes.lua` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18, 2.26, 2.28, 2.40 |
+| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18, 2.26, 2.28, 2.40, 2.41 |
 | A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display-xdf.xml` | 2.29, 2.39 |
 | A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` | 2.28, 2.29, 2.39 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_P300SpellerVisualization.dox-part` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26, 2.39, 2.40 |
 | M | `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/qml/P300SpellerVisualization.qml` | 2.18 |
-| A | `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml` | 2.28, 2.41 |
 | A | `extras/plugins/processing/simple-visualization/qml/SettingsPanel.qml` | 2.28 |
-| M | `extras/plugins/processing/simple-visualization/qml/SignalDisplay.qml` | 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/qml/SignalDisplay.qml` | 2.26, 2.28, 2.41 |
 | M | `extras/plugins/processing/simple-visualization/qml/StimulationOverlay.qml` | 2.11 |
+| A | `extras/plugins/processing/simple-visualization/qml/TracePanel.qml` | 2.41 |
 | M | `extras/plugins/processing/simple-visualization/qml/TimeRuler.qml` | 2.26 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.cpp` | 2.18 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CBoxAlgorithmP300SpellerVisualization.hpp` | 2.18 |
@@ -1213,25 +1279,27 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.cpp` | 2.11, 2.26, 2.28, 2.39 |
 | M | `extras/plugins/processing/simple-visualization/src/box-algorithms/CSignalDisplay.h` | 2.26, 2.28, 2.39 |
 | M | 35 demo and tutorial scenarios (`*.xml`) with a Signal display | 2.11 |
-| M | 31 demo and tutorial scenarios (`*.xml`) with an Acquisition client box | 2.19 |
+| M | 31 demo and tutorial scenarios (`*.xml`) with an Acquisition client box | 2.19, 2.41 |
 | M | 59 demo, tutorial and test scenarios (`*.xml`) with a Signal display | 2.26, 2.39 |
 | M | `extras/plugins/server-extensions/tcp-tagging-service/test/test_tcptaggingservice.cpp` | 2.19 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.h` | 2.18 |
-| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp` | 2.28, 2.29, 2.39, 2.40 |
-| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.h` | 2.28, 2.29, 2.39, 2.40 |
-| A | `extras/plugins/processing/simple-visualization/src/CLSLReader.cpp` | 2.28 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp` | 2.28, 2.29, 2.39, 2.40, 2.41 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.h` | 2.28, 2.29, 2.39, 2.40, 2.41 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLReader.cpp` | 2.28, 2.42 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLReader.h` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.h` | 2.29 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28, 2.39, 2.40 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26, 2.39, 2.40 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28, 2.39, 2.40 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26, 2.28, 2.39 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28, 2.39, 2.40, 2.41 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26, 2.39, 2.40, 2.41 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28, 2.39, 2.40, 2.41 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26, 2.28, 2.39, 2.41 |
 | M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.cpp` | 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.h` | 2.26, 2.28 |
-| M | `extras/plugins/processing/simple-visualization/src/SDisplaySettings.h` | 2.26, 2.39, 2.40 |
-| A | `extras/plugins/processing/simple-visualization/src/SignalScaling.h` | 2.26 |
+| A | `extras/plugins/processing/simple-visualization/src/DisplayPanel.cpp` | 2.41 |
+| A | `extras/plugins/processing/simple-visualization/src/DisplayPanel.h` | 2.41 |
+| M | `extras/plugins/processing/simple-visualization/src/SDisplaySettings.h` | 2.26, 2.39, 2.40, 2.41 |
+| A | `extras/plugins/processing/simple-visualization/src/SignalScaling.h` | 2.26, 2.41 |
 | A | `extras/plugins/processing/simple-visualization/src/TraceShading.h` | 2.40 |
 | A | `extras/plugins/processing/simple-visualization/src/TracePalette.h` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/XDFWriter.cpp` | 2.29 |
@@ -1242,7 +1310,7 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | A | `extras/plugins/processing/simple-visualization/test/LSLReaderTest.cpp` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/test/LSLRecorderTest.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/test/P300SpellerStateTest.cpp` | 2.18 |
-| A | `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp` | 2.26 |
+| A | `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp` | 2.26, 2.41 |
 | A | `extras/plugins/processing/simple-visualization/test/TraceBufferTest.cpp` | 2.26, 2.28 |
 | A | `extras/plugins/processing/simple-visualization/test/TraceShadingTest.cpp` | 2.40 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-lua-test.xml` | 2.18 |
@@ -1250,22 +1318,24 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-test.xml` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-test.xml` | 2.18 |
 | M | `sdk/kernel/src/kernel/configuration/ovkCConfigurationManager.cpp` | 2.23 |
+| M | `sdk/kernel/CMakeLists.txt` | 2.42 |
 | M | `pixi.lock` | 2.15, 2.21 |
 | M | `pixi.toml` | 2.15, 2.21 |
-| M | `sdk/kernel/src/kernel/ovkCKernelContext.cpp` | 2.10 |
+| M | `sdk/kernel/src/kernel/ovkCKernelContext.cpp` | 2.10, 2.42 |
 | M | `sdk/kernel/src/kernel/player/ovkCBoxSettingModifierVisitor.cpp` | 2.23 |
 | M | `sdk/kernel/src/kernel/player/ovkCPlayer.cpp` | 2.23 |
 | M | `sdk/kernel/src/kernel/player/ovkCScheduler.cpp` | 2.23 |
 | M | `sdk/kernel/src/kernel/player/ovkCSimulatedBox.cpp` | 2.23 |
 | M | `sdk/kernel/src/kernel/scenario/ovkCScenarioManager.cpp` | 2.23 |
 | M | `sdk/modules/network/Client/CClient.cpp` | 2.19 |
-| M | `sdk/modules/network/Server/CServer.cpp` | 2.4, 2.31 |
+| M | `sdk/modules/network/AbstractionLayer/NAL.h` | 2.41 |
+| M | `sdk/modules/network/Server/CServer.cpp` | 2.4, 2.31, 2.41, 2.42 |
 | M | `sdk/modules/network/Server/CServer.h` | 2.31 |
 | M | `sdk/modules/network/Server/ConnectedClient.cpp` | 2.19 |
 | A | `sdk/openvibe/include/openvibe/ConsoleLog.hpp` | 2.17 |
-| A | `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h` | 2.7 |
+| A | `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h` | 2.7, 2.41 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsg.h` | 2.7 |
-| M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsgSerializer.h` | 2.7 |
+| M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsgSerializer.h` | 2.7, 2.42 |
 | M | `sdk/openvibe/include/openvibe/ovAssert.h` | 2.23 |
 | M | `sdk/plugins/processing/classification/src/algorithms/CAlgorithmClassifierLDA.cpp` | 2.23 |
 | M | `sdk/plugins/processing/classification/src/algorithms/CAlgorithmClassifierOneVsAll.cpp` | 2.23 |
@@ -1277,12 +1347,12 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `sdk/plugins/processing/classification/src/box-algorithms/CBoxAlgorithmCommonClassifierListener.inl` | 2.23 |
 | M | `sdk/plugins/processing/file-io/src/algorithms/ovpCAlgorithmOVMatrixFileReader.cpp` | 2.23 |
 | M | `sdk/plugins/processing/file-io/src/algorithms/ovpCAlgorithmOVMatrixFileWriter.cpp` | 2.23 |
-| M | `sdk/plugins/processing/file-io/src/box-algorithms/csv/CBoxAlgorithmOVCSVFileReader.cpp` | 2.23 |
-| M | `sdk/plugins/processing/file-io/src/box-algorithms/csv/CBoxAlgorithmOVCSVFileWriter.cpp` | 2.23 |
-| M | `sdk/plugins/processing/file-io/src/box-algorithms/csv/ovpCBoxAlgorithmCSVFileReader.cpp` | 2.23 |
-| M | `sdk/plugins/processing/file-io/src/box-algorithms/csv/ovpCBoxAlgorithmCSVFileWriter.cpp` | 2.23 |
-| M | `sdk/plugins/processing/file-io/src/box-algorithms/openvibe/ovpCBoxAlgorithmGenericStreamReader.cpp` | 2.23 |
-| M | `sdk/plugins/processing/file-io/src/box-algorithms/openvibe/ovpCBoxAlgorithmGenericStreamWriter.cpp` | 2.23 |
+| M | `sdk/plugins/processing/file-io/src/box-algorithms/csv/CBoxAlgorithmOVCSVFileReader.cpp` | 2.23, 2.41 |
+| M | `sdk/plugins/processing/file-io/src/box-algorithms/csv/CBoxAlgorithmOVCSVFileWriter.cpp` | 2.23, 2.41 |
+| M | `sdk/plugins/processing/file-io/src/box-algorithms/csv/ovpCBoxAlgorithmCSVFileReader.cpp` | 2.23, 2.41 |
+| M | `sdk/plugins/processing/file-io/src/box-algorithms/csv/ovpCBoxAlgorithmCSVFileWriter.cpp` | 2.23, 2.41 |
+| M | `sdk/plugins/processing/file-io/src/box-algorithms/openvibe/ovpCBoxAlgorithmGenericStreamReader.cpp` | 2.23, 2.41 |
+| M | `sdk/plugins/processing/file-io/src/box-algorithms/openvibe/ovpCBoxAlgorithmGenericStreamWriter.cpp` | 2.23, 2.41 |
 | M | `sdk/plugins/processing/signal-processing/src/algorithms/basic/CAlgorithmOnlineCovariance.cpp` | 2.23 |
 | M | `sdk/plugins/processing/signal-processing/src/box-algorithms/CBoxAlgorithmWindowing.cpp` | 2.23 |
 | M | `sdk/plugins/processing/signal-processing/src/box-algorithms/CBoxXDAWNTrainer.cpp` | 2.23 |
@@ -1304,6 +1374,7 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `sdk/plugins/processing/tools/src/box-algorithms/CBoxAlgorithmExternalProcessing.cpp` | 2.23 |
 | M | `sdk/plugins/processing/tools/src/box-algorithms/CBoxAlgorithmMatrixValidityChecker.cpp` | 2.23 |
 | M | `sdk/toolkit/src/algorithms/scenario-io/ovtkCAlgorithmScenarioImporter.cpp` | 2.23 |
+| M | `sdk/toolkit/include/toolkit/box-algorithms/ovtkTBoxAlgorithm.h` | 2.41 |
 | A | `share/ov-acquisition-server-icon.ico` | 2.37 |
 | A | `share/tools/make_acquisition_server_icon.py` | 2.37 |
 | A | `UG.md` | this document |

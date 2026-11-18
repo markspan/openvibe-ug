@@ -72,10 +72,22 @@ public:
     /**
      * \brief Recomputes the per-channel centre and half-range from the ring.
      *
-     * UG fork: also when scaling is None, which uses the centres only. No hysteresis; the caller calls it once per page
-     * (CSignalDisplayController::onTick()).
+     * UG fork: also when scaling is None, which uses the centres only. No hysteresis; refresh() calls it once per page.
      */
     void refreshAutoScale();
+
+    /**
+     * \brief One screen update, from the display's timer: works the scale out again at a new page (CPageRescale), rebuilds
+     *        the layout when it changed, and redraws when samples came in.
+     *
+     * UG fork: the step the Signal display and the LSL display share.
+     * \param layoutDirty A setting or the channels changed: rebuild the layout and redraw, even without new samples.
+     * \return False when there was nothing to do: no new sample, and nothing changed.
+     */
+    bool refresh(bool layoutDirty);
+
+    /// Works the scale out again at the next refresh(), whatever the page: after a change of scaling, time scale or channels.
+    void requestRescale() { m_rescale.request(); }
 
     /**
      * \brief Rebuilds m_rows.
@@ -100,7 +112,7 @@ public:
 
     QColor traceColor() const { return m_traceColor; }
     void   setTraceColor(const QColor& color);
-    bool   perChannelColors() const { return m_perChannelColors; }
+    bool   perChannelColors() const { return m_settings.perChannelColors; }
     void   setPerChannelColors(bool enabled);
 
     /**
@@ -169,7 +181,9 @@ private:
 
     QColor m_traceColor{ 0x05, 0x1B, 0x38 };  ///< DesignSystem textPrimary
     double m_scrollLagSeconds = 0.0;          ///< UG fork: see setScrollLagSeconds()
-    bool   m_perChannelColors = false;
+
+    CPageRescale m_rescale;                ///< UG fork: when refresh() works the scale out
+    uint64_t     m_lastRenderedTotal = 0;  ///< UG fork: the samples the last refresh() drew
 };
 
 }  // namespace SimpleVisualization

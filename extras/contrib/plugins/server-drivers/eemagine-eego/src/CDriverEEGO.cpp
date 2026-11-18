@@ -38,7 +38,6 @@
 #include <exception>
 #include <filesystem>
 #include <iostream>
-#include <regex>
 #include <string>
 #include <thread>
 
@@ -52,24 +51,10 @@ namespace {
  */
 constexpr uint64_t STIMULATION_LABEL_BASE = 0x00008100;
 
-/**
- * How long read() idles when the amplifier has produced nothing yet. The acquisition server's
- * reader thread is a bare `while (running) read()`, so without this it would spin a core.
- */
-constexpr auto IDLE_POLL = std::chrono::milliseconds(1);
-
 int toInt(const std::string& value, const int fallback)
 {
     try { return std::stoi(value); }
     catch (const std::exception&) { return fallback; }
-}
-
-// UG fork: for the montage path
-std::string trim(const std::string& s)
-{
-    const size_t first = s.find_first_not_of(" \t");
-    if (first == std::string::npos) { return ""; }
-    return s.substr(first, s.find_last_not_of(" \t") - first + 1);
 }
 
 /**
@@ -102,17 +87,13 @@ void warnIfUnsupported(const std::vector<T>& available, const double value, cons
 // ─────────────────────────────────────────────────────────────────────────────
 
 CDriverEEGO::CDriverEEGO()
-    : m_paramSamplingRate("SamplingRate", "Sampling rate [Hz]",
+    : CharmeleonDriver("[EEGO]", "the eego amplifier"),  // UG fork: the montage and Charmeleon, shared with the TMSi driver
+      m_paramSamplingRate("SamplingRate", "Sampling rate [Hz]",
                           { "500", "512", "1000", "1024", "2000", "2048", "4000" }, "500"),
       m_paramEEGRange("EEGRange", "Signal range of the referential channels [mV]",
                       { "150", "750", "1000" }, "1000"),
       m_paramBIPRange("BIPRange", "Signal range of the bipolar channels [mV]",
-                      { "350", "700", "1500", "4000" }, "1500"),
-      m_paramMontage("Montage",  // UG fork: in place of the EEGMask and BIPMask bit masks
-                     "Charmeleon montage (a .json file, or the name of one in Charmeleon's library): names the channels, and decides which EEG "
-                     "channels are recorded",
-                     "",
-                     OpenViBE::Parameters::Read, { "Charmeleon montage (*.json)", "Any File (*)" })
+                      { "350", "700", "1500", "4000" }, "1500")
 {
     // The rate and the ranges are discrete sets the amplifier rejects anything outside of, so they
     // are dropdowns; the inherited m_samplingRate is derived in init() and stays out of the parameter list.
@@ -124,9 +105,7 @@ CDriverEEGO::CDriverEEGO()
     m_parameters.push_back(&m_paramEEGRange);
     m_parameters.push_back(&m_paramBIPRange);
     m_parameters.push_back(&m_channelCount);  // UG fork
-    m_parameters.push_back(&m_paramMontage);  // UG fork
-
-    m_paramMontage.connect([this](std::any) { onMontageChanged(); });
+    m_parameters.push_back(&m_paramMontage);  // UG fork: in place of the EEGMask and BIPMask bit masks
 }
 
 CDriverEEGO::~CDriverEEGO() = default;
@@ -142,28 +121,10 @@ OpenViBE::Parameters::Parameters CDriverEEGO::getParameters()
     // Never touch the amplifier while it is in use
     if (!m_amplifier)
     {
-        if (queryLayout()) { fitNamesToLayout(); }
-        else if (m_channelNames.value().size() == size_t(m_channelCount.value()))
-        {
-            // No amplifier: the montage still names the list, provisionally, and says what it did
-            std::vector<std::string> names = m_channelNames.value();
-            if (applyMontage(names)) { m_channelNames.setValue(names); }
-        }
+        queryLayout();
+        updateChannelList();  // see CharmeleonDriver
     }
     return AbstractDriver::getParameters();
-}
-
-std::vector<std::string> CDriverEEGO::channelHints() const
-{
-    // During an acquisition the list holds the recorded channels only, which all have a name
-    if (m_layout.empty() || m_channelNames.value().size() != m_layout.size()) { return {}; }
-
-    std::vector<std::string> hints(m_layout.size());
-    for (size_t i = 0; i < m_layout.size(); ++i)
-    {
-        if (m_layout[i].type == es::channel::bipolar) { hints[i] = m_layout[i].name; }
-    }
-    return hints;
 }
 
 void CDriverEEGO::readLayout(es::amplifier& amplifier)
@@ -203,123 +164,24 @@ bool CDriverEEGO::queryLayout()
     return !m_layout.empty();
 }
 
-bool CDriverEEGO::fitNamesToLayout()
+std::vector<CharmeleonDriver::DeviceChannel> CDriverEEGO::deviceChannels() const
 {
-    if (m_layout.empty()) { return false; }
-
-    // Names stored for another layout (another amplifier) mean nothing here: start over
-    std::vector<std::string> names = m_channelNames.value();
-    if (names.size() != m_layout.size())
-    {
-        names.assign(m_layout.size(), "");
-        for (size_t i = 0; i < m_layout.size(); ++i)
-        {
-            if (m_layout[i].type == es::channel::reference) { names[i] = m_layout[i].name; }
-        }
-    }
-    const bool ok = applyMontage(names);
-
-    // Resizes m_channelNames too, through the notifier AbstractDriver installs in its constructor
-    m_channelCount.setValue(int(m_layout.size()));
-    m_channelNames.setValue(names);
-    return ok;
-}
-
-std::vector<MontageChannelKind> CDriverEEGO::layoutKinds() const
-{
-    std::vector<MontageChannelKind> kinds;
-    kinds.reserve(m_layout.size());
+    std::vector<DeviceChannel> channels;
+    channels.reserve(m_layout.size());
     for (const auto& channel : m_layout)
     {
-        kinds.push_back(channel.type == es::channel::reference ? MontageChannelKind::EEG
-                        : channel.type == es::channel::bipolar ? MontageChannelKind::Bipolar
-                                                                : MontageChannelKind::Other);
+        channels.push_back({channel.type == es::channel::reference ? MontageChannelKind::EEG
+                            : channel.type == es::channel::bipolar ? MontageChannelKind::Bipolar
+                                                                    : MontageChannelKind::Other,
+                            channel.name});
     }
-    return kinds;
-}
-
-bool CDriverEEGO::applyMontage(std::vector<std::string>& names)
-{
-    // UG fork: the montage rules live in CharmeleonMontage, shared with the TMSi driver; this only feeds them the
-    // amplifier's channel kinds and shows the outcome under the settings
-    if (trim(m_paramMontage.value()).empty())
-    {
-        m_montageNote = {};
-        clearNote();
-        setChannelLocks({});
-        return true;
-    }
-
-    MontageApplication application;
-    std::string error;
-    if (!applyCharmeleonMontageSetting(m_paramMontage.value(), layoutKinds(), names, application, error))
-    {
-        report(error);
-        m_montageNote = {Note::Level::Error, error};
-        setNote(m_montageNote.level, m_montageNote.text);
-        setChannelLocks({});
-        return false;
-    }
-
-    std::cout << "[EEGO] " << application.summary << std::endl;
-    names         = std::move(application.names);
-    m_montageNote = {application.warning ? Note::Level::Warning : Note::Level::Info, application.summary};
-    setNote(m_montageNote.level, m_montageNote.text);
-    setChannelLocks(std::move(application.locked));
-    return true;
+    return channels;
 }
 
 std::vector<std::string> CDriverEEGO::charmeleonArguments() const
 {
     // Charmeleon 2.2 and later; the driver itself uses the first amplifier the SDK lists, and so does Charmeleon
     return {"--amplifier", "eego"};
-}
-
-std::string CDriverEEGO::charmeleonMontage() const
-{
-    const MontageLocation location = locateCharmeleonMontage(m_paramMontage.value());
-    return location.source == MontageLocation::Source::NotFound ? m_paramMontage.value() : location.path;
-}
-
-void CDriverEEGO::takeOverCharmeleonMontage(const std::string& path)
-{
-    const std::string setting = montageSettingAfterSave(m_paramMontage.value(), path);
-    // A new value applies itself, through onMontageChanged(); the same one has to be read again explicitly
-    if (setting != m_paramMontage.value()) { m_paramMontage.setValue(setting); }
-    else { onMontageChanged(); }
-}
-
-void CDriverEEGO::onMontageChanged()
-{
-    // During an acquisition the list only holds the recorded channels; init() applies the montage anyway
-    if (m_amplifier || (!m_layout.empty() && m_channelNames.value().size() != m_layout.size())) { return; }
-
-    std::vector<std::string> names = m_channelNames.value();
-    if (!applyMontage(names)) { return; }
-    if (trim(m_paramMontage.value()).empty())
-    {
-        // Without the amplifier there are no amplifier names to go back to
-        if (m_layout.empty()) { return; }
-        for (size_t i = 0; i < m_layout.size(); ++i)
-        {
-            if (m_layout[i].type == es::channel::reference) { names[i] = m_layout[i].name; }
-        }
-    }
-    m_channelNames.setValue(names);
-}
-
-void CDriverEEGO::report(const std::string& message)
-{
-    std::cout << "[EEGO] " << message << std::endl;
-    m_lastError = message;
-}
-
-bool CDriverEEGO::failInit(const std::string& message)
-{
-    if (!message.empty()) { report(message); }
-    // UG fork: upstream drivers only print why they could not start; the server shows this under the settings
-    setNote(Note::Level::Error, "Play failed: " + (m_lastError.empty() ? std::string("the eego amplifier could not be started.") : m_lastError));
-    return false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -373,7 +235,7 @@ es::factory& CDriverEEGO::factory()
 bool CDriverEEGO::init()
 {
     bool success = false;
-    m_lastError.clear();  // UG fork: see report()
+    clearLastError();  // UG fork: see CharmeleonDriver::report()
 
     try
     {
@@ -408,7 +270,6 @@ bool CDriverEEGO::init()
         return failInit();  // UG fork
     }
 
-    setNote(m_montageNote.level, m_montageNote.text);  // UG fork: what the montage did
     return true;
 }
 
@@ -420,34 +281,18 @@ bool CDriverEEGO::selectChannels()
     // after init(), long before start() opens one.
     readLayout(*m_amplifier);
 
-    // Record the channels that have a name, under that name
-    if (!fitNamesToLayout()) { return false; }
-    m_configuredNames = m_channelNames.value();
-    m_selectedChannels.clear();
+    // Record the channels that have a name, under that name (CharmeleonDriver)
     std::vector<std::string> names;
-    for (size_t i = 0; i < m_layout.size(); ++i)
-    {
-        const std::string name = trim(m_configuredNames[i]);
-        if (name.empty()) { continue; }
-        m_selectedChannels.emplace_back(m_layout[i].index, m_layout[i].type);
-        names.push_back(name);
-    }
-
-    if (m_selectedChannels.empty())
-    {
-        report("No channel has a name, so there is nothing to record. Name the channels, or choose a montage.");
-        m_configuredNames.clear();
-        return false;
-    }
+    const std::vector<size_t> recorded = fitNamesToDevice() ? namedChannels(names) : std::vector<size_t>{};
+    if (recorded.empty()) { return false; }
+    m_selectedChannels.clear();
+    for (const size_t i : recorded) { m_selectedChannels.emplace_back(m_layout[i].index, m_layout[i].type); }
 
     names.push_back("Trigger");
     names.push_back("SampleCounter");
 
     // For the duration of the acquisition the channel count and names describe the recorded channels only; unInit() restores the full list
-    m_configuredLocks = channelLocks();
-    setChannelLocks({});
-    m_channelCount.setValue(int(names.size()));
-    m_channelNames.setValue(names);
+    showRecordedChannels(names);
 
     std::cout << "[EEGO] Recording " << m_selectedChannels.size() << " of the " << m_layout.size() << " channels + " << STATUS_CHANNEL_COUNT
               << " status channels at " << m_samplingRate.value() << " Hz." << std::endl;
@@ -513,14 +358,7 @@ bool CDriverEEGO::unInit()
     m_pendingOffset   = 0;
     m_stimQueue.clear();
 
-    if (!m_configuredNames.empty())
-    {
-        m_channelCount.setValue(int(m_configuredNames.size()));
-        m_channelNames.setValue(m_configuredNames);
-        m_configuredNames.clear();
-        setChannelLocks(std::move(m_configuredLocks));
-        m_configuredLocks.clear();
-    }
+    restoreChannelList();  // UG fork: see CharmeleonDriver
     return true;
 }
 
@@ -552,7 +390,7 @@ bool CDriverEEGO::start()
         m_stream.reset(m_amplifier->OpenEegStream(rate));
 
         const std::string type = m_amplifier->getType();
-        if (std::regex_search(type, std::regex("EE511")))
+        if (type.find("EE511") != std::string::npos)  // UG fork: a substring, which upstream tested with a regex
         {
             const double constrained = 2.5 * eegRange / 1000.0;
             if (m_effectiveBipRange != constrained)
@@ -598,11 +436,9 @@ bool CDriverEEGO::start()
         const std::string mismatch = streamLayoutMismatch(channels);
         if (!mismatch.empty())
         {
-            report("The eego stream does not list its channels as they were named: " + mismatch + ". Nothing is recorded, so "
-                   "that no channel is recorded under another's name.");
-            setNote(Note::Level::Error, "Play failed: " + m_lastError);
             m_stream.reset();
-            return false;
+            return failInit("The eego stream does not list its channels as they were named: " + mismatch + ". Nothing is recorded, so "
+                            "that no channel is recorded under another's name.");
         }
 
         // UG fork: the SDK gives volt; the EEG and bipolar channels go out in microvolt, as the TMSi driver's do and as the
@@ -735,12 +571,9 @@ int CDriverEEGO::read(sampleType* data, const uint64_t size)
     m_triggerValues.clear();  // UG fork
     if (!m_stream) { return 0; }
 
-    if (m_pendingOffset >= m_pendingSamples && fetchPending() == 0)
-    {
-        // getData() does not block, so pace the acquisition server's reader loop ourselves.
-        std::this_thread::sleep_for(IDLE_POLL);
-        return 0;
-    }
+    // UG fork: getData() does not block; the server's reader backs off after an empty read (Acquisition::read()), so this
+    // no longer sleeps as well
+    if (m_pendingOffset >= m_pendingSamples && fetchPending() == 0) { return 0; }
 
     const size_t channels = std::min(size_t(m_channelCount.value()), m_pendingChannels);
     const size_t count    = std::min(size_t(size), m_pendingSamples - m_pendingOffset);

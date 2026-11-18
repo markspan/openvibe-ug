@@ -162,6 +162,13 @@ QtObject {
         "error"   : "#FEAEAE",
     }
 
+    // UG fork: what a status means, for messages and level bars: all is well, look at this, something is wrong
+    readonly property var statusColors: {
+        "ok"      : "#47D390",
+        "warning" : "#FFB333",
+        "error"   : "#FF4747"
+    }
+
     // CPU Usage colors
     readonly property var cpuUsageColors: {
         "low"    : "#47D390",

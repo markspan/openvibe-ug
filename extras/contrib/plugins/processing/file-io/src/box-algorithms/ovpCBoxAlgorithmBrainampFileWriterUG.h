@@ -91,6 +91,7 @@ protected:
 
     //input stimulation 1 
     Toolkit::TStimulationDecoder<CBoxAlgorithmBrainampFileWriterUG>* m_stimDecoder = nullptr;
+    Toolkit::TChannelLocalisationDecoder<CBoxAlgorithmBrainampFileWriterUG>* m_localisationDecoder = nullptr;  ///< UG fork
     //Kernel::TParameterHandler <const CMemoryBuffer* > ip_bufferToDecodeTrigger;
     //Kernel::TParameterHandler < CStimulationSet* > op_pStimulationSetTrigger;
 
@@ -119,6 +120,8 @@ protected:
     void writeMarker(uint64_t code, uint64_t date);
     /// Writes what the streams hold to disk, and reports a file that could not be written. UG fork.
     bool flushFiles();
+    /// Takes the electrode positions from a channel localisation matrix, rows by channel name, x y z. UG fork.
+    void readPositions(const CMatrix& localisation);
 
     /// A position on a unit sphere, as BrainVision's [Coordinates] has it: theta from the vertex, negative on the
     /// left half of the head, and phi from the right towards the front, between -90 and 90; in degrees.
@@ -139,10 +142,9 @@ public:
     static SphericalPosition toBrainVision(double theta, double azimuth);
 
 protected:
-    /// The montage of the acquisition server, as the Acquisition client box passed it on (ovChannelInfo.h); empty for
-    /// none, e.g. when the signal comes from a file
-    std::string m_montage;
-    std::map<std::string, SphericalPosition> m_positions;  ///< By channel name, in BrainVision's convention
+    /// Where the electrodes sit, from the channel localisation input, by channel name, in BrainVision's convention; empty
+    /// when nothing is connected there, e.g. when the signal comes from a file
+    std::map<std::string, SphericalPosition> m_positions;
 };
 
 class CBoxAlgorithmBrainampFileWriterUGListener final : public Toolkit::TBoxListener<IBoxListener>
@@ -167,11 +169,11 @@ public:
     {
         return
                 "Writes the header file .vhdr to the output directory, which is created if needed; a header filename with a full path ignores the directory. The .eeg and .vmrk files will be created with the same name and in the same folder. Hardware triggers are saved in the .vmrk file as BrainVision stimulus markers: trigger 1 as \"S  1\", trigger 233 as \"S233\". "
-                "When the acquisition server named the channels with a Charmeleon montage, the header also records the montage's name and where the electrodes sat ([Coordinates]), matched to the channels by name.";
+                "With a channel localisation stream on the third input, such as the Acquisition client's when the acquisition server named the channels with a Charmeleon montage, the header also records where the electrodes sat ([Coordinates]), matched to the channels by name.";
     }
 
     CString getCategory() const override { return "File reading and writing/BrainVision Format"; }
-    CString getVersion() const override { return "1.4"; }
+    CString getVersion() const override { return "1.5"; }
     CString getStockItemName() const override { return "gtk-save"; }
 
     CIdentifier getCreatedClass() const override { return OVP_ClassId_BoxAlgorithm_BrainampFileWriterUG; }
@@ -183,12 +185,14 @@ public:
     {
         prototype.addInput("Streamed matrix", OV_TypeId_Signal);
         prototype.addInput("Input stimulation channel", OV_TypeId_Stimulations);
+        // UG fork: where the electrodes sit, e.g. from the Acquisition client; may be left unconnected
+        prototype.addInput("Channel localisation", OV_TypeId_ChannelLocalisation);
 
         prototype.addSetting("Output directory", OV_TypeId_Foldername, "${Path_Documents}/data");
         prototype.addSetting("Header filename", OV_TypeId_Filename, "record-[$core{date}-$core{time}].vhdr");
         prototype.addSetting("Binary format", OVP_TypeId_BinaryFormat, "IEEE_FLOAT_32");
-        // UG fork: version 1.3 had a fourth setting, "Montage (electrode positions)", now ignored: the montage is the
-        // acquisition server's
+        // UG fork: version 1.3 had a fourth setting, "Montage (electrode positions)", now ignored: the positions come in on
+        // the channel localisation input
 
         return true;
     }

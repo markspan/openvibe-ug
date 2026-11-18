@@ -63,7 +63,9 @@ void CSignalTraceItem::setBuffer(CTraceBuffer* buffer)
 
 void CSignalTraceItem::setSettings(const SDisplaySettings& settings)
 {
-    m_settings = settings;
+    const bool colorsChanged = settings.perChannelColors != m_settings.perChannelColors;  // UG fork: a display setting now
+    m_settings               = settings;
+    if (colorsChanged) { emit traceColorChanged(); }
     if (recomputeLayout()) { emit layoutChanged(); }
     emit timeWindowChanged();
     update();
@@ -95,8 +97,8 @@ void CSignalTraceItem::setTraceColor(const QColor& color)
 
 void CSignalTraceItem::setPerChannelColors(const bool enabled)
 {
-    if (enabled == m_perChannelColors) { return; }
-    m_perChannelColors = enabled;
+    if (enabled == m_settings.perChannelColors) { return; }
+    m_settings.perChannelColors = enabled;
     emit traceColorChanged();
     if (recomputeLayout()) { emit layoutChanged(); }
     update();
@@ -190,6 +192,33 @@ void CSignalTraceItem::refreshAutoScale()
     }
 }
 
+bool CSignalTraceItem::refresh(const bool layoutDirty)
+{
+    if (m_buffer == nullptr) { return false; }
+    uint64_t total = 0;
+    size_t capacity = 0, offset = 0;
+    {
+        CTraceBuffer::CReader r(*m_buffer);
+        total    = r.totalSamples();
+        capacity = r.valid() ? r.capacity() : 0;
+        offset   = r.slotOffset();
+    }
+    if (total == m_lastRenderedTotal && !layoutDirty) { return false; }
+
+    // A page starts where the cursor starts again at the left, which in a time-locked ring (LSL) is not at sample 0
+    bool relayout = layoutDirty;
+    if (capacity > 0 && m_rescale.due((total + offset) / capacity, total < capacity, std::chrono::steady_clock::now()))
+    {
+        refreshAutoScale();
+        relayout = true;
+    }
+    if (relayout && recomputeLayout()) { emit layoutChanged(); }
+    emit timeWindowChanged();
+    update();
+    m_lastRenderedTotal = total;
+    return true;
+}
+
 bool CSignalTraceItem::recomputeLayout()
 {
     QVector<SRow> rows;
@@ -216,7 +245,7 @@ bool CSignalTraceItem::recomputeLayout()
             row.baseline = float(butterfly ? h * 0.5 : (qreal(i) + 0.5) * lane);
             row.gain     = float(halfLane / halfRange);
             row.centre   = float(centre);
-            row.color    = (m_perChannelColors && i < m_colors.size()) ? m_colors.at(i) : m_traceColor;
+            row.color    = (m_settings.perChannelColors && i < m_colors.size()) ? m_colors.at(i) : m_traceColor;
             rows.append(row);
         }
     }

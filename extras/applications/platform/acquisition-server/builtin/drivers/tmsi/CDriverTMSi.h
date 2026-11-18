@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <AbstractDriver.h>
+#include <CharmeleonDriver.h>  // UG fork
 #include <AbstractDriverBuilder.h>
 #include <CharmeleonMontage.h>
 #include <SteadyTrigger.h>  // UG fork
@@ -37,21 +37,18 @@ struct TMSiApi;
  * channel with per-sample trigger times, and errors shown in the server (AbstractDriver::note()). Channels in volt are sent
  * in microvolt, whatever exponent the device gives them; samples out of range are counted and reported.
  *
- * The channel names list has one entry per device channel, read from the amplifier, and only channels with a name
- * are recorded, in device order. EXG channels start out with their device name. A Charmeleon montage, applied by
- * the rules in CharmeleonMontage, names them instead: its HardwareChannel n is the n-th EXG channel, and EXG
- * channels it leaves out are not recorded; it can also name BIP and AUX channels ("Channel": "BIP1"). The entries
- * a montage decides are shown read-only (channelLocks()), and what it did is shown under the settings (note()).
- * Without a device connected the montage still names the list, provisionally, on the layout a Refa has: EXG channels,
- * then 4 BIP and 4 AUX channels (assumedLayout()).
- * All other channels (BIP, AUX, DIG, SAW, ...) start out empty: giving one a name records it under that name.
+ * The channel names list and the montage follow the rules of CharmeleonDriver, which this driver shares with the eego
+ * driver: one entry per device channel, only channels with a name recorded. EXG channels are the montage's EEG
+ * channels and start out with their device name; BIP and AUX channels are the montage's "Channel": "BIP1", ...; all
+ * other channels (DIG, SAW, ...) start out empty, and giving one a name records it under that name. Without a device
+ * connected, the list is taken to be laid out as a Refa's: EXG channels, then 4 BIP and 4 AUX channels (assumedKinds()).
  *
  * Triggers come from one channel only, the trigger channel, never from the SAW ramp channel, which the SDK may
  * also type as digital. They are its low 8 bits, sent as OVTK_StimulationId_Label(value), i.e. 0x8101 to 0x81FF,
  * without inversion. Nothing else is sent as a stimulation. A value counts once it has held for two samples, and is dated at the
  * first sample where the channel changed, so a value caught while the trigger lines switch is no trigger (SteadyTrigger).
  */
-class CDriverTMSi final : public AbstractDriver
+class CDriverTMSi final : public CharmeleonDriver
 {
 public:
     CDriverTMSi();
@@ -67,31 +64,29 @@ public:
     int readStimulations(ovStimulation* buff, uint32_t maxCount) override;
     void getData(samplesBuffer* buff) override;
 
-    bool usesCharmeleonForImpedance() const override { return true; }
     /// Makes Charmeleon open this driver's TMSi device, on its protocol.
     std::vector<std::string> charmeleonArguments() const override;
-    /// The montage file, found as locateCharmeleonMontage() finds it, so that Charmeleon opens the file the driver reads.
-    std::string charmeleonMontage() const override;
-    std::string montageSetting() const override { return m_paramMontage.value(); }
-    /// Reads the montage again, under its new name if Charmeleon saved it under another one.
-    void takeOverCharmeleonMontage(const std::string& path) override;
 
     void setChunkSize(uint32_t chunkSize) override { m_nSamplePerSentBlock = chunkSize; }
 
     /// The fill level of the SDK's sample buffer (GetBufferInfo), and the samples lost when it overflowed.
     DeviceBuffer takeDeviceBuffer() override;
 
-    /// BIP1, BIP2, AUX1, ... for the bipolar and auxiliary channels, the device name for the other non-EEG channels.
-    std::vector<std::string> channelHints() const override;
-
     OpenViBE::Parameters::Parameters getParameters() override;
 
 private:
-    struct DeviceChannel
+    /// A channel as the SDK describes it.
+    struct SdkChannel
     {
         std::string name;
         uint32_t type; ///< One of the SDK's CHANNELTYPE_ values.
     };
+
+    // UG fork: what CharmeleonDriver needs to know of the device
+    std::vector<DeviceChannel> deviceChannels() const override;
+    /// EXG channels, then 4 BIP and 4 AUX channels, as a Refa lists them; a list of 8 channels or fewer is taken to be EXG only.
+    std::vector<MontageChannelKind> assumedKinds(size_t count) const override;
+    bool isAcquiring() const override { return m_opened; }
 
     bool loadLibrary();
     /// (Re)initializes the SDK on the selected protocol and lists the devices it finds.
@@ -101,38 +96,12 @@ private:
     std::string selectedDevice() const;
     /// Reads the selected device's channels into m_layout, opening it briefly, unless they are known already.
     bool queryLayout();
-    /// Gives the channel names list one entry per device channel, see the class description.
-    bool fitNamesToLayout();
-    /// The montage kind of each channel in m_layout.
-    std::vector<MontageChannelKind> layoutKinds() const;
-    /**
-     * @brief The channel layout assumed while no device is connected: EXG channels, then 4 BIP and 4 AUX
-     *        channels, as a Refa lists them.
-     *
-     * UG fork: so that a montage's BIP and AUX channels, and the names typed for them, have a place before the
-     * device is seen. A list of 8 channels or fewer is taken to be EXG only.
-     */
-    static std::vector<MontageChannelKind> assumedLayout(size_t channelCount);
-    /**
-     * @brief Applies the montage, if one is set, to @p names, and shows the outcome: a note and the locked entries.
-     * @return False when the montage is set but can not be used; @p names is then left as it was.
-     */
-    bool applyMontage(std::vector<std::string>& names);
-    /// Applies a newly chosen montage to the channel names list, or restores the device names when it is cleared.
-    void onMontageChanged();
     bool openFrontEnd(const std::string& deviceID);
     void closeFrontEnd();
     bool readSignalFormat();
     bool setSignalBuffer(uint32_t sampling);
     /// Reports an SDK failure, with the SDK's error code and message, see report().
     void printError(const std::string& what) const;
-    /// Prints @p message and keeps it as the reason the last attempt to start failed.
-    void report(const std::string& message) const;
-    /**
-     * @brief Ends a failed init(): reports @p message, if any, and shows why Play failed under the settings.
-     * @return False, for init() to return.
-     */
-    bool failInit(const std::string& message = {});
 
     std::string channelName(size_t index) const;
     std::string channelType(size_t index) const;
@@ -143,21 +112,15 @@ private:
     OpenViBE::Parameters::ParameterListString m_paramDevice;
     OpenViBE::Parameters::ParameterString m_paramTriggerChannel;
     OpenViBE::Parameters::ParameterBool m_paramCommonModeRejection;
-    OpenViBE::Parameters::ParameterPath m_paramMontage;
 
     std::vector<std::string> m_devices;
     bool m_opened  = false;
     bool m_started = false;
 
     uint32_t m_nSamplePerSentBlock = 0;
-    /// The full channel names list, one entry per device channel, while only the recorded ones are shown. Restored in unInit().
-    std::vector<std::string> m_configuredNames;
-    std::vector<bool> m_configuredLocks; ///< The channel locks that go with m_configuredNames.
-    Note m_montageNote;                  ///< What the montage did, shown again once an acquisition has started.
-    mutable std::string m_lastError;     ///< Why the last attempt to start failed, see report().
 
     // Device signal format
-    std::vector<DeviceChannel> m_layout;
+    std::vector<SdkChannel> m_layout;
     std::string m_layoutDevice; ///< Device m_layout was read from.
     uint32_t m_nDeviceChannel = 0;
     std::vector<bool> m_isChannelActivated;

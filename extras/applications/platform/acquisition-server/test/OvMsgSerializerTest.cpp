@@ -12,6 +12,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
+
 #include <openvibe/acquisition-messaging/ovChannelInfo.h>
 #include <openvibe/acquisition-messaging/ovMsgSerializer.h>
 
@@ -80,11 +82,27 @@ TEST(OvMsgSerializerTest, ChannelInfoCarriesTheMontage)
     EXPECT_TRUE(decoded.positions[1].known);
     EXPECT_FALSE(decoded.positions[2].known);
 
-    // What Designer's boxes pass on, by channel name
-    const auto positions = decodeElectrodePositions(encodeElectrodePositions(decoded));
-    ASSERT_EQ(positions.size(), 2u);
-    EXPECT_DOUBLE_EQ(positions.at("Fp1").phi, 108.0);
-    EXPECT_EQ(positions.count("HEOG"), 0u);
+}
+
+TEST(OvMsgSerializerTest, PositionsInOpenViBEsChannelLocalisationFrame)
+{
+    // The frame of share/openvibe/electrode_sets/electrode_set_standard_cartesian.txt: x to the nose, y to the left ear, z up
+    const auto near = [](const ovCartesianPosition& p, const double x, const double y, const double z) {
+        return std::abs(p.x - x) < 1e-9 && std::abs(p.y - y) < 1e-9 && std::abs(p.z - z) < 1e-9;
+    };
+    EXPECT_TRUE(near(toChannelLocalisation({true, 0.0, 0.0}), 0, 0, 1));     // Cz
+    EXPECT_TRUE(near(toChannelLocalisation({true, 90.0, 0.0}), 0, -1, 0));   // T8
+    EXPECT_TRUE(near(toChannelLocalisation({true, 90.0, 90.0}), 1, 0, 0));   // Fpz
+    EXPECT_TRUE(near(toChannelLocalisation({true, 90.0, 180.0}), 0, 1, 0));  // T7
+
+    // And back, as the BrainVision writer reads them
+    for (const ovChannelInfo::Position position : {ovChannelInfo::Position{true, 92.0, 108.0}, ovChannelInfo::Position{true, 45.0, 270.0}}) {
+        const ovChannelInfo::Position back = fromChannelLocalisation(toChannelLocalisation(position));
+        EXPECT_TRUE(back.known);
+        EXPECT_NEAR(back.theta, position.theta, 1e-9);
+        EXPECT_NEAR(back.phi, position.phi, 1e-9);
+    }
+    EXPECT_FALSE(fromChannelLocalisation({0.0, 0.0, 0.0}).known);
 }
 
 TEST(OvMsgSerializerTest, ChannelInfoWithNamesOnly)

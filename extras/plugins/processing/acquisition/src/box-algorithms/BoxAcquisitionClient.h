@@ -15,7 +15,10 @@
 #include "SampleBlocks.h"      // UG fork
 #include "StimulationDelay.h"  // UG fork
 
+#include <openvibe/acquisition-messaging/ovChannelInfo.h>  // UG fork
+
 #include <string>  // UG fork
+#include <utility>  // UG fork
 #include <vector>
 
 namespace Network {
@@ -60,9 +63,10 @@ protected:
   uint32_t m_sampleChunk = 0;
   bool m_acquisitionConfigured = false;
   bool m_headerSent = false;
-  // UG fork: the montage the server sent, passed on to the scenario with the header, see ovChannelInfo.h
+  // UG fork: the montage the server sent (ovChannelInfo.h), and where it places the channels, sent on the channel localisation
+  // output with the header
   std::string m_montage;
-  std::string m_electrodePositions;
+  std::vector<std::pair<std::string, ovCartesianPosition>> m_localisation;
 
   // UG fork: the channel names of the stream's header, against which a later configuration from the server is checked
   std::vector<std::string> m_channelNames;
@@ -80,6 +84,7 @@ protected:
 
   Toolkit::TSignalEncoder<CBoxAcquisitionClient> m_signalEncoder;
   Toolkit::TStimulationEncoder<CBoxAcquisitionClient> m_stimEncoder;
+  Toolkit::TChannelLocalisationEncoder<CBoxAcquisitionClient> m_localisationEncoder;  // UG fork
 
   void requestStreamFromAcquisition(bool enable);
 };
@@ -106,7 +111,8 @@ public:
   //  prototype.addOutput("Experiment information", OV_TypeId_ExperimentInfo);
     prototype.addOutput("Signal stream", OV_TypeId_Signal);
     prototype.addOutput("Stimulations", OV_TypeId_Stimulations);
-  //  prototype.addOutput("Channel localisation", OV_TypeId_ChannelLocalisation);
+    // UG fork: where the server's montage places the channels; nothing when it has no montage. See ovChannelInfo.h.
+    prototype.addOutput("Channel localisation", OV_TypeId_ChannelLocalisation);
   //  prototype.addOutput("Channel units", OV_TypeId_ChannelUnits);
     prototype.addSetting("Acquisition server hostname", OV_TypeId_String, "127.0.0.1");
     prototype.addSetting("Acquisition server port", OV_TypeId_Integer, "8088");
