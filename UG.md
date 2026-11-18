@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 65 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 66 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 338 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
@@ -1382,7 +1382,7 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 | A | `share/tools/make_acquisition_server_icon.py` | 2.37 |
 | A | `UG.md` | this document |
 | A | `montages.md` | 2.3: the montage how-to |
-| A | `review-2026-11-18.md` | 2.41: the review of the fork's code |
+| A | `review-2026-11-18.md` | 2.41: the review of the fork's code, two passes |
 | A | `speller.md` | 2.18: the speller how-to |
 
 ---
