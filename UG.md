@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 64 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 65 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 338 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
@@ -938,6 +938,7 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 - A GitHub Actions workflow, "Windows installer", builds OpenViBE UG on a Windows runner and packages it with CPack: `openvibe-<version>.exe` (the NSIS installer) and `openvibe-<version>.zip`. It follows the GitLab Windows pipeline: Qt 6.9.3 from the official build, everything else from the pixi environment, then `pixi run ci-build` and `pixi run ci-package`.
 - **By hand:** Actions tab, "Windows installer", "Run workflow", on any branch. The installer and ZIP are an artifact of the run, kept 30 days.
 - **On a tag:** pushing a tag such as `4.0.1` or `4.0.1-ug.1` runs it too, and attaches both files to a GitHub release named after the tag. A tag with a `-` makes a pre-release.
+- **Release notes:** the release's description lists the subject of every commit since the previous version tag, with a link to the full comparison. GitHub's generated notes would list merged pull requests, and the fork commits to `main` directly. A release that already has a description, written by hand before the build finishes, keeps it.
 - The version in the file names and in Designer comes from `git describe`, as in a local build; the workflow fetches the whole history for that.
 
 **Consequences**

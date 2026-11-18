@@ -93,6 +93,42 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # The release's description: the subject of every commit since the previous version tag, which this fork writes as
+      # a sentence saying what changed, and a link to the full comparison. GitHub's own generated notes list merged pull
+      # requests, and the fork commits to main directly. A release that already has a description keeps it: notes
+      # written by hand before the build finishes are not replaced (the release action keeps a description when it is
+      # given none).
+      - name: Write the release notes
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          previous=$(git describe --tags --abbrev=0 --match '[0-9]*.[0-9]*.[0-9]*' "${tag}^" 2>/dev/null || true)
+          notes="release-notes.md"  # in the checkout: a relative path means the same to bash and to the release action
+          if gh release view "$tag" --json body --jq .body 2>/dev/null | grep -q .; then
+            : > "$notes"  # notes written by hand: the release keeps them
+          else
+            {
+              echo "OpenViBE UG ${tag}, Windows installer and ZIP. Uninstall an earlier version first."
+              echo
+              if [ -n "$previous" ]; then
+                echo "## Changes since ${previous}"
+                echo
+                git log --no-merges --format='- %s (%h)' "${previous}..${tag}"
+                echo
+                echo "**Full list of changes:** [${previous}...${tag}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${previous}...${tag})"
+              else
+                echo "## Changes"
+                echo
+                git log --no-merges --format='- %s (%h)' -n 50 "${tag}"
+              fi
+              echo
+              echo "UG.md, at the top of the repository, describes every difference from upstream OpenViBE."
+            } > "$notes"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Attach the installer to the release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -102,3 +138,4 @@ jobs:
             ${{ env.PACKAGE_FOLDER }}\*.zip
           fail_on_unmatched_files: true
           prerelease: ${{ contains(github.ref_name, '-') }}
+          body_path: release-notes.md
