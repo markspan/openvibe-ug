@@ -704,9 +704,12 @@ void DesignerScenario::clickPort(int portIdx,const QString& boxId, qreal x, qrea
                         link = new LinkObject(d->kernelCtx, iLink, box, d->linkCreationSource);
                     }
                     d->links.append(link);
-                    
-                    emit linksChanged();
                 }
+
+                // UG fork: also when the links were rebuilt above, which upstream did not announce: the canvas went on drawing
+                // the list it had deleted, and deleting a link there, by its place in that list, could remove another one.
+                // The same change as upstream's open merge request !187.
+                emit linksChanged();
 
                 //link creation is ok and finished; endLinkCreation stops the link creation mode
                 requestCommit(tr("Connect"));

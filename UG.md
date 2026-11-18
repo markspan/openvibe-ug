@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 66 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 67 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 338 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
@@ -423,8 +423,11 @@ The label sits in a flag at the top of the marker line:
 **What it does**
 - After clicking a first port, a second click on a port of the same kind (another output, or the same port again) starts a new link from that port.
 - Every failed link attempt now ends link creation.
+- A new link that replaces another redraws the links. An input takes one link, so a link made to an input that already has one replaces it; Designer then rebuilt its list of links but did not tell the canvas. This is the same change as upstream's open merge request !187 ("fix box links refresh").
 
 **Consequence:** in upstream, clicking an output and then another output tried to link a box to itself and failed with "Input index out of range". Link creation then stayed pending, so every later click failed the same way. That no longer happens.
+
+After a link replaced another, upstream's canvas went on showing the old link and not the new one, until something else changed the links (another link, a deletion, an undo, reopening the scenario). The scenario itself, and the file saved, had the new link. Deleting a link in that state could remove a different one, as the canvas deletes a link by its place in the list. Now the canvas shows the new link at once.
 
 ### 2.13 Path parameter: re-choosing a file reloads it
 
