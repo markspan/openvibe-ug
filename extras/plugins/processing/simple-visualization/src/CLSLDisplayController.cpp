@@ -355,6 +355,16 @@ void CLSLDisplayController::buildParameters()
     connect(m_pColors, &Parameters::ParameterBoolObject::valueChanged, this, [this](const bool&) { applySettings(); });
     m_parameters.push_back(m_pColors);
 
+    // How the traces are drawn, see TraceShading.h. Only in the panel, as Colour per channel.
+    std::vector<std::string> shadings;
+    for (const ETraceShading shading : TRACE_SHADINGS) { shadings.emplace_back(toString(shading)); }
+    m_pShading = new Parameters::ParameterListStringObject(TRACE_SHADING_NAME, TRACE_SHADING_HELP, shadings, toString(m_settings.shading));
+    connect(m_pShading, &Parameters::ParameterListStringObject::valueChanged, this, [this](const QString& value)
+    {
+        if (parseTraceShading(value.toStdString(), m_settings.shading)) { applySettings(); }
+    });
+    m_parameters.push_back(m_pShading);
+
     m_pTimeRuler = new Parameters::ParameterBoolObject("Bottom ruler", "Show the time ruler along the bottom", m_settings.showTimeRuler);
     connect(m_pTimeRuler, &Parameters::ParameterBoolObject::valueChanged, this, [this](const bool& value)
     {

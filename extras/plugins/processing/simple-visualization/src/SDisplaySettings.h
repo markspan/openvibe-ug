@@ -9,6 +9,7 @@
 #include <string>
 
 #include "defines.hpp"
+#include "TraceShading.h"  // UG fork
 
 namespace OpenViBE {
 namespace Plugins {
@@ -42,6 +43,8 @@ struct SDisplaySettings
     bool                  showTimeRuler       = true;
     bool                  showAmplitudeRuler  = true;
     ELayoutMode           layout              = ELayoutMode::Stacked;
+    /** UG fork: the panel's "Trace shading". Not a box setting, so not saved with the scenario. */
+    ETraceShading         shading             = ETraceShading::Density;
 
     /**
      * \brief Lowercases and drops every non-alphanumeric character.

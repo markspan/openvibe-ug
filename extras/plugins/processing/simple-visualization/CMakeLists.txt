@@ -8,6 +8,7 @@ set(SRC_FILES
 	src/defines.hpp
     src/SDisplaySettings.h
     src/SignalScaling.h  # UG fork
+    src/TraceShading.h  # UG fork
     src/CTraceBuffer.cpp
     src/CTraceBuffer.h
     src/CSignalDisplayController.cpp

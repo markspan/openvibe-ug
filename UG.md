@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 60 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 61 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 325 files, about 35,000 lines added and 4,300 removed (of which 3,000 a test input) |
+| Size | 327 files, about 35,000 lines added and 4,300 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -68,7 +68,7 @@ Everything outside the files listed here is identical to upstream.
 | Installer on GitHub | none; the installer is built on Inria's GitLab runners | A GitHub Actions workflow builds the NSIS installer and a ZIP, by hand or on a version tag, and attaches them to a release |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
 | Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
-| Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal, also without automatic scaling, so no Vertical Offset; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
+| Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal, also without automatic scaling, so no Vertical Offset; dense traces shaded by density; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
 | LSL streams | Seen through the acquisition server's LSL driver: one data stream and one marker stream, numbers only, timed when they arrive | "LSL display (UG)" box: any number of data streams of any rate, stacked on one time axis by their LSL times, and number and text markers on all; streams ticked while it runs. "LSL XDF writer (UG)" connected to it records the ticked streams as LabRecorder does, a file each time Record is pressed, of each stream only the channels shown |
 | BrainVision file integrity | eego data in volt in a microvolt file; TMSi BIP and AUX channels unscaled; markers counted from the scenario's start, not the file's first sample; the header written only at the end | eego in microvolt and its stream order checked; markers on their own sample; files written out at every step; a script that checks a recording |
@@ -787,7 +787,7 @@ It checks the header, that the data is a whole number of samples without NaN, an
 - **Streams are chosen while it runs.** The panel lists the streams on the network under *Streams*, brought up to date every second, as "name (type, 32 ch, 2048 Hz)" or "name (type, text markers)". Tick a stream to show it, untick it to close it. A stream that goes away stays listed while it is ticked, and comes back by itself when it does.
 - **Data streams**, any regular rate and any number type, are stacked in panels, each with its name above it. A panel's height goes by the channels it shows, so lanes are alike across streams. The panels share one time axis and the time ruler at the bottom.
 - **Marker streams**, numbers or text, are drawn as flags on every panel, at their LSL times. A stream of text, or one without a regular rate, counts as markers. Of a marker stream with several channels, the first is the code, as in the two-channel sync sender.
-- **The options are the Signal display's:** Display Mode, Auto vertical scale (Per channel, By type, Global, None), Time Scale, Vertical Scale, Multiview, Colour per channel, and the rulers. They apply to every stream. Each data stream adds its own channel selection, *Channels: name*, with Select all, Deselect all and Invert selection. The box settings are where the panel starts.
+- **The options are the Signal display's:** Display Mode, Auto vertical scale (Per channel, By type, Global, None), Time Scale, Vertical Scale, Multiview, Colour per channel, Trace shading (2.40), and the rulers. They apply to every stream. Each data stream adds its own channel selection, *Channels: name*, with Select all, Deselect all and Invert selection. The box settings are where the panel starts.
 
 How streams of different rates line up:
 - Each sample is placed by its LSL time, corrected to this computer's clock and smoothed, as LabRecorder's files are when loaded. Every stream's ring is locked to one clock (`CTraceBuffer::setTimeOrigin()`). In Scan mode a time is at the same x in every panel, whatever the stream's rate or start. In Scroll mode each stream is drawn as far behind the newest as it lags, so that the panels scroll together.
@@ -1036,6 +1036,26 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 - A value of the offset other than 0 in such a scenario is lost; there is nothing to take its place.
 - Tested: the build, the documentation page (seven settings, Multiview the seventh), and the test suite, which passes except `run-command-with-spaces`, a test of the Run Command box that fails now and then without this change too. Designer opens `signal-display.xml`, `lsl-display.xml` and `erp-1-monitor-signal.xml` without asking to update a box; the old `signal-display.xml` it flags twice. Not yet looked at on screen.
 
+### 2.40 Trace shading: dense traces shaded by density, or see-through
+
+**Files**
+- `extras/plugins/processing/simple-visualization/src/TraceShading.h` (new), `CSignalTraceItem.cpp`, `SDisplaySettings.h`, `CSignalDisplayController.cpp`, `CSignalDisplayController.h`, `CLSLDisplayController.cpp`, `CLSLDisplayController.h`, `CMakeLists.txt`
+- `extras/plugins/processing/simple-visualization/test/TraceShadingTest.cpp` (new), `test/CMakeLists.txt`
+- `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part`
+
+**What it does**
+- With more samples than pixel columns, as with a long Time Scale, a trace is drawn as the lowest and highest sample of each column, so that no spike is lost. Upstream drew that opaque: a noisy signal became a solid band with hard edges, and the antialiasing (2.26) can not soften it, as a one-pixel line on a column's centre has no partly covered edge.
+- A new entry in the panel of the Signal display and the LSL display, **Trace shading**, chooses how traces are drawn:
+  - **Density shading** (the default): each pixel column of a dense trace is split into sub-columns, one per whole sample in it and at most four, as many as the samples of the antialiasing layer. They are drawn see-through, so that a pixel all of them pass is 95 % opaque and one only some of them pass is lighter: the trace is darker where it passes more often, as on an analogue oscilloscope, and a rare spike shows, lighter. A trace with fewer samples than pixels is drawn opaque, as before.
+  - **Transparent**: every trace 60 % opaque, whatever its density, so that overlapping traces, as in Multiview, show through each other.
+- The number of sub-columns goes by the spacing of the samples, not by the length of the piece of trace drawn, which in Scan mode changes with every chunk; otherwise the shading would flicker.
+- Like Colour per channel, the entry is in the panel only, not a box setting: it is not saved with the scenario, and the boxes' prototypes are unchanged.
+
+**Consequences**
+- With Density shading, a dense trace draws up to four times the points it did: still a number that goes by the screen's width, not by the number of samples.
+- The shading of a trace changes in steps as the Time Scale grows: from one sample per pixel to four, the sub-columns go from one to four.
+- Tested with `test-signal-display` (6 new tests: the sub-columns, the opacity, the names) and the Simple-visualization scenario. Not yet looked at on screen.
+
 ---
 
 ## 3. All modified files
@@ -1169,11 +1189,11 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmMatrix3dTo2d.cpp` | 2.23 |
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/connectivity/CBoxAlgorithmConnectivityMeasure.cpp` | 2.23 |
 | M | `extras/plugins/processing/stimulation/share/lua-stimulator-stim-codes.lua` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18, 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18, 2.26, 2.28, 2.40 |
 | A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display-xdf.xml` | 2.29, 2.39 |
 | A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` | 2.28, 2.29, 2.39 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_P300SpellerVisualization.dox-part` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26, 2.39 |
+| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26, 2.39, 2.40 |
 | M | `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/qml/P300SpellerVisualization.qml` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml` | 2.28 |
@@ -1198,31 +1218,33 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 | M | `extras/plugins/server-extensions/tcp-tagging-service/test/test_tcptaggingservice.cpp` | 2.19 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.h` | 2.18 |
-| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp` | 2.28, 2.29, 2.39 |
-| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.h` | 2.28, 2.29, 2.39 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp` | 2.28, 2.29, 2.39, 2.40 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.h` | 2.28, 2.29, 2.39, 2.40 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLReader.cpp` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLReader.h` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.h` | 2.29 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28, 2.39 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26, 2.39 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28, 2.39 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28, 2.39, 2.40 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26, 2.39, 2.40 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28, 2.39, 2.40 |
 | M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26, 2.28, 2.39 |
 | M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.cpp` | 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.h` | 2.26, 2.28 |
-| M | `extras/plugins/processing/simple-visualization/src/SDisplaySettings.h` | 2.26, 2.39 |
+| M | `extras/plugins/processing/simple-visualization/src/SDisplaySettings.h` | 2.26, 2.39, 2.40 |
 | A | `extras/plugins/processing/simple-visualization/src/SignalScaling.h` | 2.26 |
+| A | `extras/plugins/processing/simple-visualization/src/TraceShading.h` | 2.40 |
 | A | `extras/plugins/processing/simple-visualization/src/TracePalette.h` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/XDFWriter.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/src/XDFWriter.h` | 2.29 |
 | M | `extras/plugins/processing/simple-visualization/src/defines.hpp` | 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/src/main.cpp` | 2.18, 2.26, 2.28 |
-| M | `extras/plugins/processing/simple-visualization/test/CMakeLists.txt` | 2.18, 2.26, 2.28 |
+| M | `extras/plugins/processing/simple-visualization/test/CMakeLists.txt` | 2.18, 2.26, 2.28, 2.40 |
 | A | `extras/plugins/processing/simple-visualization/test/LSLReaderTest.cpp` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/test/LSLRecorderTest.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/test/P300SpellerStateTest.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp` | 2.26 |
 | A | `extras/plugins/processing/simple-visualization/test/TraceBufferTest.cpp` | 2.26, 2.28 |
+| A | `extras/plugins/processing/simple-visualization/test/TraceShadingTest.cpp` | 2.40 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-lua-test.xml` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-check.py` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-python-test.xml` | 2.18 |

@@ -92,7 +92,7 @@ hides the panel, giving the graph the whole width, and shows it again.
   - Bottom ruler / Left ruler : toggle the time ruler and the amplitude scale bar.
   - Multiview : overlay every channel on a single baseline.
 
-Three further entries exist only in this panel and are not box settings, so they are not saved with
+Four further entries exist only in this panel and are not box settings, so they are not saved with
 the scenario:
 
   - Channels : show or hide individual channels. Select all, Deselect all and Invert selection change
@@ -100,6 +100,12 @@ the scenario:
   - Channels per page : 0 fits every channel in the view; a smaller value keeps each lane that tall
     and makes the view scroll, which is what high channel counts need. Greyed out in Multiview.
   - Colour per channel : colour each trace rather than drawing them all alike.
+  - Trace shading : how the traces are drawn. With more samples than pixels, a trace is drawn as the
+    lowest and highest sample of each pixel column, so that no spike is lost. Density shading (the
+    default) splits each column into up to four, drawn see-through, so that the trace is darker where
+    it passes more often and a rare spike is lighter, as on an analogue oscilloscope; with fewer
+    samples than pixels the trace is drawn opaque. Transparent draws every trace see-through, so that
+    overlapping traces, as in Multiview, show through each other.
  * |OVP_DocEnd_BoxAlgorithm_SignalDisplay_OnlineVisualizationSettings|
 __________________________________________________________________
 

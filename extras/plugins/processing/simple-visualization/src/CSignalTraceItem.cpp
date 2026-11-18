@@ -334,13 +334,19 @@ QSGNode* CSignalTraceItem::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData
             // relative to the run instead would re-bin every sample whenever the run's length
             // changed -- which in Scan mode it does on every chunk, as the split at the write
             // cursor moves -- and the trace would shimmer even on a perfectly steady signal.
-            const qreal colWidth = 1.0 / dpr;  // logical width of one device pixel
+            const qreal pixel    = 1.0 / dpr;  // logical width of one device pixel
             const qreal runEnd   = run.x0 + qreal(run.count) * run.dx;
-            const int   firstCol = int(std::floor(run.x0 / colWidth));
-            const int   lastCol  = int(std::ceil(runEnd / colWidth));
-            const int   columns  = std::max(2, lastCol - firstCol);
-            const bool  decimate = run.count > size_t(columns);
-            const int   vertices = decimate ? 2 * columns : int(run.count);
+            const int   pixels   = std::max(2, int(std::ceil(runEnd / pixel)) - int(std::floor(run.x0 / pixel)));
+            const bool  decimate = run.count > size_t(pixels);
+            // UG fork: with Density shading, a dense trace splits each pixel column into sub-columns, drawn see-through,
+            // so that it is darker where it passes more often (TraceShading.h). The columns are the sub-columns. Their
+            // number goes by the sample spacing, not by the run's length, which in Scan mode changes with every chunk.
+            const int   subColumns = decimate ? subColumnsPerPixel(m_settings.shading, double(pixel / run.dx)) : 1;
+            const qreal colWidth   = pixel / qreal(subColumns);
+            const int   firstCol   = int(std::floor(run.x0 / colWidth));
+            const int   lastCol    = int(std::ceil(runEnd / colWidth));
+            const int   columns    = std::max(2, lastCol - firstCol);
+            const int   vertices   = decimate ? 2 * columns : int(run.count);
 
             QSGGeometryNode* node  = existingGeometryNode(root, used);
             const bool       isNew = node == nullptr;
@@ -422,17 +428,21 @@ QSGNode* CSignalTraceItem::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData
             }
             node->markDirty(QSGNode::DirtyGeometry);
 
+            // UG fork: see-through as the trace shading asks (TraceShading.h); the material blends when not opaque
+            QColor color = row.color;
+            color.setAlphaF(float(color.alphaF() * traceOpacity(m_settings.shading, subColumns)));
+
             auto* material = static_cast<QSGFlatColorMaterial*>(node->material());
             if (material == nullptr)
             {
                 material = new QSGFlatColorMaterial;
-                material->setColor(row.color);
+                material->setColor(color);
                 node->setMaterial(material);
                 node->setFlag(QSGNode::OwnsMaterial);
             }
-            else if (material->color() != row.color)
+            else if (material->color() != color)
             {
-                material->setColor(row.color);
+                material->setColor(color);
                 node->markDirty(QSGNode::DirtyMaterial);
             }
 
