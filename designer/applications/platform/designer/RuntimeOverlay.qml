@@ -19,8 +19,10 @@ import DesignSystem as DS
  * It follows the screen of hostWindow, so on a lab setup with the participant's display on a
  * second screen it stays on the experimenter's. ${Designer_RuntimeOverlay} = false turns it off.
  *
- * While a box of the scenario writes a recording (the BrainVision writer (UG), see RecordingStatus.hpp), a label after
- * the time says so: "Recording", or "Recording paused" while paused, as nothing is written then.
+ * While a box of the scenario writes a recording (the BrainVision writer (UG), see RecordingStatus.hpp), a square after
+ * the time says so: "REC" on red, or on amber while paused, as nothing is written then.
+ *
+ * It raises itself every second while shown, so that windows which also stay on top do not hide it.
  */
 Window {
   id: _root
@@ -59,6 +61,17 @@ Window {
   y: (hostWindow.screen?.virtualY ?? 0) + cornerMargin
   width: _panel.width
   height: _panel.height
+
+  // WindowStaysOnTopHint puts the overlay among the windows that stay on top, but a window that asks
+  // for the same later, a full screen stimulus window for one, goes above it. So it raises itself
+  // again every second while shown; raising takes no focus.
+  Timer {
+    interval: 1000
+    repeat: true
+    triggeredOnStart: true
+    running: _root.visible
+    onTriggered: _root.raise()
+  }
 
   Rectangle {
     id: _panel
@@ -107,21 +120,28 @@ Window {
         }
       }
 
-      // While a box writes a recording, in the colour of the dot
+      // The size of the square: the width of a "Recording" label in small bold type, with its margins
+      TextMetrics {
+        id: _labelMetrics
+        text: "Recording"
+        font.weight: Font.Bold
+        font.pixelSize: DS.Theme.textSmallRegular.pixelSize
+      }
+
+      // While a box writes a recording, a square in the colour of the dot: red, amber while paused
       Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         visible: OVDesigner.recording
-        width: _recordingText.implicitWidth + 2 * DS.Theme.spacingSm
-        height: _recordingText.implicitHeight + 2 * DS.Theme.spacing2xs
-        radius: DS.Theme.radiusXs
+        width: Math.ceil(_labelMetrics.advanceWidth) + 2 * DS.Theme.spacingSm
+        height: width
+        radius: DS.Theme.radiusSm
         color: _statusDot.color
 
         Text {
-          id: _recordingText
           anchors.centerIn: parent
-          text: _root.paused ? qsTr("Recording paused") : qsTr("Recording")
+          text: "REC"
           font.weight: Font.Bold
-          font.pixelSize: DS.Theme.textSmallRegular.pixelSize
+          font.pixelSize: Math.round(parent.width * 0.3)
           // Dark on amber, which white would not stand out on
           color: _root.paused ? "#1A1A1A" : _root.textColor
         }
