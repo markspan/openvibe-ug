@@ -16,6 +16,15 @@ Item {
     /// Show a plain legend instead.
     property bool butterfly: false
 
+    // UG fork: the mark before a channel's name, in the colour of its trace, with Colour per channel on: a short thick
+    // line, like the trace itself. Upstream showed a round dot in Multiview's legend only. SignalDisplay.qml and
+    // LSLDisplay.qml widen the gutter by its width and a gap.
+    component Swatch: Rectangle {
+        width: DS.Theme.spacingSm
+        height: DS.Theme.spacingXs
+        radius: DS.Theme.borderSm
+    }
+
     Column {
         anchors {
             right: parent.right
@@ -37,10 +46,7 @@ Item {
                 spacing: DS.Theme.spacingXs
                 anchors.right: parent.right
 
-                Rectangle {
-                    width: DS.Theme.spacingSm
-                    height: DS.Theme.spacingSm
-                    radius: width / 2
+                Swatch {  // UG fork: the same mark as before a lane's name
                     color: parent.entry ? parent.entry.color : DS.Theme.textPrimary
                     anchors.verticalCenter: parent.verticalCenter
                     visible: _root.trace.perChannelColors
@@ -80,13 +86,31 @@ Item {
                 width: parent.width - DS.Theme.spacingMd
                 spacing: 0
 
-                Label {
+                // UG fork: the name with the colour of its trace before it, see Swatch; upstream had the name alone
+                Item {
                     width: parent.width
-                    text: _lane.entry ? _lane.entry.name : ""
-                    font: DS.Theme.textSmallRegular
-                    color: DS.Theme.textPrimary
-                    elide: Text.ElideLeft
-                    horizontalAlignment: Text.AlignRight
+                    height: _name.height
+
+                    Label {
+                        id: _name
+
+                        anchors.right: parent.right
+                        width: parent.width - (_swatch.visible ? _swatch.width + DS.Theme.spacingXs : 0)
+                        text: _lane.entry ? _lane.entry.name : ""
+                        font: DS.Theme.textSmallRegular
+                        color: DS.Theme.textPrimary
+                        elide: Text.ElideLeft
+                        horizontalAlignment: Text.AlignRight
+                    }
+
+                    Swatch {
+                        id: _swatch
+
+                        x: _name.x + _name.width - _name.contentWidth - DS.Theme.spacingXs - width
+                        anchors.verticalCenter: _name.verticalCenter
+                        color: _lane.entry ? _lane.entry.color : DS.Theme.textPrimary
+                        visible: _root.trace.perChannelColors && _lane.entry !== null
+                    }
                 }
 
                 Label {

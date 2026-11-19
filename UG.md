@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 67 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 68 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 338 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 339 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -67,7 +67,7 @@ Everything outside the files listed here is identical to upstream.
 | Editing a comment | The editor opens at the comment's place on the canvas taken as a place on the screen, often off the screen | It opens in the middle of Designer's window |
 | Installer on GitHub | none; the installer is built on Inria's GitLab runners | A GitHub Actions workflow builds the NSIS installer and a ZIP, by hand or on a version tag, and attaches them to a release |
 | Channel names in scenarios | Not sent; the client labels channels 1, 2, … | Sent to the Acquisition client box and shown in the Signal display and file writers |
-| Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker |
+| Signal display | Trigger shown by stimulation name or `Id 33025`, as small rotated text | Hardware trigger shown as its value (`1`, `12`, …), in a coloured flag on the marker; with Colour per channel, each channel name has the colour of its trace before it |
 | Signal display scaling | Global scaling shares one centre, so channels with a DC offset leave their lanes and the ruler reads ±1.2e+5; the scale refreshes on a timer, with hysteresis; settings that do not apply stay editable; lines not antialiased | Every channel centred on its own signal, also without automatic scaling, so no Vertical Offset; dense traces shaded by density; a "By type" mode (EEG, EOG, digital); the scale worked out once per page and rounded to 1, 2 or 5; settings that do not apply greyed out; antialiased lines; Select all, Deselect all and Invert selection for the channel list; the settings panel can be hidden |
 | BrainVision writer | "(Gipsa)" box writes every stimulation's full ID as a marker | Extra "(UG)" box writes only hardware triggers, as `S  1` … `S255`, into a chosen directory, and the server's montage with its electrode positions |
 | LSL streams | Seen through the acquisition server's LSL driver: one data stream and one marker stream, numbers only, timed when they arrive | "LSL display (UG)" box: any number of data streams of any rate, stacked on one time axis by their LSL times, and number and text markers on all; streams ticked while it runs. "LSL XDF writer (UG)" connected to it records the ticked streams as LabRecorder does, a file each time Record is pressed, of each stream only the channels shown |
@@ -1124,6 +1124,20 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 - None in use. A writer plugin built against the fork's `AbstractWriter` needs rebuilding, as its layout changed.
 - Tested: the build and the whole test suite. **Not looked at on screen:** the buffer levels and driver note with their new colours.
 
+### 2.43 Colour per channel: the colour before each name
+
+**Files**
+- `extras/plugins/processing/simple-visualization/qml/ChannelGutter.qml`, `qml/SignalDisplay.qml`, `qml/LSLDisplay.qml`
+- `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` and `.cpp`, `src/CLSLDisplayController.h`
+- `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part`
+
+**What it does**
+- With *Colour per channel* on, a short thick line in the colour of a channel's trace is drawn just before its name, in the Signal display and the LSL display. With it off, the names are as before.
+- Multiview's legend shows the same mark, in place of upstream's round dot.
+- The gutter widens by the mark's width when the option is on, so that the names are not cut shorter. The controllers tell the QML whether the option is on (`perChannelColors`), as they do for Multiview.
+
+**Consequence:** in a stacked display, which trace is which channel can be read off the colours, also when the lanes are narrow or the traces overlap.
+
 ---
 
 ## 3. All modified files
@@ -1264,12 +1278,13 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 | A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display-xdf.xml` | 2.29, 2.39 |
 | A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` | 2.28, 2.29, 2.39 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_P300SpellerVisualization.dox-part` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26, 2.39, 2.40 |
+| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26, 2.39, 2.40, 2.43 |
 | M | `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/qml/ChannelGutter.qml` | 2.43 |
 | A | `extras/plugins/processing/simple-visualization/qml/P300SpellerVisualization.qml` | 2.18 |
-| A | `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml` | 2.28, 2.41 |
+| A | `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml` | 2.28, 2.41, 2.43 |
 | A | `extras/plugins/processing/simple-visualization/qml/SettingsPanel.qml` | 2.28 |
-| M | `extras/plugins/processing/simple-visualization/qml/SignalDisplay.qml` | 2.26, 2.28, 2.41 |
+| M | `extras/plugins/processing/simple-visualization/qml/SignalDisplay.qml` | 2.26, 2.28, 2.41, 2.43 |
 | M | `extras/plugins/processing/simple-visualization/qml/StimulationOverlay.qml` | 2.11 |
 | A | `extras/plugins/processing/simple-visualization/qml/TracePanel.qml` | 2.41 |
 | M | `extras/plugins/processing/simple-visualization/qml/TimeRuler.qml` | 2.26 |
@@ -1291,13 +1306,13 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/box-algorithms/P300SpellerState.h` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.cpp` | 2.28, 2.29, 2.39, 2.40, 2.41 |
-| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.h` | 2.28, 2.29, 2.39, 2.40, 2.41 |
+| A | `extras/plugins/processing/simple-visualization/src/CLSLDisplayController.h` | 2.28, 2.29, 2.39, 2.40, 2.41, 2.43 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLReader.cpp` | 2.28, 2.42 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLReader.h` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.h` | 2.29 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28, 2.39, 2.40, 2.41 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26, 2.39, 2.40, 2.41 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28, 2.39, 2.40, 2.41, 2.43 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26, 2.39, 2.40, 2.41, 2.43 |
 | M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28, 2.39, 2.40, 2.41 |
 | M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26, 2.28, 2.39, 2.41 |
 | M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.cpp` | 2.26, 2.28 |

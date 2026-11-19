@@ -188,7 +188,9 @@ void CSignalDisplayController::onPanelChange(const EDisplayChange change)
             // QML needs this: paging and the gutter behave differently on a single shared baseline.
             emit settingsChanged();
             break;
-        case EDisplayChange::Drawing: break;
+        case EDisplayChange::Drawing:
+            emit settingsChanged();  // UG fork: Colour per channel widens the gutter (perChannelColors)
+            break;
     }
     if (m_trace != nullptr) { m_trace->setSettings(m_settings); }
     m_layoutDirty = true;

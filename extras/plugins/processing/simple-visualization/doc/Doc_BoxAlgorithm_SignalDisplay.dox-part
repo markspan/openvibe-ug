@@ -99,7 +99,8 @@ the scenario:
     them all at once.
   - Channels per page : 0 fits every channel in the view; a smaller value keeps each lane that tall
     and makes the view scroll, which is what high channel counts need. Greyed out in Multiview.
-  - Colour per channel : colour each trace rather than drawing them all alike.
+  - Colour per channel : colour each trace rather than drawing them all alike. A short line in the colour of its
+    trace is then drawn before each channel name.
   - Trace shading : how the traces are drawn. With more samples than pixels, a trace is drawn as the
     lowest and highest sample of each pixel column, so that no spike is lost. Density shading (the
     default) splits each column into up to four, drawn see-through, so that the trace is darker where

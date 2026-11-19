@@ -21,7 +21,8 @@ Item {
                 widest = Math.max(widest, _nameMetrics.advanceWidth(channel.name), _unitMetrics.advanceWidth(channel.unit ?? ""))
             }
         }
-        const dot = dataSource.butterfly ? DS.Theme.spacingSm + DS.Theme.spacingXs : 0
+        // With Colour per channel, ChannelGutter puts a mark in the trace's colour before each name (Swatch)
+        const dot = dataSource.perChannelColors ? DS.Theme.spacingSm + DS.Theme.spacingXs : 0
         return Math.min(2 * DS.Theme.labelWidthSm, Math.ceil(widest + dot) + DS.Theme.spacingMd)
     }
     readonly property int rulerHeight: dataSource.showTimeRuler ? DS.Theme.labelHeightLg : 0
