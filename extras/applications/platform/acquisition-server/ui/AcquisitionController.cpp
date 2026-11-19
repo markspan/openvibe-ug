@@ -533,6 +533,13 @@ void AcquisitionController::takeOverCharmeleonMontage()
     saveSession();
 }
 
+// UG fork: the kernel's version, so that the title says the same as the log and the saved files
+QString AcquisitionController::version() const
+{
+    if (d == nullptr) { return {}; }
+    return QString::fromUtf8(d->m_kernelCtx.getConfigurationManager().lookUpConfigurationTokenValue("Application_Version").toASCIIString());
+}
+
 QString AcquisitionController::driverNote() const
 {
     return QString::fromStdString(d->m_acquisition->getDriverNote().text);

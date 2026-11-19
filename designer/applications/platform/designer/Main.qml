@@ -22,7 +22,7 @@ ApplicationWindow {
   minimumWidth:  1200
   minimumHeight: 800
 
-  title: qsTr("OpenViBE Designer")
+  title: qsTr("OpenViBE Designer") + (OVDesigner.version ? " " + OVDesigner.version : "")  // UG fork: with the version
 
   // PipelineCanvas is a transparent FocusScope, so this is what shows through as the canvas
   // backdrop. Set explicitly: unlike Window.color it would otherwise follow the Basic style's

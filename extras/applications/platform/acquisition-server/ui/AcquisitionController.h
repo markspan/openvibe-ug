@@ -74,6 +74,8 @@ class AcquisitionController : public QObject
     // UG fork: what the driver says about its settings (e.g. what its montage did, why Play failed) and the
     // channel names it decides itself; upstream shows neither
     Q_PROPERTY(QString driverNote READ driverNote NOTIFY driverStateChanged)
+    // UG fork: the OpenViBE version, for the window title. See UG.md, 2.47.
+    Q_PROPERTY(QString version READ version CONSTANT)
     Q_PROPERTY(NoteLevel driverNoteLevel READ driverNoteLevel NOTIFY driverStateChanged)
     /// One flag per channel name, true for an entry the driver decides; empty when the user decides them all
     Q_PROPERTY(QVariantList channelLocks READ channelLocks NOTIFY driverStateChanged)
@@ -123,6 +125,8 @@ public:
      */
     void takeOverCharmeleonMontage();
     QString driverNote() const;
+    /// UG fork: the version the kernel was built as (${Application_Version}), e.g. "4.0.1-ug.6"; empty without a kernel
+    QString version() const;
     NoteLevel driverNoteLevel() const;
     QVariantList channelLocks() const;
     Q_INVOKABLE void setChannelNames(const QStringList& channelNames);

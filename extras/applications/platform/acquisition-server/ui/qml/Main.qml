@@ -18,7 +18,8 @@ ApplicationWindow {
   minimumHeight: 600
 
   //title of the application
-  title: qsTr("Openvibe Acquisition Server")
+  // UG fork: with the version, and OpenViBE spelt as elsewhere
+  title: qsTr("OpenViBE Acquisition Server") + (controller.version ? " " + controller.version : "")
 
   OV.AcquisitionController {
     id: controller

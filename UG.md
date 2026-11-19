@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 72 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 74 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 341 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 341 files, about 36,100 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -63,6 +63,7 @@ Everything outside the files listed here is identical to upstream.
 | Designer configuration | A `designer.conf` that is not found is skipped without a word; the user's settings are then not loaded, and every session save fails with `${Designer_CustomConfigurationFile} is empty` | The missing file is named in the log, and the user configuration file falls back to `${Path_UserData}/openvibe-designer.conf` |
 | Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; black dot while running, amber while paused; a red dot and a red "REC" square while the BrainVision writer (UG) writes; raises itself every second so that it stays on top |
 | Comments on the canvas | Shown, edited, moved and deleted, but a new one can not be made: nothing starts it | Edit > Add comment, or Ctrl+Shift+C: the text dialog opens at once |
+| Window titles | `OpenViBE Designer`, `Openvibe Acquisition Server` | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran |
 | Acquisition server icon | The same as Designer's | Its own, in the same style: three channels merging into one |
 | Editing a comment | The editor opens at the comment's place on the canvas taken as a place on the screen, often off the screen | It opens in the middle of Designer's window |
 | Installer on GitHub | none; the installer is built on Inria's GitLab runners | A GitHub Actions workflow builds the NSIS installer and a ZIP, by hand or on a version tag, and attaches them to a release |
@@ -1190,6 +1191,20 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 - After a run that stopped by itself, Play runs the scenario again, and boxes can be deleted, cut and pasted, and changes undone, as after a run stopped with Stop.
 - Not reproduced on screen: the cause is read from the code and matches what was seen, but the report did not say whether the scenario had run before.
 
+### 2.47 The version in the window titles
+
+**Files**
+- `designer/applications/platform/designer/Main.qml`, `src/OVDesigner.h`, `src/OVDesigner.cpp` (`version`)
+- `extras/applications/platform/acquisition-server/ui/qml/Main.qml`, `ui/AcquisitionController.h`, `ui/AcquisitionController.cpp` (`version`)
+
+**What it does**
+- The title bars read `OpenViBE Designer 4.0.1-ug.6` and `OpenViBE Acquisition Server 4.0.1-ug.6`. Upstream showed the name alone, and spelt the server's `Openvibe`.
+- The version is the kernel's `${Application_Version}`, which the build takes from the git tag (`CMake/OvVersion.cmake`): the same version that the log and saved scenarios carry. A build between two tags shows how far it is from the last, e.g. `4.0.1-ug.6-2-gabc1234`.
+
+**Consequences**
+- The version is read when CMake configures. `pixi run build` configures every time; a bare `cmake --build build` keeps the version of the last configure.
+- Without a kernel the title is the name alone.
+
 ---
 
 ## 3. All modified files
@@ -1208,7 +1223,7 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 | M | `conda/recipe/meta.yaml` | 2.21 |
 | A | `documentation/TMSiSDK.chm` | 2.1 |
 | M | `designer/applications/platform/designer/CMakeLists.txt` | 2.33, 2.37 |
-| M | `designer/applications/platform/designer/Main.qml` | 2.33, 2.36 |
+| M | `designer/applications/platform/designer/Main.qml` | 2.33, 2.36, 2.47 |
 | M | `designer/applications/platform/designer/MenuModel.qml` | 2.36 |
 | M | `designer/applications/platform/designer/OVVisualization/Comment.qml` | 2.38 |
 | M | `designer/applications/platform/designer/OVVisualization/CommentEditDialog.qml` | 2.38 |
@@ -1218,8 +1233,8 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 | M | `designer/applications/platform/designer/share/designer.conf-base` | 2.33 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12, 2.42, 2.46 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.h` | 2.36 |
-| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33, 2.44, 2.46 |
-| M | `designer/applications/platform/designer/src/OVDesigner.h` | 2.33, 2.44 |
+| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33, 2.44, 2.46, 2.47 |
+| M | `designer/applications/platform/designer/src/OVDesigner.h` | 2.33, 2.44, 2.47 |
 | M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18, 2.23, 2.46 |
 | M | `designer/applications/platform/designer/src/PlayerBridge.h` | 2.44, 2.46 |
 | M | `designer/applications/platform/designer/src/main.cpp` | 2.17 |
@@ -1255,8 +1270,8 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 | A | `extras/applications/platform/acquisition-server/test/CharmeleonMontageTest.cpp` | 2.3 |
 | A | `extras/applications/platform/acquisition-server/test/CircularBufferTest.cpp` | 2.4 |
 | A | `extras/applications/platform/acquisition-server/test/OvMsgSerializerTest.cpp` | 2.7, 2.41 |
-| M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.cpp` | 2.4, 2.6, 2.8, 2.16, 2.41, 2.42 |
-| M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.h` | 2.4, 2.6, 2.8, 2.16, 2.42 |
+| M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.cpp` | 2.4, 2.6, 2.8, 2.16, 2.41, 2.42, 2.47 |
+| M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.h` | 2.4, 2.6, 2.8, 2.16, 2.42, 2.47 |
 | A | `extras/applications/platform/acquisition-server/ui/Charmeleon.cpp` | 2.6, 2.41, 2.42 |
 | A | `extras/applications/platform/acquisition-server/ui/Charmeleon.h` | 2.6, 2.41 |
 | M | `extras/applications/platform/acquisition-server/ui/qml/ChannelRename.qml` | 2.8 |
@@ -1265,7 +1280,7 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 | D | `extras/applications/platform/acquisition-server/ui/qml/DriftControl.qml` | 2.4 |
 | A | `extras/applications/platform/acquisition-server/ui/qml/DriverNote.qml` | 2.16, 2.42 |
 | A | `extras/applications/platform/acquisition-server/ui/qml/LevelBar.qml` | 2.4, 2.42 |
-| M | `extras/applications/platform/acquisition-server/ui/qml/Main.qml` | 2.4, 2.8, 2.16 |
+| M | `extras/applications/platform/acquisition-server/ui/qml/Main.qml` | 2.4, 2.8, 2.16, 2.47 |
 | M | `extras/applications/qml/OVControls/Logger.qml` | 2.23 |
 | M | `extras/applications/qml/OVDesignSystem/Theme.qml` | 2.42 |
 | M | `extras/applications/qml/OVParameters/CMakeLists.txt` | 2.22 |

@@ -1120,6 +1120,13 @@ bool OVDesigner::runtimeOverlayEnabled() const
     return d->m_context == nullptr || d->m_context->getConfigurationManager().expandAsBoolean("${Designer_RuntimeOverlay}", true);
 }
 
+// UG fork: the kernel's version, so that the title says the same as the log and the saved scenarios
+QString OVDesigner::version() const
+{
+    if (d->m_context == nullptr) { return {}; }
+    return QString::fromUtf8(d->m_context->getConfigurationManager().lookUpConfigurationTokenValue("Application_Version").toASCIIString());
+}
+
 QQmlListProperty<DesignerScenario> OVDesigner::scenarios()
 {
     return QQmlListProperty<DesignerScenario>(this, &d->m_scenarios);

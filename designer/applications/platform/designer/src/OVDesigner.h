@@ -33,6 +33,8 @@ class OVDesigner : public QObject
     Q_PROPERTY(QString simulatedTimeMs READ simulatedTimeMs NOTIFY simulatedTimeChanged)
     // UG fork: whether the run time is also shown in a window above all others. See UG.md, 2.33.
     Q_PROPERTY(bool runtimeOverlayEnabled READ runtimeOverlayEnabled CONSTANT)
+    // UG fork: the OpenViBE version, for the window title. See UG.md, 2.47.
+    Q_PROPERTY(QString version READ version CONSTANT)
     // UG fork: whether the scenario shown writes a recording, for the run time overlay. Read as often as the run time.
     Q_PROPERTY(bool recording READ recording NOTIFY simulatedTimeChanged)
     //TODO add signal toast to show messages to the user and ask for confirmation
@@ -102,6 +104,8 @@ public:
      * above all others while a scenario runs. True when the token is not set.
      */
     bool runtimeOverlayEnabled() const;
+    /// UG fork: the version the kernel was built as (${Application_Version}), e.g. "4.0.1-ug.6"; empty without a kernel
+    QString version() const;
     /// UG fork: true while a box of the current scenario writes a recording, e.g. the BrainVision writer (UG)
     bool recording() const;
     bool threadFinished() const;
