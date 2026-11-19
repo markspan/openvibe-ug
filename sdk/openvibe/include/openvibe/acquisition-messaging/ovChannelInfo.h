@@ -15,14 +15,14 @@
  * A client that reads the names only, as the fork's first versions do, does not see the rest; a server that
  * sends the names only leaves the montage empty.
  *
- * In Designer, the Acquisition client box passes the montage on to the other boxes of the scenario, the BrainVision
- * writer, as two configuration tokens of the run (OV_CHANNEL_INFO_MONTAGE_TOKEN and OV_CHANNEL_INFO_POSITIONS_TOKEN):
- * a box between the two, a channel selector or a filter, does not lose them.
+ * In Designer, the Acquisition client box sends the positions on as a channel localisation stream
+ * (OV_TypeId_ChannelLocalisation), in OpenViBE's frame (toChannelLocalisation()); the BrainVision writer (UG) takes
+ * it on an input of its own.
  */
 
+#include <cmath>
 #include <cstddef>
 #include <locale>
-#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -46,10 +46,37 @@ struct ovChannelInfo
     std::vector<Position> positions;  ///< One per channel when there is a montage, else empty
 };
 
-/// Designer configuration token with the montage's file name, empty when the acquisition has none.
-constexpr const char* OV_CHANNEL_INFO_MONTAGE_TOKEN = "AcquisitionServer_Montage";
-/// Designer configuration token with the electrode positions, see encodeElectrodePositions().
-constexpr const char* OV_CHANNEL_INFO_POSITIONS_TOKEN = "AcquisitionServer_ElectrodePositions";
+/// A position in OpenViBE's channel localisation frame: on a unit sphere, x towards the nose, y towards the left ear
+/// (T7), z towards the vertex (Cz), as share/openvibe/electrode_sets/electrode_set_standard_cartesian.txt has them.
+struct ovCartesianPosition
+{
+    double x = 0.0;
+    double y = 0.0;
+    double z = 0.0;
+};
+
+/// @p position in OpenViBE's channel localisation frame.
+inline ovCartesianPosition toChannelLocalisation(const ovChannelInfo::Position& position)
+{
+    const double degrees = std::acos(-1.0) / 180.0;
+    const double theta   = position.theta * degrees;
+    const double phi     = position.phi * degrees;  // from the right ear (T8, y = -1) towards the nose (x = 1)
+    return {std::sin(theta) * std::sin(phi), -std::sin(theta) * std::cos(phi), std::cos(theta)};
+}
+
+/// The position toChannelLocalisation() gave @p cartesian; not known for the origin, or for a value that is not a number.
+inline ovChannelInfo::Position fromChannelLocalisation(const ovCartesianPosition& cartesian)
+{
+    ovChannelInfo::Position position;
+    const double radius = std::sqrt(cartesian.x * cartesian.x + cartesian.y * cartesian.y + cartesian.z * cartesian.z);
+    if (!(radius > 0.0) || !std::isfinite(radius)) { return position; }
+    const double degrees = 180.0 / std::acos(-1.0);
+    position.known       = true;
+    position.theta       = std::acos(std::fmax(-1.0, std::fmin(1.0, cartesian.z / radius))) * degrees;
+    position.phi         = std::atan2(cartesian.x, -cartesian.y) * degrees;
+    if (position.phi < 0.0) { position.phi += 360.0; }
+    return position;
+}
 
 namespace ovChannelInfoDetail {
 
@@ -124,31 +151,4 @@ inline ovChannelInfo decodeChannelInfo(const char* block, const size_t size, con
         if (read(text)) { position = ovChannelInfoDetail::parsePosition(text); }
     }
     return info;
-}
-
-/// The positions of the channels the montage places, for OV_CHANNEL_INFO_POSITIONS_TOKEN: a line per channel, its
-/// name and its position separated by a tab.
-inline std::string encodeElectrodePositions(const ovChannelInfo& info)
-{
-    std::string text;
-    for (size_t i = 0; i < info.names.size() && i < info.positions.size(); ++i) {
-        if (!info.positions[i].known) { continue; }
-        text += info.names[i] + '\t' + ovChannelInfoDetail::formatPosition(info.positions[i]) + '\n';
-    }
-    return text;
-}
-
-/// The positions in OV_CHANNEL_INFO_POSITIONS_TOKEN, by channel name.
-inline std::map<std::string, ovChannelInfo::Position> decodeElectrodePositions(const std::string& text)
-{
-    std::map<std::string, ovChannelInfo::Position> positions;
-    std::istringstream lines(text);
-    std::string line;
-    while (std::getline(lines, line)) {
-        const size_t tab = line.rfind('\t');
-        if (tab == std::string::npos) { continue; }
-        const ovChannelInfo::Position position = ovChannelInfoDetail::parsePosition(line.substr(tab + 1));
-        if (position.known) { positions.emplace(line.substr(0, tab), position); }
-    }
-    return positions;
 }

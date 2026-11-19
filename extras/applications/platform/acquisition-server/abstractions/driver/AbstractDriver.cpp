@@ -72,6 +72,13 @@ void AbstractDriver::setChannelLocks(std::vector<bool> locks)
     notifyStateChanged();
 }
 
+ovChannelInfo AbstractDriver::channelInfo() const
+{
+    ovChannelInfo info;
+    info.names = m_channelNames.value();
+    return info;
+}
+
 void AbstractDriver::notifyStateChanged()
 {
     std::function<void()> listener;

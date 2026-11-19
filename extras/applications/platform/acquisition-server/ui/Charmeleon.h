@@ -9,8 +9,14 @@
  * UG fork: new file, not in upstream OpenViBE, which checks impedances in the server itself.
  */
 
+#include <QObject>
+
 #include <string>
 #include <vector>
+
+#if defined(_WIN32)
+class QWinEventNotifier;
+#endif
 
 namespace Charmeleon {
 
@@ -39,7 +45,7 @@ struct Launched
  * @param executable Full path of Charmeleon.exe.
  * @param montage    Montage (.json) for Charmeleon to open, empty for its default layout. A Charmeleon
  *                   that already runs keeps the montage it has.
- * @param arguments  Further arguments, e.g. which amplifier to open; see AbstractDriver::charmeleonArguments().
+ * @param arguments  Further arguments, e.g. which amplifier to open; see CharmeleonDriver::charmeleonArguments().
  * @param launched   Filled when a new Charmeleon started, which then saves its montage when closed and says
  *                   which file it ended with; left empty when one already ran. Pass it to takeResult() once
  *                   the process has ended.
@@ -55,6 +61,30 @@ struct Result
     std::string file;      ///< The montage file it ended with, empty for none
     bool saved   = false;  ///< True when it saved the montage during its run
     bool unsaved = false;  ///< True when it closed with changes that are not saved
+};
+
+/**
+ * @brief Signals, on the thread that made it, when a Charmeleon the server started has ended.
+ *
+ * Only Windows starts Charmeleon (launch() returns false elsewhere), so elsewhere it never signals; the server's other
+ * code needs no platform test for it.
+ */
+class Watcher final : public QObject
+{
+    Q_OBJECT
+
+public:
+    /// @param launched As launch() filled it; the watcher signals when its process has ended.
+    Watcher(const Launched& launched, QObject* parent);
+
+signals:
+    /// The process has ended; call takeResult() for what it reported.
+    void ended();
+
+#if defined(_WIN32)
+private:
+    QWinEventNotifier* m_notifier = nullptr;
+#endif
 };
 
 /**

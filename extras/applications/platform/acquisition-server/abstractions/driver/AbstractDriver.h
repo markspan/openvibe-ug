@@ -17,6 +17,8 @@
 
 #include <OVAcquisitionAbstractions_Export.h>
 
+#include <openvibe/acquisition-messaging/ovChannelInfo.h>  // UG fork
+
 #include <functional>  // UG fork
 #include <memory>
 #include <mutex>  // UG fork
@@ -122,6 +124,9 @@ public:
      * This allows acquisition-server to output data without copying or transposing, for best efficiency.
      * @endparblock
      *
+     * UG fork: a driver with nothing to hand over may return 0 at once: the server's reader then backs off for a
+     * millisecond (Acquisition::read()), so the driver need not sleep itself.
+     *
      * @param data A pointer to the buffer where the read data will be stored, laid out as above.
      * @param size The maximum number of samples to write (not the number of floats).
      * @return The number of samples actually read, or an error code (typically negative).
@@ -146,34 +151,12 @@ public:
     virtual bool supportsImpedanceCheck() const { return false; }
 
     /**
-     * Returns true if Charmeleon, when installed, should check impedances for this driver's
-     * amplifiers instead of startImpedanceCheck() and friends.
-     */
-    virtual bool usesCharmeleonForImpedance() const { return false; }  // UG fork
-
-    /**
-     * @brief Command-line arguments that make Charmeleon open the amplifier this driver uses, e.g.
-     *        {"--amplifier", "tmsi", "--protocol", "USB", "--device", "..."}; empty to let it choose.
+     * @brief What the acquisition server tells its clients about the channels: their names and, for a driver that
+     *        knows it, the montage that named them, with where each electrode sits (ovChannelInfo.h).
      *
-     * UG fork: upstream has no Charmeleon.
+     * UG fork: upstream sends no channel information. The default gives the names only.
      */
-    virtual std::vector<std::string> charmeleonArguments() const { return {}; }
-    /** Path of the Charmeleon montage the driver uses, which Charmeleon then opens; empty for none. */
-    virtual std::string charmeleonMontage() const { return {}; }  // UG fork
-    /**
-     * @brief The driver's Montage setting as the user gave it, empty for none; the acquisition server sends the
-     *        montage's name and electrode positions to its clients with the channel names (ovChannelInfo.h).
-     *
-     * UG fork: upstream has no montages.
-     */
-    virtual std::string montageSetting() const { return {}; }
-    /**
-     * @brief Takes over the montage Charmeleon saved, e.g. after editing it: the driver reads it again, and uses
-     *        @p path from now on when it is another file than its own (Charmeleon's Save As).
-     *
-     * UG fork: upstream has no Charmeleon.
-     */
-    virtual void takeOverCharmeleonMontage(const std::string& /*path*/) {}
+    virtual ovChannelInfo channelInfo() const;
 
     /**
      * @brief How full the amplifier's own sample buffer got, and how many samples it lost, as far as the driver can

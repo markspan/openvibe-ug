@@ -23,62 +23,11 @@
 #include <memory>
 #include "CClient.h"
 
-#ifndef _WIN32
-#include <fcntl.h>
-#include <sys/select.h>
-#endif
-
 
 namespace Network
 {
     namespace CSC = common;
 
-    namespace
-    {
-        /**
-         * @brief Whether something on this computer already accepts connections on the port.
-         *
-         * UG fork: the server binds with SO_REUSEADDR, which on Windows lets a second server bind a port another one listens
-         * on. Both then run without a word, and a client reaches either one: a second acquisition server, started by mistake,
-         * took the Designer's connections, and the first server's channel names never reached the scenario. A listener on the
-         * port answers a connection from this computer at once; a port nobody listens on is given up after a short wait.
-         */
-        bool somethingListensOn(uint16_t port)
-        {
-            SOCKET probe = socket(AF_INET, SOCK_STREAM, 0);
-            if (probe == INVALID_SOCKET) { return false; }
-#ifdef _WIN32
-            u_long nonBlocking = 1;
-            ioctlsocket(probe, FIONBIO, &nonBlocking);
-#else
-            fcntl(probe, F_SETFL, fcntl(probe, F_GETFL, 0) | O_NONBLOCK);
-#endif
-            SOCKADDR_IN address = {};
-            address.sin_family      = AF_INET;
-            address.sin_port        = htons(port);
-            address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
-            bool listening = connect(probe, reinterpret_cast<SOCKADDR*>(&address), sizeof(address)) == 0;
-            if (!listening)
-            {
-                fd_set writable, failed;
-                FD_ZERO(&writable);
-                FD_ZERO(&failed);
-                FD_SET(probe, &writable);
-                FD_SET(probe, &failed);
-                timeval wait = {0, 300000};  // a listener on this computer answers well within this
-                if (select(int(probe) + 1, nullptr, &writable, &failed, &wait) > 0 && FD_ISSET(probe, &writable))
-                {
-                    int error = 0;
-                    SOCKLEN_T size = sizeof(error);
-                    getsockopt(probe, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&error), &size);
-                    listening = error == 0;
-                }
-            }
-            closesocket(probe);
-            return listening;
-        }
-    }  // namespace
     /**
      * @internal
      * @class CServerPrivate
@@ -531,17 +480,11 @@ namespace Network
     {
         bool bResult = false;
 
-        struct sockaddr sa = { 0 };
+        // UG fork: room for an IPv6 address; upstream's struct sockaddr holds 16 bytes, and an IPv6 address overran it
+        sockaddr_storage sa = {};
         SOCKADDR_IN* sa4 = (SOCKADDR_IN*)&sa;
         SOCKADDR_IN6* sa6 = (SOCKADDR_IN6*)&sa;
-
-        // UG fork: never share the port with another server, see somethingListensOn()
-        if (somethingListensOn(d->port))
-        {
-            fprintf(stderr, "Port %u is in use by another server (another acquisition server?); this one does not listen.\n", unsigned(d->port));
-            d->sock = INVALID_SOCKET;
-            return false;
-        }
+        const int saSize = afInetType == AF_INET6 ? int(sizeof(SOCKADDR_IN6)) : int(sizeof(SOCKADDR_IN));
 
         d->sock = socket(afInetType, SOCK_STREAM, 0);
 
@@ -566,13 +509,25 @@ namespace Network
                     sa6->sin6_scope_id = 0; // No specific scope
                 }
 
-                // Set the socket options to allow reuse of the address
+                // UG fork: the port is this server's alone. Upstream set SO_REUSEADDR, which on Windows lets a second server bind a
+                // port another one listens on: both then ran without a word, and a client reached either one (a second acquisition
+                // server, started by mistake, took the Designer's connections). On Windows SO_EXCLUSIVEADDRUSE makes bind() fail
+                // instead; elsewhere SO_REUSEADDR only allows a restart while the old socket lingers in TIME_WAIT, never two listeners.
+#ifdef _WIN32
+                const int portOption = SO_EXCLUSIVEADDRUSE;
+#else
+                const int portOption = SO_REUSEADDR;
+#endif
                 int opt = 1;
-                if (setsockopt(d->sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) != SOCKET_ERROR)
+                if (setsockopt(d->sock, SOL_SOCKET, portOption, (const char*)&opt, sizeof(opt)) != SOCKET_ERROR)
                 {
-                    if (bind(d->sock, &sa, sizeof(sa)) != SOCKET_ERROR)
+                    if (bind(d->sock, reinterpret_cast<SOCKADDR*>(&sa), saSize) != SOCKET_ERROR)
                     {
                         bResult = listen(d->sock, d->maxClientsCount) != SOCKET_ERROR;
+                    }
+                    else if (NETWORK_ERROR_ADDRESS_IN_USE)
+                    {
+                        fprintf(stderr, "Port %u is in use by another server (another acquisition server?); this one does not listen.\n", unsigned(d->port));
                     }
                     if (!bResult)  // UG fork: upstream kept the socket open when bind() or listen() failed
                     {

@@ -26,6 +26,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     GTest::GTest
     GTest::Main
 )
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE Avrt)  # UG fork: core/Acquisition.cpp's RealtimeThread, as the server
+endif()
 SET_BUILD_PLATFORM()
 
 include(GoogleTest)

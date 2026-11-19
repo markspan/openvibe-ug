@@ -46,7 +46,7 @@ class CSignalDisplayController;
  * The settings are read by name, so their order in the prototype does not matter.
  */
 constexpr const char* DISPLAY_SETTING_NAMES[] = {
-    "Display Mode", "Auto vertical scale", "Vertical Scale", "Vertical Offset", "Time Scale", "Bottom ruler", "Left ruler", "Multiview"
+    "Display Mode", "Auto vertical scale", "Vertical Scale", "Time Scale", "Bottom ruler", "Left ruler", "Multiview"
 };
 void addDisplaySettings(Kernel::IBoxProto& prototype);
 
@@ -73,7 +73,6 @@ bool readDisplaySettings(const Kernel::IBox& box, Kernel::ILogManager& log, Sett
     settings.scaling  = ESignalDisplayScaling(static_cast<uint64_t>(setting("Auto vertical scale")));
 
     settings.verticalScale      = static_cast<double>(setting("Vertical Scale"));
-    settings.baselineOffset     = static_cast<double>(setting("Vertical Offset"));
     settings.timeScaleSeconds   = static_cast<double>(setting("Time Scale"));
     settings.showTimeRuler      = static_cast<bool>(setting("Bottom ruler"));
     settings.showAmplitudeRuler = static_cast<bool>(setting("Left ruler"));

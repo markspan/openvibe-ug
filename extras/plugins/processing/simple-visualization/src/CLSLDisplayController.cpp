@@ -27,8 +27,6 @@ namespace {
 constexpr int TICK_INTERVAL_MS = 16;
 /// How often the list of streams on the network is brought up to date.
 constexpr qint64 LOOKUP_INTERVAL_MS = 1000;
-/// How often the automatic scale is worked out while the first page fills, as the Signal display does.
-constexpr qint64 FIRST_PAGE_RESCALE_MS = 500;
 /// Upper bound on the markers kept, so that a fast marker stream can not grow the list without limit.
 constexpr size_t MAX_MARKERS = 2048;
 /// How often the streams' delays are shown again: often enough to follow, seldom enough to read.
@@ -79,7 +77,6 @@ CLSLStreamView::CLSLStreamView(SLSLOpenedStream stream, QString label, QObject* 
                                                                     names, names);
     connect(m_channelParameter, &Parameters::ParameterMultiSelectObject::valueChanged, this, [this](const QStringList&) { refreshVisibleChannels(); });
     for (int i = 0; i < m_names.size(); ++i) { m_visible.append(i); }
-    m_sinceScaleRefresh.start();
 }
 
 CLSLStreamView::~CLSLStreamView()
@@ -95,21 +92,18 @@ void CLSLStreamView::attachTrace(QQuickItem* item)
     if (!m_trace) { return; }
     m_trace->setBuffer(m_stream.ring.get());
     m_trace->setSettings(m_settings);
-    m_trace->setPerChannelColors(m_perChannelColors);
     m_trace->setChannelKinds(m_kinds);
     refreshVisibleChannels();
 }
 
-void CLSLStreamView::applySettings(const SDisplaySettings& settings, const bool perChannelColors)
+void CLSLStreamView::applySettings(const SDisplaySettings& settings)
 {
-    m_settings         = settings;
-    m_perChannelColors = perChannelColors;
+    m_settings = settings;
     if (m_trace)
     {
         m_trace->setSettings(m_settings);
-        m_trace->setPerChannelColors(m_perChannelColors);
+        m_trace->requestRescale();
     }
-    m_rescale     = true;
     m_layoutDirty = true;
 }
 
@@ -130,7 +124,7 @@ void CLSLStreamView::refreshVisibleChannels()
         m_trace->setChannelColors(colors);
         m_trace->setVisibleChannels(visible);
     }
-    m_rescale     = true;
+    if (m_trace) { m_trace->requestRescale(); }
     m_layoutDirty = true;
     emit channelsChanged();
 }
@@ -160,39 +154,8 @@ void CLSLStreamView::tick(const double scrollLagSeconds)
     if (!m_trace) { return; }
     m_trace->setScrollLagSeconds(m_settings.timeMode == ESignalDisplayMode::Scroll ? scrollLagSeconds : 0.0);
 
-    uint64_t total = 0;
-    size_t capacity = 0, offset = 0;
-    {
-        CTraceBuffer::CReader r(*m_stream.ring);
-        total    = r.totalSamples();
-        capacity = r.valid() ? r.capacity() : 0;
-        offset   = r.slotOffset();
-    }
-    if (total == m_lastRenderedTotal && !m_layoutDirty) { return; }
-
-    // The automatic scale, worked out again for every new page, as in the Signal display; a page starts where the cursor
-    // starts again at the left, which in a time-locked ring is not at sample 0
-    if (m_settings.scaling != ESignalDisplayScaling::None && capacity > 0)
-    {
-        const uint64_t page      = (total + offset) / capacity;
-        const bool     firstPage = total < capacity && m_sinceScaleRefresh.elapsed() >= FIRST_PAGE_RESCALE_MS;
-        if (m_rescale || page != m_scaledPage || firstPage)
-        {
-            m_trace->refreshAutoScale();
-            m_scaledPage = page;
-            m_rescale    = false;
-            m_sinceScaleRefresh.restart();
-            m_layoutDirty = true;
-        }
-    }
-    if (m_layoutDirty)
-    {
-        if (m_trace->recomputeLayout()) { emit m_trace->layoutChanged(); }
-        m_layoutDirty = false;
-    }
-    m_trace->notifyTimeWindowChanged();
-    m_trace->update();
-    m_lastRenderedTotal = total;
+    // The scale for a new page, the layout and the redraw, as in the Signal display (CSignalTraceItem::refresh())
+    if (m_trace->refresh(m_layoutDirty)) { m_layoutDirty = false; }
 }
 
 //------------------------------------------------------------------------------------------------
@@ -294,103 +257,31 @@ void CLSLDisplayController::buildParameters()
     connect(m_pStreams, &Parameters::ParameterMultiSelectObject::valueChanged, this, [this](const QStringList&) { selectStreams(); });
     m_parameters.push_back(m_pStreams);
 
-    // The options of the Signal display, named alike, applying to every stream
-    std::vector<std::string> timeModes, scalings;
-    for (const ESignalDisplayMode mode : SDisplaySettings::TIME_MODES) { timeModes.emplace_back(SDisplaySettings::toString(mode)); }
-    for (const ESignalDisplayScaling scaling : SDisplaySettings::SCALINGS) { scalings.emplace_back(SDisplaySettings::toString(scaling)); }
-
-    m_pDisplayMode = new Parameters::ParameterListStringObject("Display Mode", "Scan sweeps a cursor across a fixed axis; Scroll slides the data leftwards",
-                                                              timeModes, SDisplaySettings::toString(m_settings.timeMode));
-    connect(m_pDisplayMode, &Parameters::ParameterListStringObject::valueChanged, this, [this](const QString& value)
-    {
-        if (SDisplaySettings::parseTimeMode(value.toStdString(), m_settings.timeMode)) { applySettings(); }
-    });
-    m_parameters.push_back(m_pDisplayMode);
-
-    m_pScaling = new Parameters::ParameterListStringObject("Auto vertical scale",
-                                                          "Scale each lane on its own, the EEG, EOG and digital channels each together, all lanes "
-                                                          "of a stream together, or not at all. An automatic scale is worked out again for every new page",
-                                                          scalings, SDisplaySettings::toString(m_settings.scaling));
-    connect(m_pScaling, &Parameters::ParameterListStringObject::valueChanged, this, [this](const QString& value)
-    {
-        if (!SDisplaySettings::parseScaling(value.toStdString(), m_settings.scaling)) { return; }
-        applySettings();
-        updateEnabledParameters();
-    });
-    m_parameters.push_back(m_pScaling);
-
-    m_pTimeScale = new Parameters::ParameterDoubleObject("Time Scale", "Duration displayed, in seconds", m_settings.timeScaleSeconds, 0.1, 600.0, 2);
-    connect(m_pTimeScale, &Parameters::ParameterDoubleObject::valueChanged, this, [this](const double& value)
-    {
-        if (value <= 0.0) { return; }
-        m_settings.timeScaleSeconds = value;
-        m_reader->setWindowSeconds(value);
-        for (CLSLStreamView* view : m_views) { view->ring().setWindowSeconds(value); }
-        applySettings();
-    });
-    m_parameters.push_back(m_pTimeScale);
-
-    m_pVerticalScale = new Parameters::ParameterDoubleObject("Vertical Scale", "Signal units filling half a channel lane. Only used when Auto vertical scale is None",
-                                                            m_settings.verticalScale, 1e-3, 1e6, 3);
-    connect(m_pVerticalScale, &Parameters::ParameterDoubleObject::valueChanged, this, [this](const double& value)
-    {
-        if (value <= 0.0) { return; }
-        m_settings.verticalScale = value;
-        applySettings();
-    });
-    m_parameters.push_back(m_pVerticalScale);
-
-    m_pOffset = new Parameters::ParameterDoubleObject("Vertical Offset", "DC level removed from every sample before it is scaled. Only used when Auto vertical scale is None",
-                                                     m_settings.baselineOffset, -1e6, 1e6, 3);
-    connect(m_pOffset, &Parameters::ParameterDoubleObject::valueChanged, this, [this](const double& value)
-    {
-        m_settings.baselineOffset = value;
-        applySettings();
-    });
-    m_parameters.push_back(m_pOffset);
-
-    m_pButterfly = new Parameters::ParameterBoolObject("Multiview", "Overlay the channels of each stream on a single baseline, instead of one lane each",
-                                                      m_settings.layout == ELayoutMode::Butterfly);
-    connect(m_pButterfly, &Parameters::ParameterBoolObject::valueChanged, this, [this](const bool& value)
-    {
-        m_settings.layout = value ? ELayoutMode::Butterfly : ELayoutMode::Stacked;
-        applySettings();
-    });
-    m_parameters.push_back(m_pButterfly);
-
-    m_pColors = new Parameters::ParameterBoolObject("Colour per channel", "Colour each trace instead of drawing them all alike", false);
-    connect(m_pColors, &Parameters::ParameterBoolObject::valueChanged, this, [this](const bool&) { applySettings(); });
-    m_parameters.push_back(m_pColors);
-
-    m_pTimeRuler = new Parameters::ParameterBoolObject("Bottom ruler", "Show the time ruler along the bottom", m_settings.showTimeRuler);
-    connect(m_pTimeRuler, &Parameters::ParameterBoolObject::valueChanged, this, [this](const bool& value)
-    {
-        m_settings.showTimeRuler = value;
-        emit settingsChanged();
-    });
-    m_parameters.push_back(m_pTimeRuler);
-
-    m_pAmpRuler = new Parameters::ParameterBoolObject("Left ruler", "Show the amplitude scale bar along the left", m_settings.showAmplitudeRuler);
-    connect(m_pAmpRuler, &Parameters::ParameterBoolObject::valueChanged, this, [this](const bool& value)
-    {
-        m_settings.showAmplitudeRuler = value;
-        emit settingsChanged();
-    });
-    m_parameters.push_back(m_pAmpRuler);
-
-    updateEnabledParameters();
+    // The options of the Signal display, shared with it (CDisplayPanel), applying to every stream
+    m_panel = std::make_unique<CDisplayPanel>(m_settings, this, [this](const EDisplayChange change) { onPanelChange(change); });
+    for (Parameters::ParameterObject* entry : m_panel->scaleEntries()) { m_parameters.push_back(entry); }
+    for (Parameters::ParameterObject* entry : m_panel->viewEntries()) { m_parameters.push_back(entry); }
 }
 
-void CLSLDisplayController::updateEnabledParameters()
+void CLSLDisplayController::onPanelChange(const EDisplayChange change)
 {
-    const bool fixedScale = m_settings.scaling == ESignalDisplayScaling::None;
-    m_pVerticalScale->setEnabled(fixedScale);
-    m_pOffset->setEnabled(fixedScale);
+    switch (change)
+    {
+        case EDisplayChange::Rulers:
+            emit settingsChanged();
+            return;
+        case EDisplayChange::TimeScale:
+            m_reader->setWindowSeconds(m_settings.timeScaleSeconds);
+            for (CLSLStreamView* view : m_views) { view->ring().setWindowSeconds(m_settings.timeScaleSeconds); }
+            break;
+        default: break;
+    }
+    applySettings();
 }
 
 void CLSLDisplayController::applySettings()
 {
-    for (CLSLStreamView* view : m_views) { view->applySettings(m_settings, m_pColors->value()); }
+    for (CLSLStreamView* view : m_views) { view->applySettings(m_settings); }
     emit settingsChanged();
 }
 
@@ -499,7 +390,7 @@ void CLSLDisplayController::addStream(SLSLOpenedStream stream)
         if (entry.second.uid == stream.info.uid) { label = entry.first; }
     }
     auto* view = new CLSLStreamView(std::move(stream), label, this);
-    view->applySettings(m_settings, m_pColors->value());
+    view->applySettings(m_settings);
     view->channelParameter()->setEnabled(!m_recording);  // a stream that opens while recording is recorded whole
     m_views.push_back(view);
     emit streamsChanged();

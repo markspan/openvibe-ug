@@ -4,7 +4,6 @@
 
 import QtQuick
 import QtQuick.Controls
-import QtQuick.Window  // Screen, for the traces' layer
 
 import DesignSystem as DS
 
@@ -128,12 +127,12 @@ Item {
                     id: _stream
 
                     required property var modelData
-                    readonly property alias trace: _trace
+                    readonly property alias trace: _tracePanel.trace
 
                     width: _column.width
                     height: _root.headerHeight + Math.max(0, _column.height - _streams.count * _root.headerHeight) * _root.weightOf(modelData) / _root.totalWeight
 
-                    Component.onCompleted: modelData.attachTrace(_trace)
+                    Component.onCompleted: modelData.attachTrace(_tracePanel.trace)
 
                     Label {
                         id: _header
@@ -154,53 +153,16 @@ Item {
 
                         anchors { top: _header.bottom; left: parent.left; right: parent.right; bottom: parent.bottom }
 
-                        AmplitudeScaleBar {
-                            id: _amp
+                        // The trace and what goes around it, as in the Signal display
+                        TracePanel {
+                            id: _tracePanel
 
-                            anchors { top: parent.top; left: parent.left; bottom: parent.bottom }
-                            width: _root.ampWidth
-                            visible: dataSource.showAmplitudeRuler
-                            trace: _trace
+                            anchors.fill: parent
+                            ampWidth: _root.ampWidth
+                            gutterWidth: _root.gutterWidth
+                            showAmplitudeRuler: dataSource.showAmplitudeRuler
                             butterfly: dataSource.butterfly
-                        }
-
-                        ChannelGutter {
-                            id: _gutter
-
-                            anchors { top: parent.top; left: _amp.right; bottom: parent.bottom }
-                            width: _root.gutterWidth
-                            trace: _trace
                             channels: _stream.modelData.channels
-                            butterfly: dataSource.butterfly
-                        }
-
-                        SignalTrace {
-                            id: _trace
-
-                            anchors { top: parent.top; left: _gutter.right; right: parent.right; bottom: parent.bottom }
-                            clip: true
-                            traceColor: DS.Theme.textPrimary
-
-                            // Antialiased lines, as in the Signal display
-                            layer.enabled: Math.max(width, height) * Screen.devicePixelRatio <= 8192
-                            layer.samples: 4
-                            layer.smooth: true
-                        }
-
-                        // Sweep cursor, Scan mode only
-                        Rectangle {
-                            visible: _trace.cursorX >= 0
-                            x: _trace.x + _trace.cursorX
-                            y: _trace.y
-                            width: DS.Theme.borderMd
-                            height: _trace.height
-                            color: DS.Theme.primary
-                            opacity: 0.7
-                        }
-
-                        StimulationOverlay {
-                            anchors.fill: _trace
-                            trace: _trace
                             stimulations: dataSource.stimulations
                         }
 

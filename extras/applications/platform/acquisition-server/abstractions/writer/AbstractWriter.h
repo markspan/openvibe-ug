@@ -138,5 +138,8 @@ protected:
 
 private:
    ovMsg          m_msg;            ///< Reusable message buffer; pre-allocated to avoid incomplete-type errors.
+   /// UG fork: stimulations waiting in m_msg's array for the chunk that holds their sample. Upstream used the message's
+   /// stimCount for this, which then had to be swapped for the count actually sent around each send().
+   uint32_t       m_pendingStimCount = 0;
    ClientProvider m_clientProvider; ///< Callback providing the list of active client identifiers.
 };

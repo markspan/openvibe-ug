@@ -63,7 +63,9 @@ void CSignalTraceItem::setBuffer(CTraceBuffer* buffer)
 
 void CSignalTraceItem::setSettings(const SDisplaySettings& settings)
 {
-    m_settings = settings;
+    const bool colorsChanged = settings.perChannelColors != m_settings.perChannelColors;  // UG fork: a display setting now
+    m_settings               = settings;
+    if (colorsChanged) { emit traceColorChanged(); }
     if (recomputeLayout()) { emit layoutChanged(); }
     emit timeWindowChanged();
     update();
@@ -95,8 +97,8 @@ void CSignalTraceItem::setTraceColor(const QColor& color)
 
 void CSignalTraceItem::setPerChannelColors(const bool enabled)
 {
-    if (enabled == m_perChannelColors) { return; }
-    m_perChannelColors = enabled;
+    if (enabled == m_settings.perChannelColors) { return; }
+    m_settings.perChannelColors = enabled;
     emit traceColorChanged();
     if (recomputeLayout()) { emit layoutChanged(); }
     update();
@@ -124,30 +126,18 @@ int CSignalTraceItem::scaleGroup(const int channel) const
 
 void CSignalTraceItem::scaleFor(const int channel, double& centre, double& halfRange) const
 {
-    if (m_settings.scaling == ESignalDisplayScaling::None)
-    {
-        centre    = m_settings.baselineOffset;
-        halfRange = m_settings.verticalScale;
-    }
-    // UG fork: every automatic mode keeps a scale per channel. Global and By type share the half-range, not the
-    // centre, so that a channel's DC offset does not push it out of its lane.
-    else if (channel >= 0 && channel < m_scale.size())
-    {
-        centre    = m_scale.at(channel).first;
-        halfRange = m_scale.at(channel).second;
-    }
-    else
-    {
-        centre    = 0.0;
-        halfRange = m_settings.verticalScale;
-    }
+    // UG fork: every mode keeps a centre per channel, so that a channel's DC offset does not push it out of its lane.
+    // Global and By type share the half-range, not the centre; None takes the half-range from Vertical Scale.
+    const bool known = channel >= 0 && channel < m_scale.size();
+    centre           = known ? m_scale.at(channel).first : 0.0;
+    halfRange        = known && m_settings.scaling != ESignalDisplayScaling::None ? m_scale.at(channel).second : m_settings.verticalScale;
     // Written so that a NaN half-range is caught too.
     if (!(halfRange > MIN_HALF_RANGE)) { halfRange = MIN_HALF_RANGE; }
 }
 
 void CSignalTraceItem::refreshAutoScale()
 {
-    if (m_buffer == nullptr || m_settings.scaling == ESignalDisplayScaling::None) { return; }
+    if (m_buffer == nullptr) { return; }  // UG fork: also with scaling None, for the centres
 
     CTraceBuffer::CReader r(*m_buffer);
     if (!r.valid()) { return; }
@@ -202,6 +192,33 @@ void CSignalTraceItem::refreshAutoScale()
     }
 }
 
+bool CSignalTraceItem::refresh(const bool layoutDirty)
+{
+    if (m_buffer == nullptr) { return false; }
+    uint64_t total = 0;
+    size_t capacity = 0, offset = 0;
+    {
+        CTraceBuffer::CReader r(*m_buffer);
+        total    = r.totalSamples();
+        capacity = r.valid() ? r.capacity() : 0;
+        offset   = r.slotOffset();
+    }
+    if (total == m_lastRenderedTotal && !layoutDirty) { return false; }
+
+    // A page starts where the cursor starts again at the left, which in a time-locked ring (LSL) is not at sample 0
+    bool relayout = layoutDirty;
+    if (capacity > 0 && m_rescale.due((total + offset) / capacity, total < capacity, std::chrono::steady_clock::now()))
+    {
+        refreshAutoScale();
+        relayout = true;
+    }
+    if (relayout && recomputeLayout()) { emit layoutChanged(); }
+    emit timeWindowChanged();
+    update();
+    m_lastRenderedTotal = total;
+    return true;
+}
+
 bool CSignalTraceItem::recomputeLayout()
 {
     QVector<SRow> rows;
@@ -228,7 +245,7 @@ bool CSignalTraceItem::recomputeLayout()
             row.baseline = float(butterfly ? h * 0.5 : (qreal(i) + 0.5) * lane);
             row.gain     = float(halfLane / halfRange);
             row.centre   = float(centre);
-            row.color    = (m_perChannelColors && i < m_colors.size()) ? m_colors.at(i) : m_traceColor;
+            row.color    = (m_settings.perChannelColors && i < m_colors.size()) ? m_colors.at(i) : m_traceColor;
             rows.append(row);
         }
     }
@@ -346,13 +363,19 @@ QSGNode* CSignalTraceItem::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData
             // relative to the run instead would re-bin every sample whenever the run's length
             // changed -- which in Scan mode it does on every chunk, as the split at the write
             // cursor moves -- and the trace would shimmer even on a perfectly steady signal.
-            const qreal colWidth = 1.0 / dpr;  // logical width of one device pixel
+            const qreal pixel    = 1.0 / dpr;  // logical width of one device pixel
             const qreal runEnd   = run.x0 + qreal(run.count) * run.dx;
-            const int   firstCol = int(std::floor(run.x0 / colWidth));
-            const int   lastCol  = int(std::ceil(runEnd / colWidth));
-            const int   columns  = std::max(2, lastCol - firstCol);
-            const bool  decimate = run.count > size_t(columns);
-            const int   vertices = decimate ? 2 * columns : int(run.count);
+            const int   pixels   = std::max(2, int(std::ceil(runEnd / pixel)) - int(std::floor(run.x0 / pixel)));
+            const bool  decimate = run.count > size_t(pixels);
+            // UG fork: with Density shading, a dense trace splits each pixel column into sub-columns, drawn see-through,
+            // so that it is darker where it passes more often (TraceShading.h). The columns are the sub-columns. Their
+            // number goes by the sample spacing, not by the run's length, which in Scan mode changes with every chunk.
+            const int   subColumns = decimate ? subColumnsPerPixel(m_settings.shading, double(pixel / run.dx)) : 1;
+            const qreal colWidth   = pixel / qreal(subColumns);
+            const int   firstCol   = int(std::floor(run.x0 / colWidth));
+            const int   lastCol    = int(std::ceil(runEnd / colWidth));
+            const int   columns    = std::max(2, lastCol - firstCol);
+            const int   vertices   = decimate ? 2 * columns : int(run.count);
 
             QSGGeometryNode* node  = existingGeometryNode(root, used);
             const bool       isNew = node == nullptr;
@@ -434,17 +457,21 @@ QSGNode* CSignalTraceItem::updatePaintNode(QSGNode* oldNode, UpdatePaintNodeData
             }
             node->markDirty(QSGNode::DirtyGeometry);
 
+            // UG fork: see-through as the trace shading asks (TraceShading.h); the material blends when not opaque
+            QColor color = row.color;
+            color.setAlphaF(float(color.alphaF() * traceOpacity(m_settings.shading, subColumns)));
+
             auto* material = static_cast<QSGFlatColorMaterial*>(node->material());
             if (material == nullptr)
             {
                 material = new QSGFlatColorMaterial;
-                material->setColor(row.color);
+                material->setColor(color);
                 node->setMaterial(material);
                 node->setFlag(QSGNode::OwnsMaterial);
             }
-            else if (material->color() != row.color)
+            else if (material->color() != color)
             {
-                material->setColor(row.color);
+                material->setColor(color);
                 node->markDirty(QSGNode::DirtyMaterial);
             }
 

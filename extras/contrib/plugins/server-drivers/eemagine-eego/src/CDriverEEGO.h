@@ -10,13 +10,12 @@
  */
 #pragma once
 
-#include <AbstractDriver.h>
+#include <CharmeleonDriver.h>  // UG fork
 #include <AbstractDriverBuilder.h>
 #include <CharmeleonMontage.h>
 #include <SteadyTrigger.h>  // UG fork
 
 #include <openvibe/parameters/parameterListString.h>
-#include <openvibe/parameters/parameterPath.h>
 
 #include <atomic>
 #include <deque>
@@ -38,13 +37,12 @@ class stream;
 /**
  * \brief Acquisition driver for eemagine eego amplifiers.
  *
- * The amplifier's channels are called EEG1..EEGn (referential) and BIP1..BIPm (bipolar). The channel
- * names list has one entry per amplifier channel, read from the amplifier, and only channels with a name
- * are recorded, in amplifier order. EEG channels start out with their name (EEG1, ...). A Charmeleon
- * montage, applied by the rules in CharmeleonMontage, names them instead: its HardwareChannel n is the n-th
- * referential channel, and EEG channels it leaves out are not recorded; it can also name bipolar channels
- * ("Channel": "BIP1"). On eego the cap fixes which electrode is on which referential channel, so a montage
- * mostly mirrors the cap. Bipolar channels start out empty: giving one a name records it under that name.
+ * The amplifier's channels are called EEG1..EEGn (referential) and BIP1..BIPm (bipolar). The channel names
+ * list and the montage follow the rules of CharmeleonDriver, which this driver shares with the TMSi driver: one
+ * entry per amplifier channel, only channels with a name recorded. The referential channels are the montage's EEG
+ * channels and start out with their name (EEG1, ...); the bipolar ones are its "Channel": "BIP1", ..., and start
+ * out empty. On eego the cap fixes which electrode is on which referential channel, so a montage mostly mirrors
+ * the cap.
  * The stream always carries a trigger and a sample-counter channel on top.
  * UG fork: the EEG and bipolar channels are sent in microvolt, as the TMSi driver sends them; the SDK gives volt. Start
  * checks that the stream lists the channels in the order they were named, and refuses to record otherwise.
@@ -55,7 +53,7 @@ class stream;
  * The SDK allows at most one stream alive per amplifier, which shapes the lifecycle: init() only
  * acquires the amplifier, and the EEG or impedance stream is opened by start() / startImpedanceCheck().
  */
-class CDriverEEGO final : public AbstractDriver
+class CDriverEEGO final : public CharmeleonDriver
 {
 public:
     CDriverEEGO();
@@ -72,29 +70,20 @@ public:
     void getData(samplesBuffer* buff) override;
 
     bool supportsImpedanceCheck() const override { return true; }
-    bool usesCharmeleonForImpedance() const override { return true; }
     /// Makes Charmeleon open an eego amplifier, as this driver does.
     std::vector<std::string> charmeleonArguments() const override;
-    /// The montage file, found as locateCharmeleonMontage() finds it, so that Charmeleon opens the file the driver reads.
-    std::string charmeleonMontage() const override;
-    std::string montageSetting() const override { return m_paramMontage.value(); }
-    /// Reads the montage again, under its new name if Charmeleon saved it under another one.
-    void takeOverCharmeleonMontage(const std::string& path) override;
     bool startImpedanceCheck() override;
     int  readImpedances(double* values, size_t count) override;
     bool stopImpedanceCheck() override;
 
     void setChunkSize(uint32_t chunkSize) override;
 
-    // UG fork: the buffer levels, the channel hints and the channel list read from the amplifier
+    // UG fork: the buffer levels and the channel list read from the amplifier
     /**
      * The most data a read found waiting (the SDK does not tell how full its buffer is, nor how much it holds), and
      * the samples lost, counted from gaps in the amplifier's sample counter channel.
      */
     DeviceBuffer takeDeviceBuffer() override;
-
-    /// BIP1, BIP2, ... for the bipolar channels.
-    std::vector<std::string> channelHints() const override;
 
     OpenViBE::Parameters::Parameters getParameters() override;
 
@@ -109,32 +98,21 @@ private:
     eemagine::sdk::factory& factory();
 
     // UG fork: the channel list, read from the amplifier, and the montage, in place of upstream's bit masks (EEGMask, BIPMask)
-    struct DeviceChannel
+    struct SdkChannel
     {
         unsigned int index; ///< SDK channel index.
         int type;           ///< SDK channel type, reference or bipolar.
         std::string name;   ///< EEG<n> or BIP<n>: eego channels carry a type and an index but no name.
     };
 
+    // What CharmeleonDriver needs to know of the amplifier
+    std::vector<DeviceChannel> deviceChannels() const override;
+    bool isAcquiring() const override { return m_amplifier != nullptr; }
+
     /** Reads the referential and bipolar channels of \p amplifier into m_layout. No stream needed. */
     void readLayout(eemagine::sdk::amplifier& amplifier);
     /** Reads m_layout from the amplifier, acquiring it briefly, unless it is known already. */
     bool queryLayout();
-    /** Gives the channel names list one entry per amplifier channel, see the class description. */
-    bool fitNamesToLayout();
-    /** The montage kind of each channel in m_layout. */
-    std::vector<MontageChannelKind> layoutKinds() const;
-    /**
-     * Applies the montage, if one is set, to \p names, and shows the outcome: a note and the locked entries.
-     * Returns false when the montage is set but can not be used; \p names is then left as it was.
-     */
-    bool applyMontage(std::vector<std::string>& names);
-    /** Applies a newly chosen montage to the channel names list, or restores the amplifier names when it is cleared. */
-    void onMontageChanged();
-    /** Prints \p message and keeps it as the reason the last attempt to start failed. */
-    void report(const std::string& message);
-    /** Ends a failed init(): reports \p message, if any, and shows why Play failed under the settings. Returns false. */
-    bool failInit(const std::string& message = {});
     /**
      * Reads the channel list from the acquired amplifier and picks the channels with a name, into
      * m_selectedChannels; m_channelCount / m_channelNames then describe those, plus the status channels.
@@ -162,18 +140,9 @@ private:
     OpenViBE::Parameters::ParameterListString m_paramSamplingRate;
     OpenViBE::Parameters::ParameterListString m_paramEEGRange; ///< [mV]
     OpenViBE::Parameters::ParameterListString m_paramBIPRange; ///< [mV]
-    OpenViBE::Parameters::ParameterPath       m_paramMontage;
 
     /// Referential then bipolar channels of the amplifier, as it lists them.
-    std::vector<DeviceChannel> m_layout;
-    /// The full channel names list, one entry per amplifier channel, while only the recorded ones are shown. Restored in unInit().
-    std::vector<std::string> m_configuredNames;
-    /// The channel locks that go with m_configuredNames.
-    std::vector<bool> m_configuredLocks;
-    /// What the montage did, shown again once an acquisition has started.
-    Note m_montageNote;
-    /// Why the last attempt to start failed, see report().
-    std::string m_lastError;
+    std::vector<SdkChannel> m_layout;
     /// Channels to record, as SDK channel index and type, in amplifier order.
     std::vector<std::pair<unsigned int, int>> m_selectedChannels;
 

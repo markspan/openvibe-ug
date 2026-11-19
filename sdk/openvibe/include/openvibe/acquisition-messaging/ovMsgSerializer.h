@@ -96,7 +96,8 @@ inline std::pair<size_t, void*> serializeOvMsg(const ovMsg& msg)
 /**
  * @brief Deserializes a binary buffer back into an ovMsg.
  *
- * For OV_MSG_SAMPLES, allocates new arrays for timestamps, samples, and stimulations.
+ * For OV_MSG_SAMPLES, allocates new arrays for timestamps, samples, and stimulations; UG fork: for
+ * OV_MSG_ACQUISITION_CONFIG, the channelNames block, when there is one.
  * The caller is responsible for deleting these with delete[].
  *
  * @param data Pointer to the serialized data.

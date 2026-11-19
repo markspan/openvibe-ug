@@ -16,6 +16,8 @@
 #include <vector>
 
 #if defined(_WIN32)
+#include <QWinEventNotifier>
+
 #include <Windows.h>
 #include <TlHelp32.h>
 #endif
@@ -24,21 +26,37 @@ namespace Charmeleon {
 
 namespace {
 
-std::string toUtf8(const std::filesystem::path& path)
-{
-    const auto utf8 = path.u8string();
-    return std::string(utf8.begin(), utf8.end());
-}
-
-bool isFile(const std::filesystem::path& path)
-{
-    std::error_code ec;
-    return std::filesystem::is_regular_file(path, ec);
-}
-
 #if defined(_WIN32)
 
 const wchar_t* const EXE_NAME = L"Charmeleon.exe";
+
+/**
+ * @brief @p argument as one argument on a Windows command line, quoted when it has to be.
+ *
+ * By the rules CommandLineToArgvW and the C runtime read a command line with: inside quotes, backslashes are literal
+ * except before a quote, so the backslashes before a quote and at the end are doubled, and a quote is escaped. A plain
+ * pair of quotes around "C:\montages\" would otherwise end in an escaped quote.
+ */
+std::wstring quoteArgument(const std::wstring& argument)
+{
+    if (!argument.empty() && argument.find_first_of(L" \t\n\v\"") == std::wstring::npos) { return argument; }
+    std::wstring quoted = L"\"";
+    for (auto it = argument.begin();; ++it) {
+        size_t backslashes = 0;
+        while (it != argument.end() && *it == L'\\') {
+            ++it;
+            ++backslashes;
+        }
+        if (it == argument.end()) {
+            quoted.append(2 * backslashes, L'\\');
+            break;
+        }
+        quoted.append(*it == L'"' ? 2 * backslashes + 1 : backslashes, L'\\');
+        quoted.push_back(*it);
+    }
+    quoted.push_back(L'"');
+    return quoted;
+}
 
 std::vector<DWORD> runningInstances()
 {
@@ -82,18 +100,18 @@ std::string findExecutable(const std::string& configuredPath)
 {
     if (!configuredPath.empty()) {
         const std::filesystem::path configured = std::filesystem::u8path(configuredPath);
-        return isFile(configured) ? toUtf8(configured) : std::string();
+        return isRegularFile(configured) ? pathToUtf8(configured) : std::string();
     }
 
 #if defined(_WIN32)
     // Where its installer put it; the montage reader looks for Charmeleon's montage library there as well
     const std::filesystem::path installed = std::filesystem::u8path(charmeleonInstallFolder());
-    if (!installed.empty() && isFile(installed / EXE_NAME)) { return toUtf8(installed / EXE_NAME); }
+    if (!installed.empty() && isRegularFile(installed / EXE_NAME)) { return pathToUtf8(installed / EXE_NAME); }
 
     wchar_t programFiles[MAX_PATH] = {};
     if (GetEnvironmentVariableW(L"ProgramFiles", programFiles, MAX_PATH) > 0) {
         const std::filesystem::path fallback = std::filesystem::path(programFiles) / L"Charmeleon" / EXE_NAME;
-        if (isFile(fallback)) { return toUtf8(fallback); }
+        if (isRegularFile(fallback)) { return pathToUtf8(fallback); }
     }
 #endif
     return {};
@@ -114,18 +132,18 @@ bool launch(const std::string& executable, const std::string& montage, const std
     const std::filesystem::path exe = std::filesystem::u8path(executable);
     // Charmeleon loads its default layout relative to the working directory, so run it from its own folder
     const std::wstring workingDir = exe.parent_path().wstring();
-    std::wstring commandLine      = L"\"" + exe.wstring() + L"\"";
+    std::wstring commandLine      = quoteArgument(exe.wstring());
     // Absolute, as Charmeleon runs from another directory
     if (!montage.empty()) {
         std::error_code ec;
         const std::filesystem::path path = std::filesystem::absolute(std::filesystem::u8path(montage), ec);
-        commandLine += L" \"" + (ec ? std::filesystem::u8path(montage) : path).wstring() + L"\"";
+        commandLine += L" " + quoteArgument((ec ? std::filesystem::u8path(montage) : path).wstring());
     }
 
-    // UG fork: the amplifier the driver uses, so that Charmeleon does not open another one
-    for (const auto& argument : arguments) { commandLine += L" \"" + std::filesystem::u8path(argument).wstring() + L"\""; }
+    // The amplifier the driver uses, so that Charmeleon does not open another one
+    for (const auto& argument : arguments) { commandLine += L" " + quoteArgument(std::filesystem::u8path(argument).wstring()); }
 
-    // UG fork: Charmeleon saves the montage when Play closes it, and says which file it ended with, so that the
+    // Charmeleon saves the montage when Play closes it, and says which file it ended with, so that the
     // driver can take the edits over. Not ".json", which a Charmeleon before 2.2 would take for the montage.
     std::filesystem::path resultFile;
     if (launched) {
@@ -133,7 +151,7 @@ bool launch(const std::string& executable, const std::string& montage, const std
         const std::filesystem::path temp = std::filesystem::temp_directory_path(ec);
         if (!ec) {
             resultFile = temp / (L"charmeleon-" + std::to_wstring(GetCurrentProcessId()) + L"-" + std::to_wstring(GetTickCount64()) + L".result");
-            commandLine += L" --save-on-close --result \"" + resultFile.wstring() + L"\"";
+            commandLine += L" --save-on-close --result " + quoteArgument(resultFile.wstring());
         }
     }
 
@@ -146,7 +164,7 @@ bool launch(const std::string& executable, const std::string& montage, const std
     CloseHandle(processInfo.hThread);
     if (launched && !resultFile.empty()) {
         launched->process    = processInfo.hProcess;
-        launched->resultFile = toUtf8(resultFile);
+        launched->resultFile = pathToUtf8(resultFile);
     }
     else { CloseHandle(processInfo.hProcess); }
     return true;
@@ -156,6 +174,17 @@ bool launch(const std::string& executable, const std::string& montage, const std
     (void)arguments;
     (void)launched;
     return false;
+#endif
+}
+
+Watcher::Watcher(const Launched& launched, QObject* parent) : QObject(parent)
+{
+#if defined(_WIN32)
+    if (!launched.process) { return; }
+    m_notifier = new QWinEventNotifier(static_cast<HANDLE>(launched.process), this);
+    connect(m_notifier, &QWinEventNotifier::activated, this, &Watcher::ended);
+#else
+    (void)launched;
 #endif
 }
 
@@ -199,17 +228,19 @@ int closeAll(const unsigned long timeoutMs)
 
     // Closing its windows lets Charmeleon release the amplifier on the way out. Keep at it while
     // waiting: a dialog it shows (e.g. "no amplifier, demo mode") closes first, the main window after.
+    // Each round waits on the processes themselves, so that it ends as soon as they have all gone,
+    // rather than sleeping its full length
     constexpr DWORD RETRY_MS = 200;
-    for (DWORD waited = 0; waited < timeoutMs; waited += RETRY_MS) {
-        bool running = false;
+    std::vector<HANDLE> handles;
+    for (const auto& entry : processes) { handles.push_back(entry.second); }
+    const ULONGLONG deadline = GetTickCount64() + timeoutMs;
+    while (!handles.empty() && GetTickCount64() < deadline) {
         for (const auto& [pid, process] : processes) {
-            if (WaitForSingleObject(process, 0) == WAIT_TIMEOUT) {
-                running = true;
-                forEachWindow(pid, [](HWND hwnd) { PostMessageW(hwnd, WM_CLOSE, 0, 0); });
-            }
+            if (WaitForSingleObject(process, 0) == WAIT_TIMEOUT) { forEachWindow(pid, [](HWND hwnd) { PostMessageW(hwnd, WM_CLOSE, 0, 0); }); }
         }
-        if (!running) { break; }
-        Sleep(RETRY_MS);
+        // At most MAXIMUM_WAIT_OBJECTS (64) handles at once; more Charmeleons than that are not waited for here
+        const DWORD count = DWORD((std::min)(handles.size(), size_t(MAXIMUM_WAIT_OBJECTS)));
+        if (WaitForMultipleObjects(count, handles.data(), TRUE, RETRY_MS) != WAIT_TIMEOUT) { break; }
     }
 
     for (const auto& [pid, process] : processes) {

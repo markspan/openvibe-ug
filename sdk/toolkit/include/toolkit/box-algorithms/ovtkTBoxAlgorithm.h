@@ -1,7 +1,9 @@
 #pragma once
 
 #include "../ovtk_base.h"
+#include <algorithm>  // UG fork
 #include <limits>
+#include <string>  // UG fork
 
 namespace OpenViBE {
 namespace Toolkit {
@@ -109,6 +111,7 @@ protected:
         {
             ctx.getStaticBoxContext()->getSettingValue(index, m_settingValue);
             ctx.getStaticBoxContext()->getSettingType(index, m_settingType);
+            useForwardSlashesInPaths();
         }
 
         FSettingValueAutoCast(Kernel::IBoxAlgorithmContext& ctx, const CString& name)
@@ -119,6 +122,7 @@ protected:
         {
             ctx.getStaticBoxContext()->getSettingValue(name, m_settingValue);
             ctx.getStaticBoxContext()->getInterfacorType(Kernel::EBoxInterfacorType::Setting, name, m_settingType);
+            useForwardSlashesInPaths();
         }
 
         FSettingValueAutoCast(Kernel::IBoxAlgorithmContext& ctx, const CIdentifier& identifier)
@@ -129,6 +133,7 @@ protected:
         {
             ctx.getStaticBoxContext()->getSettingValue(identifier, m_settingValue);
             ctx.getStaticBoxContext()->getInterfacorType(Kernel::EBoxInterfacorType::Setting, identifier, m_settingType);
+            useForwardSlashesInPaths();
         }
 
         operator uint32_t() const
@@ -238,6 +243,23 @@ protected:
         explicit operator std::string() const { return m_configManager.expand(m_settingValue).toASCIIString(); }
 
     private:
+        /**
+         * @brief Turns the backslashes of a file or folder setting into forward slashes, on Windows.
+         *
+         * UG fork: there a backslash is a path separator, but token expansion takes it for an escape character and drops it,
+         * so that a box could not open "C:\data\a.ov": it looked for "C:dataa.ov". Windows takes forward slashes as well.
+         * Elsewhere a backslash is no separator, and the value is left as it is.
+         */
+        void useForwardSlashesInPaths()
+        {
+#if defined(_WIN32)
+            if (m_settingType != OV_TypeId_Filename && m_settingType != OV_TypeId_Foldername) { return; }
+            std::string value = m_settingValue.toASCIIString();
+            std::replace(value.begin(), value.end(), '\\', '/');
+            m_settingValue = value.c_str();
+#endif
+        }
+
         Kernel::ILogManager& m_logManager;
         Kernel::CErrorManager& m_errorManager;
         Kernel::ITypeManager& m_typeManager;

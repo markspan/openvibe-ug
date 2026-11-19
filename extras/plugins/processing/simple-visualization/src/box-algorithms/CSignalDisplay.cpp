@@ -38,8 +38,9 @@ namespace Plugins {
 namespace SimpleVisualization {
 
 // UG fork: the box settings, by name, are DISPLAY_SETTING_NAMES in CSignalDisplay.h, shared with the LSL display.
-// "Scale refresh interval (secs)" is gone, as the scale is worked out again for every page. The scenarios in this repository
-// no longer have it; others still play, as settings are read by name and the extra one is not read.
+// "Scale refresh interval (secs)" is gone, as the scale is worked out again for every page, and so is "Vertical Offset", as
+// every channel is centred on its own signal. The scenarios in this repository no longer have them; others still play, as
+// settings are read by name and the extra ones are not read.
 
 void addDisplaySettings(Kernel::IBoxProto& prototype)
 {
@@ -48,7 +49,7 @@ void addDisplaySettings(Kernel::IBoxProto& prototype)
     prototype.addSetting("Auto vertical scale", TypeId_SignalDisplayScaling, "Per channel"); //"Per channel", "By type", "Global", "None"
     // UG fork: no "Scale refresh interval (secs)": the scale is worked out again for every page
     prototype.addSetting("Vertical Scale",OV_TypeId_Float, "100");
-    prototype.addSetting("Vertical Offset",OV_TypeId_Float, "0");
+    // UG fork: no "Vertical Offset": every channel is centred on its own signal, also with Auto vertical scale None
     prototype.addSetting("Time Scale", OV_TypeId_Float, "10");
     prototype.addSetting("Bottom ruler", OV_TypeId_Boolean, "true");
     prototype.addSetting("Left ruler", OV_TypeId_Boolean, "false");

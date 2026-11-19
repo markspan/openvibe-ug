@@ -26,6 +26,7 @@
 
 #include "CLSLReader.h"
 #include "CSignalTraceItem.h"
+#include "DisplayPanel.h"
 #include "SDisplaySettings.h"
 
 class QQmlEngine;
@@ -77,8 +78,8 @@ public:
     CSignalTraceItem* trace() const { return m_trace; }
     Parameters::ParameterMultiSelectObject* channelParameter() const { return m_channelParameter; }
 
-    /// Gives the trace the display settings, and the colouring.
-    void applySettings(const SDisplaySettings& settings, bool perChannelColors);
+    /// Gives the trace the display settings, and works its scale out again.
+    void applySettings(const SDisplaySettings& settings);
     /// Follows the channel selection; called when it changes.
     void refreshVisibleChannels();
     /**
@@ -104,14 +105,9 @@ private:
     Parameters::ParameterMultiSelectObject* m_channelParameter = nullptr;
     QPointer<CSignalTraceItem> m_trace;
     SDisplaySettings m_settings;
-    bool m_perChannelColors = false;
 
     // The automatic scale, worked out again for every page as in CSignalDisplayController::onTick()
-    QElapsedTimer m_sinceScaleRefresh;
-    uint64_t m_scaledPage        = 0;
-    bool m_rescale               = true;
-    uint64_t m_lastRenderedTotal = 0;
-    bool m_layoutDirty           = true;
+    bool m_layoutDirty = true;  ///< A setting or the channels changed since the last refresh, see tick()
 };
 
 /**
@@ -184,7 +180,8 @@ signals:
 private:
     void buildParameters();
     void buildQml(QQmlEngine* engine);
-    void updateEnabledParameters();
+    /// What a change in the panel entries shared with the Signal display does here, see CDisplayPanel.
+    void onPanelChange(EDisplayChange change);
     /// Every view takes the settings again.
     void applySettings();
     /// Lists the streams on the network in the Streams parameter, keeping those selected.
@@ -222,15 +219,7 @@ private:
 
     Parameters::ParameterObjects m_parameters;  ///< The fixed ones; the views add their channel selections
     Parameters::ParameterMultiSelectObject* m_pStreams       = nullptr;
-    Parameters::ParameterListStringObject*  m_pDisplayMode   = nullptr;
-    Parameters::ParameterListStringObject*  m_pScaling       = nullptr;
-    Parameters::ParameterDoubleObject*      m_pTimeScale     = nullptr;
-    Parameters::ParameterDoubleObject*      m_pVerticalScale = nullptr;
-    Parameters::ParameterDoubleObject*      m_pOffset        = nullptr;
-    Parameters::ParameterBoolObject*        m_pButterfly     = nullptr;
-    Parameters::ParameterBoolObject*        m_pColors        = nullptr;
-    Parameters::ParameterBoolObject*        m_pTimeRuler     = nullptr;
-    Parameters::ParameterBoolObject*        m_pAmpRuler      = nullptr;
+    std::unique_ptr<CDisplayPanel>          m_panel;  ///< The entries shared with the Signal display
 };
 
 }  // namespace SimpleVisualization

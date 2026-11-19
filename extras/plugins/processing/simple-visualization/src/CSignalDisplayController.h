@@ -15,6 +15,7 @@
 #include <QVector>
 
 #include <deque>
+#include <memory>  // UG fork
 #include <mutex>
 #include <string>
 #include <utility>
@@ -25,6 +26,7 @@
 
 #include "CSignalTraceItem.h"
 #include "CTraceBuffer.h"
+#include "DisplayPanel.h"  // UG fork
 #include "SDisplaySettings.h"
 
 class QQmlEngine;
@@ -139,8 +141,8 @@ private:
     void rebuildChannelModel();
     void refreshVisibleChannels();
     void pruneStimulations();
-    /// UG fork: greys out the parameters that do not apply with the current settings.
-    void updateEnabledParameters();
+    /// UG fork: what a change in the shared panel entries does here, see CDisplayPanel.
+    void onPanelChange(EDisplayChange change);
 
     Kernel::ILogManager& m_log;
     SDisplaySettings     m_settings;  ///< the single source of truth
@@ -153,11 +155,7 @@ private:
     QQmlEngine*       m_engine = nullptr;
 
     QTimer        m_tick;
-    QElapsedTimer m_sinceScaleRefresh;  ///< UG fork: since the scale was last worked out, see onTick()
-    uint64_t      m_scaledPage = 0;     ///< UG fork: the page the scale was last worked out on
-    bool          m_rescale    = true;  ///< UG fork: work the scale out at the next tick, whatever the page
-    uint64_t      m_lastRenderedTotal = 0;
-    bool          m_layoutDirty       = true;
+    bool          m_layoutDirty = true;  ///< A setting or the channels changed since the last refresh, see onTick()
 
     mutable std::mutex m_metaMutex;
     SPending           m_pending;
@@ -173,15 +171,7 @@ private:
     std::deque<SStimEvent> m_stims;
 
     Parameters::ParameterObjects            m_parameters;
-    Parameters::ParameterListStringObject*  m_pDisplayMode    = nullptr;
-    Parameters::ParameterListStringObject*  m_pScaling        = nullptr;
-    Parameters::ParameterDoubleObject*      m_pVerticalScale  = nullptr;
-    Parameters::ParameterDoubleObject*      m_pBaselineOffset = nullptr;
-    Parameters::ParameterDoubleObject*      m_pTimeScale      = nullptr;
-    Parameters::ParameterBoolObject*        m_pTimeRuler      = nullptr;
-    Parameters::ParameterBoolObject*        m_pAmplitudeRuler = nullptr;
-    Parameters::ParameterBoolObject*        m_pButterfly      = nullptr;
-    Parameters::ParameterBoolObject*        m_pChannelColors  = nullptr;
+    std::unique_ptr<CDisplayPanel>          m_panel;  ///< UG fork: the entries shared with the LSL display
     Parameters::ParameterIntObject*         m_pChannelsPerPage = nullptr;
     Parameters::ParameterMultiSelectObject* m_pChannels       = nullptr;
 };

@@ -15,7 +15,6 @@
 
 #include "Acquisition.h"
 #include "DriftCalculator.h" // for DriftCalculator
-#include "CharmeleonMontage.h"
 
 #include <chrono> // for high_resolution_clock
 #include <iostream>
@@ -28,8 +27,7 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
-#include <avrt.h>
-#pragma comment(lib, "Avrt.lib")
+#include <avrt.h>  // linked in CMakeLists.txt
 #endif
 
 using Clock = std::chrono::steady_clock; ///< Monotonic clock for interval measurements.
@@ -94,40 +92,6 @@ private:
     HANDLE m_task = nullptr;
 #endif
 };
-
-/**
- * @brief The channels as the clients get them: their names, and the montage that named them, with where each
- *        electrode sat, matched to the channels by name.
- *
- * UG fork: so that the montage is chosen once, in the server, and a recording in Designer still gets it (the
- * BrainVision writer's [Coordinates]). Without a montage, or when it can not be read, the names only.
- */
-ovChannelInfo describeChannels(AbstractDriver& driver)
-{
-    ovChannelInfo info;
-    info.names = driver.channelNames().value();
-
-    const std::string setting = driver.montageSetting();
-    if (setting.empty()) { return info; }
-    CharmeleonMontage montage;
-    std::string error;
-    if (!loadCharmeleonMontageSetting(setting, montage, error)) {
-        std::cout << "The montage is not sent to the clients: " << error << std::endl;
-        return info;
-    }
-
-    info.montage = montageName(setting);
-    info.positions.resize(info.names.size());
-    for (size_t i = 0; i < info.names.size(); ++i) {
-        for (const auto& electrode : montage.electrodes) {
-            if (electrode.onHead && electrode.name == info.names[i]) {
-                info.positions[i] = {true, electrode.theta, electrode.phi};
-                break;
-            }
-        }
-    }
-    return info;
-}
 
 }  // namespace
 
@@ -311,7 +275,7 @@ void Acquisition::initAcquisition()
         }
         m_driftCalculator     = std::unique_ptr<DriftCalculator>(new DriftCalculator(sampleRate, m_windowSize)); ///< Create a new drift calculator with the given sample rate and window size.
 
-        m_channelInfo = describeChannels(*m_driver);
+        m_channelInfo = m_driver->channelInfo();  // UG fork: the names, and the montage of a driver that has one
         for (auto& w : m_writers) {
             w->init(m_chunkSampleCount.value(), channelCount);
             w->onAcquisitionSetup(sampleRate, m_channelInfo);  // UG fork: the montage too; upstream passes the names
@@ -333,17 +297,6 @@ void Acquisition::initAcquisition()
 bool Acquisition::supportsImpedanceCheck() const
 {
     return m_driver && m_driver->supportsImpedanceCheck();
-}
-
-/**
- * @brief Checks if the driver hands impedance checking to Charmeleon when it is installed.
- * @return True if Charmeleon should check impedances for this driver, false otherwise.
- *
- * UG fork: upstream has no Charmeleon.
- */
-bool Acquisition::usesCharmeleonForImpedance() const
-{
-    return m_driver && m_driver->usesCharmeleonForImpedance();
 }
 
 /**
@@ -645,12 +598,12 @@ void Acquisition::read(samplesBuffer*& buff)
         write(buff); ///< Write the received data to the processing queue.
     }
 
-    // UG fork: the reader thread runs at multimedia priority (see RealtimeThread), so a driver that returns at once
-    // with nothing (the generic oscillator, LSL) must not keep it spinning. Drivers that wait for data themselves
-    // (TMSi, eego) take longer than this and are not slowed down.
-    if (!gotData && m_bRun && Clock::now() - begin < std::chrono::microseconds(500)) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
+    // UG fork: the reader thread runs at multimedia priority (see RealtimeThread), so a driver that returns at once with
+    // nothing (TMSi, eego, the generic oscillator, LSL) must not keep it spinning. This is the one place that backs off: the
+    // drivers do not sleep themselves. A driver that waits for data itself takes longer than this and is not slowed down.
+    constexpr auto RETURNED_AT_ONCE = std::chrono::microseconds(500);
+    constexpr auto BACK_OFF         = std::chrono::milliseconds(1);
+    if (!gotData && m_bRun && Clock::now() - begin < RETURNED_AT_ONCE) { std::this_thread::sleep_for(BACK_OFF); }
 }
 
 /**

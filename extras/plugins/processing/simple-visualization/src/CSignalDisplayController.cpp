@@ -24,12 +24,6 @@ namespace {
 constexpr int TICK_INTERVAL_MS = 16;
 /** Upper bound on retained markers, so a long run cannot grow the list without limit. */
 constexpr size_t MAX_STIMULATIONS = 512;
-/**
- * UG fork: how often the automatic scale is worked out while the first page fills. After that it is worked out once
- * per page, but the first page would otherwise be drawn for its whole length at a scale guessed before any data.
- */
-constexpr qint64 FIRST_PAGE_RESCALE_MS = 500;
-
 // UG fork: paletteColor() is in TracePalette.h, shared with the LSL display
 
 }  // namespace
@@ -41,7 +35,6 @@ CSignalDisplayController::CSignalDisplayController(Kernel::ILogManager& logManag
     buildParameters();
     buildQml(engine);
 
-    m_sinceScaleRefresh.start();
     m_tick.setInterval(TICK_INTERVAL_MS);
     m_tick.setTimerType(Qt::PreciseTimer);
     connect(&m_tick, &QTimer::timeout, this, &CSignalDisplayController::onTick);
@@ -155,72 +148,9 @@ QJSValue CSignalDisplayController::parameters() const
 
 void CSignalDisplayController::buildParameters()
 {
-    // UG fork: the names of the list entries come from SDisplaySettings, as do those of the box setting
-    std::vector<std::string> timeModes;
-    for (const ESignalDisplayMode mode : SDisplaySettings::TIME_MODES) { timeModes.emplace_back(SDisplaySettings::toString(mode)); }
-    m_pDisplayMode = new Parameters::ParameterListStringObject("Display Mode", "Scan sweeps a cursor across a fixed axis; Scroll slides the data leftwards",
-                                                              timeModes, SDisplaySettings::toString(m_settings.timeMode));
-    connect(m_pDisplayMode, &Parameters::ParameterListStringObject::valueChanged, this, [this](const QString& value)
-    {
-        if (!SDisplaySettings::parseTimeMode(value.toStdString(), m_settings.timeMode)) { return; }
-        if (m_trace != nullptr) { m_trace->setSettings(m_settings); }
-        m_layoutDirty = true;
-    });
-    m_parameters.push_back(m_pDisplayMode);
-
-    // UG fork: By type, and the scale is worked out again for every page
-    std::vector<std::string> scalings;
-    for (const ESignalDisplayScaling scaling : SDisplaySettings::SCALINGS) { scalings.emplace_back(SDisplaySettings::toString(scaling)); }
-    m_pScaling = new Parameters::ParameterListStringObject("Auto vertical scale",
-                                                          "Scale each lane on its own, the EEG, EOG and digital channels each together, all lanes "
-                                                          "together, or not at all. An automatic scale is worked out again for every new page",
-                                                          scalings, SDisplaySettings::toString(m_settings.scaling));
-    connect(m_pScaling, &Parameters::ParameterListStringObject::valueChanged, this, [this](const QString& value)
-    {
-        if (!SDisplaySettings::parseScaling(value.toStdString(), m_settings.scaling)) { return; }
-        if (m_trace != nullptr) { m_trace->setSettings(m_settings); }
-        // UG fork: the next tick works the scale out, for the new mode; upstream did it here as well
-        m_rescale     = true;
-        m_layoutDirty = true;
-        updateEnabledParameters();
-    });
-    m_parameters.push_back(m_pScaling);
-
-    m_pTimeScale = new Parameters::ParameterDoubleObject("Time Scale", "Duration displayed, in seconds", m_settings.timeScaleSeconds, 0.1, 600.0, 2);
-    connect(m_pTimeScale, &Parameters::ParameterDoubleObject::valueChanged, this, [this](const double& value)
-    {
-        if (value <= 0.0) { return; }
-        m_settings.timeScaleSeconds = value;
-        m_buffer.setWindowSeconds(value);
-        m_lastRenderedTotal = 0;
-        m_rescale           = true;  // UG fork
-        m_layoutDirty       = true;
-    });
-    m_parameters.push_back(m_pTimeScale);
-
-    m_pVerticalScale = new Parameters::ParameterDoubleObject("Vertical Scale", "Signal units filling half a channel lane. Only used when Auto vertical scale is None",
-                                                            m_settings.verticalScale, 1e-3, 1e6, 3);
-    connect(m_pVerticalScale, &Parameters::ParameterDoubleObject::valueChanged, this, [this](const double& value)
-    {
-        if (value <= 0.0) { return; }
-        m_settings.verticalScale = value;
-        if (m_trace != nullptr) { m_trace->setSettings(m_settings); }
-        m_layoutDirty = true;
-    });
-    m_parameters.push_back(m_pVerticalScale);
-
-    m_pBaselineOffset = new Parameters::ParameterDoubleObject("Vertical Offset", "DC level removed from every sample before it is scaled. Only used when Auto vertical scale is None",
-                                                             m_settings.baselineOffset,
-                                                             -1e6, 1e6, 3);
-    connect(m_pBaselineOffset, &Parameters::ParameterDoubleObject::valueChanged, this, [this](const double& value)
-    {
-        m_settings.baselineOffset = value;
-        if (m_trace != nullptr) { m_trace->setSettings(m_settings); }
-        m_layoutDirty = true;
-    });
-    m_parameters.push_back(m_pBaselineOffset);
-
-    // UG fork: no "Scale refresh interval (secs)" here any more; the scale is worked out once per page
+    // UG fork: the entries shared with the LSL display come from CDisplayPanel; the channel selection is this display's own
+    m_panel = std::make_unique<CDisplayPanel>(m_settings, this, [this](const EDisplayChange change) { onPanelChange(change); });
+    for (Parameters::ParameterObject* entry : m_panel->scaleEntries()) { m_parameters.push_back(entry); }
 
     m_pChannels = new Parameters::ParameterMultiSelectObject("Channels", "Channels to display", {});
     connect(m_pChannels, &Parameters::ParameterMultiSelectObject::valueChanged, this, [this](const QStringList&) { refreshVisibleChannels(); });
@@ -235,52 +165,33 @@ void CSignalDisplayController::buildParameters()
     });
     m_parameters.push_back(m_pChannelsPerPage);
 
-    m_pButterfly = new Parameters::ParameterBoolObject("Multiview", "Overlay every channel on a single baseline, instead of one lane each",
-                                                      m_settings.layout == ELayoutMode::Butterfly);
-    connect(m_pButterfly, &Parameters::ParameterBoolObject::valueChanged, this, [this](const bool& value)
-    {
-        m_settings.layout = value ? ELayoutMode::Butterfly : ELayoutMode::Stacked;
-        if (m_trace) { m_trace->setSettings(m_settings); }
-        m_layoutDirty = true;
-        updateEnabledParameters();  // UG fork: Multiview greys out Channels per page
-        // QML needs this: paging and the gutter behave differently on a single shared baseline.
-        emit settingsChanged();
-    });
-    m_parameters.push_back(m_pButterfly);
-
-    m_pChannelColors = new Parameters::ParameterBoolObject("Colour per channel", "Colour each trace instead of drawing them all alike", false);
-    connect(m_pChannelColors, &Parameters::ParameterBoolObject::valueChanged, this, [this](const bool& value)
-    {
-        if (m_trace != nullptr) { m_trace->setPerChannelColors(value); }
-    });
-    m_parameters.push_back(m_pChannelColors);
-
-    m_pTimeRuler = new Parameters::ParameterBoolObject("Bottom ruler", "Show the time ruler along the bottom", m_settings.showTimeRuler);
-    connect(m_pTimeRuler, &Parameters::ParameterBoolObject::valueChanged, this, [this](const bool& value)
-    {
-        m_settings.showTimeRuler = value;
-        emit settingsChanged();
-    });
-    m_parameters.push_back(m_pTimeRuler);
-
-    m_pAmplitudeRuler = new Parameters::ParameterBoolObject("Left ruler", "Show the amplitude scale bar along the left", m_settings.showAmplitudeRuler);
-    connect(m_pAmplitudeRuler, &Parameters::ParameterBoolObject::valueChanged, this, [this](const bool& value)
-    {
-        m_settings.showAmplitudeRuler = value;
-        emit settingsChanged();
-    });
-    m_parameters.push_back(m_pAmplitudeRuler);
-
-    updateEnabledParameters();
+    for (Parameters::ParameterObject* entry : m_panel->viewEntries()) { m_parameters.push_back(entry); }
+    m_pChannelsPerPage->setEnabled(m_settings.layout != ELayoutMode::Butterfly);  // UG fork: pages only for stacked lanes
 }
 
-void CSignalDisplayController::updateEnabledParameters()
+void CSignalDisplayController::onPanelChange(const EDisplayChange change)
 {
-    // UG fork: the fixed scale and offset apply only without automatic scaling, and pages only to stacked lanes
-    const bool fixedScale = m_settings.scaling == ESignalDisplayScaling::None;
-    m_pVerticalScale->setEnabled(fixedScale);
-    m_pBaselineOffset->setEnabled(fixedScale);
-    m_pChannelsPerPage->setEnabled(m_settings.layout != ELayoutMode::Butterfly);
+    switch (change)
+    {
+        case EDisplayChange::Rulers:
+            emit settingsChanged();
+            return;
+        case EDisplayChange::TimeScale:
+            m_buffer.setWindowSeconds(m_settings.timeScaleSeconds);
+            if (m_trace != nullptr) { m_trace->requestRescale(); }
+            break;
+        case EDisplayChange::Scaling:
+            if (m_trace != nullptr) { m_trace->requestRescale(); }
+            break;
+        case EDisplayChange::Layout:
+            m_pChannelsPerPage->setEnabled(m_settings.layout != ELayoutMode::Butterfly);
+            // QML needs this: paging and the gutter behave differently on a single shared baseline.
+            emit settingsChanged();
+            break;
+        case EDisplayChange::Drawing: break;
+    }
+    if (m_trace != nullptr) { m_trace->setSettings(m_settings); }
+    m_layoutDirty = true;
 }
 
 //------------------------------------------------------------------------------------------------
@@ -361,10 +272,8 @@ void CSignalDisplayController::applyPendingMetadata()
         if (m_trace != nullptr) { m_trace->setChannelKinds(kinds); }
 
         rebuildChannelModel();
-        refreshVisibleChannels();
-        m_lastRenderedTotal = 0;
-        m_rescale           = true;  // UG fork
-        m_layoutDirty       = true;
+        refreshVisibleChannels();  // which asks for the scale to be worked out again, see there
+        m_layoutDirty = true;
     }
 
     if (pending.units)
@@ -429,8 +338,8 @@ void CSignalDisplayController::refreshVisibleChannels()
     {
         m_trace->setChannelColors(colors);
         m_trace->setVisibleChannels(visible);
+        m_trace->requestRescale();  // UG fork: a channel shown again, or one fewer in its group, changes the scale
     }
-    m_rescale     = true;  // UG fork: a channel shown again, or one fewer in its group, changes the scale
     m_layoutDirty = true;
     emit channelsChanged();
 }
@@ -472,42 +381,10 @@ void CSignalDisplayController::onTick()
     applyPendingMetadata();
     if (m_trace == nullptr) { return; }
 
-    uint64_t total    = 0;
-    size_t   capacity = 0;
-    {
-        CTraceBuffer::CReader r(m_buffer);
-        total    = r.totalSamples();
-        capacity = r.valid() ? r.capacity() : 0;
-    }
-    if (total == m_lastRenderedTotal && !m_layoutDirty) { return; }
-
-    // UG fork: the automatic scale is worked out again for every new page, from the page just drawn: in Scan mode when
-    // the cursor starts again at the left, in Scroll mode every window length. While the first page fills, it is
-    // worked out every FIRST_PAGE_RESCALE_MS.
-    if (m_settings.scaling != ESignalDisplayScaling::None && capacity > 0)
-    {
-        const uint64_t page      = total / capacity;
-        const bool     firstPage = page == 0 && m_sinceScaleRefresh.elapsed() >= FIRST_PAGE_RESCALE_MS;
-        if (m_rescale || page != m_scaledPage || firstPage)
-        {
-            m_trace->refreshAutoScale();
-            m_scaledPage = page;
-            m_rescale    = false;
-            m_sinceScaleRefresh.restart();
-            m_layoutDirty = true;
-        }
-    }
-
-    if (m_layoutDirty)
-    {
-        if (m_trace->recomputeLayout()) { emit m_trace->layoutChanged(); }
-        m_layoutDirty = false;
-    }
-
+    // UG fork: the scale for a new page, the layout and the redraw, as in the LSL display (CSignalTraceItem::refresh())
+    if (!m_trace->refresh(m_layoutDirty)) { return; }
+    m_layoutDirty = false;
     pruneStimulations();
-    m_trace->notifyTimeWindowChanged();
-    m_trace->update();
-    m_lastRenderedTotal = total;
 }
 
 }  // namespace SimpleVisualization

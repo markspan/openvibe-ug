@@ -9,6 +9,7 @@
 #include <string>
 
 #include "defines.hpp"
+#include "TraceShading.h"  // UG fork
 
 namespace OpenViBE {
 namespace Plugins {
@@ -37,12 +38,14 @@ struct SDisplaySettings
     // UG fork: no scale refresh interval; an automatic scale is worked out again for every new page
     /** Signal units filling half a lane. Only consulted when scaling == None. */
     double                verticalScale       = 100.0;
-    /** DC level subtracted from every sample before scaling. Only consulted when scaling == None. */
-    double                baselineOffset      = 0.0;
+    // UG fork: no vertical offset; every channel is centred on its own signal, also when scaling == None
     double                timeScaleSeconds    = 10.0;
     bool                  showTimeRuler       = true;
     bool                  showAmplitudeRuler  = true;
     ELayoutMode           layout              = ELayoutMode::Stacked;
+    // UG fork: panel entries only, not box settings, so not saved with the scenario
+    ETraceShading         shading             = ETraceShading::Density;  ///< "Trace shading"
+    bool                  perChannelColors    = false;                    ///< "Colour per channel"
 
     /**
      * \brief Lowercases and drops every non-alphanumeric character.

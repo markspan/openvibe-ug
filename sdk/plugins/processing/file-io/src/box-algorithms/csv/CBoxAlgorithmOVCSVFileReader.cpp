@@ -48,7 +48,7 @@ bool CBoxAlgorithmOVCSVFileReader::initialize()
     const CString filename = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 0);
     OV_ERROR_UNLESS_KRF(m_readerLib->openFile(filename.toASCIIString(), CSV::EFileAccessMode::Read),
                         // UG fork: names the file and the setting. See UG.md, 2.23.
-                        "the file [" << filename << "] from this box's setting \"Filename\" could not be opened. Paths need forward slashes, as a backslash is lost on the way to a box. "
+                        "the file [" << filename << "] from this box's setting \"Filename\" could not be opened. "
                         "Perhaps it does not exist, or the path is misspelt. Would you be so very kind as to check it? Thank you for your patience."
                         << (m_readerLib->getLastErrorString().empty() ? "" : " Details: " + m_readerLib->getLastErrorString()), Kernel::ErrorType::Internal);
 

@@ -27,6 +27,7 @@ project(${TARGET_NAME} VERSION ${OPENVIBE_MAJOR_VERSION}.${OPENVIBE_MINOR_VERSIO
 ## ############################################################################
 list(APPEND DLL_SOURCES
 	driver/AbstractDriver.cpp
+	driver/CharmeleonDriver.cpp  # UG fork
 	driver/CharmeleonMontage.cpp  # UG fork
 	writer/AbstractWriter.cpp
 )
@@ -36,6 +37,7 @@ list(APPEND DLL_PUBLIC_HEADERS
 	driver/AbstractDriver.h
 	driver/AbstractDriverBuilder.h
 	driver/BlockStamps.h  # UG fork
+	driver/CharmeleonDriver.h  # UG fork
 	driver/CharmeleonMontage.h  # UG fork
 	driver/SteadyTrigger.h  # UG fork
 	writer/AbstractWriter.h
@@ -107,6 +109,7 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/samplesBuffer.h
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/driver/AbstractDriver.h
               ${CMAKE_CURRENT_SOURCE_DIR}/driver/AbstractDriverBuilder.h
               ${CMAKE_CURRENT_SOURCE_DIR}/driver/BlockStamps.h  # UG fork
+              ${CMAKE_CURRENT_SOURCE_DIR}/driver/CharmeleonDriver.h  # UG fork
               ${CMAKE_CURRENT_SOURCE_DIR}/driver/CharmeleonMontage.h  # UG fork
               ${CMAKE_CURRENT_SOURCE_DIR}/driver/SteadyTrigger.h  # UG fork
         DESTINATION ${DIST_INCLUDEDIR}/openvibe/acquisition-server/driver/)

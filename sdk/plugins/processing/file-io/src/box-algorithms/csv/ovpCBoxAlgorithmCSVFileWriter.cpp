@@ -72,7 +72,7 @@ bool CBoxAlgorithmCSVFileWriter::initializeFile()
 
     m_fileStream.open(filename.toASCIIString(), std::ios::trunc);
 
-    OV_ERROR_UNLESS_KRF(m_fileStream.is_open(), "the file [" << filename << "] from this box's setting \"Filename\" could not be opened for writing. Paths need forward slashes, as a backslash is lost on the way to a box. Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
+    OV_ERROR_UNLESS_KRF(m_fileStream.is_open(), "the file [" << filename << "] from this box's setting \"Filename\" could not be opened for writing. Perhaps its folder does not exist, or the file is open in another program. Might we trouble you to check? Thank you most kindly.", Kernel::ErrorType::BadFileWrite);
 
     m_fileStream << std::scientific;
     m_fileStream.precision(std::streamsize(precision));
