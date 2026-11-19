@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 74 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 75 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 341 files, about 36,100 lines added and 4,400 removed (of which 3,000 a test input) |
 
@@ -63,7 +63,7 @@ Everything outside the files listed here is identical to upstream.
 | Designer configuration | A `designer.conf` that is not found is skipped without a word; the user's settings are then not loaded, and every session save fails with `${Designer_CustomConfigurationFile} is empty` | The missing file is named in the log, and the user configuration file falls back to `${Path_UserData}/openvibe-designer.conf` |
 | Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; black dot while running, amber while paused; a red dot and a red "REC" square while the BrainVision writer (UG) writes; raises itself every second so that it stays on top |
 | Comments on the canvas | Shown, edited, moved and deleted, but a new one can not be made: nothing starts it | Edit > Add comment, or Ctrl+Shift+C: the text dialog opens at once |
-| Window titles | `OpenViBE Designer`, `Openvibe Acquisition Server` | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran |
+| Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
 | Acquisition server icon | The same as Designer's | Its own, in the same style: three channels merging into one |
 | Editing a comment | The editor opens at the comment's place on the canvas taken as a place on the screen, often off the screen | It opens in the middle of Designer's window |
 | Installer on GitHub | none; the installer is built on Inria's GitLab runners | A GitHub Actions workflow builds the NSIS installer and a ZIP, by hand or on a version tag, and attaches them to a release |
@@ -1191,19 +1191,23 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 - After a run that stopped by itself, Play runs the scenario again, and boxes can be deleted, cut and pasted, and changes undone, as after a run stopped with Stop.
 - Not reproduced on screen: the cause is read from the code and matches what was seen, but the report did not say whether the scenario had run before.
 
-### 2.47 The version in the window titles
+### 2.47 The version in the window titles and the BrainVision header
 
 **Files**
 - `designer/applications/platform/designer/Main.qml`, `src/OVDesigner.h`, `src/OVDesigner.cpp` (`version`)
 - `extras/applications/platform/acquisition-server/ui/qml/Main.qml`, `ui/AcquisitionController.h`, `ui/AcquisitionController.cpp` (`version`)
+- `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp`, `scripts/check_brainvision.py`, `test/CMakeLists.txt`
 
 **What it does**
 - The title bars read `OpenViBE Designer 4.0.1-ug.6` and `OpenViBE Acquisition Server 4.0.1-ug.6`. Upstream showed the name alone, and spelt the server's `Openvibe`.
+- The `.vhdr` written by the BrainVision Format file writer (UG) names it too, in its second line, a comment (`; Data created by OpenViBE 4.0.1-ug.6, BrainVision Format file writer (UG)`), and in the free text of `[Comment]`, which BrainVision Analyzer shows (`Recorded with OpenViBE 4.0.1-ug.6`). The second line said the Vision Recorder had made the file, as the Gipsa writer it was ported from did. Readers skip both places, so the file reads as before.
 - The version is the kernel's `${Application_Version}`, which the build takes from the git tag (`CMake/OvVersion.cmake`): the same version that the log and saved scenarios carry. A build between two tags shows how far it is from the last, e.g. `4.0.1-ug.6-2-gabc1234`.
 
 **Consequences**
 - The version is read when CMake configures. `pixi run build` configures every time; a bare `cmake --build build` keeps the version of the last configure.
 - Without a kernel the title is the name alone.
+- `check_brainvision.py` reports the version it finds; `--expect-version` makes another one an error. The writer's test requires the build's own version.
+- Not tried in BrainVision Analyzer, EEGLAB or MNE.
 
 ---
 
@@ -1292,14 +1296,14 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 | M | `extras/applications/qml/OVParameters/src/parameterPathObject.h` | 2.13 |
 | A | `extras/applications/qml/OVParameters/test/CMakeLists.txt` | 2.22 |
 | A | `extras/applications/qml/OVParameters/test/ParameterPathObjectTest.cpp` | 2.22 |
-| A | `extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py` | 2.27, 2.45 |
+| A | `extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py` | 2.27, 2.45, 2.47 |
 | A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/BrainVisionUG.h` | 2.27 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9, 2.27, 2.41, 2.44, 2.45 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9, 2.27, 2.41, 2.44, 2.45, 2.47 |
 | A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9, 2.27, 2.41, 2.44, 2.45 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_defines.h` | 2.9 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_main.cpp` | 2.9 |
 | A | `extras/contrib/plugins/processing/file-io/test/BrainVisionUGTest.cpp` | 2.27 |
-| M | `extras/contrib/plugins/processing/file-io/test/CMakeLists.txt` | 2.27, 2.45 |
+| M | `extras/contrib/plugins/processing/file-io/test/CMakeLists.txt` | 2.27, 2.45, 2.47 |
 | A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-input.csv` | 2.27 |
 | A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-test.xml` | 2.27, 2.41, 2.45 |
 | M | `extras/contrib/plugins/server-drivers/CMakeLists.txt` | 2.2 |

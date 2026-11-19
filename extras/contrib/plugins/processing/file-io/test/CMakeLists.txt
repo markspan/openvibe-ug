@@ -21,13 +21,13 @@ gtest_discover_tests(test-brainvision-ug)
 # UG fork: a signal with a Trigger channel and a DC offset, and its hardware triggers, through the BrainVision Format file
 # writer (UG); then check_brainvision.py checks the files: every marker on its Trigger channel switch, the sample counter
 # whole, the samples all there; and electrode positions from the Electrode localisation file reader, which come after the
-# .vhdr is first written, for Fp1 and Cz
+# .vhdr is first written, for Fp1 and Cz; and the OpenViBE version the header names, which must be this build's
 add_validation_test_without_comparison(scenarios-tests BrainVision-UG-Write)
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_Interpreter_FOUND)
 	add_test(NAME check_BrainVision-UG-Write
 			 COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/check_brainvision.py
 					 ${CMAKE_CURRENT_BINARY_DIR}/scenarios-tests/BrainVision-UG-Write-output.vhdr --expect-markers 10 --expect-samples 3072
-					 --expect-positions 2)
+					 --expect-positions 2 --expect-version ${OPENVIBE_VERSION_FULL})
 	set_tests_properties(check_BrainVision-UG-Write PROPERTIES DEPENDS run_BrainVision-UG-Write)
 endif()

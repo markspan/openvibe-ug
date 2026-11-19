@@ -5,10 +5,11 @@
 
 Usage: python check_brainvision.py recording.vhdr [--trigger NAME] [--counter NAME]
                                    [--expect-markers N] [--expect-samples N] [--expect-positions N]
-                                   [--max-gap-samples N]
+                                   [--max-gap-samples N] [--expect-version VERSION]
 
 What it checks:
-  - the header: format, channel count and names, sampling interval, and the [Coordinates] section if there is one;
+  - the header: format, channel count and names, sampling interval, the [Coordinates] section if there is one, and the
+    OpenViBE version it names;
   - the data file: its size is a whole number of samples, and no value is NaN or infinite;
   - the markers: each lies within the data, and each stimulus "S<code>" sits on the sample where the recorded trigger
     channel switches on that code; each switch on of the trigger channel has its marker;
@@ -118,7 +119,7 @@ def trigger_onsets(trigger, hold=2):
 
 
 def check(vhdr_path, expect_markers=None, expect_samples=None, max_gap_samples=0, trigger_name=None, counter_name=None,
-          expect_positions=None):
+          expect_positions=None, expect_version=None):
     report = Report()
     folder = os.path.dirname(os.path.abspath(vhdr_path))
 
@@ -166,6 +167,12 @@ def check(vhdr_path, expect_markers=None, expect_samples=None, max_gap_samples=0
     elif expect_positions:
         report.error(f"No [Coordinates] section, where electrode positions for {expect_positions} channels were expected")
     report.info(f"{n_channels} channels at {rate:g} Hz, {binary_format}: {', '.join(names)}")
+    with open(vhdr_path, encoding="utf-8", errors="replace") as file:
+        written_by = re.search(r"^; Data created by OpenViBE ([^\s,]*)", file.read(), re.MULTILINE)
+    if written_by:
+        report.info(f"Written by OpenViBE {written_by.group(1) or '(version unknown)'}")
+    if expect_version is not None and (not written_by or written_by.group(1) != expect_version):
+        report.error(f"The header names OpenViBE {written_by.group(1) if written_by else '(none)'}, where {expect_version} was expected")
 
     # ---- data
     data_path = os.path.join(folder, common["DataFile"])
@@ -280,9 +287,10 @@ def main():
     parser.add_argument("--max-gap-samples", type=int, default=0, help="lost samples to accept before it is an error")
     parser.add_argument("--trigger", help="the trigger channel's name")
     parser.add_argument("--counter", help="the sample counter's name")
+    parser.add_argument("--expect-version", help="the OpenViBE version the header must name, e.g. 4.0.1-ug.6")
     args = parser.parse_args()
     report = check(args.vhdr, args.expect_markers, args.expect_samples, args.max_gap_samples, args.trigger, args.counter,
-                   args.expect_positions)
+                   args.expect_positions, args.expect_version)
     sys.exit(1 if report.errors else 0)
 
 

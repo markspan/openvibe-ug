@@ -376,8 +376,12 @@ bool CBoxAlgorithmBrainampFileWriterUG::writeHeaderFile()
             break;
     }
 
+    // UG fork: the OpenViBE that wrote the file, e.g. "OpenViBE 4.0.1-ug.6", where upstream said the Vision Recorder did
+    const std::string version  = this->getConfigurationManager().lookUpConfigurationTokenValue("Application_Version").toASCIIString();
+    const std::string software = version.empty() ? "OpenViBE" : "OpenViBE " + version;
+
     m_headerFile << "Brain Vision Data Exchange Header File Version 1.0" << std::endl
-            << "; Data created by the Vision Recorder" << std::endl << std::endl
+            << "; Data created by " << software << ", BrainVision Format file writer (UG)" << std::endl << std::endl
             << "[Common Infos]" << std::endl
             << "Codepage=UTF-8" << std::endl  // UG fork: what is written, also the "µ" below; upstream said ANSI
             << "DataFile=" << getShortName(m_dataFilename) << std::endl
@@ -432,6 +436,7 @@ bool CBoxAlgorithmBrainampFileWriterUG::writeHeaderFile()
     }
 
     m_headerFile << "[Comment]" << std::endl << std::endl
+            << "Recorded with " << software << std::endl << std::endl  // UG fork
             << "A m p l i f i e r  S e t u p" << std::endl
             << "============================" << std::endl
             << "Number of channels: " << nChannel << std::endl
