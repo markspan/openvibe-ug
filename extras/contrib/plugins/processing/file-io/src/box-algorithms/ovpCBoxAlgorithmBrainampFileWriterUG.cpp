@@ -455,13 +455,6 @@ void CBoxAlgorithmBrainampFileWriterUG::readPositions(const CMatrix& localisatio
                 "the recording has no electrode positions\n";
         return;
     }
-    if (m_isHeaderWritten)
-    {
-        this->getLogManager() << Kernel::LogLevel_Warning << "The channel localisation came after the signal had started; the header "
-                "is written already, so the recording has no electrode positions\n";
-        return;
-    }
-
     m_positions.clear();
     const double* xyz = localisation.getBuffer();
     for (size_t i = 0; i < localisation.getDimensionSize(0); ++i)
@@ -469,6 +462,28 @@ void CBoxAlgorithmBrainampFileWriterUG::readPositions(const CMatrix& localisatio
         const ovChannelInfo::Position position = fromChannelLocalisation({xyz[3 * i], xyz[3 * i + 1], xyz[3 * i + 2]});
         if (position.known) { m_positions[localisation.getDimensionLabel(0, i)] = toBrainVision(position.theta, position.phi); }
     }
+
+    // UG fork: the positions usually come after the .vhdr is written, even when the Acquisition client sends them with the signal's
+    // header: the kernel hands a box its inputs one at a time, and runs process() after each, so the signal's header, on
+    // the first input, is written before the third input is handed over. Positions from another box can come later still.
+    // The .vhdr is small and describes the whole recording, so it is written again with them.
+    if (m_isHeaderWritten && rewriteHeaderFile())
+    {
+        this->getLogManager() << Kernel::LogLevel_Trace << "Header written again with the electrode positions\n";
+    }
+}
+
+bool CBoxAlgorithmBrainampFileWriterUG::rewriteHeaderFile()
+{
+    m_headerFile.close();
+    m_headerFile.open(std::filesystem::u8path(m_headerFilename), std::ios::out | std::ios::trunc);
+    if (!m_headerFile.good())
+    {
+        this->getLogManager() << Kernel::LogLevel_Error << "Could not open header file [" << m_headerFilename << "] again, for the "
+                "electrode positions; it may now be empty\n";
+        return false;
+    }
+    return writeHeaderFile();
 }
 
 std::string CBoxAlgorithmBrainampFileWriterUG::getShortName(std::string fullpath)

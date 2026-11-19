@@ -123,6 +123,8 @@ protected:
     bool flushFiles();
     /// Takes the electrode positions from a channel localisation matrix, rows by channel name, x y z. UG fork.
     void readPositions(const CMatrix& localisation);
+    /// UG fork: writes the .vhdr again, for positions that came after it was written (see readPositions())
+    bool rewriteHeaderFile();
 
     /// A position on a unit sphere, as BrainVision's [Coordinates] has it: theta from the vertex, negative on the
     /// left half of the head, and phi from the right towards the front, between -90 and 90; in degrees.

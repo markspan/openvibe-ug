@@ -4,7 +4,8 @@
 """Checks a recording of the BrainVision Format file writer (UG) for integrity.
 
 Usage: python check_brainvision.py recording.vhdr [--trigger NAME] [--counter NAME]
-                                   [--expect-markers N] [--expect-samples N] [--max-gap-samples N]
+                                   [--expect-markers N] [--expect-samples N] [--expect-positions N]
+                                   [--max-gap-samples N]
 
 What it checks:
   - the header: format, channel count and names, sampling interval, and the [Coordinates] section if there is one;
@@ -116,7 +117,8 @@ def trigger_onsets(trigger, hold=2):
     return onsets
 
 
-def check(vhdr_path, expect_markers=None, expect_samples=None, max_gap_samples=0, trigger_name=None, counter_name=None):
+def check(vhdr_path, expect_markers=None, expect_samples=None, max_gap_samples=0, trigger_name=None, counter_name=None,
+          expect_positions=None):
     report = Report()
     folder = os.path.dirname(os.path.abspath(vhdr_path))
 
@@ -159,6 +161,10 @@ def check(vhdr_path, expect_markers=None, expect_samples=None, max_gap_samples=0
             report.error(f"[Coordinates] has {len(coordinates)} entries for {n_channels} channels")
         placed = sum(1 for value in coordinates.values() if not value.startswith("0,"))
         report.info(f"Electrode positions for {placed} of the {n_channels} channels")
+        if expect_positions is not None and placed != expect_positions:
+            report.error(f"Electrode positions for {placed} channels, where {expect_positions} were expected")
+    elif expect_positions:
+        report.error(f"No [Coordinates] section, where electrode positions for {expect_positions} channels were expected")
     report.info(f"{n_channels} channels at {rate:g} Hz, {binary_format}: {', '.join(names)}")
 
     # ---- data
@@ -270,11 +276,13 @@ def main():
     parser.add_argument("vhdr")
     parser.add_argument("--expect-markers", type=int)
     parser.add_argument("--expect-samples", type=int)
+    parser.add_argument("--expect-positions", type=int, help="channels that must have an electrode position in [Coordinates]")
     parser.add_argument("--max-gap-samples", type=int, default=0, help="lost samples to accept before it is an error")
     parser.add_argument("--trigger", help="the trigger channel's name")
     parser.add_argument("--counter", help="the sample counter's name")
     args = parser.parse_args()
-    report = check(args.vhdr, args.expect_markers, args.expect_samples, args.max_gap_samples, args.trigger, args.counter)
+    report = check(args.vhdr, args.expect_markers, args.expect_samples, args.max_gap_samples, args.trigger, args.counter,
+                   args.expect_positions)
     sys.exit(1 if report.errors else 0)
 
 

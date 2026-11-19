@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 70 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 71 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 341 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
@@ -1091,7 +1091,7 @@ A review of all of the fork's code, on 18 November 2026 ([`review-2026-11-18.md`
 - The 31 scenarios with an Acquisition client box carry the new output and the box's current prototype hash. Their stored hash was that of upstream's full prototype, with all five outputs that upstream has since commented out, so Designer had flagged them as out of date. The writer's test scenario has the new input.
 - A plugin driver built against the fork's `AbstractDriver` needs rebuilding: the Charmeleon functions moved to `CharmeleonDriver`.
 - On Windows a backslash in a file or folder setting can no longer escape a `$` there; nobody is known to have done so.
-- Tested: the build, the whole test suite, Designer opening the changed scenarios without asking to update a box. **Not yet checked on hardware:** the montage reaching a BrainVision file through the new link, the Charmeleon round trip with the base class, and a second server refused by the exclusive bind.
+- Tested: the build, the whole test suite, Designer opening the changed scenarios without asking to update a box. **Not yet checked on hardware:** the Charmeleon round trip with the base class, and a second server refused by the exclusive bind. The montage did not reach a BrainVision file through the new link: fixed in 2.45.
 
 ### 2.42 Smaller fixes from the review
 
@@ -1155,6 +1155,20 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 - The overlay shows the scenario of the current tab (2.33). A recording in a scenario in another tab is not shown.
 - With the overlay turned off (`Designer_RuntimeOverlay = false`) there is no label either.
 - The other writers (CSV, GDF, the Gipsa writer, the LSL XDF writer) do not report it.
+
+### 2.45 Electrode positions reach the BrainVision header
+
+**Files**
+- `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` and `.cpp`
+- `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-test.xml`, `test/CMakeLists.txt`, `scripts/check_brainvision.py`
+
+**The fault:** with the Acquisition client linked to the writer's third input (2.41), the positions never reached the `.vhdr`. The writer warned that the localisation came after the signal had started. The client sends the positions with the signal's header, in the same round, but the kernel hands a box its inputs one at a time and runs its `process()` after each, so the writer wrote the header from the signal on its first input before the third input was handed over. 2.41 had assumed the opposite, and its scenario test had nothing on that input.
+
+**What it does**
+- When the positions come after the `.vhdr` is written, the writer writes the `.vhdr` again, with a `[Coordinates]` section. It is a small text file that describes the whole recording, so nothing else changes. Positions from any other box, at any time, are taken in the same way.
+- The writer's scenario test now feeds the third input from the *Electrode localisation file reader*, with OpenViBE's standard electrode set, which sends the positions in the same round as the signal's header, as the client does. `check_brainvision.py --expect-positions 2` requires positions for Fp1 and Cz. Without the fix the test fails ("No [Coordinates] section").
+
+**Consequence:** recordings made with the montage link get their electrode positions. Recordings made since 4.0.1-ug.4 with the link have none; their `.vhdr` can not be repaired from the recording itself.
 
 ---
 
@@ -1243,16 +1257,16 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 | M | `extras/applications/qml/OVParameters/src/parameterPathObject.h` | 2.13 |
 | A | `extras/applications/qml/OVParameters/test/CMakeLists.txt` | 2.22 |
 | A | `extras/applications/qml/OVParameters/test/ParameterPathObjectTest.cpp` | 2.22 |
-| A | `extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py` | 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py` | 2.27, 2.45 |
 | A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/BrainVisionUG.h` | 2.27 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9, 2.27, 2.41, 2.44 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9, 2.27, 2.41, 2.44 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9, 2.27, 2.41, 2.44, 2.45 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9, 2.27, 2.41, 2.44, 2.45 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_defines.h` | 2.9 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_main.cpp` | 2.9 |
 | A | `extras/contrib/plugins/processing/file-io/test/BrainVisionUGTest.cpp` | 2.27 |
-| M | `extras/contrib/plugins/processing/file-io/test/CMakeLists.txt` | 2.27 |
+| M | `extras/contrib/plugins/processing/file-io/test/CMakeLists.txt` | 2.27, 2.45 |
 | A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-input.csv` | 2.27 |
-| A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-test.xml` | 2.27, 2.41 |
+| A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-test.xml` | 2.27, 2.41, 2.45 |
 | M | `extras/contrib/plugins/server-drivers/CMakeLists.txt` | 2.2 |
 | M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27, 2.41, 2.42 |
 | M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27, 2.41 |

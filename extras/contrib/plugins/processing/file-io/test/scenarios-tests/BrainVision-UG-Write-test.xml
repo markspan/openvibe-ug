@@ -237,6 +237,44 @@
                 </Attribute>
             </Attributes>
         </Box>
+        <Box>
+            <Identifier>(0x00005e1a, 0x00002c7d)</Identifier>
+            <Name>Electrode localisation file reader</Name>
+            <AlgorithmClassIdentifier>(0x40704155, 0x19c50e8f)</AlgorithmClassIdentifier>
+            <Outputs>
+                <Output>
+                    <TypeIdentifier>(0x013df452, 0xa3a8879a)</TypeIdentifier>
+                    <Name>Channel localisation</Name>
+                </Output>
+            </Outputs>
+            <Settings>
+                <Setting>
+                    <TypeIdentifier>(0x330306dd, 0x74a95f98)</TypeIdentifier>
+                    <Name>Filename</Name>
+                    <DefaultValue/>
+                    <Value>${Path_Data}/electrode_sets/electrode_set_standard_cartesian.txt</Value>
+                    <Modifiability>false</Modifiability>
+                </Setting>
+            </Settings>
+            <Attributes>
+                <Attribute>
+                    <Identifier>(0x1fa7a38f, 0x54edbe0b)</Identifier>
+                    <Value>224</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x207c9054, 0x3c841b63)</Identifier>
+                    <Value>368</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0x4e7b798a, 0x183beafb)</Identifier>
+                    <Value>(0x54c15135, 0x285756a5)</Value>
+                </Attribute>
+                <Attribute>
+                    <Identifier>(0xc46b3d00, 0x3e0454e1)</Identifier>
+                    <Value>(0x00000000, 0x00371d9f)</Value>
+                </Attribute>
+            </Attributes>
+        </Box>
     </Boxes>
     <Links>
         <Link>
@@ -281,6 +319,17 @@
             <Target>
                 <BoxIdentifier>(0x000019d1, 0x00003e89)</BoxIdentifier>
                 <BoxInputIndex>0</BoxInputIndex>
+            </Target>
+        </Link>
+        <Link>
+            <Identifier>(0x00002f61, 0x00004a3b)</Identifier>
+            <Source>
+                <BoxIdentifier>(0x00005e1a, 0x00002c7d)</BoxIdentifier>
+                <BoxOutputIndex>0</BoxOutputIndex>
+            </Source>
+            <Target>
+                <BoxIdentifier>(0x0000283c, 0x0000565c)</BoxIdentifier>
+                <BoxInputIndex>2</BoxInputIndex>
             </Target>
         </Link>
     </Links>
