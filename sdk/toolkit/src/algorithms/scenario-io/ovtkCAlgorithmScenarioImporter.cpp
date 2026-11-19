@@ -350,7 +350,9 @@ bool CAlgorithmScenarioImporter::process()
         for (size_t i = 0; i < nbElems; ++i)
         {
             const Kernel::IBox* box = scenario->getBoxDetails(listID[i]);
-            OV_WARNING_K(std::string("Box ") + box->getName().toASCIIString() + " [" + box->getAlgorithmClassIdentifier().str() + "] should be updated. (from CAlgorithmScenarioImporter)");
+            // UG fork: a trace, where upstream warned: Designer updates the box when it opens the scenario, and says so. See UG.md 2.48
+            this->getLogManager() << Kernel::LogLevel_Trace << "Box " << box->getName() << " [" << box->getAlgorithmClassIdentifier().str()
+                    << "] is older than its plugin\n";
         }
         scenario->releaseIdentifierList(listID);
     }

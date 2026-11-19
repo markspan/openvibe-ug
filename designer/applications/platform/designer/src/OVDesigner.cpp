@@ -193,6 +193,7 @@ bool OVDesignerPrivate::openScenario(const std::string &filename)
         QUrl scenarioUrl = QUrl::fromLocalFile(QString::fromStdString(filename));
         newScenario->setFilePath(scenarioUrl);
         m_scenarios.push_back(newScenario);
+        newScenario->updateOutdatedBoxes();  // UG fork: where upstream only warned, see UG.md 2.48
     }
     return res;
 }
@@ -231,7 +232,7 @@ void OVDesignerPrivate::launchScenario(Kernel::EPlayerStatus status, std::functi
                 const Kernel::IBox* box = scenario.getBoxDetails(boxID);
                 outdatedBoxesList += "\t[" + std::string(box->getName()) + "]\n";
             }
-            outdatedBoxesList += "To update a box you need to delete it from scenario, and add it again.";
+            outdatedBoxesList += "To update a box you need to delete it from scenario, and add it again.";  // UG fork: only boxes Designer could not update, see 2.48
             
             m_context->getLogManager() << Kernel::LogLevel_Warning << outdatedBoxesList << "\n";
             //TODO add toast when it's implemented in the GUI

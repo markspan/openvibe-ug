@@ -1563,15 +1563,11 @@ bool CScenario::updateBox(const CIdentifier& boxID)
     OV_ERROR_UNLESS_KRF(itUpdateBox != m_outdatedBoxes.end(), "Box [" << boxID.str() << "] misses an updated version", Kernel::ErrorType::ResourceNotFound);
 
 
-    if (itUpdateBox->second->hasAttribute(OV_AttributeId_Box_FlagNeedsManualUpdate)
-        || itUpdateBox->second->hasAttribute(OV_AttributeId_Box_FlagCanAddInput)
-        || itUpdateBox->second->hasAttribute(OV_AttributeId_Box_FlagCanAddOutput)
-        || itUpdateBox->second->hasAttribute(OV_AttributeId_Box_FlagCanAddSetting)
-        || itUpdateBox->second->hasAttribute(OV_AttributeId_Box_FlagCanModifyInput)
-        || itUpdateBox->second->hasAttribute(OV_AttributeId_Box_FlagCanModifyOutput)
-        || itUpdateBox->second->hasAttribute(OV_AttributeId_Box_FlagCanModifySetting))
+    // UG fork: only a box whose author asks for it is left to be updated by hand; the boxes whose inputs, outputs or
+    // settings the user can add or change are updated too, see CBoxUpdater. See UG.md, 2.48.
+    if (itUpdateBox->second->hasAttribute(OV_AttributeId_Box_FlagNeedsManualUpdate))
     {
-        OV_ERROR_KRF(m_boxes[boxID]->getName() << " must be manually updated. Its prototype is too complex.", Kernel::ErrorType::NotImplemented);
+        OV_ERROR_KRF(m_boxes[boxID]->getName() << " must be updated by hand: delete it and add it again.", Kernel::ErrorType::NotImplemented);
     }
     OV_ERROR_UNLESS_KRF(itUpdateBox != m_outdatedBoxes.end(), "Box [" << boxID.str() << "] does not have to be updated", Kernel::ErrorType::ResourceNotFound);
 

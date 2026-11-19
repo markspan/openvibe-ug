@@ -127,6 +127,11 @@ public:
     void flushPendingCommit();
     /** Marks the current state as the saved one (clears the dirty marker). */
     void markSaved();
+    /**
+     * UG fork: brings the boxes that are older than their plugin up to date, keeping their settings and links, as one
+     * step that Undo takes back; the scenario then counts as changed, so that saving keeps it. See UG.md, 2.48.
+     */
+    void updateOutdatedBoxes();
 
     bool canUndo() const;
     bool canRedo() const;

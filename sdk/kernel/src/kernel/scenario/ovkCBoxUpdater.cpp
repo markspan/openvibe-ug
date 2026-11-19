@@ -148,11 +148,63 @@ bool CBoxUpdater::checkForSupportedIOSAttributesToBeUpdated() const
     return false;
 }
 
+bool CBoxUpdater::canAdd(const EBoxInterfacorType interfacorType) const
+{
+    switch (interfacorType)
+    {
+        case Input: return m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagCanAddInput);
+        case Output: return m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagCanAddOutput);
+        case Setting: return m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagCanAddSetting);
+        default: return false;
+    }
+}
+
+bool CBoxUpdater::canModify(const EBoxInterfacorType interfacorType) const
+{
+    switch (interfacorType)
+    {
+        case Input: return m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagCanModifyInput);
+        case Output: return m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagCanModifyOutput);
+        case Setting: return m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagCanModifySetting);
+        default: return false;
+    }
+}
+
 bool CBoxUpdater::updateInterfacors(const EBoxInterfacorType interfacorType)
 {
     std::vector<InterfacorRequest> interfacors;
 
     bool updated = false;
+
+    // UG fork: the user decides which inputs, outputs or settings a box has when it can add them, so the box keeps its
+    // own, in its own order, with their types and values; only the rest of the box is brought up to date.
+    if (canAdd(interfacorType))
+    {
+        for (size_t index = 0; index < m_sourceBox->getInterfacorCount(interfacorType); ++index)
+        {
+            CIdentifier typeID;
+            CIdentifier identifier;
+            CString name;
+            m_sourceBox->getInterfacorType(interfacorType, index, typeID);
+            m_sourceBox->getInterfacorIdentifier(interfacorType, index, identifier);
+            m_sourceBox->getInterfacorName(interfacorType, index, name);
+            m_updatedBox->addInterfacor(interfacorType, name, typeID, identifier);
+            if (interfacorType == Setting)
+            {
+                CString defaultValue;
+                CString value;
+                bool modifiable;
+                m_sourceBox->getSettingDefaultValue(index, defaultValue);
+                m_sourceBox->getSettingValue(index, value);
+                m_sourceBox->getSettingMod(index, modifiable);
+                m_updatedBox->setSettingDefaultValue(index, defaultValue);
+                m_updatedBox->setSettingValue(index, value);
+                m_updatedBox->setSettingMod(index, modifiable);
+            }
+            m_originalToUpdatedCorrespondence[interfacorType][index] = index;
+        }
+        return false;
+    }
 
     // First add and optionally modify all requests from the Kernel prototype
     size_t index = 0;
@@ -185,6 +237,17 @@ bool CBoxUpdater::updateInterfacors(const EBoxInterfacorType interfacorType)
         }
 
         auto indexInBox = getInterfacorIndex(interfacorType, *m_sourceBox, kTypeIdentifier, kIdentifier, kName);
+        // UG fork: when the user can change the type, the box's own input, output or setting of that name is this one,
+        // whatever type the user gave it, and keeps that type; upstream required the prototype's type
+        if (indexInBox == size_t(-1) && canModify(interfacorType) && kIdentifier == CIdentifier::undefined())
+        {
+            for (size_t i = 0; i < m_sourceBox->getInterfacorCount(interfacorType) && indexInBox == size_t(-1); ++i)
+            {
+                CString name;
+                m_sourceBox->getInterfacorName(interfacorType, i, name);
+                if (name == kName) { indexInBox = i; }
+            }
+        }
         if (indexInBox != size_t(-1))
         {
             CIdentifier identifier;
@@ -193,6 +256,7 @@ bool CBoxUpdater::updateInterfacors(const EBoxInterfacorType interfacorType)
             m_sourceBox->getInterfacorIdentifier(interfacorType, indexInBox, identifier);
             m_sourceBox->getInterfacorName(interfacorType, indexInBox, name);
             updated |= (identifier == kIdentifier && name != kName) || (identifier != kIdentifier && name == kName);
+            if (canModify(interfacorType)) { m_sourceBox->getInterfacorType(interfacorType, indexInBox, request.typeID); }  // UG fork
 
             m_originalToUpdatedCorrespondence[interfacorType][indexInBox] = index;
 

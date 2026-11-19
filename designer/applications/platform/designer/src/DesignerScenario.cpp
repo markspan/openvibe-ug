@@ -1366,6 +1366,46 @@ void DesignerScenario::markSaved()
     d->m_history->setClean();
 }
 
+void DesignerScenario::updateOutdatedBoxes()
+{
+    if (!d->player.isNull() || !d->m_scenario.hasOutdatedBox()) { return; }
+
+    std::vector<CIdentifier> outdated;
+    CIdentifier boxId;
+    while ((boxId = d->m_scenario.getNextOutdatedBoxIdentifier(boxId)) != CIdentifier::undefined()) { outdated.push_back(boxId); }
+
+    std::vector<std::string> updated;
+    std::vector<std::string> notUpdated;
+    rebuildModel([this, &outdated, &updated, &notUpdated]() {
+        for (const CIdentifier& id : outdated)
+        {
+            const Kernel::IBox* box = d->m_scenario.getBoxDetails(id);
+            if (box == nullptr) { continue; }
+            const std::string name = box->getName().toASCIIString();
+            // The kernel says itself what it did, or why it could not
+            (d->m_scenario.updateBox(id) ? updated : notUpdated).push_back(name);
+        }
+        d->m_scenario.checkOutdatedBoxes();
+    });
+
+    auto join = [](const std::vector<std::string>& names) {
+        std::string list;
+        for (const std::string& name : names) { list += (list.empty() ? "" : ", ") + name; }
+        return list;
+    };
+    if (!updated.empty())
+    {
+        d->kernelCtx->getLogManager() << Kernel::LogLevel_Info << "Updated to the current version of their plugin: " << join(updated)
+            << ". Save the scenario to keep this; Undo takes it back.\n";
+        commitChange(tr("Update boxes"));
+    }
+    if (!notUpdated.empty())
+    {
+        d->kernelCtx->getLogManager() << Kernel::LogLevel_Warning << "Not updated: " << join(notUpdated)
+            << ". To update one, delete it and add it again.\n";
+    }
+}
+
 void DesignerScenario::undo()
 {
     if (canUndo())

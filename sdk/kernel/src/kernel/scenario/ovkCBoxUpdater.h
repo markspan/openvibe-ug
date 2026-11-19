@@ -39,17 +39,16 @@ public:
 
     IBox& getUpdatedBox() const { return *m_updatedBox; }
 
+    /**
+     * UG fork: only a box whose author asks for it (BoxFlag_ManualUpdate) must be updated by hand. Upstream also
+     * counted every box whose inputs, outputs or settings the user can add or change; those are now updated as well,
+     * keeping what the user made of them (see updateInterfacors). See UG.md, 2.48.
+     */
     bool flaggedForManualUpdate() const
     {
         OV_FATAL_UNLESS_K(m_initialized, "Box Updater is not initialized", Kernel::ErrorType::BadCall);
 
-        return m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagNeedsManualUpdate)
-               || m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagCanAddInput)
-               || m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagCanModifyInput)
-               || m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagCanAddOutput)
-               || m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagCanModifyOutput)
-               || m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagCanAddSetting)
-               || m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagCanModifySetting);
+        return m_kernelBox->hasAttribute(OV_AttributeId_Box_FlagNeedsManualUpdate);
     }
 
     bool isUpdateRequired() const { return m_isUpdateRequired; }
@@ -62,6 +61,10 @@ private:
 
     static size_t getInterfacorIndex(EBoxInterfacorType type, const IBox& box, const CIdentifier& typeID, const CIdentifier& id, const CString& name);
     bool updateInterfacors(EBoxInterfacorType interfacorType);
+    /// UG fork: true when the user can add inputs, outputs or settings (as interfacorType says) to this kind of box
+    bool canAdd(EBoxInterfacorType interfacorType) const;
+    /// UG fork: true when the user can change the type of this kind of box's inputs, outputs or settings
+    bool canModify(EBoxInterfacorType interfacorType) const;
 
     /**
      * \brief Check if supported type have to be updated between the box to be updated and the kernel

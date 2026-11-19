@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 75 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 76 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 341 files, about 36,100 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 344 files, about 36,300 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -63,6 +63,7 @@ Everything outside the files listed here is identical to upstream.
 | Designer configuration | A `designer.conf` that is not found is skipped without a word; the user's settings are then not loaded, and every session save fails with `${Designer_CustomConfigurationFile} is empty` | The missing file is named in the log, and the user configuration file falls back to `${Path_UserData}/openvibe-designer.conf` |
 | Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; black dot while running, amber while paused; a red dot and a red "REC" square while the BrainVision writer (UG) writes; raises itself every second so that it stays on top |
 | Comments on the canvas | Shown, edited, moved and deleted, but a new one can not be made: nothing starts it | Edit > Add comment, or Ctrl+Shift+C: the text dialog opens at once |
+| Boxes older than their plugin | A warning per box on opening ("should be updated"); the box has to be deleted and added again, losing its settings and links. Boxes whose inputs, outputs or settings the user can add or change can not be updated at all | Updated when the scenario opens, keeping settings, links and what the user added or changed; one Undo step, and the scenario counts as changed until saved |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
 | Acquisition server icon | The same as Designer's | Its own, in the same style: three channels merging into one |
 | Editing a comment | The editor opens at the comment's place on the canvas taken as a place on the screen, often off the screen | It opens in the middle of Designer's window |
@@ -1209,6 +1210,27 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 - `check_brainvision.py` reports the version it finds; `--expect-version` makes another one an error. The writer's test requires the build's own version.
 - Not tried in BrainVision Analyzer, EEGLAB or MNE.
 
+### 2.48 Boxes older than their plugin are updated when a scenario opens
+
+**Files**
+- `designer/applications/platform/designer/src/DesignerScenario.h`, `DesignerScenario.cpp` (`updateOutdatedBoxes()`), `OVDesigner.cpp`
+- `sdk/kernel/src/kernel/scenario/ovkCBoxUpdater.h`, `ovkCBoxUpdater.cpp`, `ovkCScenario.cpp`
+- `sdk/toolkit/src/algorithms/scenario-io/ovtkCAlgorithmScenarioImporter.cpp`
+
+**The fault:** a scenario keeps, for every box, a stamp of the plugin version it was made with. When the plugin has changed since (a setting or an input added or removed, as this fork did to the Signal display, the Acquisition client and the BrainVision writer (UG)), opening the scenario warned "Box ... should be updated" for each such box. The Qt Designer offered no way to do so but to delete the box and add it again, losing its settings and links. The kernel can update a box itself, keeping both, but refused every box whose inputs, outputs or settings the user can add or change ("its prototype is too complex"): the Signal display, Identity, the multiplexers and many more.
+
+**What it does**
+- When Designer opens a scenario, it updates each box that is older than its plugin, through the kernel's own update: settings keep their values, links stay where they were, a new setting gets its default, and a setting the plugin no longer has is dropped if it held its default. A setting the plugin dropped that held another value stays, marked deprecated, and the kernel warns.
+- The log says which boxes were updated: "Updated to the current version of their plugin: Signal display. Save the scenario to keep this; Undo takes it back." The update is one Undo step, and the scenario counts as changed, so that saving keeps it and the next opening is quiet.
+- Boxes whose inputs, outputs or settings the user can add or change are updated too. Where the user can add them, the box keeps its own, in its own order, with their names, types and values; where the user can change their type, the box keeps the type the user chose. The rest of the box (its version stamp, supported types, flags) is brought up to date.
+- Only a box whose author asks for it (`BoxFlag_ManualUpdate`) is left alone; the log then says so ("Not updated: ... To update one, delete it and add it again.").
+- The importer's warning per box is now a trace, as Designer says what it did.
+
+**Consequences**
+- Opening a scenario made with an older version changes it in memory. Closing without saving leaves the file as it was; the update happens again at the next opening.
+- A box where the user can add inputs does not get an input that a newer plugin added to its prototype; add it by hand if needed.
+- Tested on a copy of a lab scenario: its Signal display was updated, with its settings and links unchanged and two settings the plugin no longer has (at their defaults) dropped; opened again after saving, nothing was reported. Also on a demo scenario whose Identity box (3 inputs and 3 outputs added by the user) was marked outdated: its inputs, outputs and all 16 links of the scenario stayed the same.
+
 ---
 
 ## 3. All modified files
@@ -1235,9 +1257,9 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 | A | `designer/applications/platform/designer/RuntimeOverlay.qml` | 2.33, 2.44 |
 | M | `designer/applications/platform/designer/ShortcutManager.qml` | 2.36 |
 | M | `designer/applications/platform/designer/share/designer.conf-base` | 2.33 |
-| M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12, 2.42, 2.46 |
-| M | `designer/applications/platform/designer/src/DesignerScenario.h` | 2.36 |
-| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33, 2.44, 2.46, 2.47 |
+| M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12, 2.42, 2.46, 2.48 |
+| M | `designer/applications/platform/designer/src/DesignerScenario.h` | 2.36, 2.48 |
+| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33, 2.44, 2.46, 2.47, 2.48 |
 | M | `designer/applications/platform/designer/src/OVDesigner.h` | 2.33, 2.44, 2.47 |
 | M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18, 2.23, 2.46 |
 | M | `designer/applications/platform/designer/src/PlayerBridge.h` | 2.44, 2.46 |
@@ -1419,6 +1441,9 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 | M | `sdk/kernel/src/kernel/player/ovkCPlayer.cpp` | 2.23 |
 | M | `sdk/kernel/src/kernel/player/ovkCScheduler.cpp` | 2.23 |
 | M | `sdk/kernel/src/kernel/player/ovkCSimulatedBox.cpp` | 2.23 |
+| M | `sdk/kernel/src/kernel/scenario/ovkCBoxUpdater.cpp` | 2.48 |
+| M | `sdk/kernel/src/kernel/scenario/ovkCBoxUpdater.h` | 2.48 |
+| M | `sdk/kernel/src/kernel/scenario/ovkCScenario.cpp` | 2.48 |
 | M | `sdk/kernel/src/kernel/scenario/ovkCScenarioManager.cpp` | 2.23 |
 | M | `sdk/modules/network/Client/CClient.cpp` | 2.19 |
 | M | `sdk/modules/network/AbstractionLayer/NAL.h` | 2.41 |
@@ -1467,7 +1492,7 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 | M | `sdk/plugins/processing/stimulation/src/box-algorithms/CBoxAlgorithmTimeout.cpp` | 2.23 |
 | M | `sdk/plugins/processing/tools/src/box-algorithms/CBoxAlgorithmExternalProcessing.cpp` | 2.23 |
 | M | `sdk/plugins/processing/tools/src/box-algorithms/CBoxAlgorithmMatrixValidityChecker.cpp` | 2.23 |
-| M | `sdk/toolkit/src/algorithms/scenario-io/ovtkCAlgorithmScenarioImporter.cpp` | 2.23 |
+| M | `sdk/toolkit/src/algorithms/scenario-io/ovtkCAlgorithmScenarioImporter.cpp` | 2.23, 2.48 |
 | M | `sdk/toolkit/include/toolkit/box-algorithms/ovtkTBoxAlgorithm.h` | 2.41 |
 | A | `share/ov-acquisition-server-icon.ico` | 2.37 |
 | A | `share/tools/make_acquisition_server_icon.py` | 2.37 |
