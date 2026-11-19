@@ -33,7 +33,11 @@ concurrency:
 
 env:
   # Must match Qt6_DIR in pixi.toml ([target.win-64.activation.env]), which pixi sets on activation.
-  QT_VERSION: '6.9.3'
+  QT_VERSION: '6.12.0'
+  # Qt Graphs needs Quick 3D and the shader tools. Designer's Icon control (OVControls/Icon.qml)
+  # imports Qt5Compat.GraphicalEffects: without qt5compat Designer's window does not load, and
+  # Designer runs on without one.
+  QT_MODULES: qtcharts qtgraphs qtquick3d qtshadertools qt5compat
   # Short paths: OpenViBE's deepest build paths come close to the Windows 260-character limit.
   BUILD_FOLDER: C:\ovb
   PACKAGE_FOLDER: C:\ovp
@@ -51,19 +55,19 @@ jobs:
 
       # Qt is not taken from conda-forge on Windows (see pixi.toml); the lab machines use the
       # official build, so the installer does too. Installed to C:\Qt\<version>\msvc2022_64, the
-      # path pixi.toml points Qt6_DIR at. Qt Graphs needs Quick 3D and the shader tools. Designer's
-      # Icon control (OVControls/Icon.qml) imports Qt5Compat.GraphicalEffects: without qt5compat
-      # Designer's window does not load, and Designer runs on without one.
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
+      # path pixi.toml points Qt6_DIR at. Not with install-qt-action: the aqtinstall it runs (3.3)
+      # does not read the layout of Qt's repository from Qt 6.11 on. .github/install-qt.py
+      # downloads the packages from Qt's repository itself and checks their SHA-256.
+      - name: Cache Qt
+        id: cache-qt
+        uses: actions/cache@v4
         with:
-          version: ${{ env.QT_VERSION }}
-          host: windows
-          target: desktop
-          arch: win64_msvc2022_64
-          dir: C:\
-          modules: qtcharts qtgraphs qtquick3d qtshadertools qt5compat
-          cache: true
+          path: C:\Qt\${{ env.QT_VERSION }}
+          key: qt-${{ env.QT_VERSION }}-msvc2022_64-${{ env.QT_MODULES }}-${{ hashFiles('.github/install-qt.py') }}
+
+      - name: Install Qt
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        run: python .github/install-qt.py --version ${{ env.QT_VERSION }} --arch msvc2022_64 --dir C:\Qt --modules ${{ env.QT_MODULES }}
 
       - name: Install the pixi environment
         uses: prefix-dev/setup-pixi@v0.8.1
@@ -74,14 +78,14 @@ jobs:
       - name: Build
         run: pixi run ci-build
         env:
-          CMAKE_PREFIX_PATH: ${{ env.QT_ROOT_DIR }}
+          CMAKE_PREFIX_PATH: C:\Qt\${{ env.QT_VERSION }}\msvc2022_64
 
       # ci-package builds the documentation first (the installer's Start Menu links to it), then
       # runs CPack, which writes openvibe-<version>.exe and .zip to PACKAGE_FOLDER.
       - name: Package
         run: pixi run ci-package
         env:
-          CMAKE_PREFIX_PATH: ${{ env.QT_ROOT_DIR }}
+          CMAKE_PREFIX_PATH: C:\Qt\${{ env.QT_VERSION }}\msvc2022_64
 
       - name: Upload the installer
         uses: actions/upload-artifact@v4

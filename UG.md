@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 77 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 78 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 353 files, about 36,400 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 355 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -65,6 +65,7 @@ Everything outside the files listed here is identical to upstream.
 | Comments on the canvas | Shown, edited, moved and deleted, but a new one can not be made: nothing starts it | Edit > Add comment, or Ctrl+Shift+C: the text dialog opens at once |
 | Boxes older than their plugin | A warning per box on opening ("should be updated"); the box has to be deleted and added again, losing its settings and links. Boxes whose inputs, outputs or settings the user can add or change can not be updated at all | Updated when the scenario opens, keeping settings, links and what the user added or changed; one Undo step, and the scenario counts as changed until saved |
 | Crashes in Designer | QML's garbage collector could delete settings and parameter objects that Designer still used, and Designer crashed later, e.g. on opening a box's settings; the 2D topographic map read its sample points while the window resized them, and crashed | Those objects stay Designer's; the map's points are guarded while they are resized, interpolated and drawn, and a bad point no longer reads outside the spline table |
+| Qt on Windows | 6.9.3, whose support has ended | 6.12.0, the long-term-support version; the installer workflow fetches it with its own script, checked against Qt's SHA-256 |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
 | Acquisition server icon | The same as Designer's | Its own, in the same style: three channels merging into one |
 | Editing a comment | The editor opens at the comment's place on the canvas taken as a place on the screen, often off the screen | It opens in the middle of Designer's window |
@@ -943,7 +944,7 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 - `.github/workflows/windows-installer.yml` (new)
 
 **What it does**
-- A GitHub Actions workflow, "Windows installer", builds OpenViBE UG on a Windows runner and packages it with CPack: `openvibe-<version>.exe` (the NSIS installer) and `openvibe-<version>.zip`. It follows the GitLab Windows pipeline: Qt 6.9.3 from the official build, everything else from the pixi environment, then `pixi run ci-build` and `pixi run ci-package`.
+- A GitHub Actions workflow, "Windows installer", builds OpenViBE UG on a Windows runner and packages it with CPack: `openvibe-<version>.exe` (the NSIS installer) and `openvibe-<version>.zip`. It follows the GitLab Windows pipeline: Qt from the official build (6.12.0 since 2.50), everything else from the pixi environment, then `pixi run ci-build` and `pixi run ci-package`.
 - **By hand:** Actions tab, "Windows installer", "Run workflow", on any branch. The installer and ZIP are an artifact of the run, kept 30 days.
 - **On a tag:** pushing a tag such as `4.0.1` or `4.0.1-ug.1` runs it too, and attaches both files to a GitHub release named after the tag. A tag with a `-` makes a pre-release.
 - **Release notes:** the release's description lists the subject of every commit since the previous version tag, with a link to the full comparison. GitHub's generated notes would list merged pull requests, and the fork commits to `main` directly. A release that already has a description, written by hand before the build finishes, keeps it.
@@ -1255,6 +1256,26 @@ Designer quit without a word three times on the lab PC. The crash dumps Windows 
 - Tested: the dumps' addresses resolve, with this commit's `.pdb` files, to `BoxObject.cpp:732` (16:31) and `spline.cpp:279` via `CTopographicMapDatabase.cpp:138` (16:51). The topography test scenario, with a channel given twice, plays without fault, with one warning naming the two channels and one about the spline. With the map playing, Designer's windows were resized 687 times in 40 s without a crash; the test input is short, so that shows little about the race itself. Not yet run on the lab PC.
 - The crashes of October (Qt fatal errors, an `ntdll` heap fault, the eego driver dividing by zero in the acquisition server) were in older builds, two of them in another folder; not examined.
 
+### 2.50 Qt 6.12 on Windows
+
+**Files**
+- `pixi.toml`, `README.md`
+- `.github/workflows/windows-installer.yml`, `.github/install-qt.py` (new)
+
+Upstream builds with Qt 6.9.3. Qt 6.9 is out of support: 6.9.3 was its last release, so no bug or security fix will come for it. Qt 6.12 is the current long-term-support version, supported until 2031-09-30; open-source users get its fix releases until Qt 6.13 is out. Qt Charts, which Designer's displays and the ROC curve still use, is deprecated since Qt 6.10 in favour of Qt Graphs, and 6.12 has the Graphs features a move would need.
+
+- `Qt6_DIR` in `pixi.toml`, the example in its comment, and the README name Qt 6.12.0. No code had to change.
+- The installer workflow installs Qt 6.12.0, but no longer with install-qt-action: aqtinstall 3.3.0, the newest release and the one that action runs, does not read the layout Qt's online repository has from 6.11 on (one folder per compiler), and stops with "Failed to download checksum for the file 'Updates.xml'". A fix is merged in aqtinstall, not yet released.
+- `.github/install-qt.py` does what the Maintenance Tool does for the packages needed: it reads `Updates.xml` of `qt6_6120_msvc2022_64` on download.qt.io, downloads every archive the Qt package and the five add-ons name (download.qt.io sends it to a mirror), checks each against the SHA-256 that download.qt.io serves itself, unpacks it where the package says, and writes `bin/qt.conf`. The workflow caches the result, as before.
+
+**Consequences**
+- A build folder configured with Qt 6.9.3 keeps it, because CMake keeps `Qt6_DIR` in its cache. After installing Qt 6.12.0, delete `build` (or configure once with `cmake --fresh`). On a PC that points CMake at Qt with `CMAKE_PREFIX_PATH`, change that variable too.
+- Tested with Qt 6.12.0 from the Maintenance Tool, in a separate build folder: it builds without a Qt deprecation warning, and 451 of 452 tests pass, as with 6.9.3 (`uoTimeTest`, a timing test, fails with both). Designer opened empty and played the 24 tutorial scenarios of the two visualisation plugins, 15 s each, and the acquisition server opened: no QML warning or error with either Qt version.
+- `install-qt.py` installed the same Qt as the Maintenance Tool, in 52 s: the same 13,693 files, byte for byte, except `bin/qt.conf`, where the Maintenance Tool also names its documentation and examples folders. The Maintenance Tool's install also has add-ons it adds by itself (Qt Quick Timeline, and on this PC Qt MCP), which OpenViBE does not use.
+- Not tested: box settings and other dialogs opened by hand, where Qt 6.12 is stricter (a QML component whose required property is not set is now an error, not an incomplete object); the lab PC; the workflow itself, until it runs.
+- Linux (Qt 6.8) and macOS (Qt 6.9) take Qt from conda-forge, unchanged.
+- Not new with 6.12: in a new build folder, with another Qt on `PATH` (Qt Creator's, for example), the first build can stop at a test that is run at build time to list its cases (exit `0xc0000139`), because Qt's DLLs are copied next to it later. Building again goes through.
+
 ---
 
 ## 3. All modified files
@@ -1263,7 +1284,8 @@ Designer quit without a word three times on the lab PC. The crash dumps Windows 
 
 | Status | File | Section |
 |---|---|---|
-| A | `.github/workflows/windows-installer.yml` | 2.34 |
+| A | `.github/install-qt.py` | 2.50 |
+| A | `.github/workflows/windows-installer.yml` | 2.34, 2.50 |
 | M | `CMake/FindThirdPartyLSL.cmake` | 2.21 |
 | M | `CMakeLists.txt` | 2.37 |
 | M | `conda/env_linux.yaml` | 2.21 |
@@ -1468,7 +1490,8 @@ Designer quit without a word three times on the lab PC. The crash dumps Windows 
 | M | `sdk/kernel/src/kernel/configuration/ovkCConfigurationManager.cpp` | 2.23 |
 | M | `sdk/kernel/CMakeLists.txt` | 2.42 |
 | M | `pixi.lock` | 2.15, 2.21 |
-| M | `pixi.toml` | 2.15, 2.21 |
+| M | `pixi.toml` | 2.15, 2.21, 2.50 |
+| M | `README.md` | 2.50 |
 | M | `sdk/kernel/src/kernel/ovkCKernelContext.cpp` | 2.10, 2.42 |
 | M | `sdk/kernel/src/kernel/player/ovkCBoxSettingModifierVisitor.cpp` | 2.23 |
 | M | `sdk/kernel/src/kernel/player/ovkCPlayer.cpp` | 2.23 |

@@ -99,7 +99,7 @@ libxcb = "*"
 [tasks]
 # UG fork: any CMake and Ninja, and the build through CMake, so that the build finds Qt from CMAKE_PREFIX_PATH.
 # On Windows, point CMake at your Qt install with a user environment variable, e.g.
-#   setx CMAKE_PREFIX_PATH D:\Qt\6.9.3\msvc2022_64
+#   setx CMAKE_PREFIX_PATH D:\Qt\6.12.0\msvc2022_64
 configure = "cmake -G Ninja -S . -B build"
 build = { cmd = "cmake --build build", depends-on = ["configure"] }
 test = { cmd = "ctest -T Test", cwd = "build", depends-on = ["build"] }
@@ -126,4 +126,5 @@ ci-test = { cmd = "cd \"$BUILD_FOLDER\" && ctest -T Test -E uoTimeTest"  } # dep
 
 
 [target.win-64.activation.env]
-Qt6_DIR = "C:\\Qt\\6.9.3\\msvc2022_64\\lib\\cmake\\"
+# UG fork: Qt 6.12, the LTS version (upstream: 6.9.3). See UG.md, 2.50.
+Qt6_DIR = "C:\\Qt\\6.12.0\\msvc2022_64\\lib\\cmake\\"
