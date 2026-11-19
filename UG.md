@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 71 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 72 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 341 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
@@ -1170,6 +1170,25 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 
 **Consequence:** recordings made with the montage link get their electrode positions. Recordings made since 4.0.1-ug.4 with the link have none; their `.vhdr` can not be repaired from the recording itself.
 
+### 2.46 After a run, the scenario can be edited again
+
+**Files:** `designer/applications/platform/designer/src/PlayerBridge.h`, `PlayerBridge.cpp`, `OVDesigner.cpp`, `DesignerScenario.cpp`
+
+**The fault:** Designer refuses to change a scenario while it has a player, that is while it runs; it then ignored Delete, Cut, Paste and Undo without a word. Two of upstream's faults could leave a player behind once a run was over:
+- A run that ended on its own (a Player Controller box, a box that stopped with an error, the acquisition server going away) left its thread finished but not joined. The next Play then started no thread: nothing ran, and the player it had made was never released.
+- When a run ended, Designer released the player of the tab shown at that moment, not that of the scenario that ran. A run that ended while another tab was shown kept its player.
+
+Selecting a box and pressing Delete then closed the box's settings, as the selection was dropped, but left the box in place.
+
+**What it does**
+- A finished player thread is joined before the next run starts its own.
+- When a run ends, the player of the scenario that ran is released.
+- Delete while a scenario runs says so in the log: "The scenario is running, so nothing is deleted; stop it first."
+
+**Consequences**
+- After a run that stopped by itself, Play runs the scenario again, and boxes can be deleted, cut and pasted, and changes undone, as after a run stopped with Stop.
+- Not reproduced on screen: the cause is read from the code and matches what was seen, but the report did not say whether the scenario had run before.
+
 ---
 
 ## 3. All modified files
@@ -1196,12 +1215,12 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 | A | `designer/applications/platform/designer/RuntimeOverlay.qml` | 2.33, 2.44 |
 | M | `designer/applications/platform/designer/ShortcutManager.qml` | 2.36 |
 | M | `designer/applications/platform/designer/share/designer.conf-base` | 2.33 |
-| M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12, 2.42 |
+| M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12, 2.42, 2.46 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.h` | 2.36 |
-| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33, 2.44 |
+| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33, 2.44, 2.46 |
 | M | `designer/applications/platform/designer/src/OVDesigner.h` | 2.33, 2.44 |
-| M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18, 2.23 |
-| M | `designer/applications/platform/designer/src/PlayerBridge.h` | 2.44 |
+| M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18, 2.23, 2.46 |
+| M | `designer/applications/platform/designer/src/PlayerBridge.h` | 2.44, 2.46 |
 | M | `designer/applications/platform/designer/src/main.cpp` | 2.17 |
 | M | `extras/applications/developer-tools/plugin-inspector/src/CAlgorithmGlobalDefinesGen.cpp` | 2.23 |
 | M | `extras/applications/developer-tools/plugin-inspector/src/CBoxQmlRenderer.cpp` | 2.35 |

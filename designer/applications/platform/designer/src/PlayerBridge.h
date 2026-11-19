@@ -51,7 +51,7 @@ class PlayerBridge {
     void stop();
 
     void pause();
-    bool threadFinished=false;
+    std::atomic<bool> threadFinished{false};  // UG fork: atomic, as the player thread sets it and others read it
 
 protected:
     void looping();

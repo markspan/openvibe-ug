@@ -1386,6 +1386,11 @@ void DesignerScenario::redo()
 
 void DesignerScenario::removeSelection(const QStringList& boxIds, const QStringList& commentIds)
 {
+    // UG fork: says why nothing is deleted, where upstream was silent
+    if (!d->player.isNull() && (!boxIds.isEmpty() || !commentIds.isEmpty()))
+    {
+        d->kernelCtx->getLogManager() << Kernel::LogLevel_Warning << "The scenario is running, so nothing is deleted; stop it first.\n";
+    }
     if (d->player.isNull() && (!boxIds.isEmpty() || !commentIds.isEmpty()))
     {
         // Wrappers hold raw kernel pointers: tear them all down before touching the kernel.

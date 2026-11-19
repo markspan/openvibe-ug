@@ -128,6 +128,13 @@ bool PlayerBridge::start(Kernel::EPlayerStatus status, std::function<void()> onE
             break;
     }
 
+    // UG fork: a run that ended on its own (a Player Controller, an error) leaves its thread finished but not joined, and
+    // upstream then started no thread at all: Play did nothing, and the player it had made was never released, so the
+    // scenario could no longer be edited (Delete, Cut, Paste, Undo). A finished thread is joined first.
+    if (m_thread.joinable() && threadFinished) {
+        m_thread.join();
+    }
+
     // If thread is already running, do nothing
     if (!m_thread.joinable()) {
         threadFinished = false;

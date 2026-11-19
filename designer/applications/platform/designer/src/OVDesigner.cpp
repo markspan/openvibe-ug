@@ -285,13 +285,9 @@ void OVDesignerPrivate::launchScenario(Kernel::EPlayerStatus status, std::functi
             m_parent,
             &OVDesigner::stopPlayer);
 
-    if(!player.start(status, [this]() {
-            auto *scenario = this->m_scenarios[this->m_CurrentScenarioIndex];
-            if(scenario)
-            {
-                scenario->releasePlayer();
-            }
-         }))
+    // UG fork: releases the player of the scenario that ran. Upstream released that of the current tab when the run ended,
+    // so a run that ended while another tab was shown kept its player, and its scenario could no longer be edited.
+    if(!player.start(status, [designerScenario]() { designerScenario->releasePlayer(); }))
     {
         m_context->getLogManager() << Kernel::LogLevel_Error << "The player thread could not be started. Check the above log messages to get the issue.\n";
         return;
