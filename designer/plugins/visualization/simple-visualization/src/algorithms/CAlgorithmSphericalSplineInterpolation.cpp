@@ -91,8 +91,10 @@ bool CAlgorithmSphericalSplineInterpolation::process()
         //FIXME : have a working copy of control points values stored as doubles?
         const int result = SplineCoef(int(ip_nControlPoints), m_coordsPtr.data(), ip_controlPointsValues->getBuffer(), m_pot.data(), m_splineCoefs.data());
 
-        if (result != 0) {
-            getLogManager() << Kernel::LogLevel_ImportantWarning << "Spline coefficients computation failed!\n";
+        if (result != 0 && !m_coefsFailureReported) {
+            // UG fork: once a run, where upstream warned on every frame
+            m_coefsFailureReported = true;
+            getLogManager() << Kernel::LogLevel_ImportantWarning << "Spline coefficients computation failed! This is not said again in this run.\n";
 
             const Kernel::ELogLevel level = Kernel::LogLevel_Debug;
 
@@ -124,8 +126,8 @@ bool CAlgorithmSphericalSplineInterpolation::process()
             ss << "\n";
             getLogManager() << level << ss.str();
 
-            activateOutputTrigger(SplineInterpolation_OutputTriggerId_Error, true);
         }
+        if (result != 0) { activateOutputTrigger(SplineInterpolation_OutputTriggerId_Error, true); }  // UG fork: still on every frame
     }
 
     if (isInputTriggerActive(SplineInterpolation_InputTriggerId_ComputeLaplacianCoefs)) {
@@ -137,7 +139,11 @@ bool CAlgorithmSphericalSplineInterpolation::process()
         m_laplacianCoefs[int(ip_nControlPoints)] = 0;
 
         if (result != 0) {
-            getLogManager() << Kernel::LogLevel_ImportantWarning << "Laplacian coefficients computation failed!\n";
+            // UG fork: the warning once a run, where upstream warned on every frame
+            if (!m_coefsFailureReported) {
+                m_coefsFailureReported = true;
+                getLogManager() << Kernel::LogLevel_ImportantWarning << "Laplacian coefficients computation failed! This is not said again in this run.\n";
+            }
             activateOutputTrigger(SplineInterpolation_OutputTriggerId_Error, true);
         }
     }

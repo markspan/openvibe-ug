@@ -119,6 +119,9 @@ bool CTopographicMapDatabase::ProcessValues()
         m_interpolation.activateInputTrigger(SplineInterpolation_InputTriggerId_ComputeLaplacianCoefs, true);
     }
 
+    // UG fork: the view must not resize the sample points while they are interpolated and drawn, see SampleMutex()
+    std::lock_guard<std::recursive_mutex> lock(dynamic_cast<CTopographicMapDrawable*>(m_Drawable)->SampleMutex());
+
     //retrieve up-to-date pointer to sample matrix
     m_samplePointCoords = dynamic_cast<CTopographicMapDrawable*>(m_Drawable)->GetSampleCoordinatesMatrix();
 
@@ -167,6 +170,9 @@ bool CTopographicMapDatabase::InterpolateValues()
 {
     //can't interpolate before first buffer has been received
     if (m_firstProcess) { return false; }
+
+    // UG fork: see SampleMutex()
+    std::lock_guard<std::recursive_mutex> lock(dynamic_cast<CTopographicMapDrawable*>(m_Drawable)->SampleMutex());
 
     //retrieve up-to-date pointer to sample matrix
     m_samplePointCoords = dynamic_cast<CTopographicMapDrawable*>(m_Drawable)->GetSampleCoordinatesMatrix();
@@ -249,6 +255,25 @@ bool CTopographicMapDatabase::checkElectrodeCoordinates()
                     << "Coordinates of electrode #" << i << "(" << channelLabel
                     << "), are not normalized, aborting model frame electrode coordinates computation\n";
             return false;
+        }
+    }
+
+    // UG fork: two channels at the same position, such as one channel that reaches the map twice, leave the spline
+    // without a solution, so the map stays empty; say which, once, instead of a warning per frame
+    for (size_t i = 0; i < nChannel; ++i) {
+        double* first = nullptr;
+        if (!GetChannelPosition(i, first) || first == nullptr) { continue; }
+        for (size_t j = i + 1; j < nChannel; ++j) {
+            double* second = nullptr;
+            if (GetChannelPosition(j, second) && second != nullptr && first[0] == second[0] && first[1] == second[1] && first[2] == second[2]) {
+                CString firstLabel, secondLabel;
+                GetChannelLabel(i, firstLabel);
+                GetChannelLabel(j, secondLabel);
+                m_ParentPlugin.getBoxAlgorithmContext()->getPlayerContext()->getLogManager() << Kernel::LogLevel_Warning
+                        << "Channels " << std::to_string(i + 1) << " (" << firstLabel << ") and " << std::to_string(j + 1) << " (" << secondLabel
+                        << ") have the same electrode position, so the map can not be drawn. Leave one of them out of the signal the map gets.\n";
+                return true;
+            }
         }
     }
 

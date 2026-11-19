@@ -205,6 +205,10 @@ int SplineCoef(const int n, double** xyz, const double* values, const double* ta
             const double t3 = xyz[i][2] - zj;
             const double tp = (t1 * t1 + t2 * t2 + t3 * t3) / 2.0;
             double fgam     = (1.0 - tp) * 1000.0 + 1002.0;
+            // UG fork: within the table (2004 entries), also for a coordinate that is not a number; upstream then read
+            // far outside it, and Designer crashed. See UG.md, 2.49
+            if (!(fgam >= 1.0)) { fgam = 1.0; }
+            else if (fgam > 2002.0) { fgam = 2002.0; }
             const int igam  = int(fgam);
             fgam -= double(igam);
             const double v1 = *(table + igam - 1);
@@ -220,7 +224,7 @@ int SplineCoef(const int n, double** xyz, const double* values, const double* ta
     itmp = n + 1;
     sspfa(a.data(), &itmp, iwork.data(), &info);
     if (info != 0) {
-        std::cout << "SplineCoef error : triangularization of matrix a (sspfa : " << info << "d)" << std::endl;
+        // UG fork: the caller reports it, once a run; upstream also printed this here on every frame
         return (-1);
     }
 
@@ -274,6 +278,9 @@ double SplineInterp(const int n, double** xyz, const double* table, const double
         const double t3   = zz - xyz[i][2];
         const double t123 = (t1 * t1 + t2 * t2 + t3 * t3) / 2.;
         double fgam       = (1.0 - t123) * 1000. + 1002.;
+        // UG fork: within the table, as in SplineCoef()
+        if (!(fgam >= 1.0)) { fgam = 1.0; }
+        else if (fgam > 2002.0) { fgam = 2002.0; }
         const int igam    = int(fgam);
         fgam -= double(igam);
         const double v1 = table[igam - 1];

@@ -37,6 +37,7 @@ protected:
     //internal data
     //-------------
     bool m_firstProcess = true;
+    bool m_coefsFailureReported = false;  // UG fork: the failure is logged once a run
     std::vector<double> m_coords;
     std::vector<double*> m_coordsPtr;
     std::vector<double> m_splineCoefs;

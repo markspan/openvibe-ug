@@ -204,6 +204,7 @@ QJSValue AcquisitionControllerPrivate::toJSParams(const OpenViBE::Parameters::Pa
     auto nb_params = params.size();
     QJSValue js_params = m_engine->newArray((uint)nb_params);
     for (int i = 0; i < nb_params; ++i) {
+        QJSEngine::setObjectOwnership(params[i], QJSEngine::CppOwnership);  // UG fork: owned by C++, which deletes it; without this, newQObject() hands it to the JS collector, which deleted it while still in use. See UG.md, 2.49
         js_params.setProperty(i, m_engine->newQObject(params[i]));
     }
 

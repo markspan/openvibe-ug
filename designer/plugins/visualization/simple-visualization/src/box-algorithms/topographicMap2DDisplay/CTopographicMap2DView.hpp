@@ -10,6 +10,7 @@
 #include "CTopographicMapDatabase.hpp"
 
 #include <vector>
+#include <mutex>
 
 class QQmlEngine;
 class QQuickItem;
@@ -28,10 +29,16 @@ public:
         Q_UNUSED(id);
         Q_UNUSED(requestedSize);
         Q_UNUSED(size);
+        // UG fork: a copy taken under the lock, as the player's thread draws into m_img, see SampleMutex()
+        if (m_mutex != nullptr) {
+            std::lock_guard<std::recursive_mutex> lock(*m_mutex);
+            return m_img.copy();
+        }
         return m_img;
     }
-    
+
     QImage m_img;
+    std::recursive_mutex* m_mutex = nullptr;  // UG fork
 };
 
 
@@ -83,6 +90,7 @@ public:
      * \return True if values were successfully set, false otherwise
      */
     bool SetSampleValuesMatrix(CMatrix* matrix) override;
+    std::recursive_mutex& SampleMutex() override { return m_sampleMutex; }  // UG fork
 
 
     /**
@@ -147,6 +155,7 @@ private:
     size_t m_gridSize = 0, m_cellSize = 0;
 
     CMatrix m_sampleCoordinatesMatrix;
+    std::recursive_mutex m_sampleMutex;  // UG fork: see SampleMutex()
 
     std::vector<size_t> m_sampleValues;
     std::vector<std::pair<size_t, size_t>> m_sample2DCoordinates; //in skull coords

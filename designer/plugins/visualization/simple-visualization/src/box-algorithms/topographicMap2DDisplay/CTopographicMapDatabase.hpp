@@ -7,6 +7,8 @@
 #include <openvibe/ov_all.h>
 #include <toolkit/ovtk_all.h>
 
+#include <mutex>
+
 namespace OpenViBE {
 namespace Plugins {
 namespace SimpleVisualization {
@@ -16,6 +18,12 @@ public:
     ~CTopographicMapDrawable() override = default;
     virtual CMatrix* GetSampleCoordinatesMatrix() = 0;
     virtual bool SetSampleValuesMatrix(CMatrix* pSampleValuesMatrix) = 0;
+    /**
+     * UG fork: guards the sample points, their values and the image drawn from them. The view changes them on the
+     * interface thread when it is resized, and the box reads and fills them on the player's thread; without it, the
+     * interpolation read points that a resize had just freed, and Designer crashed. See UG.md, 2.49.
+     */
+    virtual std::recursive_mutex& SampleMutex() = 0;
 };
 
 /**

@@ -38,6 +38,7 @@ CTopographicMap2DView::CTopographicMap2DView(QQmlEngine* engine, CTopographicMap
 
   
     m_potentialProvider = new ImagePotentialProvider();
+    m_potentialProvider->m_mutex = &m_sampleMutex;  // UG fork
     //ownership of imageProvider is passed to QML engine so no need to delete it!
     m_jsEngine->addImageProvider(m_providerID, m_potentialProvider);
 
@@ -95,6 +96,7 @@ CMatrix* CTopographicMap2DView::GetSampleCoordinatesMatrix()
 
 bool CTopographicMap2DView::SetSampleValuesMatrix(CMatrix* matrix)
 {
+    std::lock_guard<std::recursive_mutex> lock(m_sampleMutex);  // UG fork: see SampleMutex()
     if (matrix == nullptr || matrix->getBufferElementCount() < m_sampleValues.size()) { return false; }
 
     double minPotential, maxPotential;
@@ -235,6 +237,7 @@ void CTopographicMap2DView::SetInterpolationCB(int interpolation)
 
 void CTopographicMap2DView::resizeData()
 {
+    std::lock_guard<std::recursive_mutex> lock(m_sampleMutex);  // UG fork: see SampleMutex()
     m_potentialProvider->m_img = QImage(m_skullDiameter, m_skullDiameter, QImage::Format_RGB32);
 
     //determine size of colored cells

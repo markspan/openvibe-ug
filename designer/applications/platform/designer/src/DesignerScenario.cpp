@@ -881,6 +881,7 @@ QJSValue DesignerScenario::parameters() const
         jsParams = jsEngine->newArray(nbParams);
         for (int i = 0; i < nbParams; ++i)
         {
+            QJSEngine::setObjectOwnership(d->m_parameters[i], QJSEngine::CppOwnership);  // UG fork: owned by C++, which deletes it; without this, newQObject() hands it to the JS collector, which deleted it while still in use. See UG.md, 2.49
             jsParams.setProperty(i, jsEngine->newQObject(d->m_parameters[i]));
         }
     }

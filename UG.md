@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 76 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 77 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 344 files, about 36,300 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 353 files, about 36,400 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -64,6 +64,7 @@ Everything outside the files listed here is identical to upstream.
 | Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; black dot while running, amber while paused; a red dot and a red "REC" square while the BrainVision writer (UG) writes; raises itself every second so that it stays on top |
 | Comments on the canvas | Shown, edited, moved and deleted, but a new one can not be made: nothing starts it | Edit > Add comment, or Ctrl+Shift+C: the text dialog opens at once |
 | Boxes older than their plugin | A warning per box on opening ("should be updated"); the box has to be deleted and added again, losing its settings and links. Boxes whose inputs, outputs or settings the user can add or change can not be updated at all | Updated when the scenario opens, keeping settings, links and what the user added or changed; one Undo step, and the scenario counts as changed until saved |
+| Crashes in Designer | QML's garbage collector could delete settings and parameter objects that Designer still used, and Designer crashed later, e.g. on opening a box's settings; the 2D topographic map read its sample points while the window resized them, and crashed | Those objects stay Designer's; the map's points are guarded while they are resized, interpolated and drawn, and a bad point no longer reads outside the spline table |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
 | Acquisition server icon | The same as Designer's | Its own, in the same style: three channels merging into one |
 | Editing a comment | The editor opens at the comment's place on the canvas taken as a place on the screen, often off the screen | It opens in the middle of Designer's window |
@@ -1231,6 +1232,29 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 - A box where the user can add inputs does not get an input that a newer plugin added to its prototype; add it by hand if needed.
 - Tested on a copy of a lab scenario: its Signal display was updated, with its settings and links unchanged and two settings the plugin no longer has (at their defaults) dropped; opened again after saving, nothing was reported. Also on a demo scenario whose Identity box (3 inputs and 3 outputs added by the user) was marked outdated: its inputs, outputs and all 16 links of the scenario stayed the same.
 
+### 2.49 Two crashes found in the lab's crash dumps
+
+**Files**
+- `designer/applications/platform/designer/src/BoxObject.cpp`, `DesignerScenario.cpp`
+- `extras/applications/platform/acquisition-server/ui/AcquisitionController.cpp`, `extras/plugins/processing/evaluation/src/box-algorithms/CROCCurveView.cpp`
+- `designer/plugins/visualization/simple-visualization/src/box-algorithms/topographicMap2DDisplay/CTopographicMap2DView.hpp`, `.cpp`, `CTopographicMapDatabase.hpp`, `.cpp`
+- `designer/plugins/visualization/simple-visualization/src/algorithms/spline.cpp`, `CAlgorithmSphericalSplineInterpolation.hpp`, `.cpp`
+
+Designer quit without a word three times on the lab PC. The crash dumps Windows kept, read with the `.pdb` files of the same commit, showed two faults, both upstream's.
+
+**1. Objects that QML deleted while Designer still used them.** Designer hands a box's parameters, its settings file path, and the scenario's parameters to QML with `QJSEngine::newQObject()`. For an object without a parent, that gives QML ownership: its garbage collector deletes the object once no QML item refers to it, for example after the box's settings close, while Designer keeps the pointer. The next read went to freed memory. In the dump of 16:31, QML read `settingsFilePath` (`BoxObject.cpp`), and the call jumped into the heap.
+- These objects are now marked as Designer's own (`QJSEngine::CppOwnership`) before they are handed over, as the Signal display and the LSL display already did. The same is done in the acquisition server's parameter lists and the ROC curve's, which had the same fault.
+
+**2. The 2D topographic map read its sample points while the window resized them.** The map interpolates on the player's thread, over sample points that its view computes on the interface thread, and draws into an image that QML reads. When the window is resized (or the view or projection changed), the view frees and rebuilds those points and the image, with nothing to stop the player's thread reading them at that moment. In the dump of 16:51, the interpolation computed a table index from a coordinate that was not a number, `int(NaN)`, and read 16 GB before the table.
+- A lock now guards the sample points, their values and the image: the view takes it while it resizes them, the box while it interpolates and draws, and QML gets a copy of the image taken under it.
+- The spline routines keep their table index within the table, so a bad coordinate gives a bad frame, not a crash.
+
+**Also, in the same map:** the lab scenario sent the map 65 channels, PO8 twice (a Signal merger of the channel selections `1:64` and `64`). Two electrodes at the same position leave the spline without a solution, so the map stayed empty and the log had "Spline coefficients computation failed!" on every frame, 2,376 times. The map now says once which channels share a position ("Channels 64 (PO8) and 65 (PO8) have the same electrode position, so the map can not be drawn. Leave one of them out of the signal the map gets."), and the failure is logged once a run. The scenario goes on, so a recording in it is not interrupted.
+
+**Consequences**
+- Tested: the dumps' addresses resolve, with this commit's `.pdb` files, to `BoxObject.cpp:732` (16:31) and `spline.cpp:279` via `CTopographicMapDatabase.cpp:138` (16:51). The topography test scenario, with a channel given twice, plays without fault, with one warning naming the two channels and one about the spline. With the map playing, Designer's windows were resized 687 times in 40 s without a crash; the test input is short, so that shows little about the race itself. Not yet run on the lab PC.
+- The crashes of October (Qt fatal errors, an `ntdll` heap fault, the eego driver dividing by zero in the acquisition server) were in older builds, two of them in another folder; not examined.
+
 ---
 
 ## 3. All modified files
@@ -1257,13 +1281,21 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 | A | `designer/applications/platform/designer/RuntimeOverlay.qml` | 2.33, 2.44 |
 | M | `designer/applications/platform/designer/ShortcutManager.qml` | 2.36 |
 | M | `designer/applications/platform/designer/share/designer.conf-base` | 2.33 |
-| M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12, 2.42, 2.46, 2.48 |
+| M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12, 2.42, 2.46, 2.48, 2.49 |
+| M | `designer/applications/platform/designer/src/BoxObject.cpp` | 2.49 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.h` | 2.36, 2.48 |
 | M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33, 2.44, 2.46, 2.47, 2.48 |
 | M | `designer/applications/platform/designer/src/OVDesigner.h` | 2.33, 2.44, 2.47 |
 | M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18, 2.23, 2.46 |
 | M | `designer/applications/platform/designer/src/PlayerBridge.h` | 2.44, 2.46 |
 | M | `designer/applications/platform/designer/src/main.cpp` | 2.17 |
+| M | `designer/plugins/visualization/simple-visualization/src/algorithms/CAlgorithmSphericalSplineInterpolation.cpp` | 2.49 |
+| M | `designer/plugins/visualization/simple-visualization/src/algorithms/CAlgorithmSphericalSplineInterpolation.hpp` | 2.49 |
+| M | `designer/plugins/visualization/simple-visualization/src/algorithms/spline.cpp` | 2.49 |
+| M | `designer/plugins/visualization/simple-visualization/src/box-algorithms/topographicMap2DDisplay/CTopographicMap2DView.cpp` | 2.49 |
+| M | `designer/plugins/visualization/simple-visualization/src/box-algorithms/topographicMap2DDisplay/CTopographicMap2DView.hpp` | 2.49 |
+| M | `designer/plugins/visualization/simple-visualization/src/box-algorithms/topographicMap2DDisplay/CTopographicMapDatabase.cpp` | 2.49 |
+| M | `designer/plugins/visualization/simple-visualization/src/box-algorithms/topographicMap2DDisplay/CTopographicMapDatabase.hpp` | 2.49 |
 | M | `extras/applications/developer-tools/plugin-inspector/src/CAlgorithmGlobalDefinesGen.cpp` | 2.23 |
 | M | `extras/applications/developer-tools/plugin-inspector/src/CBoxQmlRenderer.cpp` | 2.35 |
 | M | `extras/applications/developer-tools/skeleton-generator/src/CDriverSkeletonGenerator.cpp` | 2.23 |
@@ -1296,7 +1328,7 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 | A | `extras/applications/platform/acquisition-server/test/CharmeleonMontageTest.cpp` | 2.3 |
 | A | `extras/applications/platform/acquisition-server/test/CircularBufferTest.cpp` | 2.4 |
 | A | `extras/applications/platform/acquisition-server/test/OvMsgSerializerTest.cpp` | 2.7, 2.41 |
-| M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.cpp` | 2.4, 2.6, 2.8, 2.16, 2.41, 2.42, 2.47 |
+| M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.cpp` | 2.4, 2.6, 2.8, 2.16, 2.41, 2.42, 2.47, 2.49 |
 | M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.h` | 2.4, 2.6, 2.8, 2.16, 2.42, 2.47 |
 | A | `extras/applications/platform/acquisition-server/ui/Charmeleon.cpp` | 2.6, 2.41, 2.42 |
 | A | `extras/applications/platform/acquisition-server/ui/Charmeleon.h` | 2.6, 2.41 |
@@ -1354,6 +1386,7 @@ Selecting a box and pressing Delete then closed the box's settings, as the selec
 | M | `extras/plugins/processing/artifact/src/boxes/CBoxAlgorithmASRProcessor.cpp` | 2.23 |
 | M | `extras/plugins/processing/artifact/src/boxes/CBoxAlgorithmASRTrainer.cpp` | 2.23 |
 | M | `extras/plugins/processing/artifact/src/boxes/CBoxAlgorithmAmplitudeArtifactDetector.cpp` | 2.23 |
+| M | `extras/plugins/processing/evaluation/src/box-algorithms/CROCCurveView.cpp` | 2.49 |
 | M | `extras/plugins/processing/features-selection/src/boxes/CBoxAlgorithmFeaturesSelection.cpp` | 2.23 |
 | M | `extras/plugins/processing/features-selection/src/boxes/CBoxAlgorithmFeaturesSelector.cpp` | 2.23 |
 | M | `extras/plugins/processing/matlab/src/box-algorithms/ovpCBoxAlgorithmMatlabScripting.cpp` | 2.23 |
