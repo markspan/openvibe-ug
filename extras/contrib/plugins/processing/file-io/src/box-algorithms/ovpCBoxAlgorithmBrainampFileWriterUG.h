@@ -111,6 +111,7 @@ protected:
     // UG fork: what keeps the three files consistent, see process()
     bool m_isHeaderWritten   = false;  ///< The .vhdr is written once, for the first signal header
     bool m_hasFirstSample    = false;  ///< Whether m_firstSampleTime is known
+    bool m_recording         = false;  ///< UG fork: counted in RecordingStatus, from the first sample written until the end
     uint64_t m_firstSampleTime = 0;    ///< The date of the first sample in the .eeg, which markers are counted from
     std::vector<std::pair<uint64_t, uint64_t>> m_earlyMarkers;  ///< {code, date} of markers that came before any signal
     bool m_clipped           = false;  ///< Whether a sample did not fit the integer format, see saveBuffer()

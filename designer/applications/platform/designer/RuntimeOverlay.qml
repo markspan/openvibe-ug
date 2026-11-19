@@ -18,6 +18,9 @@ import DesignSystem as DS
  *
  * It follows the screen of hostWindow, so on a lab setup with the participant's display on a
  * second screen it stays on the experimenter's. ${Designer_RuntimeOverlay} = false turns it off.
+ *
+ * While a box of the scenario writes a recording (the BrainVision writer (UG), see RecordingStatus.hpp), a label after
+ * the time says so: "Recording", or "Recording paused" while paused, as nothing is written then.
  */
 Window {
   id: _root
@@ -97,6 +100,26 @@ Window {
           font: _timeText.font
           color: _root.textColor
           opacity: 0.6
+        }
+      }
+
+      // UG fork: while a box writes a recording, in the colour of the dot
+      Rectangle {
+        anchors.verticalCenter: parent.verticalCenter
+        visible: OVDesigner.recording
+        width: _recordingText.implicitWidth + 2 * DS.Theme.spacingSm
+        height: _recordingText.implicitHeight + 2 * DS.Theme.spacing2xs
+        radius: DS.Theme.radiusXs
+        color: _statusDot.color
+
+        Text {
+          id: _recordingText
+          anchors.centerIn: parent
+          text: _root.paused ? qsTr("Recording paused") : qsTr("Recording")
+          font.weight: Font.Bold
+          font.pixelSize: DS.Theme.textSmallRegular.pixelSize
+          // Dark on amber, which white would not stand out on
+          color: _root.paused ? "#1A1A1A" : _root.textColor
         }
       }
     }

@@ -14,6 +14,7 @@
 #include "ovpCBoxAlgorithmBrainampFileWriterUG.h"
 
 #include <openvibe/acquisition-messaging/ovChannelInfo.h>
+#include <openvibe/RecordingStatus.hpp>  // UG fork
 
 #include <cmath>
 #include <filesystem>
@@ -151,6 +152,12 @@ bool CBoxAlgorithmBrainampFileWriterUG::uninitialize()
         delete m_localisationDecoder;
     }
 
+    if (m_recording)  // UG fork: see process()
+    {
+        RecordingStatus::set(this->getConfigurationManager(), false);
+        m_recording = false;
+    }
+
     //close files
     m_headerFile.flush();
     m_headerFile.close();
@@ -211,6 +218,9 @@ bool CBoxAlgorithmBrainampFileWriterUG::process()
             {
                 m_firstSampleTime = boxContext.getInputChunkStartTime(0, i);
                 m_hasFirstSample  = true;
+                // UG fork: from now on samples reach the file, so Designer may say that the scenario records
+                RecordingStatus::set(this->getConfigurationManager(), true);
+                m_recording = true;
             }
             // size_t channelCount = m_Matrix->getDimensionSize(0);
             switch (m_binaryFormat)

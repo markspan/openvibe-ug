@@ -1108,6 +1108,16 @@ QString OVDesigner::simulatedTimeMs() const
     return result;
 }
 
+bool OVDesigner::recording() const
+{
+    // UG fork: see RecordingStatus.hpp
+    if (d->m_scenarios.empty()) { return false; }
+    auto* currentScenario = d->m_scenarios[d->m_CurrentScenarioIndex];
+    if (currentScenario == nullptr) { return false; }
+    auto& player = currentScenario->currentPlayer();
+    return !player.isNull() && player.isRecording();
+}
+
 bool OVDesigner::runtimeOverlayEnabled() const
 {
     // UG fork: read when QML first asks, which is after designer.conf and the user's file are loaded

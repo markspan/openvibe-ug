@@ -33,6 +33,8 @@ class OVDesigner : public QObject
     Q_PROPERTY(QString simulatedTimeMs READ simulatedTimeMs NOTIFY simulatedTimeChanged)
     // UG fork: whether the run time is also shown in a window above all others. See UG.md, 2.33.
     Q_PROPERTY(bool runtimeOverlayEnabled READ runtimeOverlayEnabled CONSTANT)
+    // UG fork: whether the scenario shown writes a recording, for the run time overlay. Read as often as the run time.
+    Q_PROPERTY(bool recording READ recording NOTIFY simulatedTimeChanged)
     //TODO add signal toast to show messages to the user and ask for confirmation
     Q_PROPERTY(int currentScenarioIndex READ currentScenarioIndex WRITE setCurrentScenarioIndex NOTIFY currentScenarioIndexChanged)
     Q_PROPERTY(DesignerScenario* currentScenario READ currentScenario NOTIFY currentScenarioIndexChanged)
@@ -100,6 +102,8 @@ public:
      * above all others while a scenario runs. True when the token is not set.
      */
     bool runtimeOverlayEnabled() const;
+    /// UG fork: true while a box of the current scenario writes a recording, e.g. the BrainVision writer (UG)
+    bool recording() const;
     bool threadFinished() const;
     int currentScenarioIndex() const;
     /** The scenario shown in the current tab, or nullptr when there is none. */

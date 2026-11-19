@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 68 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 69 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 339 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 341 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -61,7 +61,7 @@ Everything outside the files listed here is identical to upstream.
 | Hardware triggers | n/a (TMSi) / flank-decoded (eego) | Sent as `OVTK_StimulationId_Label(value)`, value 1–255, not inverted |
 | Trigger lines switching | A value caught while the trigger lines switch is an extra trigger with a wrong code (eego) | A value counts once it has held for two samples, and is dated at the first sample of the change (TMSi, eego) |
 | Designer configuration | A `designer.conf` that is not found is skipped without a word; the user's settings are then not loaded, and every session save fails with `${Designer_CustomConfigurationFile} is empty` | The missing file is named in the log, and the user configuration file falls back to `${Path_UserData}/openvibe-designer.conf` |
-| Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; red dot while running, amber while paused |
+| Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; red dot while running, amber while paused; "Recording" while the BrainVision writer (UG) writes |
 | Comments on the canvas | Shown, edited, moved and deleted, but a new one can not be made: nothing starts it | Edit > Add comment, or Ctrl+Shift+C: the text dialog opens at once |
 | Acquisition server icon | The same as Designer's | Its own, in the same style: three channels merging into one |
 | Editing a comment | The editor opens at the comment's place on the canvas taken as a place on the screen, often off the screen | It opens in the middle of Designer's window |
@@ -924,6 +924,7 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 - The window takes no focus, lets every click through to whatever lies under it, has no taskbar button, and stays when Designer is minimised.
 - It shows the scenario of the current tab, as the action bar does.
 - `Designer_RuntimeOverlay = false`, in `designer.conf` or in the user's `openvibe-designer.conf`, turns it off. It is read when Designer starts.
+- While the BrainVision writer (UG) records, a label after the time says so (2.44).
 
 **Consequences**
 - With the participant's display on the same screen as Designer, the participant sees the time too. Put Designer on the experimenter's screen, or turn the overlay off.
@@ -1138,6 +1139,23 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 
 **Consequence:** in a stacked display, which trace is which channel can be read off the colours, also when the lanes are narrow or the traces overlap.
 
+### 2.44 "Recording" in the run time overlay
+
+**Files**
+- `sdk/openvibe/include/openvibe/RecordingStatus.hpp` (new)
+- `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` and `.cpp`
+- `designer/applications/platform/designer/src/PlayerBridge.h`, `OVDesigner.h`, `OVDesigner.cpp`, `RuntimeOverlay.qml`
+
+**What it does**
+- While a BrainVision Format file writer (UG) in the running scenario writes samples to its file, the run time overlay (2.33) shows a label after the time: **Recording** on red, or **Recording paused** on amber while the scenario is paused, as nothing is written then. Without such a writer, or before its first sample, the overlay shows the time alone, as before.
+- The writer says so itself, so the label means that samples reach the file, not only that a writer is in the scenario. A writer whose signal input has no link, or that gets no signal because the acquisition server does not stream, never says it records.
+- How: from its first sample until it stops, the writer counts itself in a token of its run's configuration, `Player_Recording` (`RecordingStatus.hpp`). The player makes that configuration anew for every run, so the count never outlives the run. Designer reads it for the scenario of the current tab, as often as the run time. Another writer can take part by calling `RecordingStatus::set()` in the same way.
+
+**Consequences**
+- The overlay shows the scenario of the current tab (2.33). A recording in a scenario in another tab is not shown.
+- With the overlay turned off (`Designer_RuntimeOverlay = false`) there is no label either.
+- The other writers (CSV, GDF, the Gipsa writer, the LSL XDF writer) do not report it.
+
 ---
 
 ## 3. All modified files
@@ -1161,14 +1179,15 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 | M | `designer/applications/platform/designer/OVVisualization/Comment.qml` | 2.38 |
 | M | `designer/applications/platform/designer/OVVisualization/CommentEditDialog.qml` | 2.38 |
 | M | `designer/applications/platform/designer/OVVisualization/PipelineCanvas.qml` | 2.36, 2.38 |
-| A | `designer/applications/platform/designer/RuntimeOverlay.qml` | 2.33 |
+| A | `designer/applications/platform/designer/RuntimeOverlay.qml` | 2.33, 2.44 |
 | M | `designer/applications/platform/designer/ShortcutManager.qml` | 2.36 |
 | M | `designer/applications/platform/designer/share/designer.conf-base` | 2.33 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12, 2.42 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.h` | 2.36 |
-| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33 |
-| M | `designer/applications/platform/designer/src/OVDesigner.h` | 2.33 |
+| M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33, 2.44 |
+| M | `designer/applications/platform/designer/src/OVDesigner.h` | 2.33, 2.44 |
 | M | `designer/applications/platform/designer/src/PlayerBridge.cpp` | 2.18, 2.23 |
+| M | `designer/applications/platform/designer/src/PlayerBridge.h` | 2.44 |
 | M | `designer/applications/platform/designer/src/main.cpp` | 2.17 |
 | M | `extras/applications/developer-tools/plugin-inspector/src/CAlgorithmGlobalDefinesGen.cpp` | 2.23 |
 | M | `extras/applications/developer-tools/plugin-inspector/src/CBoxQmlRenderer.cpp` | 2.35 |
@@ -1226,8 +1245,8 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 | A | `extras/applications/qml/OVParameters/test/ParameterPathObjectTest.cpp` | 2.22 |
 | A | `extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py` | 2.27 |
 | A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/BrainVisionUG.h` | 2.27 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9, 2.27, 2.41 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9, 2.27, 2.41 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9, 2.27, 2.41, 2.44 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9, 2.27, 2.41, 2.44 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_defines.h` | 2.9 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_main.cpp` | 2.9 |
 | A | `extras/contrib/plugins/processing/file-io/test/BrainVisionUGTest.cpp` | 2.27 |
@@ -1354,6 +1373,7 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 | M | `sdk/modules/network/Server/CServer.h` | 2.31 |
 | M | `sdk/modules/network/Server/ConnectedClient.cpp` | 2.19 |
 | A | `sdk/openvibe/include/openvibe/ConsoleLog.hpp` | 2.17 |
+| A | `sdk/openvibe/include/openvibe/RecordingStatus.hpp` | 2.44 |
 | A | `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h` | 2.7, 2.41 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsg.h` | 2.7 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsgSerializer.h` | 2.7, 2.42 |

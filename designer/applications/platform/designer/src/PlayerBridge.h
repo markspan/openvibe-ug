@@ -6,6 +6,7 @@
 #pragma once
 
 #include <openvibe/ov_all.h>
+#include <openvibe/RecordingStatus.hpp>  // UG fork
 #include <thread>
 #include <future>
 #include <atomic>
@@ -38,6 +39,13 @@ class PlayerBridge {
 
     void setPlayer(Kernel::IPlayer* player) { m_player = player; }
     double getCPUUsage() const { return m_player ? m_player->getCPUUsage() : -1.0; }
+    /// UG fork: whether a box of the running scenario writes a recording (RecordingStatus.hpp); only while it runs, as
+    /// the player makes the configuration that holds it when the scenario starts
+    bool isRecording() const
+    {
+        return m_player && m_player->getStatus() != Kernel::EPlayerStatus::Stop
+               && RecordingStatus::count(m_player->getRuntimeConfigurationManager()) > 0;
+    }
 
     bool start(Kernel::EPlayerStatus status = Kernel::EPlayerStatus::Play, std::function<void()> onEnd = nullptr);
     void stop();
