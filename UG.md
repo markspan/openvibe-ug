@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 69 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 70 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 341 files, about 35,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
@@ -61,7 +61,7 @@ Everything outside the files listed here is identical to upstream.
 | Hardware triggers | n/a (TMSi) / flank-decoded (eego) | Sent as `OVTK_StimulationId_Label(value)`, value 1–255, not inverted |
 | Trigger lines switching | A value caught while the trigger lines switch is an extra trigger with a wrong code (eego) | A value counts once it has held for two samples, and is dated at the first sample of the change (TMSi, eego) |
 | Designer configuration | A `designer.conf` that is not found is skipped without a word; the user's settings are then not loaded, and every session save fails with `${Designer_CustomConfigurationFile} is empty` | The missing file is named in the log, and the user configuration file falls back to `${Path_UserData}/openvibe-designer.conf` |
-| Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; red dot while running, amber while paused; "Recording" while the BrainVision writer (UG) writes |
+| Run time on screen | Only in Designer's action bar, hidden behind the visualisation windows while a scenario runs | Also in a small window above all others, at the top left of Designer's screen, while a scenario runs; black dot while running, amber while paused; a red dot and "Recording" while the BrainVision writer (UG) writes |
 | Comments on the canvas | Shown, edited, moved and deleted, but a new one can not be made: nothing starts it | Edit > Add comment, or Ctrl+Shift+C: the text dialog opens at once |
 | Acquisition server icon | The same as Designer's | Its own, in the same style: three channels merging into one |
 | Editing a comment | The editor opens at the comment's place on the canvas taken as a place on the screen, often off the screen | It opens in the middle of Designer's window |
@@ -920,7 +920,7 @@ The network server binds its port with `SO_REUSEADDR`, which on Windows lets a s
 
 **What it does**
 - While a scenario plays, is paused, steps or fast-forwards, its run time is also shown in a small dark window at the top left corner of the screen Designer is on, above every other window: Designer's visualisation windows and other programs alike. It reads `00:12:34.567`, as the action bar does.
-- A dot before the time is red while time runs and amber while paused. When the scenario stops, the window goes.
+- A dot before the time is black (with a light ring) while time runs, red while a recording is written (2.44), and amber while paused. When the scenario stops, the window goes.
 - The window takes no focus, lets every click through to whatever lies under it, has no taskbar button, and stays when Designer is minimised.
 - It shows the scenario of the current tab, as the action bar does.
 - `Designer_RuntimeOverlay = false`, in `designer.conf` or in the user's `openvibe-designer.conf`, turns it off. It is read when Designer starts.
@@ -1147,7 +1147,7 @@ The smaller findings of the review of 2.41, each fixed where it was found.
 - `designer/applications/platform/designer/src/PlayerBridge.h`, `OVDesigner.h`, `OVDesigner.cpp`, `RuntimeOverlay.qml`
 
 **What it does**
-- While a BrainVision Format file writer (UG) in the running scenario writes samples to its file, the run time overlay (2.33) shows a label after the time: **Recording** on red, or **Recording paused** on amber while the scenario is paused, as nothing is written then. Without such a writer, or before its first sample, the overlay shows the time alone, as before.
+- While a BrainVision Format file writer (UG) in the running scenario writes samples to its file, the run time overlay (2.33) turns its dot from black to red and shows a label after the time: **Recording** on red, or **Recording paused** on amber while the scenario is paused, as nothing is written then. A red dot reads as recording, so it is red only then. Without such a writer, or before its first sample, the overlay shows the time alone, as before.
 - The writer says so itself, so the label means that samples reach the file, not only that a writer is in the scenario. A writer whose signal input has no link, or that gets no signal because the acquisition server does not stream, never says it records.
 - How: from its first sample until it stops, the writer counts itself in a token of its run's configuration, `Player_Recording` (`RecordingStatus.hpp`). The player makes that configuration anew for every run, so the count never outlives the run. Designer reads it for the scenario of the current tab, as often as the run time. Another writer can take part by calling `RecordingStatus::set()` in the same way.
 

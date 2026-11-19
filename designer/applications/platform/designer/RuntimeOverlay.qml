@@ -13,8 +13,8 @@ import DesignSystem as DS
  * visualisation windows and other programs, and shows the run time that the action bar shows.
  *
  * It is shown while the player plays, is paused, steps or fast-forwards, and hidden when it stops.
- * The dot says which: red while time runs, amber while paused. It takes no focus, lets every
- * click through to what lies under it, and has no taskbar button.
+ * The dot says which: black while time runs, red while a box of the scenario records (a red dot reads as recording),
+ * amber while paused. It takes no focus, lets every click through to what lies under it, and has no taskbar button.
  *
  * It follows the screen of hostWindow, so on a lab setup with the participant's display on a
  * second screen it stays on the experimenter's. ${Designer_RuntimeOverlay} = false turns it off.
@@ -39,7 +39,8 @@ Window {
   // and must stay readable on all of them.
   readonly property color backgroundColor: Qt.rgba(0.08, 0.08, 0.10, 0.80)
   readonly property color textColor: "#FFFFFF"
-  readonly property color runningColor: "#E5484D"
+  readonly property color runningColor: "#000000"
+  readonly property color recordingColor: "#E5484D"
   readonly property color pausedColor: "#F5A524"
 
   visible: OVDesigner.runtimeOverlayEnabled && scenarioRunning
@@ -78,7 +79,10 @@ Window {
         width: DS.Theme.spacingMd
         height: width
         radius: width / 2
-        color: _root.paused ? _root.pausedColor : _root.runningColor
+        color: _root.paused ? _root.pausedColor : OVDesigner.recording ? _root.recordingColor : _root.runningColor
+        // A ring, so that the black dot shows on the dark panel
+        border.width: color === _root.runningColor ? DS.Theme.borderMd : 0
+        border.color: Qt.rgba(1, 1, 1, 0.7)
       }
 
       // Seconds and milliseconds side by side, without the spacing that separates them from the dot
@@ -103,7 +107,7 @@ Window {
         }
       }
 
-      // UG fork: while a box writes a recording, in the colour of the dot
+      // While a box writes a recording, in the colour of the dot
       Rectangle {
         anchors.verticalCenter: parent.verticalCenter
         visible: OVDesigner.recording
