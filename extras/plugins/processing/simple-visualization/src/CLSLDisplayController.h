@@ -128,8 +128,6 @@ class CLSLDisplayController final : public QObject
     Q_PROPERTY(bool showTimeRuler READ showTimeRuler NOTIFY settingsChanged)
     Q_PROPERTY(bool showAmplitudeRuler READ showAmplitudeRuler NOTIFY settingsChanged)
     Q_PROPERTY(bool butterfly READ butterfly NOTIFY settingsChanged)
-    /// UG fork: the traces are coloured per channel, so a swatch goes before each name (UG.md, 2.43)
-    Q_PROPERTY(bool perChannelColors READ perChannelColors NOTIFY settingsChanged)
     /// Markers are being read, though no data stream is shown
     Q_PROPERTY(bool hasMarkerStreams READ hasMarkerStreams NOTIFY streamsChanged)
     /// Whether the streams ticked are being recorded, by an LSL XDF writer connected to the box's output
@@ -152,7 +150,6 @@ public:
     bool showTimeRuler() const { return m_settings.showTimeRuler; }
     bool showAmplitudeRuler() const { return m_settings.showAmplitudeRuler; }
     bool butterfly() const { return m_settings.layout == ELayoutMode::Butterfly; }
-    bool perChannelColors() const { return m_settings.perChannelColors; }
     bool hasMarkerStreams() const { return m_markerStreams > 0; }
     bool recording() const { return m_recording; }
     QString recordingTime() const { return m_recordingTime; }

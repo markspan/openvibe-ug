@@ -62,8 +62,6 @@ class CSignalDisplayController final : public QObject
     Q_PROPERTY(int channelsPerPage READ channelsPerPage NOTIFY settingsChanged)
     /** True when every channel shares a single baseline, which makes paging meaningless. */
     Q_PROPERTY(bool butterfly READ butterfly NOTIFY settingsChanged)
-    /** UG fork: the traces are coloured per channel, so a swatch goes before each name (UG.md, 2.43). */
-    Q_PROPERTY(bool perChannelColors READ perChannelColors NOTIFY settingsChanged)
     /**
      * Number of channels selected for display. Comes from the channel selection, deliberately not
      * from the renderer's row count: the rows are a *result* of the item's height, so feeding them
@@ -105,7 +103,6 @@ public:
     bool         showAmplitudeRuler() const { return m_settings.showAmplitudeRuler; }
     int          channelsPerPage() const { return m_channelsPerPage; }
     bool         butterfly() const { return m_settings.layout == ELayoutMode::Butterfly; }
-    bool         perChannelColors() const { return m_settings.perChannelColors; }
     int          visibleChannelCount() const { return int(m_visible.size()); }
     bool         hasData() const { return !m_channelNames.isEmpty(); }
 

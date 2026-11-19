@@ -77,7 +77,7 @@ CDisplayPanel::CDisplayPanel(SDisplaySettings& settings, QObject* context, std::
     QObject::connect(m_colors, &ParameterBoolObject::valueChanged, context, [this](const bool& value)
     {
         m_settings.perChannelColors = value;
-        changed(EDisplayChange::Layout);  // UG fork: the names get a swatch, so the QML around the traces changes (UG.md, 2.43)
+        changed(EDisplayChange::Drawing);
     });
 
     m_shading = new ParameterListStringObject(TRACE_SHADING_NAME, TRACE_SHADING_HELP, names(TRACE_SHADINGS, [](ETraceShading v) { return toString(v); }),

@@ -30,19 +30,18 @@ Item {
             model: _root.butterfly ? _root.trace.rowChannels : []
 
             delegate: Row {
-                id: _legendEntry
-
                 required property int modelData
 
                 readonly property var entry: _root.channels[modelData] ?? null
 
-                spacing: _legendSwatch.gap
+                spacing: DS.Theme.spacingXs
                 anchors.right: parent.right
 
-                // UG fork: the swatch the lanes have too, in place of a dot (UG.md, 2.43)
-                ChannelSwatch {
-                    id: _legendSwatch
-                    color: _legendEntry.entry ? _legendEntry.entry.color : DS.Theme.textPrimary
+                Rectangle {
+                    width: DS.Theme.spacingSm
+                    height: DS.Theme.spacingSm
+                    radius: width / 2
+                    color: parent.entry ? parent.entry.color : DS.Theme.textPrimary
                     anchors.verticalCenter: parent.verticalCenter
                     visible: _root.trace.perChannelColors
                 }
@@ -82,28 +81,12 @@ Item {
                 spacing: 0
 
                 Label {
-                    id: _name
-
-                    // UG fork: with the traces coloured per channel, a swatch of the lane's colour stands just before
-                    // the name, in room kept free for it on the left (UG.md, 2.43)
-                    readonly property bool showSwatch: _root.trace.perChannelColors && _lane.entry !== null
-
                     width: parent.width
-                    leftPadding: showSwatch ? _laneSwatch.footprint : 0
                     text: _lane.entry ? _lane.entry.name : ""
                     font: DS.Theme.textSmallRegular
                     color: DS.Theme.textPrimary
                     elide: Text.ElideLeft
                     horizontalAlignment: Text.AlignRight
-
-                    ChannelSwatch {
-                        id: _laneSwatch
-                        visible: _name.showSwatch
-                        color: _lane.entry ? _lane.entry.color : "transparent"
-                        // Right-aligned text ends at the right edge, so the swatch goes just left of where it starts
-                        x: _name.width - _name.rightPadding - _name.contentWidth - gap - width
-                        anchors.verticalCenter: parent.verticalCenter
-                    }
                 }
 
                 Label {

@@ -73,7 +73,6 @@ qt_add_qml_module(${PROJECT_NAME}
     QML_FILES
       qml/SignalDisplay.qml
       qml/ChannelGutter.qml
-      qml/ChannelSwatch.qml  # UG fork
       qml/AmplitudeScaleBar.qml
       qml/TimeRuler.qml
       qml/StimulationOverlay.qml
