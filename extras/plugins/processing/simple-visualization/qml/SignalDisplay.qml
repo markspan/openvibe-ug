@@ -19,9 +19,10 @@ Item {
         for (const channel of dataSource.channels) {
             widest = Math.max(widest, _nameMetrics.advanceWidth(channel.name), _unitMetrics.advanceWidth(channel.unit ?? ""))
         }
-        // Multiview's legend puts a coloured dot before each name
-        const dot = dataSource.butterfly ? DS.Theme.spacingSm + DS.Theme.spacingXs : 0
-        return Math.min(2 * DS.Theme.labelWidthSm, Math.ceil(widest + dot) + DS.Theme.spacingMd)
+        // UG fork: with the traces coloured per channel, a swatch stands before each name, in a lane as in Multiview's
+        // legend (UG.md, 2.43)
+        const swatch = dataSource.perChannelColors ? _swatchMetrics.footprint : 0
+        return Math.min(2 * DS.Theme.labelWidthSm, Math.ceil(widest + swatch) + DS.Theme.spacingMd)
     }
     readonly property int rulerHeight: dataSource.showTimeRuler ? DS.Theme.labelHeightLg : 0
 
@@ -37,6 +38,8 @@ Item {
     // UG fork: the fonts ChannelGutter shows the names and units in, to size the gutter by
     FontMetrics { id: _nameMetrics; font: DS.Theme.textSmallRegular }
     FontMetrics { id: _unitMetrics; font: DS.Theme.textXsRegular }
+    // UG fork: the swatch ChannelGutter puts before a name, to size the gutter by; never shown
+    ChannelSwatch { id: _swatchMetrics; visible: false }
 
     // UG fork: the settings panel and its gear button, shared with the LSL display; before, written out here
     SettingsPanel {

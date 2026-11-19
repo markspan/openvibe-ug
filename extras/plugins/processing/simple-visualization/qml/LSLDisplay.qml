@@ -21,8 +21,10 @@ Item {
                 widest = Math.max(widest, _nameMetrics.advanceWidth(channel.name), _unitMetrics.advanceWidth(channel.unit ?? ""))
             }
         }
-        const dot = dataSource.butterfly ? DS.Theme.spacingSm + DS.Theme.spacingXs : 0
-        return Math.min(2 * DS.Theme.labelWidthSm, Math.ceil(widest + dot) + DS.Theme.spacingMd)
+        // UG fork: with the traces coloured per channel, a swatch stands before each name, in a lane as in Multiview's
+        // legend (UG.md, 2.43)
+        const swatch = dataSource.perChannelColors ? _swatchMetrics.footprint : 0
+        return Math.min(2 * DS.Theme.labelWidthSm, Math.ceil(widest + swatch) + DS.Theme.spacingMd)
     }
     readonly property int rulerHeight: dataSource.showTimeRuler ? DS.Theme.labelHeightLg : 0
     readonly property int headerHeight: DS.Theme.labelHeightSm
@@ -37,6 +39,8 @@ Item {
 
     FontMetrics { id: _nameMetrics; font: DS.Theme.textSmallRegular }
     FontMetrics { id: _unitMetrics; font: DS.Theme.textXsRegular }
+    // UG fork: the swatch ChannelGutter puts before a name, to size the gutter by; never shown
+    ChannelSwatch { id: _swatchMetrics; visible: false }
 
     SettingsPanel {
         id: _settings

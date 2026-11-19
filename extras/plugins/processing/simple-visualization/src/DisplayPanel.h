@@ -17,10 +17,10 @@ namespace SimpleVisualization {
 /// What a change made in the display panel affects; each display reacts to it in its own way.
 enum class EDisplayChange
 {
-    Drawing,    ///< How the traces are drawn: Display Mode, Vertical Scale, Colour per channel, Trace shading
+    Drawing,    ///< How the traces are drawn: Display Mode, Vertical Scale, Trace shading
     Scaling,    ///< Auto vertical scale: the scale is to be worked out again as well
     TimeScale,  ///< Time Scale: the rings are to hold another window as well
-    Layout,     ///< Multiview: the QML around the traces changes as well
+    Layout,     ///< Multiview, Colour per channel: the QML around the traces changes as well
     Rulers      ///< Bottom ruler, Left ruler: the QML only
 };
 
