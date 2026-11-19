@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 78 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 79 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 355 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
@@ -1259,7 +1259,7 @@ Designer quit without a word three times on the lab PC. The crash dumps Windows 
 ### 2.50 Qt 6.12 on Windows
 
 **Files**
-- `pixi.toml`, `README.md`
+- `pixi.toml`, `README.md`, `CMakeLists.txt`
 - `.github/workflows/windows-installer.yml`, `.github/install-qt.py` (new)
 
 Upstream builds with Qt 6.9.3. Qt 6.9 is out of support: 6.9.3 was its last release, so no bug or security fix will come for it. Qt 6.12 is the current long-term-support version, supported until 2031-09-30; open-source users get its fix releases until Qt 6.13 is out. Qt Charts, which Designer's displays and the ROC curve still use, is deprecated since Qt 6.10 in favour of Qt Graphs, and 6.12 has the Graphs features a move would need.
@@ -1267,6 +1267,7 @@ Upstream builds with Qt 6.9.3. Qt 6.9 is out of support: 6.9.3 was its last rele
 - `Qt6_DIR` in `pixi.toml`, the example in its comment, and the README name Qt 6.12.0. No code had to change.
 - The installer workflow installs Qt 6.12.0, but no longer with install-qt-action: aqtinstall 3.3.0, the newest release and the one that action runs, does not read the layout Qt's online repository has from 6.11 on (one folder per compiler), and stops with "Failed to download checksum for the file 'Updates.xml'". A fix is merged in aqtinstall, not yet released.
 - `.github/install-qt.py` does what the Maintenance Tool does for the packages needed: it reads `Updates.xml` of `qt6_6120_msvc2022_64` on download.qt.io, downloads every archive the Qt package and the five add-ons name (download.qt.io sends it to a mirror), checks each against the SHA-256 that download.qt.io serves itself, unpacks it where the package says, and writes `bin/qt.conf`. The workflow caches the result, as before.
+- The GoogleTest suites now list their tests when `ctest` runs, not right after they are linked (`CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE PRE_TEST` in `CMakeLists.txt`). Right after linking, Qt's DLLs are not yet next to the test programs: Designer's `windeployqt` copies them there later. In a new build folder the build then stopped at `test-parameter-path`: "DLL not found" (`0xc0000135`) in the workflow, where install-qt-action had put Qt's `bin` on `PATH` and the new step does not, and an entry point missing (`0xc0000139`) on a PC with another Qt on `PATH`, such as Qt Creator's. The tests themselves are unchanged: in a new build folder the build goes through, and `ctest` finds the same 452 tests, of which 451 pass, as before.
 
 **Consequences**
 - A build folder configured with Qt 6.9.3 keeps it, because CMake keeps `Qt6_DIR` in its cache. After installing Qt 6.12.0, delete `build` (or configure once with `cmake --fresh`). On a PC that points CMake at Qt with `CMAKE_PREFIX_PATH`, change that variable too.
@@ -1274,7 +1275,6 @@ Upstream builds with Qt 6.9.3. Qt 6.9 is out of support: 6.9.3 was its last rele
 - `install-qt.py` installed the same Qt as the Maintenance Tool, in 52 s: the same 13,693 files, byte for byte, except `bin/qt.conf`, where the Maintenance Tool also names its documentation and examples folders. The Maintenance Tool's install also has add-ons it adds by itself (Qt Quick Timeline, and on this PC Qt MCP), which OpenViBE does not use.
 - Not tested: box settings and other dialogs opened by hand, where Qt 6.12 is stricter (a QML component whose required property is not set is now an error, not an incomplete object); the lab PC; the workflow itself, until it runs.
 - Linux (Qt 6.8) and macOS (Qt 6.9) take Qt from conda-forge, unchanged.
-- Not new with 6.12: in a new build folder, with another Qt on `PATH` (Qt Creator's, for example), the first build can stop at a test that is run at build time to list its cases (exit `0xc0000139`), because Qt's DLLs are copied next to it later. Building again goes through.
 
 ---
 
@@ -1287,7 +1287,7 @@ Upstream builds with Qt 6.9.3. Qt 6.9 is out of support: 6.9.3 was its last rele
 | A | `.github/install-qt.py` | 2.50 |
 | A | `.github/workflows/windows-installer.yml` | 2.34, 2.50 |
 | M | `CMake/FindThirdPartyLSL.cmake` | 2.21 |
-| M | `CMakeLists.txt` | 2.37 |
+| M | `CMakeLists.txt` | 2.37, 2.50 |
 | M | `conda/env_linux.yaml` | 2.21 |
 | M | `conda/env_osx.yaml` | 2.21 |
 | M | `conda/env_osx_arm64.yaml` | 2.21 |

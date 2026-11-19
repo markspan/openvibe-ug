@@ -277,6 +277,10 @@ ENDIF()
 set(DART_TESTING_TIMEOUT 72000 CACHE STRING "Maximum time allowed before CTest will kill the test." FORCE)
 include(CTest)
 enable_testing()
+# UG fork: GoogleTest suites list their tests when ctest runs, not right after linking. At link time
+# the Qt DLLs are not yet next to the test executables (Designer's windeployqt copies them later), so
+# a fresh build stopped there: DLL not found, or another Qt's DLL from PATH. See UG.md, 2.50.
+set(CMAKE_GTEST_DISCOVER_TESTS_DISCOVERY_MODE PRE_TEST)
 
 # #############################################################################
 # Add OpenViBE subdirectories
