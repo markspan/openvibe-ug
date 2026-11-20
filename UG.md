@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 80 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 82 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 357 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 358 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -67,6 +67,7 @@ Everything outside the files listed here is identical to upstream.
 | Crashes in Designer | QML's garbage collector could delete settings and parameter objects that Designer still used, and Designer crashed later, e.g. on opening a box's settings; the 2D topographic map read its sample points while the window resized them, and crashed | Those objects stay Designer's; the map's points are guarded while they are resized, interpolated and drawn, and a bad point no longer reads outside the spline table |
 | Qt on Windows | 6.9.3, whose support has ended | 6.12.0, the long-term-support version; the installer workflow fetches it with its own script, checked against Qt's SHA-256 |
 | MATLAB box | Without MATLAB at build time (the GitHub build), an empty `openvibe-plugins-matlab.dll` was installed, and Designer warned at every start: "No 'plugin object descriptor' found" | Such a build leaves the DLL out; a build on a PC with MATLAB finds any release in `C:\Program Files\MATLAB` (was: R2015b only) and builds the box, whose DLL can be copied into an installed OpenViBE |
+| Program descriptions | "OpenViBE Designer for Win32", in Task Manager and a file's Details, though the build is 64-bit | "OpenViBE Designer for Windows (64-bit)", and so for every program and DLL with a version resource |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
 | Acquisition server icon | The same as Designer's | Its own, in the same style: three channels merging into one |
 | Editing a comment | The editor opens at the comment's place on the canvas taken as a place on the screen, often off the screen | It opens in the middle of Designer's window |
@@ -1300,6 +1301,18 @@ The MATLAB Scripting box is the only box of `openvibe-plugins-matlab.dll`, and i
 
 ---
 
+### 2.52 "for Windows (64-bit)" instead of "for Win32"
+
+**Files**
+- `CMake/OvConfigureRC.cmake`
+
+Every program and DLL that gets a version resource was described as "*name* for Win32", e.g. "OpenViBE Designer for Win32". Windows shows this description in Task Manager and in the file's Properties > Details, where it reads as a 32-bit program. The build is 64-bit (x64, checked in the files themselves); Win32 is the name of the Windows programming interface, which 64-bit programs use too. The description now names the bitness the build has: "*name* for Windows (64-bit)" (32-bit only in a 32-bit build).
+
+**Consequences**
+- Tested: after a build, the 21 version resources read "for Windows (64-bit)", and Windows shows "OpenViBE Designer for Windows (64-bit)" and "OpenViBE Acquisition Server for Windows (64-bit)". Nothing else in the programs changes.
+
+---
+
 ## 3. All modified files
 
 `A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
@@ -1309,6 +1322,7 @@ The MATLAB Scripting box is the only box of `openvibe-plugins-matlab.dll`, and i
 | A | `.github/install-qt.py` | 2.50 |
 | A | `.github/workflows/windows-installer.yml` | 2.34, 2.50 |
 | M | `CMake/FindThirdPartyLSL.cmake` | 2.21 |
+| M | `CMake/OvConfigureRC.cmake` | 2.52 |
 | M | `CMakeLists.txt` | 2.37, 2.50 |
 | M | `conda/env_linux.yaml` | 2.21 |
 | M | `conda/env_osx.yaml` | 2.21 |

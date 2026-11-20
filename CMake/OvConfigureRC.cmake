@@ -13,7 +13,13 @@ function(ov_configure_rc)
        if(NOT(PROJECT_PRODUCT_NAME))
                set(PROJECT_PRODUCT_NAME "${OV_CONFIGURE_RC_NAME}")
        endif()
-       set(FILE_DESCRIPTION "${PROJECT_PRODUCT_NAME} for Win32")
+       # UG fork: "for Win32" read as a 32-bit program, in Task Manager and the file's Details, though the
+       # build is 64-bit (Win32 is the name of the Windows API). It now names the bitness. See UG.md, 2.52.
+       if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+               set(FILE_DESCRIPTION "${PROJECT_PRODUCT_NAME} for Windows (64-bit)")
+       else()
+               set(FILE_DESCRIPTION "${PROJECT_PRODUCT_NAME} for Windows (32-bit)")
+       endif()
 
        configure_file(
                ${OV_LAUNCHER_SOURCE_PATH}/resource-file.rc-base
