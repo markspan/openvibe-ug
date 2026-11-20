@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 79 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 80 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 357 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
