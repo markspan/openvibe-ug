@@ -106,6 +106,25 @@ BoxObject::BoxObject(Kernel::IKernelContext* context, Kernel::IBox *box) : m_con
     }
     m_outputSupportTypes.removeDuplicates();
 
+    // UG fork: a box that names no port types accepts every stream type (the kernel's rule, as for the scenario's
+    // own ports), but its list here stayed empty: "+" then asked for a port of no type, and the kernel refused
+    // ("Could not add input port"), e.g. on the MATLAB Scripting box. Such a box now lists every stream type, with
+    // Signal first, the type a new port gets. See UG.md, 2.53.
+    auto allStreamTypes = [this]() {
+        QStringList types;
+        auto& typeManager = m_context->getTypeManager();
+        for (const auto& type : typeManager.getSortedTypes())
+        {
+            if (!typeManager.isStream(type.first)) { continue; }
+            const QString name(type.second.toASCIIString());
+            if (type.first == OV_TypeId_Signal) { types.prepend(name); }
+            else { types.append(name); }
+        }
+        return types;
+    };
+    if (m_inputSupportTypes.isEmpty()) { m_inputSupportTypes = allStreamTypes(); }
+    if (m_outputSupportTypes.isEmpty()) { m_outputSupportTypes = allStreamTypes(); }
+
     //create Input and Output ports
     for(size_t i=0; i < box->getInputCount(); i++)
     {

@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 82 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 83 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 358 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
@@ -67,6 +67,7 @@ Everything outside the files listed here is identical to upstream.
 | Crashes in Designer | QML's garbage collector could delete settings and parameter objects that Designer still used, and Designer crashed later, e.g. on opening a box's settings; the 2D topographic map read its sample points while the window resized them, and crashed | Those objects stay Designer's; the map's points are guarded while they are resized, interpolated and drawn, and a bad point no longer reads outside the spline table |
 | Qt on Windows | 6.9.3, whose support has ended | 6.12.0, the long-term-support version; the installer workflow fetches it with its own script, checked against Qt's SHA-256 |
 | MATLAB box | Without MATLAB at build time (the GitHub build), an empty `openvibe-plugins-matlab.dll` was installed, and Designer warned at every start: "No 'plugin object descriptor' found" | Such a build leaves the DLL out; a build on a PC with MATLAB finds any release in `C:\Program Files\MATLAB` (was: R2015b only) and builds the box, whose DLL can be copied into an installed OpenViBE |
+| Adding ports to a box | On a box that accepts any stream type (MATLAB Scripting, Identity, Signal Merger, Generic Stream Writer, Classifier Trainer and about 15 more), "+" in the box's settings failed: "Could not add input port" | The port is added, as a Signal; its card offers every stream type |
 | Program descriptions | "OpenViBE Designer for Win32", in Task Manager and a file's Details, though the build is 64-bit | "OpenViBE Designer for Windows (64-bit)", and so for every program and DLL with a version resource |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
 | Acquisition server icon | The same as Designer's | Its own, in the same style: three channels merging into one |
@@ -1313,6 +1314,21 @@ Every program and DLL that gets a version resource was described as "*name* for 
 
 ---
 
+### 2.53 Ports can be added to boxes that accept any stream type
+
+**Files**
+- `designer/applications/platform/designer/src/BoxObject.cpp`
+
+A box whose inputs or outputs the user may add, but which names no stream types for them, accepts every stream type: that is the kernel's rule (`hasInterfacorTypeSupport`), and Designer applies it to the scenario's own inputs and outputs. For boxes, Designer listed only the types a box names. For such a box the list was empty, so "+" in the box's settings asked for a port of type "" (the first of an empty list), which is no stream type; the kernel refused and Designer logged "Could not add input port to box ...". The type list on a port's card was empty as well. About 20 boxes are of this kind, among them MATLAB Scripting, Identity, Signal Merger, Generic Stream Writer, Classifier Trainer, Voting Classifier, Feature Aggregator, Stimulation Listener, Lua Stimulator, Matrix Validity Checker, External Processing and Null.
+
+- Such a box now lists every stream type, as the scenario does, with Signal first: a new port is a Signal port, and its card offers the other types. Boxes that name their types are unchanged.
+- A box whose listener sets the type of a new port (Identity, for example, matches it to its other ports) still does so; it now gets a port to work on.
+
+**Consequences**
+- Built. Not yet tried in Designer's box settings: that needs clicking in Designer, which the tests here do not do.
+
+---
+
 ## 3. All modified files
 
 `A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
@@ -1340,7 +1356,7 @@ Every program and DLL that gets a version resource was described as "*name* for 
 | M | `designer/applications/platform/designer/ShortcutManager.qml` | 2.36 |
 | M | `designer/applications/platform/designer/share/designer.conf-base` | 2.33 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.cpp` | 2.12, 2.42, 2.46, 2.48, 2.49 |
-| M | `designer/applications/platform/designer/src/BoxObject.cpp` | 2.49 |
+| M | `designer/applications/platform/designer/src/BoxObject.cpp` | 2.49, 2.53 |
 | M | `designer/applications/platform/designer/src/DesignerScenario.h` | 2.36, 2.48 |
 | M | `designer/applications/platform/designer/src/OVDesigner.cpp` | 2.32, 2.33, 2.44, 2.46, 2.47, 2.48 |
 | M | `designer/applications/platform/designer/src/OVDesigner.h` | 2.33, 2.44, 2.47 |
