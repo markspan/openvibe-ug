@@ -7,6 +7,7 @@
 #include <toolkit/ovtk_all.h>
 
 #include <engine.h>
+#include "MatlabEngineThread.h"   // UG fork: every engine call runs on one thread. See UG.md, 2.58.
 
 namespace OpenViBE {
 namespace Plugins {

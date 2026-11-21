@@ -37,6 +37,7 @@ private:
     std::map<size_t, bool> m_oHeaderStates;
 
     void* m_engineHandle = nullptr;
+    bool m_usesEngineThread = false;   // UG fork: acquired in initialize(), released in uninitialize(). See UG.md, 2.58.
     CString m_boxInstanceVariableName; //must be unique
 
 

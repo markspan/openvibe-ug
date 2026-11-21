@@ -98,6 +98,25 @@ fs::path newestMatlabEngineFolder()
     for (const auto& release : releases) { if (hasMatlabEngine(release / "bin" / "win64")) { return (release / "bin" / "win64").make_preferred(); } }
     return {};
 }
+
+// UG fork: opens the MATLAB engine and returns the code of the Windows exception it raised (a DLL that would not load),
+// or 0. A function with __try may hold no C++ objects, hence a function of its own. See UG.md, 2.55 and 2.58.
+DWORD openEngineGuarded(void*& engine)
+{
+    DWORD exceptionCode = 0;
+    __try { engine = (engOpen)(nullptr); }   // in parentheses: this runs on the engine thread already
+    __except (exceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER) { engine = nullptr; }
+    return exceptionCode;
+}
+
+// UG fork: the PowerShell command that registers this MATLAB as the engine's COM server. See UG.md, 2.58.
+std::string regserverCommand(const std::string& engineFolder)
+{
+    fs::path folder(engineFolder);
+    while (!folder.empty() && !folder.has_filename()) { folder = folder.parent_path(); }
+    const fs::path matlabExe = (folder.filename() == "win64" ? folder.parent_path() : folder) / "matlab.exe";
+    return "& \"" + matlabExe.string() + "\" -regserver";
+}
 }  // namespace
 #endif
 
@@ -138,13 +157,12 @@ bool CBoxAlgorithmMatlabScripting::openMatlabEngineSafely()
 {
     this->getLogManager() << Kernel::LogLevel_Trace << "Trying to open the Matlab engine\n";
 #if defined TARGET_OS_Linux
-    m_engineHandle = ::engOpen(m_matlabPath.toASCIIString());
+    m_engineHandle = (::engOpen)(m_matlabPath.toASCIIString());   // UG fork: in parentheses, see MatlabEngineThread.h
     OV_ERROR_UNLESS_KRF(m_matlabEngine, "Could not open the Matlab engine.\nThe configured path to the matlab executable was expanded as '" << m_matlabPath << "'.", Kernel::ErrorType::BadProcessing);
 }
 #elif defined TARGET_OS_Windows
-    DWORD exceptionCode = 0;  // UG fork: named in the log, see below and UG.md, 2.55
-    __try { m_engineHandle = engOpen(nullptr); }
-    __except (exceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
+    const DWORD exceptionCode = openEngineGuarded(m_engineHandle);  // UG fork: named in the log, see below and UG.md, 2.55
+    if (exceptionCode != 0)
     {
         char code[16];
         snprintf(code, sizeof(code), "0x%08lX", exceptionCode);
@@ -158,7 +176,6 @@ bool CBoxAlgorithmMatlabScripting::openMatlabEngineSafely()
 #else
         this->getLogManager() << Kernel::LogLevel_Error << "For this build of OpenViBE, MATLAB needs to be a 32bit version.\n";
 #endif
-        m_engineHandle = nullptr;
     }
     if (!MATLAB_ENGINE)
     {
@@ -166,8 +183,21 @@ bool CBoxAlgorithmMatlabScripting::openMatlabEngineSafely()
         // UG fork: without an exception, the engine was loaded, but MATLAB did not start for it. See UG.md, 2.55.
         if (exceptionCode == 0)
         {
-            this->getLogManager() << Kernel::LogLevel_Error << "MATLAB's engine was loaded, but MATLAB did not start for it. MATLAB starts for the engine as a COM server: "
-                    << "if it is not registered as one, or another version is, run MATLAB once as administrator and type  !matlab -regserver  in it.\n";
+            // UG fork: the engine asks Windows for MATLAB by the COM name MATLAB.AutoServer. Uninstalling another MATLAB
+            // release can take that name away, and the newer release then has only its own (MATLAB.AutoServer.26.1).
+            const std::string regserver = regserverCommand(m_matlabPath.toASCIIString());
+            CLSID clsid;
+            if (FAILED(CLSIDFromProgID(L"MATLAB.AutoServer", &clsid)))
+            {
+                this->getLogManager() << Kernel::LogLevel_Error << "MATLAB's engine was loaded, but Windows knows no MATLAB by the name the engine asks for (the COM server MATLAB.AutoServer). "
+                        << "Uninstalling another MATLAB release can remove that name. To register MATLAB under it, run in a PowerShell opened as administrator:  "
+                        << regserver << "\n";
+            }
+            else
+            {
+                this->getLogManager() << Kernel::LogLevel_Error << "MATLAB's engine was loaded, but MATLAB did not start for it. MATLAB starts for the engine as a COM server: "
+                        << "if another release is registered as one, run in a PowerShell opened as administrator:  " << regserver << "\n";
+            }
         }
         return false;
     }
@@ -279,7 +309,10 @@ bool CBoxAlgorithmMatlabScripting::initialize()
     else { this->getLogManager() << Kernel::LogLevel_Trace << "No need to add matlab to PATH\n"; }
 #endif
 
-    if (!openMatlabEngineSafely()) { return false; }
+    // UG fork: the engine is opened, used and closed on one thread, see MatlabEngineThread.h and UG.md, 2.58.
+    CEngineThread::acquire();
+    m_usesEngineThread = true;
+    if (!CEngineThread::run([this]() { return openMatlabEngineSafely(); })) { return false; }
 
     m_matlabBuffer                = new char[MATLAB_BUFFER + 1];
     m_matlabBuffer[MATLAB_BUFFER] = '\0';
@@ -431,7 +464,8 @@ bool CBoxAlgorithmMatlabScripting::closeMatlabEngineSafely()
     __try
     {
 #endif
-        if (MATLAB_ENGINE) { if (engClose(MATLAB_ENGINE) != 0) { this->getLogManager() << Kernel::LogLevel_ImportantWarning << "Could not close Matlab engine.\n"; } }
+        // UG fork: in parentheses, as this already runs on the engine thread. See MatlabEngineThread.h.
+        if (MATLAB_ENGINE) { if ((engClose)(MATLAB_ENGINE) != 0) { this->getLogManager() << Kernel::LogLevel_ImportantWarning << "Could not close Matlab engine.\n"; } }
 #if defined TARGET_OS_Windows
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
@@ -459,7 +493,13 @@ bool CBoxAlgorithmMatlabScripting::uninitialize()
         ) { }   // NOP, we still want to deallocate below
     }
 
-    closeMatlabEngineSafely();
+    CEngineThread::run([this]() { return closeMatlabEngineSafely(); });
+    m_engineHandle = nullptr;
+    if (m_usesEngineThread)
+    {
+        CEngineThread::release();
+        m_usesEngineThread = false;
+    }
     if (m_matlabBuffer)
     {
         delete[] m_matlabBuffer;
