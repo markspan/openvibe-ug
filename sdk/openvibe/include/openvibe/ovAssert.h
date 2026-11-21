@@ -23,6 +23,7 @@
 #include <sstream>
 
 #include "CIdentifier.hpp"
+#include "ErrorApology.hpp"  // UG fork: the apology that begins an error. See UG.md, 2.54.
 
 namespace OpenViBE {
 typedef std::ostringstream ErrorStream;
@@ -113,7 +114,8 @@ typedef std::ostringstream ErrorStream;
 #define OV_ERROR_LOG(description, type, file, line, logManager) \
 do { \
     /* UG fork: the message first and with good manners, the developers' details after it. See UG.md, 2.23. */ \
-    logManager << OpenViBE::Kernel::LogLevel_Error << "We do most humbly apologise: " << description \
+    /* The apology varies, and knows the errors before it. See UG.md, 2.54. */ \
+    logManager << OpenViBE::Kernel::LogLevel_Error << OpenViBE::errorApology(size_t((type))) << " " << description \
                << " (for the developers: " << convertErrorTypeToString(type) << ", code " \
                << size_t((type)) << OV_ERROR_LOG_LOCATION(file, line) << ")\n"; \
 } while(0)

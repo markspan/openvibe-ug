@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 83 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 84 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 358 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 362 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -68,6 +68,7 @@ Everything outside the files listed here is identical to upstream.
 | Qt on Windows | 6.9.3, whose support has ended | 6.12.0, the long-term-support version; the installer workflow fetches it with its own script, checked against Qt's SHA-256 |
 | MATLAB box | Without MATLAB at build time (the GitHub build), an empty `openvibe-plugins-matlab.dll` was installed, and Designer warned at every start: "No 'plugin object descriptor' found" | Such a build leaves the DLL out; a build on a PC with MATLAB finds any release in `C:\Program Files\MATLAB` (was: R2015b only) and builds the box, whose DLL can be copied into an installed OpenViBE |
 | Adding ports to a box | On a box that accepts any stream type (MATLAB Scripting, Identity, Signal Merger, Generic Stream Writer, Classifier Trainer and about 15 more), "+" in the box's settings failed: "Could not add input port" | The port is added, as a Signal; its card offers every stream type |
+| Apology in error messages | Always "We do most humbly apologise:" (2.23) | One of several, at random, aware of the errors before it: "And, sorry again:" right after another error, "I am afraid this is the 3rd time:" for a repeated kind |
 | Program descriptions | "OpenViBE Designer for Win32", in Task Manager and a file's Details, though the build is 64-bit | "OpenViBE Designer for Windows (64-bit)", and so for every program and DLL with a version resource |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
 | Acquisition server icon | The same as Designer's | Its own, in the same style: three channels merging into one |
@@ -634,7 +635,7 @@ After a link replaced another, upstream's canvas went on showing the old link an
 - The other files marked 2.23 in section 3, which reword their errors. Each says so once, with a `UG fork:` comment above its includes, rather than at each message.
 
 **What it does**
-- Every error raised through the `OV_ERROR` macros, about 750 places, has one new format, set in `ovAssert.h`: an apology, the message, then the details for developers in brackets. Upstream's format was `{Error description} : {...}, {Error type} : {...}, {Error location} : {...}`.
+- Every error raised through the `OV_ERROR` macros, about 750 places, has one new format, set in `ovAssert.h`: an apology (until 2.53 always "We do most humbly apologise:"; since 2.54 one of several, see there), the message, then the details for developers in brackets. Upstream's format was `{Error description} : {...}, {Error type} : {...}, {Error location} : {...}`.
 - The Channel Selector's three messages about its settings say which setting is wrong, what it asks for, how the box looked for it, and which channels the signal has. Upstream says `Invalid channel [25]`.
 - About 155 further errors about settings and files, in 60 files, say which setting or file is meant, what its value is, what is expected and what to check. These are the errors of the types `BadSetting`, `BadConfig`, `BadFileRead`, `BadFileWrite` and `BadFileParsing`, plus the CSV boxes' failure to open a file, a missing settings override file, a missing configuration file, and a classifier file that can't be read. Upstream's CSV boxes say `Could not open the file` without naming it.
 - The Classifier trainer stops at once on an empty filename. Upstream checks the wrong setting, the multiclass strategy, so it trains first and fails on saving.
@@ -642,7 +643,7 @@ After a link replaced another, upstream's canvas went on showing the old link an
 - Designer's log panel wraps a long message. Upstream cuts it off at the panel's edge, where the advice is.
 
 **Consequences**
-- Errors of other types keep their short wording in the new format, such as `We do most humbly apologise: Invalid input type [...]`. There are about 600 of these.
+- Errors of other types keep their short wording in the new format, such as `I am so very sorry: Invalid input type [...]`. There are about 600 of these.
 - About 1,500 messages are logged directly at error level, without the macros, and are unchanged. Among them is `The file [] could not be opened for writing...` from the CSP Spatial Filter Trainer.
 - A tool that reads `{Error description}` from a log needs adapting. Nothing in this repository does.
 - Measured by running Designer with the box's tutorial scenario: an unknown position, an unknown name, an impossible range and an empty selection each give the new message, and a valid list runs without errors. The log panel was checked with a channel that doesn't exist.
@@ -1329,6 +1330,32 @@ A box whose inputs or outputs the user may add, but which names no stream types 
 
 ---
 
+### 2.54 The apology varies, and knows the errors before it
+
+**Files**
+- `sdk/openvibe/include/openvibe/ErrorApology.hpp`, `sdk/openvibe/src/ErrorApology.cpp` (new)
+- `sdk/openvibe/include/openvibe/ovAssert.h`
+- `sdk/unit-test/ov-base/ErrorApologyTest.hpp` (new), `sdk/unit-test/ov-base/main.cpp`
+
+Every error raised through the `OV_ERROR` macros began with the same apology (2.23): "We do most humbly apologise:". It is now picked at random each time, from phrasings that depend on the errors before it in the same program:
+
+| The error | Apology, one of |
+|---|---|
+| The first of its type, not right after another | "I am so very sorry:", "My sincere apologies:", "I am terribly sorry:", "Please forgive me:", "I regret to report:", "Oh dear, I am sorry:" |
+| Within a second of the previous error, which is often its cause (a box fails, then the player) | "And, sorry again:", "I am afraid it does not end there:", "Following from that, I apologise:", "One more thing, I am sorry to say:" |
+| Of a type that occurred before, not right after another | "Sorry again, this happened before:", "I am afraid this is the 3rd time:", "This again, I do apologise:", "Once more, and I am sorry for it (the 3rd time):" |
+
+- Two errors in a row never get the same apology.
+- "Type" is the error's type, as named for the developers at the end of the message (`BadSetting`, `BadFileRead`, ...). The counts and the time of the last error are kept in `openvibe.dll`, so they are shared by every plugin of a program and start anew with each program.
+- Fatal errors keep "We are mortified, and must stop at once:".
+
+**Consequences**
+- An error no longer starts with a fixed text, so a search of a log for errors should look for `[ ERROR ]` (the log level), or for "(for the developers:", which every such message still has.
+- A plugin built for an earlier version of the fork must be built again: the macros now call `errorApology()` in `openvibe.dll`.
+- Tested: unit tests of the phrasings, the ordinals ("3rd", "11th", "22nd") and the choice of context.
+
+---
+
 ## 3. All modified files
 
 `A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
@@ -1561,11 +1588,13 @@ A box whose inputs or outputs the user may add, but which names no stream types 
 | M | `sdk/modules/network/Server/CServer.h` | 2.31 |
 | M | `sdk/modules/network/Server/ConnectedClient.cpp` | 2.19 |
 | A | `sdk/openvibe/include/openvibe/ConsoleLog.hpp` | 2.17 |
+| A | `sdk/openvibe/include/openvibe/ErrorApology.hpp` | 2.54 |
 | A | `sdk/openvibe/include/openvibe/RecordingStatus.hpp` | 2.44 |
 | A | `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h` | 2.7, 2.41 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsg.h` | 2.7 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsgSerializer.h` | 2.7, 2.42 |
-| M | `sdk/openvibe/include/openvibe/ovAssert.h` | 2.23 |
+| M | `sdk/openvibe/include/openvibe/ovAssert.h` | 2.23, 2.54 |
+| A | `sdk/openvibe/src/ErrorApology.cpp` | 2.54 |
 | M | `sdk/plugins/processing/classification/src/algorithms/CAlgorithmClassifierLDA.cpp` | 2.23 |
 | M | `sdk/plugins/processing/classification/src/algorithms/CAlgorithmClassifierOneVsAll.cpp` | 2.23 |
 | M | `sdk/plugins/processing/classification/src/algorithms/CAlgorithmClassifierOneVsOne.cpp` | 2.23 |
@@ -1604,6 +1633,8 @@ A box whose inputs or outputs the user may add, but which names no stream types 
 | M | `sdk/plugins/processing/tools/src/box-algorithms/CBoxAlgorithmMatrixValidityChecker.cpp` | 2.23 |
 | M | `sdk/toolkit/src/algorithms/scenario-io/ovtkCAlgorithmScenarioImporter.cpp` | 2.23, 2.48 |
 | M | `sdk/toolkit/include/toolkit/box-algorithms/ovtkTBoxAlgorithm.h` | 2.41 |
+| A | `sdk/unit-test/ov-base/ErrorApologyTest.hpp` | 2.54 |
+| M | `sdk/unit-test/ov-base/main.cpp` | 2.54 |
 | A | `share/ov-acquisition-server-icon.ico` | 2.37 |
 | A | `share/tools/make_acquisition_server_icon.py` | 2.37 |
 | A | `UG.md` | this document |

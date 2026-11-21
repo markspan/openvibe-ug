@@ -8,6 +8,7 @@
 #include "CNameValuePairListTest.hpp"
 #include "CErrorManagerTest.hpp"
 #include "CParameterTest.hpp"
+#include "ErrorApologyTest.hpp"  // UG fork: see UG.md, 2.54
 
 int main(int argc, char* argv[])
 {
