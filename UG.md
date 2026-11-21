@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 87 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 88 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 371 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 372 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -71,6 +71,7 @@ Everything outside the files listed here is identical to upstream.
 | Copying from the log | Not possible: an entry can not be selected | Click an entry to select it, Ctrl+click to add or remove one, Shift+click for a range; Ctrl+C, or the right-click menu, copies them as text (`[ Error ] message`, one per line) |
 | MATLAB example | Three tutorials: a signal zeroed on a key, an FFT filter, a sine generator | A fourth squares the EEG channels of a signal and passes the others on, to test the MATLAB box; a channel's type is taken from its name, as the Signal display does |
 | MATLAB box in Designer | Failed at the first call after Play ("An error occurred while updating the box clock"): the engine was opened on Designer's window thread and called from its play thread | Every engine call runs on one thread of the box's own; when MATLAB is not registered under the name the engine asks for, the log says so and gives the command that registers it |
+| MATLAB type IDs | `OV_define.m` filled the log with `flintmax` warnings at every Play, and its 64-bit type IDs came out rounded | The IDs are read exactly, without warnings |
 | Apology in error messages | Always "We do most humbly apologise:" (2.23) | One of several, at random, aware of the errors before it: "And, sorry again:" right after another error, "I am afraid this is the 3rd time:" for a repeated kind |
 | Program descriptions | "OpenViBE Designer for Win32", in Task Manager and a file's Details, though the build is 64-bit | "OpenViBE Designer for Windows (64-bit)", and so for every program and DLL with a version resource |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
@@ -1432,8 +1433,23 @@ With MATLAB found and started (2.51, 2.55), the box still stopped the scenario a
 
 **Consequences**
 - Tested with the square-EEG tutorial (2.57): it plays, stops, and plays again in the same Designer; see there. The other MATLAB tutorials were not run again.
-- MATLAB writes about ten warnings into the log at every start, from `OV_define.m`: hexadecimal numbers at or above `flintmax` may not be exact as doubles. They were there before and do not stop the box.
+- MATLAB wrote warnings about `OV_define.m` into the log at every start; 2.59 removes them.
 - A MATLAB that was started for a Designer that was then killed keeps running, and the next run uses it. It is not one OpenViBE can close.
+
+---
+
+### 2.59 No more flintmax warnings from MATLAB, and the type IDs are exact
+
+**Files**
+- `extras/plugins/processing/matlab/share/OV_define.m`
+
+At every start the MATLAB box runs `OV_define.m`, which gives MATLAB scripts the OpenViBE stream and setting type IDs as `uint64` globals. It read each 64-bit hexadecimal ID with `uint64(hex2dec('...'))`. `hex2dec` returns a double, which holds integers exactly only up to 2^53 (`flintmax`). MATLAB warned about this once per ID, a screenful in Designer's log at every Play, and the warning was right: the IDs came out rounded, `OV_TypeId_EBMLStream` as `434F65872EFD2C00` instead of `434F65872EFD2B7E`. A script comparing against them would never have matched.
+
+- **Fix.** Each ID is read with `sscanf('...', '%lx')`, which returns the `uint64` exactly and warns about nothing. It works in old MATLAB releases as well, unlike the `0x...u64` literals of R2019b and later.
+
+**Consequences**
+- Tested in MATLAB R2026a: the file runs without a warning, and `OV_TypeId_Signal`, `OV_TypeId_Script` (above 2^63) and the stimulation range come out exact. No OpenViBE script used the IDs, so nothing else changes.
+- The installed copy is in `share/openvibe/plugins/matlab`; a build or install copies it there.
 
 ---
 
@@ -1579,6 +1595,7 @@ With MATLAB found and started (2.51, 2.55), the box still stopped the scenario a
 | A | `extras/plugins/processing/matlab/box-tutorials/matlab/tuto4_square_eeg_Process.m` | 2.57 |
 | A | `extras/plugins/processing/matlab/box-tutorials/matlab/tuto4_square_eeg_Uninitialize.m` | 2.57 |
 | M | `extras/plugins/processing/matlab/CMakeLists.txt` | 2.51 |
+| M | `extras/plugins/processing/matlab/share/OV_define.m` | 2.59 |
 | A | `extras/plugins/processing/matlab/src/MatlabEngineThread.h` | 2.58 |
 | M | `extras/plugins/processing/matlab/src/box-algorithms/ovpCBoxAlgorithmMatlabScripting.cpp` | 2.23, 2.55, 2.58 |
 | M | `extras/plugins/processing/matlab/src/box-algorithms/ovpCBoxAlgorithmMatlabScripting.h` | 2.58 |
