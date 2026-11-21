@@ -8,6 +8,7 @@ set(SRC_FILES
 	src/defines.hpp
     src/SDisplaySettings.h
     src/SignalScaling.h  # UG fork
+    src/SpectrumPeak.h  # UG fork
     src/TraceShading.h  # UG fork
     src/DisplayPanel.cpp  # UG fork: the panel entries the Signal display and the LSL display share
     src/DisplayPanel.h
@@ -105,6 +106,7 @@ target_link_libraries(${PROJECT_NAME}
                       openvibe-visualization-toolkit
                       tinyxml2::tinyxml2 # UG fork: reads the P300 speller's grid file
                       LSL::lsl # UG fork: the LSL display reads the streams itself
+                      Eigen3::Eigen # UG fork: the FFT of the amplitude ruler's dominant frequency
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES

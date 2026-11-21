@@ -27,11 +27,13 @@ include(GoogleTest)
 gtest_discover_tests(test-p300-speller)
 
 # UG fork: the parts of the Signal display that need neither Qt nor the player: its automatic vertical scale
-# (SignalScaling.h), its ring of samples (CTraceBuffer) and its trace shading (TraceShading.h)
-add_executable(test-signal-display SignalScalingTest.cpp TraceBufferTest.cpp TraceShadingTest.cpp ../src/CTraceBuffer.cpp)
+# (SignalScaling.h), its ring of samples (CTraceBuffer), its trace shading (TraceShading.h) and the dominant frequency
+# of its amplitude ruler's tooltip (SpectrumPeak.h)
+add_executable(test-signal-display SignalScalingTest.cpp TraceBufferTest.cpp TraceShadingTest.cpp SpectrumPeakTest.cpp
+               ../src/CTraceBuffer.cpp)
 target_include_directories(test-signal-display PRIVATE ../src)
 set_property(TARGET test-signal-display PROPERTY FOLDER ${TESTS_FOLDER})
-target_link_libraries(test-signal-display PRIVATE GTest::GTest GTest::Main)
+target_link_libraries(test-signal-display PRIVATE Eigen3::Eigen GTest::GTest GTest::Main)
 gtest_discover_tests(test-signal-display)
 
 # UG fork: the LSL display's reader, against LSL streams the test sends itself on this computer

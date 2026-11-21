@@ -131,7 +131,8 @@ public:
      * \brief UG fork, see UG.md 2.61: the samples on screen in one row, for the amplitude ruler's tooltip.
      *
      * \return min, max and count of the row's channel, and low and high, the values at the lane's bottom and top
-     *         edges; empty for a row that is not there or has no number on screen.
+     *         edges; empty for a row that is not there or has no number on screen. With peakHz, in Hz, when the newest
+     *         four seconds have a dominant frequency (SpectrumPeak.h, UG.md 2.62).
      */
     Q_INVOKABLE QVariantMap rowStats(int row) const;
 

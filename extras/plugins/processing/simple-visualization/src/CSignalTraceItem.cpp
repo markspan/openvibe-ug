@@ -4,6 +4,7 @@
 #include "CSignalTraceItem.h"
 
 #include "CTraceBuffer.h"
+#include "SpectrumPeak.h"  // UG fork: the dominant frequency in the amplitude ruler's tooltip. See UG.md, 2.62.
 
 #include <QQuickWindow>
 #include <QSGFlatColorMaterial>
@@ -532,8 +533,25 @@ QVariantMap CSignalTraceItem::rowStats(const int row) const
     double halfRange = 1.0;
     scaleFor(channel, centre, halfRange);
     // low and high are the values at the two ends of the ruler's bracket
-    return { { "min", stats.min }, { "max", stats.max }, { "count", qulonglong(stats.count) },
-             { "low", centre - halfRange }, { "high", centre + halfRange } };
+    QVariantMap out{ { "min", stats.min }, { "max", stats.max }, { "count", qulonglong(stats.count) },
+                     { "low", centre - halfRange }, { "high", centre + halfRange } };
+
+    // UG fork, see UG.md 2.62: the dominant frequency of the newest PEAK_WINDOW_SECONDS, as far as the ring holds them.
+    // They end just before writePos(), oldest first.
+    const double sampling = r.sampling();
+    if (sampling > 0.0)
+    {
+        const size_t n = std::min(filled, size_t(std::lround(PEAK_WINDOW_SECONDS * sampling)));
+        std::vector<double> newest;
+        newest.reserve(n);
+        for (size_t i = 0; i < n; ++i)
+        {
+            const float v = src[(r.writePos() + capacity - n + i) % capacity];
+            if (std::isfinite(v)) { newest.push_back(v); }
+        }
+        if (const std::optional<double> hz = dominantFrequency(newest, sampling)) { out.insert("peakHz", *hz); }
+    }
+    return out;
 }
 
 QVariantList CSignalTraceItem::rowHalfRanges() const

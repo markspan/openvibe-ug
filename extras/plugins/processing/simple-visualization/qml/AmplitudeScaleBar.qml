@@ -102,6 +102,8 @@ Item {
                 const f = _root.formatValue
                 _bracket.stats = qsTr("On screen: min %1, max %2, range %3").arg(f(s.min)).arg(f(s.max)).arg(f(s.max - s.min))
                         + "\n" + qsTr("The lane shows %1 to %2").arg(f(s.low)).arg(f(s.high))
+                        // UG fork: only when there is one. Whole hertz: the estimate is some 0.4 Hz uncertain. See UG.md, 2.62.
+                        + (s.peakHz === undefined ? "" : "\n" + qsTr("Dominant frequency, last 4 s: %1 Hz").arg(Math.round(s.peakHz)))
             }
 
             MouseArea {

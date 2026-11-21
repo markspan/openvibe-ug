@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 89 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 90 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 373 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 375 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -74,6 +74,7 @@ Everything outside the files listed here is identical to upstream.
 | MATLAB type IDs | `OV_define.m` filled the log with `flintmax` warnings at every Play, and its 64-bit type IDs came out rounded | The IDs are read exactly, without warnings |
 | Left ruler help | The ruler's "±5" did not say that a lane is centred on the channel's middle, not on 0 | Hovering over "Left ruler" explains the range |
 | Lane statistics | A lane's ruler gave its scale but not what the channel did | Hovering over a lane's bracket shows min, max and range on screen, and what the lane shows; tooltips wrap |
+| Dominant frequency | A lane's tooltip said nothing of the rhythm in the signal | It names the dominant frequency of the last 4 s, when one peak from 6 to 100 Hz has at least 3 times the power of the frequencies around it |
 | Apology in error messages | Always "We do most humbly apologise:" (2.23) | One of several, at random, aware of the errors before it: "And, sorry again:" right after another error, "I am afraid this is the 3rd time:" for a repeated kind |
 | Program descriptions | "OpenViBE Designer for Win32", in Task Manager and a file's Details, though the build is 64-bit | "OpenViBE Designer for Windows (64-bit)", and so for every program and DLL with a version resource |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
@@ -1493,6 +1494,31 @@ The ±R of the amplitude ruler (2.60) says how much a lane shows, not where, nor
 
 ---
 
+### 2.62 The lane tooltip names the dominant frequency, when there is one
+
+**Files**
+- `extras/plugins/processing/simple-visualization/src/SpectrumPeak.h` (new), `test/SpectrumPeakTest.cpp` (new)
+- `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp`, `CSignalTraceItem.h`, `qml/AmplitudeScaleBar.qml`
+- `extras/plugins/processing/simple-visualization/CMakeLists.txt`, `test/CMakeLists.txt`, `doc/Doc_BoxAlgorithm_SignalDisplay.dox-part`
+
+The tooltip of a lane's amplitude bracket (2.61) gains a third line when the channel's last 4 seconds have a dominant frequency, and only then: "Dominant frequency, last 4 s: 11 Hz". The display's ring buffer holds the time window, so the last 4 seconds are there whenever Time Scale is 4 s or more; with less, it uses what there is.
+
+What "dominant" means, as asked: the highest spectral peak from 6 to 100 Hz, if its power is at least 3 times that of the other frequencies. Read literally, "the average power of the other frequencies" found a peak in pure noise, so the rule had to be made precise, against noise with no rhythm in it (`SpectrumPeakTest`):
+
+- **The spectrum** is Welch's: half-second segments, half overlapping (fifteen in 4 s), each detrended and Hann-windowed, their power spectra averaged; bins of 2 Hz. With one-second segments, seven in 4 s, the bins scatter so much that white noise passed the 3× test one time in ten.
+- **The peak** is the highest bin from 6 to 100 Hz higher than both its neighbours; at a sampling rate below 250 Hz the range ends lower, at 0.8 of Nyquist, below an amplifier's anti-aliasing filter. The background around a peak may take in bins outside the range. The highest, as asked: picking the one that stands out most above its background named a 150 Hz mains harmonic on band-passed EEG, where it stood out from the noise filtered with it while having next to no power.
+- **"The other frequencies"** are those around the peak, leaving out its own two bins on either side: the higher of a line through their log power against log frequency over an octave either side (the 1/f slope EEG rhythms sit on) and the median of the four nearest bins on either side (which a band-pass's cliff next to the peak does not pull down). The average over all frequencies made the lowest bins of any falling spectrum a "dominant peak", 20 noise runs out of 20. One line through the whole range found peaks where the spectrum bends, 1 run in 40; one parabola, inside the edges of a 4–40 Hz band-pass, 39 runs in 400.
+- **The frequency** is refined between bins by a parabola through the peak's height above the background and its neighbours'. Noise in those bins leaves it some 0.4 Hz uncertain, so the tooltip gives whole hertz.
+
+With that, noise alone named a frequency 0 times in 1000 (white), 2 in 1000 (brown, the falling spectrum of EEG) and 1 in 400 (band-passed 4–40 Hz like the signal-display tutorial), and an alpha rhythm with about ten times the noise's power in its bin was found in 20 runs of 20, raw and band-passed, within 0.5 Hz. One with two and a half times, plain in the trace, is rightly not dominant. The FFT is Eigen's, as the signal-processing plugins use; it runs only for the lane under the mouse, twice a second.
+
+**Consequences**
+- Seen in Designer with the signal-display tutorial, a motor-imagery recording. On the band-passed display, lanes named 7, 11, 12 and 22 Hz, others nothing; on the raw display, a few lanes named 11 or 22 Hz, one the 150 Hz mains harmonic, which the 100 Hz limit, asked for after that, now leaves out. What the recording's rhythms really are was not checked; nor was the display run again after the limit.
+- Twelve new unit tests (42 pass).
+- A dominant mains line is named as such: on raw EEG the answer can be 50 Hz.
+
+---
+
 ## 3. All modified files
 
 `A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
@@ -1652,12 +1678,12 @@ The ±R of the amplitude ruler (2.60) says how much a lane shows, not where, nor
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/basic/CBoxAlgorithmMatrix3dTo2d.cpp` | 2.23 |
 | M | `extras/plugins/processing/signal-processing/src/box-algorithms/connectivity/CBoxAlgorithmConnectivityMeasure.cpp` | 2.23 |
 | M | `extras/plugins/processing/stimulation/share/lua-stimulator-stim-codes.lua` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18, 2.26, 2.28, 2.40, 2.41 |
+| M | `extras/plugins/processing/simple-visualization/CMakeLists.txt` | 2.18, 2.26, 2.28, 2.40, 2.41, 2.62 |
 | A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display-xdf.xml` | 2.29, 2.39 |
 | A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` | 2.28, 2.29, 2.39 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_P300SpellerVisualization.dox-part` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26, 2.39, 2.40, 2.43, 2.61 |
-| M | `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml` | 2.26, 2.61 |
+| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26, 2.39, 2.40, 2.43, 2.61, 2.62 |
+| M | `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml` | 2.26, 2.61, 2.62 |
 | M | `extras/plugins/processing/simple-visualization/qml/ChannelGutter.qml` | 2.43 |
 | A | `extras/plugins/processing/simple-visualization/qml/P300SpellerVisualization.qml` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml` | 2.28, 2.41, 2.43 |
@@ -1691,25 +1717,27 @@ The ±R of the amplitude ruler (2.60) says how much a lane shows, not where, nor
 | A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.h` | 2.29 |
 | M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28, 2.39, 2.40, 2.41, 2.43 |
 | M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26, 2.39, 2.40, 2.41, 2.43 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28, 2.39, 2.40, 2.41, 2.61 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26, 2.28, 2.39, 2.41, 2.61 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28, 2.39, 2.40, 2.41, 2.61, 2.62 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26, 2.28, 2.39, 2.41, 2.61, 2.62 |
 | M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.cpp` | 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.h` | 2.26, 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/DisplayPanel.cpp` | 2.41, 2.60 |
 | A | `extras/plugins/processing/simple-visualization/src/DisplayPanel.h` | 2.41 |
 | M | `extras/plugins/processing/simple-visualization/src/SDisplaySettings.h` | 2.26, 2.39, 2.40, 2.41 |
 | A | `extras/plugins/processing/simple-visualization/src/SignalScaling.h` | 2.26, 2.41, 2.61 |
+| A | `extras/plugins/processing/simple-visualization/src/SpectrumPeak.h` | 2.62 |
 | A | `extras/plugins/processing/simple-visualization/src/TraceShading.h` | 2.40 |
 | A | `extras/plugins/processing/simple-visualization/src/TracePalette.h` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/XDFWriter.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/src/XDFWriter.h` | 2.29 |
 | M | `extras/plugins/processing/simple-visualization/src/defines.hpp` | 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/src/main.cpp` | 2.18, 2.26, 2.28 |
-| M | `extras/plugins/processing/simple-visualization/test/CMakeLists.txt` | 2.18, 2.26, 2.28, 2.40 |
+| M | `extras/plugins/processing/simple-visualization/test/CMakeLists.txt` | 2.18, 2.26, 2.28, 2.40, 2.62 |
 | A | `extras/plugins/processing/simple-visualization/test/LSLReaderTest.cpp` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/test/LSLRecorderTest.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/test/P300SpellerStateTest.cpp` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp` | 2.26, 2.41, 2.61 |
+| A | `extras/plugins/processing/simple-visualization/test/SpectrumPeakTest.cpp` | 2.62 |
 | A | `extras/plugins/processing/simple-visualization/test/TraceBufferTest.cpp` | 2.26, 2.28 |
 | A | `extras/plugins/processing/simple-visualization/test/TraceShadingTest.cpp` | 2.40 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-lua-test.xml` | 2.18 |

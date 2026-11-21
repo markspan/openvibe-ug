@@ -92,7 +92,11 @@ hides the panel, giving the graph the whole width, and shows it again.
   - Bottom ruler / Left ruler : toggle the time ruler and the amplitude scale bar. The scale bar's ±R means that a
     lane shows R above and R below its middle line, and that middle line is the middle of what the channel spanned on
     the last page, not always 0. Hovering over a lane's bracket shows the minimum, maximum and range of the
-    channel's samples on screen, and the values at the two ends of the bracket.
+    channel's samples on screen, and the values at the two ends of the bracket. When the last 4 seconds of the
+    channel have a dominant frequency, it shows that too, in whole hertz: the highest spectral peak from 6 to 100 Hz,
+    if its power is at least 3 times the background of the other frequencies around it (the 1/f slope through the
+    octave on either side, or the level of the nearest bins, whichever is higher). At a sampling rate below 250 Hz the
+    range ends lower, at 0.8 of Nyquist. On raw EEG it can be the mains (50 Hz).
   - Multiview : overlay every channel on a single baseline.
 
 Four further entries exist only in this panel and are not box settings, so they are not saved with
