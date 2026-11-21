@@ -12,6 +12,8 @@
 #include <string>
 #include <ctime>
 #include <algorithm>
+#include <filesystem>
+#include <vector>
 
 #include <mex.h>
 #include <engine.h>
@@ -35,6 +37,69 @@
 namespace OpenViBE {
 namespace Plugins {
 namespace Matlab {
+
+#if defined TARGET_OS_Windows
+// UG fork: the setting "Matlab executable (path)" may name matlab.exe (in bin or in bin\win64), MATLAB's bin or
+// bin\win64 folder, or the release folder, with or without quotes around it; the box finds the folder that holds
+// MATLAB's engine (libeng.dll) from any of these. Upstream took the folder of an existing file, or else the value as
+// a folder, and refused anything else ("does not seem to be a folder"); a path to bin\matlab.exe passed, but the
+// engine then failed to load. A path where no MATLAB is found falls back to the newest release installed in
+// C:\Program Files\MATLAB, with a warning. See UG.md, 2.55.
+namespace {
+namespace fs = std::filesystem;
+
+bool hasMatlabEngine(const fs::path& folder)
+{
+    std::error_code ec;
+    return fs::is_regular_file(folder / "libeng.dll", ec);
+}
+
+// The value without surrounding spaces and quotes ("Copy as path" in Explorer adds quotes).
+std::string withoutQuotes(std::string value)
+{
+    const auto isSpace = [](const char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; };
+    while (!value.empty() && isSpace(value.back())) { value.pop_back(); }
+    while (!value.empty() && isSpace(value.front())) { value.erase(value.begin()); }
+    if (value.size() >= 2 && value.front() == '"' && value.back() == '"') { value = value.substr(1, value.size() - 2); }
+    return value;
+}
+
+// The folder with libeng.dll that the given file or folder points at, or an empty path; then \p whyNot says what
+// is wrong with the given value, as the end of a sentence that starts with it.
+fs::path matlabEngineFolder(const std::string& given, std::string& whyNot)
+{
+    if (given.empty())
+    {
+        whyNot = "is empty";
+        return {};
+    }
+    std::error_code ec;
+    fs::path folder(given);
+    const bool isFile = fs::is_regular_file(folder, ec);
+    if (isFile) { folder = folder.parent_path(); }
+    else if (!fs::is_directory(folder, ec))
+    {
+        whyNot = folder.has_extension() ? "is a file that does not exist" : "is a folder that does not exist";
+        return {};
+    }
+    for (const fs::path& candidate : { folder, folder / "win64", folder / "bin" / "win64" }) { if (hasMatlabEngine(candidate)) { return candidate; } }
+    whyNot = isFile ? "exists, but its folder [" + folder.string() + "] holds no MATLAB engine (libeng.dll), nor does a win64 folder in it"
+                    : "is a folder that holds no MATLAB engine (libeng.dll), nor does a win64 or bin\\win64 folder in it";
+    return {};
+}
+
+// The engine folder of the newest MATLAB release in C:\Program Files\MATLAB, or an empty path.
+fs::path newestMatlabEngineFolder()
+{
+    std::error_code ec;
+    std::vector<fs::path> releases;
+    for (const auto& entry : fs::directory_iterator("C:/Program Files/MATLAB", ec)) { if (entry.is_directory(ec)) { releases.push_back(entry.path()); } }
+    std::sort(releases.rbegin(), releases.rend());
+    for (const auto& release : releases) { if (hasMatlabEngine(release / "bin" / "win64")) { return (release / "bin" / "win64").make_preferred(); } }
+    return {};
+}
+}  // namespace
+#endif
 
 // Sanitizes a path so that it only has / or \ characters and has a / or \ in the end.
 // @fixme should move to plugins-FS possibly
@@ -77,10 +142,16 @@ bool CBoxAlgorithmMatlabScripting::openMatlabEngineSafely()
     OV_ERROR_UNLESS_KRF(m_matlabEngine, "Could not open the Matlab engine.\nThe configured path to the matlab executable was expanded as '" << m_matlabPath << "'.", Kernel::ErrorType::BadProcessing);
 }
 #elif defined TARGET_OS_Windows
+    DWORD exceptionCode = 0;  // UG fork: named in the log, see below and UG.md, 2.55
     __try { m_engineHandle = engOpen(nullptr); }
-    __except (EXCEPTION_EXECUTE_HANDLER)
+    __except (exceptionCode = GetExceptionCode(), EXCEPTION_EXECUTE_HANDLER)
     {
-        this->getLogManager() << Kernel::LogLevel_Error << "First call to the MATLAB engine failed.\n";
+        char code[16];
+        snprintf(code, sizeof(code), "0x%08lX", exceptionCode);
+        this->getLogManager() << Kernel::LogLevel_Error << "First call to the MATLAB engine failed (Windows exception " << code << ").\n";
+        // UG fork: the two codes of a DLL that is loaded on first use (libeng.dll, libmx.dll) say what went wrong.
+        if (exceptionCode == 0xC06D007E) { this->getLogManager() << Kernel::LogLevel_Error << "Windows could not load MATLAB's engine (libeng.dll) or a DLL it needs, from [" << m_matlabPath << "].\n"; }
+        if (exceptionCode == 0xC06D007F) { this->getLogManager() << Kernel::LogLevel_Error << "MATLAB's engine lacks a function OpenViBE uses; perhaps another version of one of its DLLs was loaded first.\n"; }
         this->getLogManager() << Kernel::LogLevel_Error << "To use this box you must have MATLAB installed on your computer.\n";
 #if defined(TARGET_ARCHITECTURE_x64)
         this->getLogManager() << Kernel::LogLevel_Error << "For this build of OpenViBE, MATLAB needs to be a 64bit version.\n";
@@ -92,6 +163,12 @@ bool CBoxAlgorithmMatlabScripting::openMatlabEngineSafely()
     if (!MATLAB_ENGINE)
     {
         this->getLogManager() << Kernel::LogLevel_Error << "Could not open the Matlab engine.\nThe matlab binary path was reasoned to be '" << m_matlabPath << "'.\n";
+        // UG fork: without an exception, the engine was loaded, but MATLAB did not start for it. See UG.md, 2.55.
+        if (exceptionCode == 0)
+        {
+            this->getLogManager() << Kernel::LogLevel_Error << "MATLAB's engine was loaded, but MATLAB did not start for it. MATLAB starts for the engine as a COM server: "
+                    << "if it is not registered as one, or another version is, run MATLAB once as administrator and type  !matlab -regserver  in it.\n";
+        }
         return false;
     }
 #else
@@ -151,20 +228,40 @@ bool CBoxAlgorithmMatlabScripting::initialize()
     m_matlabPath = FSettingValueAutoCast(*this->getBoxAlgorithmContext(), 1);
 
 #if defined TARGET_OS_Windows
-    if (!FS::Files::directoryExists(m_matlabPath) && FS::Files::fileExists(m_matlabPath))
     {
-        // The path might be pointing to the executable, try to extract the directory
-        char parentPath[MAX_PATH];
-        FS::Files::getParentPath(m_matlabPath, parentPath);
-        m_matlabPath = CString(parentPath);
+        // UG fork: find MATLAB's engine folder from the setting, or else the newest MATLAB installed. See above and UG.md, 2.55.
+        const std::string given = withoutQuotes(m_matlabPath.toASCIIString());
+        std::string whyNot;
+        fs::path folder = matlabEngineFolder(given, whyNot);
+        if (folder.empty())
+        {
+            folder = newestMatlabEngineFolder();
+            OV_ERROR_UNLESS_KRF(!folder.empty(), "this box's setting \"Matlab executable (path)\" [" << given << "] " << whyNot.c_str() << ", and no MATLAB is installed in C:\\Program Files\\MATLAB either. Would you be so very kind as to set it to your MATLAB's matlab.exe, or to its bin\\win64 folder? Thank you for your patience.",
+                                Kernel::ErrorType::BadConfig);
+            this->getLogManager() << Kernel::LogLevel_Warning << "This box's setting \"Matlab executable (path)\" [" << given << "] " << whyNot.c_str() << ", so we use the newest MATLAB installed, in [" << folder.string() << "]. To use another, set it to that MATLAB's matlab.exe.\n";
+        }
+        m_matlabPath = folder.make_preferred().string().c_str();
+
+        // UG fork: load the engine from its own folder, so that Windows looks for the DLLs it needs there first. Loaded
+        // on first use through PATH (upstream), it failed in Designer with 0xC06D007E. See UG.md, 2.55.
+        for (const char* dll : { "libmx.dll", "libeng.dll" })
+        {
+            const fs::path file = folder / dll;
+            if (!LoadLibraryExW(file.wstring().c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH))
+            {
+                const DWORD error = GetLastError();
+                char reason[512] = "";
+                FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, error, 0, reason, sizeof(reason), nullptr);
+                for (size_t n = strlen(reason); n > 0 && (reason[n - 1] == '\r' || reason[n - 1] == '\n' || reason[n - 1] == ' '); --n) { reason[n - 1] = '\0'; }
+                OV_ERROR_KRF("Windows could not load MATLAB's [" << file.string() << "]: " << reason << " (Windows error " << size_t(error) << "). Might a DLL of another version, in OpenViBE's bin folder or on PATH, be in the way? Thank you for your patience.",
+                             Kernel::ErrorType::BadResourceCreation);
+            }
+        }
     }
 
     sanitizePath(m_matlabPath);
 
     this->getLogManager() << Kernel::LogLevel_Trace << "Interpreting Matlab path as '" << m_matlabPath << "'\n";
-
-    OV_ERROR_UNLESS_KRF(FS::Files::directoryExists(m_matlabPath), "the Matlab folder [" << m_matlabPath << "] from this box's setting \"Matlab executable (path)\" does not seem to be a folder. Would you be so very kind as to check it? Thank you for your patience.",
-                        Kernel::ErrorType::BadConfig);
 
     char* path = getenv("PATH");
     OV_ERROR_UNLESS_KRF(path, "we could not read the environment variable PATH, to which Matlab's folder needs to be added. Might we trouble you to check that it is set? Thank you most kindly.", Kernel::ErrorType::BadSetting);

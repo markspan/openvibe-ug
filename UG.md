@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 84 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 85 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 362 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
@@ -1294,7 +1294,7 @@ The MATLAB Scripting box is the only box of `openvibe-plugins-matlab.dll`, and i
 
 **Getting the box on a PC with MATLAB**
 - Build on a PC with 64-bit MATLAB installed (the headers and `libeng.lib`, `libmx.lib`, `libmex.lib` come from MATLAB). The configure step prints "Found Matlab in [...]".
-- Copy `bin\openvibe-plugins-matlab.dll` from that build into the `bin` folder of the installed OpenViBE (`C:\Program Files\openvibe-4.0in`). The build must be of the same version as the install, since the DLL uses OpenViBE's own DLLs; the MATLAB release does not have to match, since the DLL loads `libeng.dll` and `libmx.dll` only when the box starts.
+- Copy `bin\openvibe-plugins-matlab.dll` from that build into the `bin` folder of the installed OpenViBE (`C:\Program Files\openvibe-4.0\bin`). The build must be of the same version as the install, since the DLL uses OpenViBE's own DLLs; the MATLAB release does not have to match, since the DLL loads `libeng.dll` and `libmx.dll` only when the box starts.
 - In the box, set "Matlab executable (path)" to MATLAB's `bin\win64` folder, e.g. `C:/Program Files/MATLAB/R2026a/bin/win64`. The box adds it to `PATH` and opens the MATLAB engine. MATLAB has to be registered as a COM server, which the MATLAB installer does (`matlab -regserver` as administrator otherwise).
 
 **Consequences**
@@ -1353,6 +1353,23 @@ Every error raised through the `OV_ERROR` macros began with the same apology (2.
 - An error no longer starts with a fixed text, so a search of a log for errors should look for `[ ERROR ]` (the log level), or for "(for the developers:", which every such message still has.
 - A plugin built for an earlier version of the fork must be built again: the macros now call `errorApology()` in `openvibe.dll`.
 - Tested: unit tests of the phrasings, the ordinals ("3rd", "11th", "22nd") and the choice of context.
+
+---
+
+### 2.55 The MATLAB box finds MATLAB from any reasonable path
+
+**Files**
+- `extras/plugins/processing/matlab/src/box-algorithms/ovpCBoxAlgorithmMatlabScripting.cpp`
+
+The setting "Matlab executable (path)" told the box where MATLAB is. Upstream took the folder of the file it names, if that file existed, or else the value itself as a folder, and refused anything else with "the Matlab folder [...] does not seem to be a folder", quoting the value with a backslash added: also for a path to `matlab.exe` that did not exist, or that had quotes around it, as Explorer's "Copy as path" gives. A path to `bin\matlab.exe` passed, but the engine is in `bin\win64`, and it failed to load. The tutorials' default, a 32-bit MATLAB R2013b, exists on no current PC.
+
+- The setting may name `matlab.exe` in `bin` or `bin\win64`, either folder, or the release folder (`C:\Program Files\MATLAB\R2026a`), with or without quotes. The box looks for MATLAB's engine (`libeng.dll`) in that folder, its `win64` folder, and its `bin\win64` folder.
+- Where it finds none, it says why, and uses the newest MATLAB in `C:\Program Files\MATLAB`, with a warning, e.g. "This box's setting "Matlab executable (path)" [C:/Program Files (x86)/MATLAB/R2013b/bin/win32/matlab.exe] is a file that does not exist, so we use the newest MATLAB installed, in [C:\Program Files\MATLAB\R2026a\bin\win64]". The reasons: the value is empty; it is a file, or a folder, that does not exist; it is a file whose folder holds no engine (that folder is named); it is a folder that holds no engine. With no MATLAB installed there either, the same reason ends an error.
+- The box loads `libmx.dll` and `libeng.dll` itself, from that folder, so that Windows looks for the DLLs they need there first. Upstream let Windows load them on first use, through `PATH`; in Designer that failed with exception `0xC06D007E` (a DLL not found). A DLL that does not load gives Windows' reason.
+- When the engine fails, the log names Windows' exception code, and, when the engine loaded but MATLAB did not start for it, says that MATLAB starts for the engine as a COM server, and how to register it (`!matlab -regserver` in MATLAB run as administrator).
+
+**Consequences**
+- Tested in Designer with the third MATLAB tutorial and seven values: `bin\matlab.exe` in quotes, `bin\win64\MATLAB.exe`, the release folder, the old R2013b default, a path that does not exist, `C:\Windows\notepad.exe` and `C:\Windows`. Each gave the folder or the warning described above. The engine now loads; MATLAB then did not start for it on that PC, as in MATLAB's own engine example there (2.51), so a MATLAB script has still not run.
 
 ---
 
@@ -1492,7 +1509,7 @@ Every error raised through the `OV_ERROR` macros began with the same apology (2.
 | M | `extras/plugins/processing/features-selection/src/boxes/CBoxAlgorithmFeaturesSelection.cpp` | 2.23 |
 | M | `extras/plugins/processing/features-selection/src/boxes/CBoxAlgorithmFeaturesSelector.cpp` | 2.23 |
 | M | `extras/plugins/processing/matlab/CMakeLists.txt` | 2.51 |
-| M | `extras/plugins/processing/matlab/src/box-algorithms/ovpCBoxAlgorithmMatlabScripting.cpp` | 2.23 |
+| M | `extras/plugins/processing/matlab/src/box-algorithms/ovpCBoxAlgorithmMatlabScripting.cpp` | 2.23, 2.55 |
 | M | `extras/plugins/processing/network-io/src/box-algorithms/CBoxLSLCommunication.cpp` | 2.23 |
 | M | `extras/plugins/processing/riemannian/src/boxes/CBoxAlgorithmCovarianceMatrixToFeatureVector.cpp` | 2.23 |
 | M | `extras/plugins/processing/riemannian/src/boxes/CBoxAlgorithmCovarianceMeanCalculator.cpp` | 2.23 |
