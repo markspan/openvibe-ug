@@ -29,6 +29,76 @@ Control {
     { name: "Error",   key: "error",   prop: "displayError",   countProp: "errorCount",   color: DS.Theme.logLevelsColors.error },
   ]
 
+  // UG fork: entries can be selected (click; Ctrl+click adds or removes one; Shift+click selects a range) and copied
+  // as text (Ctrl+C, or Copy in the right-click menu), e.g. to paste them into a message. See UG.md, 2.56.
+  property var _selectedEntries: []  // the selected log items, OVLogControllerItem objects
+  property var _selectionAnchor: null // the entry a Shift+click selects from
+
+  function _isSelected(entry) { return _selectedEntries.indexOf(entry) >= 0 }
+
+  function _selectEntry(entry, modifiers) {
+    const entries = OV.OVLogController.items
+    if ((modifiers & Qt.ShiftModifier) && _selectionAnchor) {
+      let from = -1, to = -1
+      for (let i = 0; i < entries.length; ++i) {
+        if (entries[i] === _selectionAnchor) { from = i }
+        if (entries[i] === entry) { to = i }
+      }
+      if (from >= 0 && to >= 0) {
+        const range = (modifiers & Qt.ControlModifier) ? _selectedEntries.slice() : []
+        for (let i = Math.min(from, to); i <= Math.max(from, to); ++i) {
+          if (range.indexOf(entries[i]) < 0) { range.push(entries[i]) }
+        }
+        _selectedEntries = range
+        return
+      }
+    }
+    if (modifiers & Qt.ControlModifier) {
+      _selectedEntries = _isSelected(entry) ? _selectedEntries.filter(e => e !== entry) : _selectedEntries.concat([entry])
+    } else {
+      _selectedEntries = [entry]
+    }
+    _selectionAnchor = entry
+  }
+
+  function _selectAll() {
+    const entries = OV.OVLogController.items
+    const all = []
+    for (let i = 0; i < entries.length; ++i) { all.push(entries[i]) }
+    _selectedEntries = all
+  }
+
+  // The entries as text, one per line, in the log's order: "[ Error ] message".
+  function _entriesText(onlySelected) {
+    const entries = OV.OVLogController.items
+    const lines = []
+    for (let i = 0; i < entries.length; ++i) {
+      const entry = entries[i]
+      if (onlySelected && !_isSelected(entry)) { continue }
+      lines.push("[ " + entry.level.charAt(0).toUpperCase() + entry.level.slice(1) + " ] " + entry.message.replace(/\s+$/, ""))
+    }
+    return lines.join("\n")
+  }
+
+  function _copy(onlySelected) {
+    const text = _entriesText(onlySelected)
+    if (text.length > 0) { OV.OVLogController.copyToClipboard(text) }
+  }
+
+  Connections {
+    target: OV.OVLogController
+    // Entries that left the list (cleared, or hidden by the filter) leave the selection.
+    function onItemsChanged() {
+      if (_control._selectedEntries.length === 0) { return }
+      const entries = OV.OVLogController.items
+      const shown = []
+      for (let i = 0; i < entries.length; ++i) { shown.push(entries[i]) }
+      const kept = _control._selectedEntries.filter(e => shown.indexOf(e) >= 0)
+      if (kept.length !== _control._selectedEntries.length) { _control._selectedEntries = kept }
+      if (shown.indexOf(_control._selectionAnchor) < 0) { _control._selectionAnchor = null }
+    }
+  }
+
   implicitHeight: DS.Theme.loggerMinimumHeight
   implicitWidth: parent.width
 
@@ -189,11 +259,43 @@ Control {
 
         spacing: DS.Theme.spacingXs
 
+        // UG fork: Ctrl+C copies the selected entries, Ctrl+A selects all, while the log has the keyboard focus (it
+        // takes it on a click). They override Designer's shortcuts, which copy boxes, only then. See UG.md, 2.56.
+        Keys.onShortcutOverride: (event) => {
+          event.accepted = (event.matches(StandardKey.Copy) && _control._selectedEntries.length > 0) || event.matches(StandardKey.SelectAll)
+        }
+        Keys.onPressed: (event) => {
+          if (event.matches(StandardKey.Copy)) { _control._copy(true); event.accepted = true }
+          else if (event.matches(StandardKey.SelectAll)) { _control._selectAll(); event.accepted = true }
+        }
+
         delegate: Item {
+          id: _entry
           width: _logListView.width
           height: _entryRow.implicitHeight
 
           property color _badgeColor: DS.Theme.logLevelsColors[level] ?? DS.Theme.quaternary
+          readonly property bool _selected: _control._selectedEntries.indexOf(modelData) >= 0  // UG fork: see above
+
+          // UG fork: the selection's background, and the clicks that select. See UG.md, 2.56.
+          Rectangle {
+            anchors.fill: parent
+            color: DS.Theme.hover
+            visible: _entry._selected
+          }
+          MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
+            onPressed: (mouse) => {
+              _logListView.forceActiveFocus()
+              if (mouse.button === Qt.RightButton) {
+                if (!_entry._selected) { _control._selectEntry(modelData, Qt.NoModifier) }
+                _entryMenu.popup()
+              } else {
+                _control._selectEntry(modelData, mouse.modifiers)
+              }
+            }
+          }
 
           RowLayout {
             id: _entryRow
@@ -299,6 +401,25 @@ Control {
               _control.height = newHeight
             }
         }
+    }
+  }
+
+  // UG fork: the right-click menu of an entry. See UG.md, 2.56.
+  Menu {
+    id: _entryMenu
+    MenuItem {
+      text: _control._selectedEntries.length > 1 ? "Copy " + _control._selectedEntries.length + " entries (Ctrl+C)" : "Copy entry (Ctrl+C)"
+      enabled: _control._selectedEntries.length > 0
+      onTriggered: _control._copy(true)
+    }
+    MenuItem {
+      text: "Copy all entries"
+      onTriggered: _control._copy(false)
+    }
+    MenuSeparator {}
+    MenuItem {
+      text: "Select all (Ctrl+A)"
+      onTriggered: _control._selectAll()
     }
   }
 

@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 85 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 86 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 362 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 364 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -68,6 +68,7 @@ Everything outside the files listed here is identical to upstream.
 | Qt on Windows | 6.9.3, whose support has ended | 6.12.0, the long-term-support version; the installer workflow fetches it with its own script, checked against Qt's SHA-256 |
 | MATLAB box | Without MATLAB at build time (the GitHub build), an empty `openvibe-plugins-matlab.dll` was installed, and Designer warned at every start: "No 'plugin object descriptor' found" | Such a build leaves the DLL out; a build on a PC with MATLAB finds any release in `C:\Program Files\MATLAB` (was: R2015b only) and builds the box, whose DLL can be copied into an installed OpenViBE |
 | Adding ports to a box | On a box that accepts any stream type (MATLAB Scripting, Identity, Signal Merger, Generic Stream Writer, Classifier Trainer and about 15 more), "+" in the box's settings failed: "Could not add input port" | The port is added, as a Signal; its card offers every stream type |
+| Copying from the log | Not possible: an entry can not be selected | Click an entry to select it, Ctrl+click to add or remove one, Shift+click for a range; Ctrl+C, or the right-click menu, copies them as text (`[ Error ] message`, one per line) |
 | Apology in error messages | Always "We do most humbly apologise:" (2.23) | One of several, at random, aware of the errors before it: "And, sorry again:" right after another error, "I am afraid this is the 3rd time:" for a repeated kind |
 | Program descriptions | "OpenViBE Designer for Win32", in Task Manager and a file's Details, though the build is 64-bit | "OpenViBE Designer for Windows (64-bit)", and so for every program and DLL with a version resource |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
@@ -1326,7 +1327,7 @@ A box whose inputs or outputs the user may add, but which names no stream types 
 - A box whose listener sets the type of a new port (Identity, for example, matches it to its other ports) still does so; it now gets a port to work on.
 
 **Consequences**
-- Built. Not yet tried in Designer's box settings: that needs clicking in Designer, which the tests here do not do.
+- Tested in Designer (with 2.56): "+" under Input in the MATLAB Scripting box's settings adds "New Input", a Signal input, and the box shows its port. Before, it logged "Could not add input port".
 
 ---
 
@@ -1370,6 +1371,27 @@ The setting "Matlab executable (path)" told the box where MATLAB is. Upstream to
 
 **Consequences**
 - Tested in Designer with the third MATLAB tutorial and seven values: `bin\matlab.exe` in quotes, `bin\win64\MATLAB.exe`, the release folder, the old R2013b default, a path that does not exist, `C:\Windows\notepad.exe` and `C:\Windows`. Each gave the folder or the warning described above. The engine now loads; MATLAB then did not start for it on that PC, as in MATLAB's own engine example there (2.51), so a MATLAB script has still not run.
+
+---
+
+### 2.56 Log entries can be selected and copied
+
+**Files**
+- `extras/applications/qml/OVControls/Logger.qml`
+- `extras/applications/qml/OVControls/OVLogController.h`, `OVLogController.cpp`
+
+The log panel of Designer (and of the acquisition server's QML window) showed entries that could not be selected, so an error could not be copied into a message or a report.
+
+- A click selects an entry; Ctrl+click adds or removes one; Shift+click selects the range from the last clicked entry (with Ctrl, adds it). Selected entries have a light blue background.
+- Ctrl+C copies the selected entries, Ctrl+A selects all. The right-click menu has "Copy entry" (or "Copy 3 entries"), "Copy all entries" and "Select all"; a right-click on an entry that is not selected selects it first.
+- The text is one line per entry, in the log's order, as the panel shows it: `[ Error ] I am so very sorry: ...`. A message of several lines keeps them.
+- Ctrl+C and Ctrl+A act on the log only while it has the keyboard focus, which a click in it gives and a click on the canvas takes back; otherwise Ctrl+C copies boxes, as before.
+- Entries that leave the list, by Clear or by the filter, leave the selection.
+- `OVLogController.copyToClipboard()` puts the text on the system clipboard (QML has no clipboard of its own).
+
+**Consequences**
+- Tested in Designer, by clicks and keys sent from a script and the clipboard read back: a click and a Shift+click two entries further copied those three entries; Ctrl+click took one out of a selection; right-click selected an unselected entry and opened the menu; "Copy entry", "Select all" (46 entries) and "Copy all entries" (46 lines) did what they say. After a click on the canvas, Ctrl+C left the clipboard alone.
+- Not tried in the acquisition server's QML window, which uses the same panel.
 
 ---
 
@@ -1457,7 +1479,9 @@ The setting "Matlab executable (path)" told the box where MATLAB is. Upstream to
 | A | `extras/applications/platform/acquisition-server/ui/qml/DriverNote.qml` | 2.16, 2.42 |
 | A | `extras/applications/platform/acquisition-server/ui/qml/LevelBar.qml` | 2.4, 2.42 |
 | M | `extras/applications/platform/acquisition-server/ui/qml/Main.qml` | 2.4, 2.8, 2.16, 2.47 |
-| M | `extras/applications/qml/OVControls/Logger.qml` | 2.23 |
+| M | `extras/applications/qml/OVControls/Logger.qml` | 2.23, 2.56 |
+| M | `extras/applications/qml/OVControls/OVLogController.cpp` | 2.56 |
+| M | `extras/applications/qml/OVControls/OVLogController.h` | 2.56 |
 | M | `extras/applications/qml/OVDesignSystem/Theme.qml` | 2.42 |
 | M | `extras/applications/qml/OVParameters/CMakeLists.txt` | 2.22 |
 | M | `extras/applications/qml/OVParameters/MultiSelectParameter.qml` | 2.26 |

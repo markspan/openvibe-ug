@@ -69,6 +69,8 @@ public:
 
 public:
     Q_INVOKABLE void clear();
+    // UG fork: puts the given text on the system clipboard, for copying log entries. See UG.md, 2.56.
+    Q_INVOKABLE void copyToClipboard(const QString& text) const;
     void addLogItem(const QString &message, const QString &level);
 
 private:

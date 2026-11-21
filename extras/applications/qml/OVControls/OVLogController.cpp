@@ -5,6 +5,15 @@
 #include "OVLogController.h"
 #include "OVLogControllerItem.h"
 
+#include <QClipboard>       // UG fork: see copyToClipboard()
+#include <QGuiApplication>
+
+// UG fork: QML has no clipboard of its own. See UG.md, 2.56.
+void OVLogController::copyToClipboard(const QString& text) const
+{
+    if (QClipboard* clipboard = QGuiApplication::clipboard()) { clipboard->setText(text); }
+}
+
 OVLogController *OVLogController::instance() 
 {
     if (!s_instance) {
