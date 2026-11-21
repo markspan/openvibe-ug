@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 88 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 89 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 372 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 373 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -72,6 +72,8 @@ Everything outside the files listed here is identical to upstream.
 | MATLAB example | Three tutorials: a signal zeroed on a key, an FFT filter, a sine generator | A fourth squares the EEG channels of a signal and passes the others on, to test the MATLAB box; a channel's type is taken from its name, as the Signal display does |
 | MATLAB box in Designer | Failed at the first call after Play ("An error occurred while updating the box clock"): the engine was opened on Designer's window thread and called from its play thread | Every engine call runs on one thread of the box's own; when MATLAB is not registered under the name the engine asks for, the log says so and gives the command that registers it |
 | MATLAB type IDs | `OV_define.m` filled the log with `flintmax` warnings at every Play, and its 64-bit type IDs came out rounded | The IDs are read exactly, without warnings |
+| Left ruler help | The ruler's "±5" did not say that a lane is centred on the channel's middle, not on 0 | Hovering over "Left ruler" explains the range |
+| Lane statistics | A lane's ruler gave its scale but not what the channel did | Hovering over a lane's bracket shows min, max and range on screen, and what the lane shows; tooltips wrap |
 | Apology in error messages | Always "We do most humbly apologise:" (2.23) | One of several, at random, aware of the errors before it: "And, sorry again:" right after another error, "I am afraid this is the 3rd time:" for a repeated kind |
 | Program descriptions | "OpenViBE Designer for Win32", in Task Manager and a file's Details, though the build is 64-bit | "OpenViBE Designer for Windows (64-bit)", and so for every program and DLL with a version resource |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
@@ -1453,6 +1455,44 @@ At every start the MATLAB box runs `OV_define.m`, which gives MATLAB scripts the
 
 ---
 
+### 2.60 The Left ruler's help says what its range means
+
+**Files**
+- `extras/plugins/processing/simple-visualization/src/DisplayPanel.cpp`
+
+The amplitude ruler labels each lane "±R", and the automatic scale (2.26) centres every channel on the middle of what it spanned on the last page. A channel of 0 to 9, such as the squared channels of the MATLAB example (2.57), is labelled ±5 but drawn from −0.5 to 9.5, the same label as a channel of −3 to 3 drawn from −5 to 5. Hovering over "Left ruler" in the display's settings now says so: ±R is R above and R below the lane's middle line, in the signal's own unit, and that middle line is not always 0. The label itself is unchanged.
+
+**Consequences**
+- The Signal display and the LSL display share the settings panel, so both show the new help.
+- Seen in Designer (signal-display tutorial), once the tooltip wrapped (2.61); before that the window's edge cut it off.
+
+---
+
+### 2.61 Hovering over a lane's amplitude bracket shows its min, max and range
+
+**Files**
+- `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml`
+- `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp`, `CSignalTraceItem.h`, `SignalScaling.h`
+- `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp`
+- `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part`
+- `extras/applications/qml/OVDesignSystem/qml/ToolTip.qml`
+
+The ±R of the amplitude ruler (2.60) says how much a lane shows, not where, nor what the channel actually does. With the mouse over a lane's bracket, a tooltip now gives both, for the samples on screen, and keeps them current twice a second:
+
+> On screen: min −23660, max −23550, range 108.5
+> The lane shows −23630 to −23530
+
+- **Values.** `CSignalTraceItem::rowStats(row)` reads the row's channel from the trace buffer, the same samples the automatic scale reads, and gives min, max and count (from `channelStats()` in `SignalScaling.h`, which leaves out NaN and infinite samples, as the trace does), and the values at the two ends of the bracket, centre ± half-range. Values are shown with at most four significant digits and a real minus sign. A mean was shown at first, and dropped: it said little that min and max do not.
+- **Not in Multiview**, where one bracket stands for every lane.
+- **The tooltip wraps.** The design system's `ToolTip` was one line high and never wrapped: the help of "Left ruler" (2.60) ran off the window. It now wraps at 480 pixels, or the window's width if less, and grows to the lines it needs; a one-line tooltip looks as before. Its text was centred with `anchors.centerIn`, which overrode the left and right anchors and so kept it from wrapping; it is centred vertically only now.
+
+**Consequences**
+- Seen in Designer with the signal-display tutorial: the stats follow the lane under the mouse, and a lane whose samples on screen run past its bracket (the scale fits the previous page) shows that plainly, as min or max outside "the lane shows".
+- Two new unit tests of `channelStats()`: a ring buffer's two runs, and NaN and infinity left out (30 tests pass).
+- The tooltip change applies to every design-system tooltip, in Designer, the Acquisition Server and the plugin inspector. Only the two above were looked at.
+
+---
+
 ## 3. All modified files
 
 `A` = added, `M` = modified, `D` = removed. The section column refers to the sections above.
@@ -1580,6 +1620,7 @@ At every start the MATLAB box runs `OV_define.m`, which gives MATLAB scripts the
 | M | `extras/applications/platform/acquisition-server/test/CMakeLists.txt` | 2.21, 2.42 |
 | A | `extras/applications/platform/acquisition-server/test/lsl-output/CMakeLists.txt` | 2.21 |
 | A | `extras/applications/platform/acquisition-server/test/lsl-output/LSLOutputWriterTest.cpp` | 2.21 |
+| M | `extras/applications/qml/OVDesignSystem/qml/ToolTip.qml` | 2.61 |
 | A | `extras/applications/demos/p300/bci-examples/p300-speller-python/` (5 scripts, 5 scenarios and a README) | 2.18 |
 | A | `extras/applications/demos/p300/bci-examples/p300-speller-xDAWN-python/` (6 scenarios, and a README) | 2.18 |
 | M | `extras/contrib/plugins/processing/python3/share/StimulationsCodes.py` | 2.18 |
@@ -1615,8 +1656,8 @@ At every start the MATLAB box runs `OV_define.m`, which gives MATLAB scripts the
 | A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display-xdf.xml` | 2.29, 2.39 |
 | A | `extras/plugins/processing/simple-visualization/box-tutorials/lsl-display.xml` | 2.28, 2.29, 2.39 |
 | M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_P300SpellerVisualization.dox-part` | 2.18 |
-| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26, 2.39, 2.40, 2.43 |
-| M | `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml` | 2.26 |
+| M | `extras/plugins/processing/simple-visualization/doc/Doc_BoxAlgorithm_SignalDisplay.dox-part` | 2.26, 2.39, 2.40, 2.43, 2.61 |
+| M | `extras/plugins/processing/simple-visualization/qml/AmplitudeScaleBar.qml` | 2.26, 2.61 |
 | M | `extras/plugins/processing/simple-visualization/qml/ChannelGutter.qml` | 2.43 |
 | A | `extras/plugins/processing/simple-visualization/qml/P300SpellerVisualization.qml` | 2.18 |
 | A | `extras/plugins/processing/simple-visualization/qml/LSLDisplay.qml` | 2.28, 2.41, 2.43 |
@@ -1650,14 +1691,14 @@ At every start the MATLAB box runs `OV_define.m`, which gives MATLAB scripts the
 | A | `extras/plugins/processing/simple-visualization/src/CLSLRecorder.h` | 2.29 |
 | M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.cpp` | 2.26, 2.28, 2.39, 2.40, 2.41, 2.43 |
 | M | `extras/plugins/processing/simple-visualization/src/CSignalDisplayController.h` | 2.26, 2.39, 2.40, 2.41, 2.43 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28, 2.39, 2.40, 2.41 |
-| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26, 2.28, 2.39, 2.41 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.cpp` | 2.26, 2.28, 2.39, 2.40, 2.41, 2.61 |
+| M | `extras/plugins/processing/simple-visualization/src/CSignalTraceItem.h` | 2.26, 2.28, 2.39, 2.41, 2.61 |
 | M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.cpp` | 2.26, 2.28 |
 | M | `extras/plugins/processing/simple-visualization/src/CTraceBuffer.h` | 2.26, 2.28 |
-| A | `extras/plugins/processing/simple-visualization/src/DisplayPanel.cpp` | 2.41 |
+| A | `extras/plugins/processing/simple-visualization/src/DisplayPanel.cpp` | 2.41, 2.60 |
 | A | `extras/plugins/processing/simple-visualization/src/DisplayPanel.h` | 2.41 |
 | M | `extras/plugins/processing/simple-visualization/src/SDisplaySettings.h` | 2.26, 2.39, 2.40, 2.41 |
-| A | `extras/plugins/processing/simple-visualization/src/SignalScaling.h` | 2.26, 2.41 |
+| A | `extras/plugins/processing/simple-visualization/src/SignalScaling.h` | 2.26, 2.41, 2.61 |
 | A | `extras/plugins/processing/simple-visualization/src/TraceShading.h` | 2.40 |
 | A | `extras/plugins/processing/simple-visualization/src/TracePalette.h` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/src/XDFWriter.cpp` | 2.29 |
@@ -1668,7 +1709,7 @@ At every start the MATLAB box runs `OV_define.m`, which gives MATLAB scripts the
 | A | `extras/plugins/processing/simple-visualization/test/LSLReaderTest.cpp` | 2.28 |
 | A | `extras/plugins/processing/simple-visualization/test/LSLRecorderTest.cpp` | 2.29 |
 | A | `extras/plugins/processing/simple-visualization/test/P300SpellerStateTest.cpp` | 2.18 |
-| A | `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp` | 2.26, 2.41 |
+| A | `extras/plugins/processing/simple-visualization/test/SignalScalingTest.cpp` | 2.26, 2.41, 2.61 |
 | A | `extras/plugins/processing/simple-visualization/test/TraceBufferTest.cpp` | 2.26, 2.28 |
 | A | `extras/plugins/processing/simple-visualization/test/TraceShadingTest.cpp` | 2.40 |
 | A | `extras/plugins/processing/simple-visualization/test/scenarios-tests/P300-speller-lua-test.xml` | 2.18 |

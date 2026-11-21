@@ -510,6 +510,32 @@ QVariantList CSignalTraceItem::rowChannels() const
     return out;
 }
 
+QVariantMap CSignalTraceItem::rowStats(const int row) const
+{
+    if (m_buffer == nullptr || row < 0 || row >= m_rows.size()) { return {}; }
+    const int channel = m_rows[row].channel;
+
+    CTraceBuffer::CReader r(*m_buffer);
+    if (!r.valid() || channel < 0 || size_t(channel) >= r.channels()) { return {}; }
+    const size_t capacity = r.capacity();
+    const size_t filled   = r.filled();
+    if (filled == 0 || capacity == 0) { return {}; }
+
+    // The samples on screen are at most two contiguous spans of the ring, as in refreshAutoScale()
+    const size_t first        = (r.writePos() + capacity - filled) % capacity;
+    const size_t head         = std::min(filled, capacity - first);
+    const float* src          = r.channel(size_t(channel));
+    const SChannelStats stats = channelStats(src + first, head, src, filled - head);
+    if (stats.count == 0) { return {}; }
+
+    double centre    = 0.0;
+    double halfRange = 1.0;
+    scaleFor(channel, centre, halfRange);
+    // low and high are the values at the two ends of the ruler's bracket
+    return { { "min", stats.min }, { "max", stats.max }, { "count", qulonglong(stats.count) },
+             { "low", centre - halfRange }, { "high", centre + halfRange } };
+}
+
 QVariantList CSignalTraceItem::rowHalfRanges() const
 {
     QVariantList out;

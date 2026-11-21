@@ -127,6 +127,13 @@ public:
     Q_INVOKABLE qreal timeAtX(qreal x) const;
     /** X of an absolute time in seconds, or -1 when outside the window. */
     Q_INVOKABLE qreal xAtTime(qreal seconds) const;
+    /**
+     * \brief UG fork, see UG.md 2.61: the samples on screen in one row, for the amplitude ruler's tooltip.
+     *
+     * \return min, max and count of the row's channel, and low and high, the values at the lane's bottom and top
+     *         edges; empty for a row that is not there or has no number on screen.
+     */
+    Q_INVOKABLE QVariantMap rowStats(int row) const;
 
 signals:
     void layoutChanged();

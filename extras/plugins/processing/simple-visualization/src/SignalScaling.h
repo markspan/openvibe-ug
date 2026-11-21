@@ -111,6 +111,37 @@ inline std::vector<SChannelScale> scaleChannels(const std::vector<SChannelSpan>&
     return scales;
 }
 
+/** UG fork, see UG.md 2.61: what the samples of one channel come to, for the amplitude ruler's tooltip. */
+struct SChannelStats
+{
+    double min   = 0.0;
+    double max   = 0.0;
+    size_t count = 0;  ///< The samples counted; 0 when there was no number among them
+};
+
+/**
+ * \brief Min and max of a channel's samples, given as up to two runs, as a ring buffer holds them.
+ *
+ * NaN and infinite samples are left out, as the trace leaves them out.
+ */
+inline SChannelStats channelStats(const float* first, const size_t nFirst, const float* second, const size_t nSecond)
+{
+    SChannelStats stats;
+    const auto add = [&](const float* samples, const size_t n)
+    {
+        for (size_t i = 0; i < n; ++i) {
+            const double v = samples[i];
+            if (!std::isfinite(v)) { continue; }
+            if (stats.count == 0 || v < stats.min) { stats.min = v; }
+            if (stats.count == 0 || v > stats.max) { stats.max = v; }
+            ++stats.count;
+        }
+    };
+    add(first, nFirst);
+    add(second, nSecond);
+    return stats;
+}
+
 /**
  * \brief When a display works its scale out again: at every new page, and while the first page fills, twice a second.
  *

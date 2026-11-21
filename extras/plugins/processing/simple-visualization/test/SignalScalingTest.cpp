@@ -115,3 +115,28 @@ TEST(SignalScaling, aRequestCountsWhateverThePage)
     EXPECT_TRUE(rescale.due(2, false, start + 10ms));
     EXPECT_FALSE(rescale.due(2, false, start + 20ms)) << "a request counts once";
 }
+
+TEST(SignalScaling, statsCoverBothRunsOfTheRing)
+{
+    // UG.md 2.61: the samples on screen can be split over the end and the start of the ring buffer
+    const float head[] = { 0.0F, 9.0F, 3.0F };
+    const float tail[] = { -1.0F, 4.0F };
+    const SChannelStats stats = channelStats(head, 3, tail, 2);
+    EXPECT_EQ(stats.count, 5U);
+    EXPECT_DOUBLE_EQ(stats.min, -1.0);
+    EXPECT_DOUBLE_EQ(stats.max, 9.0);
+}
+
+TEST(SignalScaling, statsLeaveOutNaNAndInfinity)
+{
+    const float nan    = std::numeric_limits<float>::quiet_NaN();
+    const float inf    = std::numeric_limits<float>::infinity();
+    const float some[] = { nan, 2.0F, inf, 4.0F, -inf };
+    const SChannelStats stats = channelStats(some, 5, nullptr, 0);
+    EXPECT_EQ(stats.count, 2U);
+    EXPECT_DOUBLE_EQ(stats.min, 2.0);
+    EXPECT_DOUBLE_EQ(stats.max, 4.0);
+
+    const float none[] = { nan, nan };
+    EXPECT_EQ(channelStats(none, 2, nullptr, 0).count, 0U);
+}

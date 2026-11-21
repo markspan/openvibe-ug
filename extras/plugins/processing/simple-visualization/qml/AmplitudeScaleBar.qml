@@ -27,6 +27,12 @@ Item {
         return String(Number(v.toPrecision(3)))
     }
 
+    // UG fork: a value with its sign, at most four significant digits, for the bracket's tooltip. See UG.md, 2.61.
+    function formatValue(value) {
+        if (value === 0) { return "0" }
+        return String(Number(value.toPrecision(4))).replace(/-/g, "−")
+    }
+
     /// UG fork: whether every lane has the same scale. In butterfly the one bracket stands for all of them, so it
     /// shows a number only then; upstream showed the first lane's, also when the others differed.
     readonly property bool sharedScale: {
@@ -85,6 +91,40 @@ Item {
                 font: DS.Theme.textXsRegular
                 color: DS.Theme.textTertiary
                 visible: _bracket.height > DS.Theme.labelHeightLg
+            }
+
+            /// UG fork: the tooltip's text, worked out again twice a second while the mouse is over the bracket.
+            property string stats: ""
+
+            function updateStats() {
+                const s = _root.trace.rowStats(_bracket.index)
+                if (s.count === undefined) { _bracket.stats = ""; return }
+                const f = _root.formatValue
+                _bracket.stats = qsTr("On screen: min %1, max %2, range %3").arg(f(s.min)).arg(f(s.max)).arg(f(s.max - s.min))
+                        + "\n" + qsTr("The lane shows %1 to %2").arg(f(s.low)).arg(f(s.high))
+            }
+
+            MouseArea {
+                id: _hover
+                anchors.fill: parent
+                // In Multiview one bracket stands for every lane, so there is no one lane to tell about
+                enabled: !_root.butterfly
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+                onContainsMouseChanged: if (containsMouse) { _bracket.updateStats() }
+
+                // UG fork: what the lane's samples come to, while the mouse is over its bracket. See UG.md, 2.61.
+                DS.ToolTip {
+                    visible: _hover.containsMouse && text !== ""
+                    text: _bracket.stats
+                }
+            }
+
+            Timer {
+                interval: 500
+                repeat: true
+                running: _hover.containsMouse
+                onTriggered: _bracket.updateStats()
             }
         }
     }

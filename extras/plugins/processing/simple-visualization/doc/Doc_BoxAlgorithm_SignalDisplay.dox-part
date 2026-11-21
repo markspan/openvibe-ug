@@ -89,7 +89,10 @@ hides the panel, giving the graph the whole width, and shows it again.
   - Auto vertical scale : Per channel, By type, Global, or None.
   - Time Scale : the time span displayed. Changing it resizes the buffer and clears history.
   - Vertical Scale : the amplitude filling half a channel lane. Greyed out unless auto scaling is None.
-  - Bottom ruler / Left ruler : toggle the time ruler and the amplitude scale bar.
+  - Bottom ruler / Left ruler : toggle the time ruler and the amplitude scale bar. The scale bar's ±R means that a
+    lane shows R above and R below its middle line, and that middle line is the middle of what the channel spanned on
+    the last page, not always 0. Hovering over a lane's bracket shows the minimum, maximum and range of the
+    channel's samples on screen, and the values at the two ends of the bracket.
   - Multiview : overlay every channel on a single baseline.
 
 Four further entries exist only in this panel and are not box settings, so they are not saved with

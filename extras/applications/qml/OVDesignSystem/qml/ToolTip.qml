@@ -15,6 +15,8 @@ Item {
     property int delay: 500
     property int windowMargin: Theme.spacingXs
     property Item target: parent
+    /// UG fork: a longer text wraps at this width, or at the window's, whichever is less. See UG.md, 2.61.
+    property real maxTextWidth: 480
 
     visible: false
     property bool _visible: false
@@ -149,21 +151,27 @@ Item {
                         }
                     }
 
-                    implicitHeight: Theme.labelHeight5xl
-                    implicitWidth: _tooltipLabel.implicitWidth + 2 * Theme.spacingSm // accomodate tooltipLabel content + margins
+                    // UG fork: as high as a text of more than one line needs. See UG.md, 2.61.
+                    implicitHeight: Math.max(Theme.labelHeight5xl, _tooltipLabel.implicitHeight + 2 * Theme.spacingSm)
+                    // UG fork: no wider than maxTextWidth and the window allow; the label wraps within that
+                    implicitWidth: Math.min(_tooltipLabel.implicitWidth, root.maxTextWidth,
+                                            _tooltip.parent.width - 2 * root.windowMargin - 2 * Theme.spacingSm)
+                                   + 2 * Theme.spacingSm // accomodate tooltipLabel content + margins
 
                     radius: Theme.radiusMd
                     color: Theme.tooltipBackground
 
                     Label {
                         id: _tooltipLabel
-                        anchors.centerIn: parent
+                        // UG fork: centred vertically only; centerIn overrode left and right, so the text could not wrap
+                        anchors.verticalCenter: parent.verticalCenter
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.leftMargin: Theme.spacingSm
                         anchors.rightMargin: Theme.spacingSm
 
                         text: root.text
+                        wrapMode: Text.WordWrap // UG fork
                         color: Theme.white
                         font: Theme.textLargeLight
                         lineHeight: Theme.textLgLineHeight

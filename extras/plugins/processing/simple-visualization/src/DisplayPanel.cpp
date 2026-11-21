@@ -94,7 +94,12 @@ CDisplayPanel::CDisplayPanel(SDisplaySettings& settings, QObject* context, std::
         changed(EDisplayChange::Rulers);
     });
 
-    m_amplitudeRuler = new ParameterBoolObject("Left ruler", "Show the amplitude scale bar along the left", m_settings.showAmplitudeRuler);
+    // UG fork: the help says what the ruler's ±R means, as the lane's middle is not always 0. See UG.md, 2.60.
+    m_amplitudeRuler = new ParameterBoolObject("Left ruler",
+                                               "Show the amplitude ruler along the left. ±R: each lane shows R above and R below its middle line, "
+                                               "in the signal's own unit. The middle line is the middle of what the channel spanned on the last page, "
+                                               "so not always 0: values from 0 to 9 are drawn around 4.5",
+                                               m_settings.showAmplitudeRuler);
     QObject::connect(m_amplitudeRuler, &ParameterBoolObject::valueChanged, context, [this](const bool& value)
     {
         m_settings.showAmplitudeRuler = value;
