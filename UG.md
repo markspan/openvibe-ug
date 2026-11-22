@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 91 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 92 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 384 files, about 37,400 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 394 files, about 37,700 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -76,6 +76,7 @@ Everything outside the files listed here is identical to upstream.
 | Lane statistics | A lane's ruler gave its scale but not what the channel did | Hovering over a lane's bracket shows min, max and range on screen, and what the lane shows; tooltips wrap |
 | Dominant frequency | A lane's tooltip said nothing of the rhythm in the signal | It names the dominant frequency of the last 4 s, when one peak from 6 to 100 Hz has at least 3 times the power of the frequencies around it |
 | Impedances in BrainVision files | Not recorded; TMSi impedances only in Charmeleon | A scenario with the BrainVision writer (UG) has the server measure the impedances when it starts (the signal stops for about 4 s), and the header lists them as BrainVision Recorder does; eego and TMSi, on the client's Channel localisation link |
+| LSL times | The LSL driver dates samples and markers when it reads them, and passes marker 7 on as stimulation 7, which the BrainVision writer leaves out; LSL Export dates everything from its first chunk, as if that came at time 0 | Both keep the times LSL asks for: the driver its sender's, on this PC's clock, with markers 1 to 255 as triggers; LSL Export each time on LSL's clock by its age in the scenario |
 | Apology in error messages | Always "We do most humbly apologise:" (2.23) | One of several, at random, aware of the errors before it: "And, sorry again:" right after another error, "I am afraid this is the 3rd time:" for a repeated kind |
 | Program descriptions | "OpenViBE Designer for Win32", in Task Manager and a file's Details, though the build is 64-bit | "OpenViBE Designer for Windows (64-bit)", and so for every program and DLL with a version resource |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
@@ -1548,6 +1549,31 @@ With that, noise alone named a frequency 0 times in 1000 (white), 2 in 1000 (bro
 - Tested live with the test build, the server on its Dummy driver and Designer without a window: the writer's request reached the client, the server logged it and answered that the driver can not measure, and the client asked for the stream with a warning in Designer's log. Not seen live: an amplifier being measured, and samples reaching the file in that run.
 - Tested: 9 new unit tests (the measurement stopping and restarting a running acquisition and sending the values with the settings, waiting for the next Play, a driver that can not measure, Play after the server's own check; the block on the wire, without a montage, from a client before; the header lines, names MNE can not read, none), and the whole suite (the failures are those that fail without this change too: a Japanese path, a socket test, classifier comparisons, and a test that needs the one before it). **Not tried on an amplifier**: the TMSi impedance mode is Charmeleon's, untried in the server; nor the whole chain to a file.
 
+### 2.64 LSL times as LSL asks: the LSL driver and the LSL Export box
+
+A long-standing complaint about OpenViBE and LSL (sccn/lsl_archived [#100](https://github.com/sccn/lsl_archived/issues/100), 2016, and [#333](https://github.com/sccn/lsl_archived/issues/333), 2018; the LSL documentation still warns that the acquisition server "incorrectly overrides the timestamps") is that OpenViBE stamped what it sent to LSL with a clock of its own, so that its streams could not be aligned with others. LSL asks for every sample's time on LSL's own clock, `lsl::local_clock()`, less the sample's age when it is known. The server's LSL Output does so since 2.21. The timing review (`timing-review-2026-11-22.md`, findings 3 and 6) found the two other places where OpenViBE meets LSL still wrong; this section fixes them.
+
+**Files**
+- `extras/applications/platform/acquisition-server/builtin/drivers/labstreaminglayer/CDriverLabStreamingLayer.h` and `.cpp`
+- `extras/applications/platform/acquisition-server/builtin/LslClock.h` (new), `builtin/writers/lsl-output/LSLOutputWriter.cpp`
+- `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp`
+- `extras/applications/platform/acquisition-server/test/lsl-input/LSLDriverTest.cpp` and `CMakeLists.txt` (new), `test/CMakeLists.txt`, `test/TcpTagTimingTest.cpp`
+- `extras/plugins/processing/network-io/src/box-algorithms/CBoxLSLExport.cpp` and `.hpp`, `LSLTime.h` (new)
+- `extras/plugins/processing/network-io/test/LSLTimeTest.cpp` (new), `test/CMakeLists.txt`
+
+**What it does**
+- **The LSL driver keeps its sender's times.** It pulled samples and markers without their times: the last sample of each read got the moment of the read, the others times spread evenly back to the read before (the first read's back to Play), and markers the moment they were read. The network's and LSL's delays and the reads' timing went into every time, differently for the samples and the markers, which come by different paths. It now pulls each sample's and marker's LSL time, has liblsl move them to this PC's LSL clock (`post_clocksync`; the signal's also smoothed and kept increasing, `post_dejitter | post_monotonize`, as XDF loaders do), and moves them to the server's clock with the offset the LSL Output uses, now shared (`LslClock.h`). A marker so lands on the sample its sender dated it at.
+- **LSL markers reach BrainVision files.** A marker value from 1 to 255 is now a trigger, `OVTK_StimulationId_Label(value)`, as an amplifier's are, which the BrainVision writer (UG) records as `S  1` … `S255`. Upstream passed every value on as a stimulation ID (marker 7 became stimulation 7), which the writer leaves out. Other values stay stimulation IDs.
+- **A sender that starts again is picked up again:** the driver's inlets now recover.
+- **A marker ahead of its samples is no longer lost.** A marker dated after the last sample of the block it came with stayed in that block, which went back to the pool: `AbstractWriter::writeSamples()` now keeps it pending for the chunk that holds its sample, as it already did for TCP tags. With the sender's times, an LSL marker often comes before its samples.
+- **The LSL Export box dates by age.** It took the wall-clock time of its first chunk for the scenario's time 0, and added the scenario dates to it: a box whose first chunk came at 2.5 s sent everything 2.5 s late. It now sends each sample and stimulation at `lsl::local_clock()` less its age in the scenario's time (`lslTimeOfScenarioDate()`): a stimulation made in this round is "now". This holds however late the player runs. The `LSL_UseOVTimestamps` token still sends the scenario's own seconds, the behaviour of #333, for whoever asks for it.
+
+**Consequences**
+- LSL sources recorded through the acquisition server, into BrainVision or anything else, have their sender's times; their markers sit on the samples their sender meant, and markers 1 to 255 are in the `.vmrk`.
+- Markers sent from Designer with LSL Export line up with other LSL streams in LabRecorder, to within a round of the player.
+- A stimulation from 1 to 255 sent over LSL as an OpenViBE stimulation ID, rather than as a trigger, now arrives as a trigger.
+- Tested: a real LSL sender on this PC whose samples and markers are 5 s old: each arrives at its sender's time, within 1 ms, markers on their samples, the trigger as a label (`LSLDriverTest`; upstream dated them 5 s late); the writer keeps a marker that comes ahead of its samples; the LSL Export's times (4 tests). Not run in Designer, nor against another PC.
+
 ---
 
 ## 3. All modified files
@@ -1606,11 +1632,14 @@ With that, noise alone named a frequency 0 times in 1000 (white), 2 in 1000 (bro
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.cpp` | 2.3, 2.41, 2.42 |
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/CharmeleonMontage.h` | 2.3, 2.41, 2.42 |
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/SteadyTrigger.h` | 2.25 |
-| M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7, 2.18, 2.42 |
+| M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7, 2.18, 2.42, 2.64 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7, 2.21, 2.42 |
+| A | `extras/applications/platform/acquisition-server/builtin/LslClock.h` | 2.64 |
+| M | `extras/applications/platform/acquisition-server/builtin/drivers/labstreaminglayer/CDriverLabStreamingLayer.cpp` | 2.64 |
+| M | `extras/applications/platform/acquisition-server/builtin/drivers/labstreaminglayer/CDriverLabStreamingLayer.h` | 2.64 |
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27, 2.41, 2.42, 2.63 |
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27, 2.41, 2.63 |
-| M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21 |
+| M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21, 2.64 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` | 2.21 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21, 2.30, 2.41, 2.42, 2.63 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.h` | 2.4, 2.6, 2.7, 2.8, 2.16, 2.41, 2.63 |
@@ -1679,8 +1708,10 @@ With that, noise alone named a frequency 0 times in 1000 (white), 2 in 1000 (bro
 | M | `extras/applications/platform/acquisition-server/builtin/drivers/tagging/TaggingDriver.cpp` | 2.18 |
 | A | `extras/applications/platform/acquisition-server/test/BlockStampsTest.cpp` | 2.24 |
 | A | `extras/applications/platform/acquisition-server/test/SteadyTriggerTest.cpp` | 2.25 |
-| A | `extras/applications/platform/acquisition-server/test/TcpTagTimingTest.cpp` | 2.18 |
-| M | `extras/applications/platform/acquisition-server/test/CMakeLists.txt` | 2.21, 2.42 |
+| A | `extras/applications/platform/acquisition-server/test/TcpTagTimingTest.cpp` | 2.18, 2.64 |
+| M | `extras/applications/platform/acquisition-server/test/CMakeLists.txt` | 2.21, 2.42, 2.64 |
+| A | `extras/applications/platform/acquisition-server/test/lsl-input/CMakeLists.txt` | 2.64 |
+| A | `extras/applications/platform/acquisition-server/test/lsl-input/LSLDriverTest.cpp` | 2.64 |
 | A | `extras/applications/platform/acquisition-server/test/lsl-output/CMakeLists.txt` | 2.21 |
 | A | `extras/applications/platform/acquisition-server/test/lsl-output/LSLOutputWriterTest.cpp` | 2.21 |
 | M | `extras/applications/qml/OVDesignSystem/qml/ToolTip.qml` | 2.61 |
@@ -1705,6 +1736,11 @@ With that, noise alone named a frequency 0 times in 1000 (white), 2 in 1000 (bro
 | M | `extras/plugins/processing/matlab/src/box-algorithms/ovpCBoxAlgorithmMatlabScripting.h` | 2.58 |
 | M | `extras/plugins/processing/matlab/src/ovpCMatlabHelper.h` | 2.58 |
 | M | `extras/plugins/processing/network-io/src/box-algorithms/CBoxLSLCommunication.cpp` | 2.23 |
+| M | `extras/plugins/processing/network-io/src/box-algorithms/CBoxLSLExport.cpp` | 2.64 |
+| M | `extras/plugins/processing/network-io/src/box-algorithms/CBoxLSLExport.hpp` | 2.64 |
+| A | `extras/plugins/processing/network-io/src/box-algorithms/LSLTime.h` | 2.64 |
+| M | `extras/plugins/processing/network-io/test/CMakeLists.txt` | 2.64 |
+| A | `extras/plugins/processing/network-io/test/LSLTimeTest.cpp` | 2.64 |
 | M | `extras/plugins/processing/riemannian/src/boxes/CBoxAlgorithmCovarianceMatrixToFeatureVector.cpp` | 2.23 |
 | M | `extras/plugins/processing/riemannian/src/boxes/CBoxAlgorithmCovarianceMeanCalculator.cpp` | 2.23 |
 | M | `extras/plugins/processing/riemannian/src/boxes/CBoxAlgorithmFeatureVectorToCovarianceMatrix.cpp` | 2.23 |
@@ -1855,7 +1891,7 @@ With that, noise alone named a frequency 0 times in 1000 (white), 2 in 1000 (bro
 | A | `UG.md` | this document |
 | A | `montages.md` | 2.3: the montage how-to, 2.63 |
 | A | `review-2026-11-18.md` | 2.41: the review of the fork's code, two passes |
-| A | `timing-review-2026-11-22.md` | 2.63: a review of how samples and markers get their times; its findings are not yet acted on |
+| A | `timing-review-2026-11-22.md` | 2.63: a review of how samples and markers get their times; 2.64: findings 3 and 6 fixed |
 | A | `speller.md` | 2.18: the speller how-to |
 
 ---

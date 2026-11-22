@@ -1,6 +1,6 @@
 # Timing review, 22 November 2026
 
-A read of every place in OpenViBE UG where a sample or a marker gets its time, for the lab's use: eego, TMSi and LSL sources, recorded to BrainVision (`.vhdr/.eeg/.vmrk`, through Designer's *BrainVision Format file writer (UG)*) or to XDF (the server's *LSL Output* into LabRecorder, or Designer's *LSL XDF writer (UG)*). Nothing below has been changed yet; each finding says what a fix would take. Earlier work this builds on: UG.md 2.5, 2.20, 2.21, 2.24, 2.25, 2.27, 2.30, and the lab measurements of 7 and 9 November (TMSi at 2048 Hz: hardware marker 1.87 ms after the LSL marker, SD 0.64 ms with raw marker times, 0.26 ms when each marker takes its EEG sample's dejittered time).
+A read of every place in OpenViBE UG where a sample or a marker gets its time, for the lab's use: eego, TMSi and LSL sources, recorded to BrainVision (`.vhdr/.eeg/.vmrk`, through Designer's *BrainVision Format file writer (UG)*) or to XDF (the server's *LSL Output* into LabRecorder, or Designer's *LSL XDF writer (UG)*). Each finding says what a fix would take; findings 3 and 6 have been fixed since (UG.md 2.64). Earlier work this builds on: UG.md 2.5, 2.20, 2.21, 2.24, 2.25, 2.27, 2.30, and the lab measurements of 7 and 9 November (TMSi at 2048 Hz: hardware marker 1.87 ms after the LSL marker, SD 0.64 ms with raw marker times, 0.26 ms when each marker takes its EEG sample's dejittered time).
 
 Read: the acquisition server's core (`Acquisition`, `CircularBuffer`, `DriftCalculator`, `AbstractDriver`, `BlockStamps.h`, `SteadyTrigger.h`, `AbstractWriter`, `NetWriter`), the TMSi, eego, LSL and TCP-tagging drivers, the LSL Output writer, the Acquisition client box (`SampleBlocks.h`, `StimulationDelay.h`), the BrainVision writer (UG), the LSL recorder and XDF writer, the LSL Export box, the player's clock and `System::Time`.
 
@@ -32,6 +32,8 @@ Even with finding 1 fixed, a stamp is the time the PC saw the sample, not when t
 
 ### 3. LSL as a source: the LSL timestamps are thrown away (LSL driver)
 
+**Fixed in UG.md 2.64:** samples and markers keep their sender's times, markers 1–255 are triggers, the inlets recover, and a marker ahead of its samples is kept.
+
 `CDriverLabStreamingLayer::read()` pulls samples without their timestamps (`CDriverLabStreamingLayer.cpp:291`, `nullptr`), so `AbstractDriver::getData()` stamps only the last sample of each pull with the moment of the pull and the server interpolates the rest between pulls; the first pull is interpolated back to the moment Play was pressed (`Acquisition.cpp:388`). Markers are pulled without timestamps too (`:304`) and dated when the server reads them (`:308`). So:
 
 - samples and markers are dated by arrival: network and LSL buffering, the sender's chunking and the poll go into their times;
@@ -55,6 +57,8 @@ When the eego's sample counter skips (`CDriverEEGO.cpp:545`) or the TMSi SDK's b
 **Fix:** carry the first sample's server stamp to the writer (the client can put it in the stream, e.g. as a dimension label or with the impedances' column), turn it into wall-clock time with microseconds, and write that. Combine with finding 2's latency.
 
 ### 6. Markers sent from Designer through *LSL Export* get the wrong time
+
+**Fixed in UG.md 2.64:** each time is LSL's clock less its age in the scenario. The *LSL Export (Gipsa)* box is unchanged.
 
 `CBoxLSLExport.cpp:108` and `:196` take the wall-clock time at the box's first chunk as the scenario's time 0, and date every marker as that plus its scenario date. If the first chunk comes at scenario time 2.5 s, every marker is 2.5 s late; and scenario time runs in steps behind the wall clock (finding 7), so markers also jitter by up to a step. LSL Export is how a Designer-generated stimulus reaches LabRecorder.
 

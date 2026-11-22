@@ -67,8 +67,7 @@ protected:
     std::string m_signalName, m_signalID;
     std::string m_markerName, m_markerID;
 
-    bool m_useOVTimestamps = false;
-    CTime m_startTime      = CTime(0);
+    bool m_useOVTimestamps = false;  ///< From the LSL_UseOVTimestamps token: the scenario's own seconds instead of LSL's clock
 };
 
 //--------------------------------------------------------------------------------

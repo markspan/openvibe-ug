@@ -5,6 +5,7 @@
 
 #include "AbstractWriter.h"
 #include <algorithm>
+#include <limits>  // UG fork
 #include <utility>
 #include <iostream>
 
@@ -200,6 +201,10 @@ size_t AbstractWriter::writeSamples(samplesBuffer* buffer)
                 bufferOffset      += samplesToWriteOrCopy;
                 writtenSamplesRes += samplesToWriteOrCopy;
             }
+            // UG fork: a stimulation dated after the block's last sample waits, pending, for the chunk that holds its sample (see
+            // stimsDue). Upstream left it in the buffer, which then went back to the pool: it was lost. The LSL driver's markers,
+            // dated by their sender, can come before their samples (UG.md 2.64)
+            accumulateStims(std::numeric_limits<timestampType>::max());
         } else if (buffer->stimCount > 0){
             accumulateStims(buffer->stimulationsBuff[buffer->stimCount-1].date);
         }

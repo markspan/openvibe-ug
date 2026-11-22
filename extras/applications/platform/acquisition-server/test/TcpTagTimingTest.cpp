@@ -170,3 +170,22 @@ TEST(TcpTagWriterTest, ATriggerStaysWithItsOwnSample)
     EXPECT_EQ(writer.chunks[0].stimulations, std::vector<uint64_t>({110}));
     EXPECT_EQ(writer.chunks[1].stimulations, std::vector<uint64_t>({120}));
 }
+
+// UG fork: a marker that comes with samples before its own, as the LSL driver's can, waits for its sample (UG.md 2.64). Upstream
+// left it in the buffer, which went back to the pool: it was lost.
+TEST(TcpTagWriterTest, AMarkerAheadOfTheSamplesItCameWithWaitsForItsSample)
+{
+    RecordingWriter writer;
+    ASSERT_TRUE(writer.init(4, 1));
+
+    Buffer early({100, 110, 120, 130}, {160});
+    writer.writeSamples(early.get());
+    ASSERT_EQ(writer.chunks.size(), 1u);
+    EXPECT_TRUE(writer.chunks[0].stimulations.empty());
+
+    Buffer holding({140, 150, 160, 170}, {});
+    writer.writeSamples(holding.get());
+    ASSERT_EQ(writer.chunks.size(), 2u);
+    ASSERT_EQ(writer.chunks[1].stimulations.size(), 1u);
+    EXPECT_EQ(writer.chunks[1].stimulations[0], 160u);
+}

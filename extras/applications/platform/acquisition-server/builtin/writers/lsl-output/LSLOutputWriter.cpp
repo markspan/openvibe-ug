@@ -4,6 +4,7 @@
 */
 
 #include "LSLOutputWriter.h"
+#include "../../LslClock.h"  // UG fork
 
 #include <chrono>
 #include <cmath>
@@ -36,27 +37,6 @@ std::string computerName()
 // UG fork: upstream draws a random ID at every start. LSL recovers a lost stream by its ID, so a client could not pick up the
 // stream again after a restart of the server. The computer's name is in it, as two lab PCs can use the same stream names.
 std::string streamId(const std::string& streamName) { return "openvibe-acquisition-server:" + computerName() + ":" + streamName; }
-
-// The same clock as AbstractDriver::timestamp(), which dates the samples and the stimulations
-double serverClockSeconds() { return 1e-9 * double(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()); }
-
-// UG fork: what to add to the server's clock to get LSL's. Neither clock is adjusted while they run, so this holds for the whole
-// session. Of a few readings the one with the shortest time between its reads, in case the thread is interrupted during one.
-double measureClockOffset()
-{
-    double offset  = 0.0;
-    double shortest = std::numeric_limits<double>::max();
-    for (int i = 0; i < 10; ++i) {
-        const double before = serverClockSeconds();
-        const double lsl    = lsl::local_clock();
-        const double after  = serverClockSeconds();
-        if (after - before < shortest) {
-            shortest = after - before;
-            offset   = lsl - (before + after) / 2.0;
-        }
-    }
-    return offset;
-}
 
 std::string formatNumber(const double value)
 {
@@ -107,7 +87,7 @@ void LSLOutputWriter::onAcquisitionSetup(uint32_t sampleRate, const ovChannelInf
 
     if (sampleRate != 0 && m_channelCount != 0 && m_chunkSamplesCount != 0) {
 
-        m_clockOffset = measureClockOffset();
+        m_clockOffset = LslClock::measureOffset();  // UG fork: the clock the server dates with, against LSL's
 
         // UG fork: the type is "EEG", which is what clients search for and XDF names, not "signal". A channel only says what is
         // known of it: its type comes from the montage, as a driver doesn't tell an EEG channel from a bipolar one. There is no
@@ -150,7 +130,7 @@ size_t LSLOutputWriter::send(ovMsg* msg, uint64_t /*clientId*/)
     if (m_signalOutlet->have_consumers() && s.count > 0)
     {
         m_timestamps.resize(s.count);
-        for (uint32_t i = 0; i < s.count; ++i) { m_timestamps[i] = 1e-9 * double(s.timestamp[i]) + m_clockOffset; }
+        for (uint32_t i = 0; i < s.count; ++i) { m_timestamps[i] = LslClock::toLslSeconds(s.timestamp[i], m_clockOffset); }
         m_signalOutlet->push_chunk_multiplexed(s.samples, m_timestamps.data(), s.count * m_channelCount);
     }
 
@@ -159,7 +139,7 @@ size_t LSLOutputWriter::send(ovMsg* msg, uint64_t /*clientId*/)
         for (uint32_t i = 0; i < s.stimCount; ++i)
         {
             const int code = int(s.stimulations[i].id);
-            m_stimulusOutlet->push_sample(&code, 1e-9 * double(s.stimulations[i].date) + m_clockOffset);
+            m_stimulusOutlet->push_sample(&code, LslClock::toLslSeconds(s.stimulations[i].date, m_clockOffset));
         }
     }
 

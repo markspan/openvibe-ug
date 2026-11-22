@@ -35,3 +35,4 @@ include(GoogleTest)
 gtest_discover_tests(${PROJECT_NAME})
 
 add_subdirectory(lsl-output)  # UG fork
+add_subdirectory(lsl-input)   # UG fork

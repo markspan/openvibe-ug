@@ -26,6 +26,7 @@
 
 // Notes: This code should be kept compatible with changes to LSL Input Driver and Output Plugin in OpenViBE Acquisition Server.
 #include "CBoxLSLExport.hpp"
+#include "LSLTime.h"  // UG fork
 
 #include <ctime>
 #include <iostream>
@@ -99,15 +100,13 @@ bool CBoxLSLExport::process()
     // the dynamic box context describes the current state of the box inputs and outputs (i.e. the chunks)
     Kernel::IBoxIO& boxContext = this->getDynamicBoxContext();
 
+    // UG fork: every time on LSL's clock, from its age in the scenario's time (LSLTime.h). Upstream took the wall-clock time of the
+    // first chunk for the scenario's time 0, so every time was off by the scenario time of that chunk.
+    const uint64_t scenarioNow = this->getPlayerContext().getCurrentTime();
+    const double lslNow        = lsl::local_clock();
+
     // Process signals
     for (size_t i = 0; i < boxContext.getInputChunkCount(0); ++i) {
-        if (m_startTime == CTime(0)) {
-            // This should be the ov time when acquisition client tagged the first chunk with [0, t], t=bufferSize/samplingRate.
-            // As the true run time is not know here, we have to do with a slightly delayed estimate. (The delay is the duration
-            // it took from stamping the first chunk to this point in the code)
-            m_startTime = System::Time::zgetTime();
-        }
-
         m_signalDecoder.decode(i);
         if (m_signalDecoder.isHeaderReceived() && !m_signalOutlet) {
             const size_t nChannel        = m_signalDecoder.getOutputMatrix()->getDimensionSize(0);
@@ -155,8 +154,8 @@ bool CBoxLSLExport::process()
                 }
                 // note: the step computed below should be exactly the same as could be obtained from the sampling rate
 
-                // n.b. this would work more "lsl-like" if the timestamps were the real acquisition timestamps
                 if (m_useOVTimestamps) {
+                    // The scenario's own seconds, which no other LSL stream can be aligned with; only with the LSL_UseOVTimestamps token
                     const double sampleStepInSec =
                             (chunkEndTime - chunkStartTime).toSeconds() / static_cast<double>(samplesPerBlock);
                     const double chunkStartInSec = chunkStartTime.toSeconds();
@@ -174,7 +173,7 @@ bool CBoxLSLExport::process()
                         for (size_t channel = 0; channel < nChannel; ++channel) {
                             m_buffer[channel] = static_cast<float>(iBuffer[channel * samplesPerBlock + sample]);
                         }
-                        const double lslTime = LSL::getLSLRelativeTime(m_startTime + chunkStartTime + CTime(sample * sampleStep));
+                        const double lslTime = lslTimeOfScenarioDate(chunkStartTime.time() + sample * sampleStep, scenarioNow, lslNow);
                         m_signalOutlet->push_sample(m_buffer, lslTime);
                     }
                 }
@@ -191,11 +190,6 @@ bool CBoxLSLExport::process()
     // Process stimuli -> LSL markers. 
     // Note that stimuli with identifiers not fitting to int will be mangled by a static cast.
     for (size_t i = 0; i < boxContext.getInputChunkCount(1); ++i) {
-        if (m_startTime == CTime(0)) {
-            // Initialisation done here too as the box may only receive stimulations
-            m_startTime = System::Time::zgetTime();
-        }
-
         m_stimDecoder.decode(i);
         if (m_stimDecoder.isHeaderReceived() && !m_stimulusOutlet) {
             // Open a stimulus stream
@@ -217,7 +211,7 @@ bool CBoxLSLExport::process()
                 for (size_t s = 0; s < stimSet->size(); ++s) {
                     const int code    = int(stimSet->getId(s));
                     const double date = m_useOVTimestamps ? CTime(stimSet->getDate(s)).toSeconds()
-                                            : LSL::getLSLRelativeTime(m_startTime + CTime(stimSet->getDate(s)));
+                                            : lslTimeOfScenarioDate(stimSet->getDate(s), scenarioNow, lslNow);  // UG fork
 
                     m_stimulusOutlet->push_sample(&code, date);
                 }

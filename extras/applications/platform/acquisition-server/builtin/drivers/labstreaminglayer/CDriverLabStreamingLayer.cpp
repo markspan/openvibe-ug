@@ -2,6 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 #include "CDriverLabStreamingLayer.h"
+#include "../../LslClock.h"  // UG fork
+
+#include "toolkit/ovtk_defines.h"  // UG fork: OVTK_StimulationId_Label
+
+#include <algorithm>  // UG fork
 
 #include <cmath>
 #include <cstdint>
@@ -247,7 +252,12 @@ bool CDriverLabStreamingLayer::unInit()
 
 bool CDriverLabStreamingLayer::start()
 {
-    m_signalInlet = new lsl::stream_inlet(m_signalStreamInfo, 360, 0, false);
+    // UG fork: recover, so that a sender that starts again is picked up again, which upstream's inlets did not do (false). The
+    // times are moved to this PC's LSL clock (clocksync), and a signal's are smoothed and kept increasing, as XDF loaders do
+    m_signalInlet = new lsl::stream_inlet(m_signalStreamInfo, 360, 0, true);
+    m_signalInlet->set_postprocessing(lsl::post_clocksync | lsl::post_dejitter | lsl::post_monotonize);
+    m_clockOffset = LslClock::measureOffset();
+    m_lastStamp   = 0;
     try { m_signalInlet->open_stream(LSL_OPEN_TIMEOUT); }
     catch (...) {
         std::cout << "[LSL] Failed to open signal stream [" << m_signalStreamInfo.name() << "]\n";
@@ -257,7 +267,8 @@ bool CDriverLabStreamingLayer::start()
     }
 
     if (m_hasMarkerStream) {
-        m_markerInlet = new lsl::stream_inlet(m_markerStreamInfo, 360, 0, false);
+        m_markerInlet = new lsl::stream_inlet(m_markerStreamInfo, 360, 0, true);  // UG fork: see the signal's
+        m_markerInlet->set_postprocessing(lsl::post_clocksync);
         try { m_markerInlet->open_stream(LSL_OPEN_TIMEOUT); }
         catch (...) {
             std::cout << "[LSL] Failed to open marker stream [" << m_markerStreamInfo.name() << "]\n";
@@ -288,7 +299,9 @@ int CDriverLabStreamingLayer::read(sampleType* data, uint64_t size)
     // pull_chunk_multiplexed() writes directly into `data` in the same sample-major layout
     // AbstractDriver expects, and drains whatever's already buffered in one native call
     // instead of one pull_sample() call (and its internal locking) per sample.
-    try { elementsWritten = m_signalInlet->pull_chunk_multiplexed(data, nullptr, size * channelCount, 0, 0.0); }
+    // UG fork: with each sample's time, see getData()
+    m_sampleTimes.resize(size_t(size));
+    try { elementsWritten = m_signalInlet->pull_chunk_multiplexed(data, m_sampleTimes.data(), size * channelCount, size, 0.0); }
     catch (...) { std::cout << "[LSL] Failed to pull signal chunk\n"; }
 
     return int(elementsWritten / channelCount);
@@ -299,19 +312,43 @@ int CDriverLabStreamingLayer::readStimulations(ovStimulation* buff, uint32_t max
     if (!m_markerInlet) { return 0; }
 
     if (m_markerBuffer.size() < maxCount) { m_markerBuffer.resize(maxCount); }
+    m_markerTimes.resize(maxCount);  // UG fork
 
     std::size_t count = 0;
-    try { count = m_markerInlet->pull_chunk_multiplexed(m_markerBuffer.data(), nullptr, maxCount, 0, 0.0); }
+    try { count = m_markerInlet->pull_chunk_multiplexed(m_markerBuffer.data(), m_markerTimes.data(), maxCount, maxCount, 0.0); }
     catch (...) { std::cout << "[LSL] Failed to pull marker chunk\n"; }
 
     for (std::size_t i = 0; i < count; ++i) {
-        // date left at 0: auto-stamped by AbstractDriver::getData() using the driver's own clock
-        // domain. Mapping the LSL clock domain to the driver's is not attempted, same simplification
-        // used by TaggingDriver and LSLOutputWriter for their own clock-domain mismatches.
-        buff[i] = ovStimulation{uint64_t(m_markerBuffer[i]), 0, 0};
+        // UG fork: dated at the time its sender gave it, on the server's clock. Upstream left the date at 0, for getData() to date
+        // it when it was read, and passed every value on as a stimulation ID, which the BrainVision writer (UG) does not record
+        buff[i] = ovStimulation{stimulationOfMarker(m_markerBuffer[i]), LslClock::toServerStamp(m_markerTimes[i], m_clockOffset), 0};
     }
+    // The writer takes them in date order (AbstractWriter::writeSamples())
+    std::stable_sort(buff, buff + count, [](const ovStimulation& a, const ovStimulation& b) { return a.date < b.date; });
 
     return int(count);
 }
 
 void CDriverLabStreamingLayer::setChunkSize(uint32_t chunkSize) { m_chunkSize = chunkSize; }
+
+// UG fork: every sample at the time its sender gave it, on the server's clock. Upstream gave the last sample of each read the moment
+// of the read, and the others times spread evenly back to the read before, so that the network's and LSL's delays, and the reads'
+// timing, went into every sample's time, and the first read's samples were spread back to Play.
+void CDriverLabStreamingLayer::getData(samplesBuffer* buff)
+{
+    buff->count = uint64_t(std::max(0, read(buff->samplesBuff, buff->maxSampleCount)));
+    for (uint64_t i = 0; i < buff->count; ++i) {
+        uint64_t stamp = LslClock::toServerStamp(m_sampleTimes[size_t(i)], m_clockOffset);
+        if (stamp <= m_lastStamp) { stamp = m_lastStamp + 1; }  // strictly increasing, as the client places stimulations by them
+        buff->timestampsBuff[i] = m_lastStamp = stamp;
+    }
+    buff->stimCount = uint32_t(std::max(0, readStimulations(buff->stimulationsBuff, buff->maxStimCount)));
+}
+
+uint64_t CDriverLabStreamingLayer::stimulationOfMarker(const int32_t value)
+{
+    return value >= 1 && value <= 255 ? uint64_t(OVTK_StimulationId_Label(value)) : uint64_t(value);
+}
+
+// UG fork: here and not in the header, see the header
+REGISTER_DRIVER(CDriverLabStreamingLayer, "LabStreamingLayer (LSL)", false);

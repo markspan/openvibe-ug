@@ -22,6 +22,10 @@
  *
  * Assumes the signal stream is float32 and the (optional) marker stream is int32, matching the
  * conventions used by the LSL Output writer and the historical LSL driver/box in OpenViBE.
+ *
+ * UG fork: samples and markers keep the times their sender gave them, moved to this PC's LSL clock (time_correction) and then
+ * to the server's (LslClock.h), as LSL asks; upstream dated them when the server read them. A marker value from 1 to 255 is a
+ * trigger, as an amplifier's are: OVTK_StimulationId_Label(value), so that the BrainVision writer (UG) records it. See UG.md 2.64.
  */
 class CDriverLabStreamingLayer final : public AbstractDriver
 {
@@ -36,6 +40,11 @@ public:
 
     int read(sampleType* data, uint64_t size) override;
     int readStimulations(ovStimulation* buff, uint32_t maxCount) override;
+    void getData(samplesBuffer* buff) override;  // UG fork: with the sender's times
+
+    /// UG fork: the stimulation for an LSL marker: a value from 1 to 255 is a trigger, OVTK_StimulationId_Label(value); any other
+    /// value is taken as an OpenViBE stimulation ID, as upstream took them all.
+    static uint64_t stimulationOfMarker(int32_t value);
 
     void setChunkSize(uint32_t chunkSize) override;
 
@@ -66,9 +75,14 @@ private:
 
     std::vector<float> m_sampleBuffer; // scratch buffer, one sample's worth of channels (used by init()'s auto-detect)
     std::vector<int32_t> m_markerBuffer; // scratch buffer for readStimulations()'s pull_chunk_multiplexed()
+    // UG fork: the sender's times, see getData()
+    std::vector<double> m_sampleTimes;  ///< LSL time of each sample of the last read(), on this PC's LSL clock
+    std::vector<double> m_markerTimes;  ///< Same, of each marker of the last readStimulations()
+    double m_clockOffset = 0.0;         ///< Added to the server's clock in seconds, gives LSL's, see LslClock::measureOffset()
+    uint64_t m_lastStamp = 0;           ///< The last sample's stamp, which the next must be after
 
     uint32_t m_chunkSize = 0;
 };
 
 
-REGISTER_DRIVER(CDriverLabStreamingLayer, "LabStreamingLayer (LSL)", false);
+// UG fork: REGISTER_DRIVER is in the .cpp, as a second file that includes this header (the driver's test) would register it again
