@@ -26,7 +26,11 @@ __________________________________________________________________
  * |OVP_DocEnd_BoxAlgorithm_AcquisitionClient_Output3|
 
  * |OVP_DocBegin_BoxAlgorithm_AcquisitionClient_Output4|
-Channel localisation flow
+Channel localisation flow: where the acquisition server's montage places each channel, by name, x, y and z on a unit sphere. When the
+server measured the impedances for the scenario, a fourth column holds them, in kOhm, labelled "Impedance [kOhm] at" and
+the time they were measured; a channel that has an impedance but no position then has x, y and z at 0. The BrainVision Format
+file writer (UG) writes both into its header. In a scenario with that writer, the box asks the server to measure the
+impedances before it asks for the signal; the server's signal then stops for a few seconds.
  * |OVP_DocEnd_BoxAlgorithm_AcquisitionClient_Output4|
 __________________________________________________________________
 

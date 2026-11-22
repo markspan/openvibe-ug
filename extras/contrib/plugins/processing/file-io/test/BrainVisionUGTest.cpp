@@ -5,7 +5,9 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <cstdint>
+#include <string>
 
 using namespace OpenViBE::Plugins::FileIO::BrainVisionUG;
 
@@ -73,4 +75,31 @@ TEST(BrainVisionUG, integersAreRoundedAndHeldAtTheirLimits)
     clipped = false;
     EXPECT_EQ(toInteger<int16_t>(std::nan(""), clipped), 0);
     EXPECT_TRUE(clipped);
+}
+
+// UG fork: the impedances under [Comment], as BrainVision Recorder writes them and MNE reads them (raw.impedances)
+TEST(BrainVisionUG, impedancesAsTheRecorderWritesThem)
+{
+    const std::string block = impedanceBlock("2026-11-22 10:42:17", {{"Fp1", 4.4}, {"Cz", 12.6}, {"EOG", std::nan("")}});
+    EXPECT_EQ(block, "Impedance [kOhm] at 10:42:17 :\n"
+                     "Fp1:          4\n"
+                     "Cz:           13\n"
+                     "\n"
+                     "Impedances measured by the acquisition server on 2026-11-22 at 10:42:17, as the recording started\n");
+}
+
+TEST(BrainVisionUG, namesMNECanNotReadGoLast)
+{
+    // MNE stops at the first line whose name has another character than letters, digits, spaces and "_+-"
+    const std::string block = impedanceBlock("2026-11-22 10:42:17", {{"A1.ref", 5.0}, {"Fp1", 4.0}});
+    EXPECT_LT(block.find("Fp1:"), block.find("A1.ref:"));
+    EXPECT_TRUE(impedanceNameReadable("Fp1"));
+    EXPECT_TRUE(impedanceNameReadable("BIP-1"));
+    EXPECT_FALSE(impedanceNameReadable("A1.ref"));
+}
+
+TEST(BrainVisionUG, noImpedancesNoBlock)
+{
+    EXPECT_TRUE(impedanceBlock("2026-11-22 10:42:17", {}).empty());
+    EXPECT_TRUE(impedanceBlock("2026-11-22 10:42:17", {{"Fp1", std::nan("")}}).empty());
 }

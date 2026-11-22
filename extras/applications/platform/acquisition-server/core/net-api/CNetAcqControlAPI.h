@@ -51,6 +51,7 @@ private:
     void CmdStopAcquisition(uint64_t id, const ControlMsg& msg, ControlMsgResponse& resp);
     void CmdRequestAcqStream(uint64_t id, const ControlMsg& msg, ControlMsgResponse& resp);
     void CmdGetGlobatStatus(ControlMsgResponse& resp);
+    void CmdMeasureImpedances(uint64_t id, const ControlMsg& msg, ControlMsgResponse& resp);  // UG fork
 
 private:
     static std::unique_ptr<CNetAcqControlAPI> s_instance;

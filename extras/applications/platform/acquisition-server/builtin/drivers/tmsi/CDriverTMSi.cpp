@@ -103,6 +103,13 @@ typedef char** (__stdcall * PGETDEVICELIST)(HANDLE handle, int* nFrontEnds);
 typedef void (__stdcall * PFREEDEVICELIST)(HANDLE handle, int nFrontEnds, char** deviceList);
 typedef BOOLEAN (__stdcall * PSETREFCALCULATION)(HANDLE handle, int onOrOff);
 typedef BOOLEAN (__stdcall * PGETBUFFERINFO)(HANDLE handle, PULONG overflow, PULONG percentFull);  // UG fork
+typedef BOOLEAN (__stdcall * PSETMEASURINGMODE)(HANDLE handle, ULONG mode, int value);  // UG fork
+
+// UG fork: the impedance mode, as Charmeleon uses it (TmsiDriver.cs): the SDK then gives, as the first sample of each block, one
+// impedance per channel in kOhm, up to the limit
+constexpr ULONG MEASURE_MODE_NORMAL       = 0x0;
+constexpr ULONG MEASURE_MODE_IMPEDANCE_EX = 0x3;
+constexpr int IC_OHM_200                  = 6;  ///< Impedances up to 200 kOhm
 
 const char* const TMSI_DLL = "TMSiSDK.dll";
 
@@ -158,6 +165,7 @@ struct TMSiApi
     PFREEDEVICELIST freeDeviceList           = nullptr;
     PSETREFCALCULATION setRefCalculation     = nullptr;
     PGETBUFFERINFO getBufferInfo             = nullptr;  ///< UG fork: optional, see noteBufferLevel()
+    PSETMEASURINGMODE setMeasuringMode       = nullptr;  ///< UG fork: optional, for the impedances, see startImpedanceCheck()
 };
 
 //___________________________________________________________________//
@@ -306,6 +314,8 @@ bool CDriverTMSi::loadLibrary()
     load(m_api->setRefCalculation, "SetRefCalculation");
     // UG fork: only for showing the buffer level, so a library without it is still used
     m_api->getBufferInfo = reinterpret_cast<PGETBUFFERINFO>(GetProcAddress(module, "GetBufferInfo"));
+    // UG fork: only for the impedances, so a library without it is still used for the signal
+    m_api->setMeasuringMode = reinterpret_cast<PSETMEASURINGMODE>(GetProcAddress(module, "SetMeasuringMode"));
 
     if (!valid) {
         FreeLibrary(module);
@@ -620,6 +630,68 @@ AbstractDriver::DeviceBuffer CDriverTMSi::takeDeviceBuffer()
     result.lossCounted = m_api->getBufferInfo != nullptr;
     result.lostSamples = uint64_t(m_bufferOverflows) * m_bufferSamples;
     return result;
+}
+
+// UG fork: the impedances, as Charmeleon reads them; init() has opened the device and chosen the channels
+bool CDriverTMSi::startImpedanceCheck()
+{
+    if (!m_opened || m_started) { return false; }
+    if (!m_api->setMeasuringMode) {
+        report(std::string(TMSI_DLL) + " has no function SetMeasuringMode, so the impedances can not be measured.");
+        return false;
+    }
+
+    // In impedance mode the device samples at no rate of its own; the buffer only has to hold a few blocks
+    ULONG sampling = 0, size = 1000;
+    if (!m_api->setSignalBuffer(m_api->handle, &sampling, &size)) {
+        printError("Can not set the signal buffer for the impedances");
+        return false;
+    }
+    m_impedanceBuffer.assign(size_t(size) * m_nDeviceChannel, 0);
+
+    if (!m_api->start(m_api->handle)) {
+        printError("Can not start the impedance measurement");
+        return false;
+    }
+    m_started = true;
+    if (!m_api->setMeasuringMode(m_api->handle, MEASURE_MODE_IMPEDANCE_EX, IC_OHM_200)) {
+        printError("Can not switch the device to impedance mode");
+        m_api->stop(m_api->handle);
+        m_started = false;
+        return false;
+    }
+    m_impedanceMode = true;
+    return true;
+}
+
+int CDriverTMSi::readImpedances(double* values, const size_t count)
+{
+    if (!m_impedanceMode || m_impedanceBuffer.empty()) { return 0; }
+
+    const LONG bytes = m_api->getSamples(m_api->handle, m_impedanceBuffer.data(), ULONG(m_impedanceBuffer.size() * sizeof(m_impedanceBuffer[0])));
+    if (bytes < LONG(m_nDeviceChannel * sizeof(m_impedanceBuffer[0]))) { return 0; }  // nothing new, or an error
+
+    // One value per recorded channel, in the order of the recording, in ohm; none for a channel that is not an electrode (digital,
+    // sawtooth), whose value means nothing
+    size_t out = 0;
+    for (uint32_t c = 0; c < m_nDeviceChannel && out < count; ++c) {
+        if (!m_isChannelActivated[c]) { continue; }
+        const ULONG type  = m_api->signalFormat[c].Type;
+        const bool analog = type == CHANNELTYPE_EXG || type == CHANNELTYPE_BIP || type == CHANNELTYPE_AUX;
+        values[out++]     = analog ? double(m_impedanceBuffer[c]) * 1000.0 : std::nan("");
+    }
+    return int(out);
+}
+
+bool CDriverTMSi::stopImpedanceCheck()
+{
+    if (!m_impedanceMode) { return false; }
+    m_api->setMeasuringMode(m_api->handle, MEASURE_MODE_NORMAL, 0);
+    m_api->stop(m_api->handle);
+    m_started       = false;
+    m_impedanceMode = false;
+    m_impedanceBuffer.clear();
+    return true;
 }
 
 bool CDriverTMSi::stop()

@@ -17,6 +17,7 @@
 
 #include <openvibe/acquisition-messaging/ovChannelInfo.h>  // UG fork
 
+#include <chrono>  // UG fork
 #include <string>  // UG fork
 #include <utility>  // UG fork
 #include <vector>
@@ -58,15 +59,32 @@ protected:
   uint64_t m_lastEndTime   = 0;
 
   std::string m_acquisitionName = "";
+
+  // UG fork: the stream is asked for at the first process(), once every box has initialised, so that a box that wants the
+  // impedances (ImpedanceRequest.hpp) has said so; the server then measures them first. See UG.md 2.63.
+  std::atomic<bool> m_listReceived{false};       ///< The server's list of acquisitions came in; m_acquisitionName is set
+  bool m_streamRequested    = false;
+  bool m_impedancesAsked    = false;
+  std::atomic<bool> m_impedancesAnswered{false};  ///< The server answered the request for the impedances
+  std::atomic<bool> m_impedancesMeasured{false};  ///< ... and measured them
+  std::chrono::steady_clock::time_point m_impedancesAskedAt;
+  void requestStreamWhenReady();
   uint32_t m_channelCount = 0;
   uint64_t m_sampleRate = 0;
   uint32_t m_sampleChunk = 0;
   bool m_acquisitionConfigured = false;
   bool m_headerSent = false;
-  // UG fork: the montage the server sent (ovChannelInfo.h), and where it places the channels, sent on the channel localisation
-  // output with the header
+  // UG fork: the montage the server sent (ovChannelInfo.h), where it places the channels and their impedances, sent on the channel
+  // localisation output with the header
   std::string m_montage;
-  std::vector<std::pair<std::string, ovCartesianPosition>> m_localisation;
+  struct SLocalisationRow
+  {
+    std::string name;
+    ovCartesianPosition position;  ///< The origin for a channel the montage does not place
+    double impedance;              ///< In kOhm; NaN for none
+  };
+  std::vector<SLocalisationRow> m_localisation;
+  std::string m_impedanceTime;  ///< When the impedances were read; empty when the server sent none
 
   // UG fork: the channel names of the stream's header, against which a later configuration from the server is checked
   std::vector<std::string> m_channelNames;

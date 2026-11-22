@@ -30,7 +30,10 @@
 
 
 #include <cstdint>
+#include <chrono>
 #include <list>
+#include <map>
+#include <string>
 #include <optional>
 
 class DriftCalculator; ///< Forward declaration of the DriftCalculator class.
@@ -97,6 +100,20 @@ public:
     bool startImpedanceCheck();
     bool stopImpedanceCheck();
     int  readImpedances(double* values, size_t count);
+
+    /**
+     * @brief Measures the impedances, and keeps them for the clients, which get them with the settings of the next acquisition
+     *        (ovChannelInfo::impedances), matched to the channels by name.
+     *
+     * UG fork: asked for by the Acquisition client when its scenario records to BrainVision (UG.md 2.63). A running acquisition is
+     * stopped for it, for some seconds, and started again; the clients get the settings, with the impedances, when it starts.
+     * Without an acquisition running, the impedances wait for the next one. The impedances of an earlier measurement are dropped
+     * first, so that a failed one sends none.
+     * @param outcome  What happened, for the log.
+     * @param duration How long the amplifier measures; the last values it gives in that time are kept.
+     * @return True when at least one channel got an impedance.
+     */
+    bool measureImpedances(std::string& outcome, std::chrono::milliseconds duration = std::chrono::seconds(3));
 
     void read(samplesBuffer*& buff);
 
@@ -188,4 +205,9 @@ private:
     std::list<uint64_t> m_clientsList; ///< List of client identifiers.
     ovChannelInfo m_channelInfo; ///< UG fork: the channel names and montage sent to each client, set by initAcquisition()
     std::optional<uint64_t> m_owner; ///< Client allowed to control this acquisition, unset when shared.
+
+    // UG fork: the last measureImpedances(), for initAcquisition() to send
+    std::mutex m_impedanceMutex;
+    std::string m_impedanceTime;                 ///< When they were read, "YYYY-MM-DD hh:mm:ss" local time; empty for none
+    std::map<std::string, double> m_impedances;  ///< In kOhm, by channel name
 };

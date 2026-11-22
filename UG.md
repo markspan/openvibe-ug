@@ -26,9 +26,9 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 90 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 91 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
-| Size | 375 files, about 36,500 lines added and 4,400 removed (of which 3,000 a test input) |
+| Size | 384 files, about 37,400 lines added and 4,400 removed (of which 3,000 a test input) |
 
 To regenerate the list of changes:
 
@@ -75,6 +75,7 @@ Everything outside the files listed here is identical to upstream.
 | Left ruler help | The ruler's "±5" did not say that a lane is centred on the channel's middle, not on 0 | Hovering over "Left ruler" explains the range |
 | Lane statistics | A lane's ruler gave its scale but not what the channel did | Hovering over a lane's bracket shows min, max and range on screen, and what the lane shows; tooltips wrap |
 | Dominant frequency | A lane's tooltip said nothing of the rhythm in the signal | It names the dominant frequency of the last 4 s, when one peak from 6 to 100 Hz has at least 3 times the power of the frequencies around it |
+| Impedances in BrainVision files | Not recorded; TMSi impedances only in Charmeleon | A scenario with the BrainVision writer (UG) has the server measure the impedances when it starts (the signal stops for about 4 s), and the header lists them as BrainVision Recorder does; eego and TMSi, on the client's Channel localisation link |
 | Apology in error messages | Always "We do most humbly apologise:" (2.23) | One of several, at random, aware of the errors before it: "And, sorry again:" right after another error, "I am afraid this is the 3rd time:" for a repeated kind |
 | Program descriptions | "OpenViBE Designer for Win32", in Task Manager and a file's Details, though the build is 64-bit | "OpenViBE Designer for Windows (64-bit)", and so for every program and DLL with a version resource |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
@@ -1517,6 +1518,36 @@ With that, noise alone named a frequency 0 times in 1000 (white), 2 in 1000 (bro
 - Twelve new unit tests (42 pass).
 - A dominant mains line is named as such: on raw EEG the answer can be 50 Hz.
 
+### 2.63 Impedances measured when a recording starts, in the BrainVision header
+
+**Files**
+- `sdk/openvibe/include/openvibe/ImpedanceRequest.hpp` (new), `sdk/openvibe/include/openvibe/acquisition-messaging/ovCtrlCmdMsg.h`, `ovChannelInfo.h`
+- `extras/applications/platform/acquisition-server/core/Acquisition.h` and `.cpp`, `AcquisitionManager.h` and `.cpp`, `Api.h` and `.cpp`, `net-api/CNetAcqControlAPI.h` and `.cpp`
+- `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` and `.cpp`, `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp`
+- `extras/applications/platform/acquisition-server/test/AcquisitionImpedanceTest.cpp` (new), `OvMsgSerializerTest.cpp`
+- `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` and `.cpp`, `doc/Doc_BoxAlgorithm_AcquisitionClient.dox-part`
+- `extras/contrib/plugins/processing/file-io/src/box-algorithms/BrainVisionUG.h`, `ovpCBoxAlgorithmBrainampFileWriterUG.h` and `.cpp`, `test/BrainVisionUGTest.cpp`
+- `montages.md` (7.3)
+
+**What it does**
+- **The writer asks.** The BrainVision Format file writer (UG) says, when it initialises, that its run wants the impedances: a token in the run's configuration, as `RecordingStatus.hpp` does (`ImpedanceRequest.hpp`). A box can not see which other boxes are in its scenario, and this needs no setting and no link.
+- **The client asks the server first.** The Acquisition client no longer asks for the stream as soon as the server's list of acquisitions comes in, but at its first `process()`, when every box has initialised. If the run wants the impedances, it first sends `MEASURE_IMPEDANCES` (`ovCtrlCmdMsg.h`) and asks for the stream when the answer comes, or after 20 s from a server that does not answer.
+- **The server measures.** `Acquisition::measureImpedances()`: if the acquisition runs, it stops; the driver goes into impedance mode for 3 s; the last values with something in them are kept, by channel name, in kOhm; the acquisition starts again. The settings it then sends to every client (2.30) carry them, matched to the channels by name, after the positions (`ovChannelInfo.h`: the word `impedances`, the time, one value per channel). Without an acquisition running, the values wait for the next Play. The values of an earlier measurement are dropped first, so a failed one sends none. It runs on the server's control thread, under the lock that Play and Stop in the server's window also take.
+- **The drivers measure.** eego through its impedance stream, as before, but without the two values it adds for the reference and the ground, which upstream listed under the names of the first two bipolar channels. TMSi, which had no impedances in the server, as Charmeleon reads them (`TmsiDriver.cs`): the signal buffer at no rate, Start, `SetMeasuringMode(MEASURE_MODE_IMPEDANCE_EX, IC_OHM_200)`, and the first sample of each block, one value per channel in kOhm; for EXG, BIP and AUX channels only. Charmeleon is not involved, and must not be open: it would hold the amplifier.
+- **The client passes them on the positions' link.** On its *Channel localisation* output, in a fourth column after x, y and z, labelled `Impedance [kOhm] at <time>` (`impedanceColumnLabel()`), with a row for each channel that has a position or an impedance; a channel without a position has x, y and z at 0, which reads as none. Without impedances the matrix is the three columns it was, so recording scenarios need no new link.
+- **The writer lists them as BrainVision Recorder does**, under `[Comment]`: `Impedance [kOhm] at 10:42:17 :`, then `Fp1:          4`, one line per electrode in whole kOhm, then a line saying when the server measured them (`BrainVisionUG::impedanceBlock()`). This is the form BrainVision Analyzer shows and MNE reads into `raw.impedances`. MNE stops at the first name with other characters than letters, digits, spaces and `_+-`, so such names go last.
+- **The stimulation stream starts at 0.** The client's first stimulation chunk now runs from the scenario's start to the signal's, as the kernel wants a stimulation stream continuous from 0; with the signal starting later, after the measurement, it warned "sends inconsistent chunk dates on output [1]".
+- **Play after the server's own impedance check starts the acquisition.** Upstream's `Acquisition::start()` left impedance mode and started nothing. It now closes the driver and starts from the beginning.
+
+**Consequences**
+- Every recording from a scenario with the BrainVision writer (UG) has the impedances of the moment it started, from eego or TMSi, without opening Charmeleon.
+- **The server's signal stops for about 4 seconds** when such a scenario starts: LSL Output, so LabRecorder, and any other scenario see a gap there. The recording itself starts after the measurement and has none. Asked for in this form; measuring at the server's Play, or using Charmeleon's last values, were the alternatives that do not interrupt.
+- The scenario's signal begins some 4 s later than before after Play in Designer.
+- On the localisation link a box that expects three columns does not take the four-column form; the 2D topographic map is one, and is fed from an electrode file in practice. LSL and XDF do not carry the impedances.
+- With TMSi, the server's own impedance list now works too, when Charmeleon is not installed.
+- Tested live with the test build, the server on its Dummy driver and Designer without a window: the writer's request reached the client, the server logged it and answered that the driver can not measure, and the client asked for the stream with a warning in Designer's log. Not seen live: an amplifier being measured, and samples reaching the file in that run.
+- Tested: 9 new unit tests (the measurement stopping and restarting a running acquisition and sending the values with the settings, waiting for the next Play, a driver that can not measure, Play after the server's own check; the block on the wire, without a montage, from a client before; the header lines, names MNE can not read, none), and the whole suite (the failures are those that fail without this change too: a Japanese path, a socket test, classifier comparisons, and a test that needs the one before it). **Not tried on an amplifier**: the TMSi impedance mode is Charmeleon's, untried in the server; nor the whole chain to a file.
+
 ---
 
 ## 3. All modified files
@@ -1577,21 +1608,26 @@ With that, noise alone named a frequency 0 times in 1000 (white), 2 in 1000 (bro
 | A | `extras/applications/platform/acquisition-server/abstractions/driver/SteadyTrigger.h` | 2.25 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7, 2.18, 2.42 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7, 2.21, 2.42 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27, 2.41, 2.42 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27, 2.41 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27, 2.41, 2.42, 2.63 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27, 2.41, 2.63 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` | 2.21 |
-| M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21, 2.30, 2.41, 2.42 |
-| M | `extras/applications/platform/acquisition-server/core/Acquisition.h` | 2.4, 2.6, 2.7, 2.8, 2.16, 2.41 |
+| M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21, 2.30, 2.41, 2.42, 2.63 |
+| M | `extras/applications/platform/acquisition-server/core/Acquisition.h` | 2.4, 2.6, 2.7, 2.8, 2.16, 2.41, 2.63 |
+| M | `extras/applications/platform/acquisition-server/core/AcquisitionManager.cpp` | 2.63 |
+| M | `extras/applications/platform/acquisition-server/core/AcquisitionManager.h` | 2.63 |
+| M | `extras/applications/platform/acquisition-server/core/Api.cpp` | 2.63 |
+| M | `extras/applications/platform/acquisition-server/core/Api.h` | 2.63 |
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.cpp` | 2.4 |
 | M | `extras/applications/platform/acquisition-server/core/CircularBuffer.h` | 2.4 |
-| M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.cpp` | 2.4 |
-| M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.h` | 2.4 |
+| M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.cpp` | 2.4, 2.63 |
+| M | `extras/applications/platform/acquisition-server/core/net-api/CNetAcqControlAPI.h` | 2.4, 2.63 |
 | M | `extras/applications/platform/acquisition-server/main.cpp` | 2.17, 2.31 |
 | A | `extras/applications/platform/acquisition-server/test/AcquisitionConfigTest.cpp` | 2.30 |
+| A | `extras/applications/platform/acquisition-server/test/AcquisitionImpedanceTest.cpp` | 2.63 |
 | A | `extras/applications/platform/acquisition-server/test/CharmeleonMontageTest.cpp` | 2.3 |
 | A | `extras/applications/platform/acquisition-server/test/CircularBufferTest.cpp` | 2.4 |
-| A | `extras/applications/platform/acquisition-server/test/OvMsgSerializerTest.cpp` | 2.7, 2.41 |
+| A | `extras/applications/platform/acquisition-server/test/OvMsgSerializerTest.cpp` | 2.7, 2.41, 2.63 |
 | M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.cpp` | 2.4, 2.6, 2.8, 2.16, 2.41, 2.42, 2.47, 2.49 |
 | M | `extras/applications/platform/acquisition-server/ui/AcquisitionController.h` | 2.4, 2.6, 2.8, 2.16, 2.42, 2.47 |
 | A | `extras/applications/platform/acquisition-server/ui/Charmeleon.cpp` | 2.6, 2.41, 2.42 |
@@ -1617,22 +1653,23 @@ With that, noise alone named a frequency 0 times in 1000 (white), 2 in 1000 (bro
 | A | `extras/applications/qml/OVParameters/test/CMakeLists.txt` | 2.22 |
 | A | `extras/applications/qml/OVParameters/test/ParameterPathObjectTest.cpp` | 2.22 |
 | A | `extras/contrib/plugins/processing/file-io/scripts/check_brainvision.py` | 2.27, 2.45, 2.47 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/BrainVisionUG.h` | 2.27 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9, 2.27, 2.41, 2.44, 2.45, 2.47 |
-| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9, 2.27, 2.41, 2.44, 2.45 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/BrainVisionUG.h` | 2.27, 2.63 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.cpp` | 2.9, 2.27, 2.41, 2.44, 2.45, 2.47, 2.63 |
+| A | `extras/contrib/plugins/processing/file-io/src/box-algorithms/ovpCBoxAlgorithmBrainampFileWriterUG.h` | 2.9, 2.27, 2.41, 2.44, 2.45, 2.63 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_defines.h` | 2.9 |
 | M | `extras/contrib/plugins/processing/file-io/src/ovp_main.cpp` | 2.9 |
-| A | `extras/contrib/plugins/processing/file-io/test/BrainVisionUGTest.cpp` | 2.27 |
+| A | `extras/contrib/plugins/processing/file-io/test/BrainVisionUGTest.cpp` | 2.27, 2.63 |
 | M | `extras/contrib/plugins/processing/file-io/test/CMakeLists.txt` | 2.27, 2.45, 2.47 |
 | A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-input.csv` | 2.27 |
 | A | `extras/contrib/plugins/processing/file-io/test/scenarios-tests/BrainVision-UG-Write-test.xml` | 2.27, 2.41, 2.45 |
 | M | `extras/contrib/plugins/server-drivers/CMakeLists.txt` | 2.2 |
-| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27, 2.41, 2.42 |
+| M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.cpp` | 2.2, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27, 2.41, 2.42, 2.63 |
 | M | `extras/contrib/plugins/server-drivers/eemagine-eego/src/CDriverEEGO.h` | 2.2, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27, 2.41 |
 | M | `extras/cmake-modules/FindThirdPartyMatlab.cmake` | 2.51 |
 | M | `extras/plugins/processing/acquisition/CMakeLists.txt` | 2.20 |
-| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7, 2.20, 2.30, 2.41 |
-| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7, 2.20, 2.30, 2.41 |
+| M | `extras/plugins/processing/acquisition/doc/Doc_BoxAlgorithm_AcquisitionClient.dox-part` | 2.63 |
+| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.cpp` | 2.5, 2.7, 2.20, 2.30, 2.41, 2.63 |
+| M | `extras/plugins/processing/acquisition/src/box-algorithms/BoxAcquisitionClient.h` | 2.7, 2.20, 2.30, 2.41, 2.63 |
 | A | `extras/plugins/processing/acquisition/src/box-algorithms/SampleBlocks.h` | 2.30 |
 | A | `extras/plugins/processing/acquisition/src/box-algorithms/StimulationDelay.h` | 2.20 |
 | A | `extras/plugins/processing/acquisition/test/CMakeLists.txt` | 2.20, 2.30 |
@@ -1765,8 +1802,10 @@ With that, noise alone named a frequency 0 times in 1000 (white), 2 in 1000 (bro
 | M | `sdk/modules/network/Server/ConnectedClient.cpp` | 2.19 |
 | A | `sdk/openvibe/include/openvibe/ConsoleLog.hpp` | 2.17 |
 | A | `sdk/openvibe/include/openvibe/ErrorApology.hpp` | 2.54 |
+| A | `sdk/openvibe/include/openvibe/ImpedanceRequest.hpp` | 2.63 |
 | A | `sdk/openvibe/include/openvibe/RecordingStatus.hpp` | 2.44 |
-| A | `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h` | 2.7, 2.41 |
+| A | `sdk/openvibe/include/openvibe/acquisition-messaging/ovChannelInfo.h` | 2.7, 2.41, 2.63 |
+| M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovCtrlCmdMsg.h` | 2.63 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsg.h` | 2.7 |
 | M | `sdk/openvibe/include/openvibe/acquisition-messaging/ovMsgSerializer.h` | 2.7, 2.42 |
 | M | `sdk/openvibe/include/openvibe/ovAssert.h` | 2.23, 2.54 |
@@ -1814,8 +1853,9 @@ With that, noise alone named a frequency 0 times in 1000 (white), 2 in 1000 (bro
 | A | `share/ov-acquisition-server-icon.ico` | 2.37 |
 | A | `share/tools/make_acquisition_server_icon.py` | 2.37 |
 | A | `UG.md` | this document |
-| A | `montages.md` | 2.3: the montage how-to |
+| A | `montages.md` | 2.3: the montage how-to, 2.63 |
 | A | `review-2026-11-18.md` | 2.41: the review of the fork's code, two passes |
+| A | `timing-review-2026-11-22.md` | 2.63: a review of how samples and markers get their times; its findings are not yet acted on |
 | A | `speller.md` | 2.18: the speller how-to |
 
 ---

@@ -227,6 +227,29 @@ With the server's **LSL Output** on, the signal stream's description has, for ev
 
 The locations are in millimetres, X to the right, Y to the front and Z to the top, on a head of 85 mm radius: a montage gives only the directions, and no head was measured. Without a montage the channels have a label only.
 
+### 7.3 Impedances in BrainVision files
+
+A scenario with the **BrainVision Format file writer (UG)** has the acquisition server **measure the impedances when it starts**, and writes them into the header as BrainVision Recorder does:
+
+```
+Impedance [kOhm] at 10:42:17 :
+Fp1:          4
+Cz:           13
+
+Impedances measured by the acquisition server on 2026-11-22 at 10:42:17, as the recording started
+```
+
+What happens when you press Play in Designer:
+1. The writer says that it wants the impedances; the **Acquisition client** asks the server for them before it asks for the signal.
+2. The server **stops the amplifier's signal**, puts the amplifier in impedance mode for **3 seconds**, takes the last values it gives, and starts the signal again. Anything else listening (LSL Output and LabRecorder, another scenario) sees a gap of about 4 seconds there. Without an acquisition running in the server, it measures and waits for Play.
+3. The client then asks for the signal, which comes with the impedances; the recording starts after the measurement, so the `.eeg` file has no gap.
+
+The server measures with its own driver: eego through its impedance stream (the referential channels), TMSi in the SDK's impedance mode, as Charmeleon does (EXG, BIP and AUX channels, up to 200 kOhm). Charmeleon itself has no part in it, and must not be open then: it holds the amplifier. Electrodes are matched to channels **by name**; a channel without an impedance (the trigger, the sample counter) is not listed. MNE reads them into `raw.impedances`; names with other characters than letters, digits, spaces and `_+-` come last in the list, as MNE stops reading at the first one.
+
+When the server can not measure (another driver, the amplifier refuses, an older server), Designer's log says so and the recording starts without impedances. A scenario without the writer does not ask, and the signal is not interrupted.
+
+The impedances travel on the same *Channel localisation* link as the positions (section 7.1), so no other link is needed: they are a fourth column of the channel localisation matrix, after x, y and z, labelled `Impedance [kOhm] at <time>`; a channel the montage does not place has x, y and z at 0. The BrainVision writer (UG) reads it; boxes that expect three columns, such as the 2D topographic map, do not take that form, so feed those from an electrode file as before.
+
 ---
 
 ## 8. The montage file format

@@ -36,7 +36,8 @@ enum ControlCommand
     START_ACQ,
     STOP_ACQ,
     REQUEST_ACQ_STREAM,
-    GET_GLOBAL_STATUS
+    GET_GLOBAL_STATUS,
+    MEASURE_IMPEDANCES  ///< UG fork: measure the impedances for the next acquisition's settings, see MeasureImpedancesRequest
 };
 
 NLOHMANN_JSON_SERIALIZE_ENUM(ControlCommand,
@@ -51,7 +52,8 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ControlCommand,
     {START_ACQ,               "START_ACQ"},
     {STOP_ACQ,                "STOP_ACQ"},
     {REQUEST_ACQ_STREAM,      "REQUEST_ACQ_STREAM"},
-    {GET_GLOBAL_STATUS,       "GET_GLOBAL_STATUS"}
+    {GET_GLOBAL_STATUS,       "GET_GLOBAL_STATUS"},
+    {MEASURE_IMPEDANCES,      "MEASURE_IMPEDANCES"}
 })
 
 /////////////////////////////////// Control API Request ////////////////////////////////
@@ -160,6 +162,22 @@ struct RequestAcqStreamRequest
     }
 };
 
+/**
+ * @brief Asks the server to measure the impedances of the acquisition's amplifier, stopping its stream for some seconds if it runs.
+ *
+ * UG fork: the Acquisition client asks for it when its scenario records to BrainVision, before it asks for the stream. The
+ * impedances come with the settings the server sends when the acquisition starts (ovChannelInfo.h). The response is a
+ * SuccessResponse, sent once the measurement is over and the stream runs again.
+ */
+struct MeasureImpedancesRequest
+{
+    std::string acquisitionName;
+
+    friend void to_json(nlohmann::json& j, const MeasureImpedancesRequest& req) { j = nlohmann::json{{"acquisitionName", req.acquisitionName}}; }
+
+    friend void from_json(const nlohmann::json& j, MeasureImpedancesRequest& req) { j.at("acquisitionName").get_to(req.acquisitionName); }
+};
+
 struct ControlMsg
 {
     ControlCommand command;
@@ -170,7 +188,8 @@ struct ControlMsg
         SetWriterRequest,
         StartAcquisitionRequest,
         StopAcquisitionRequest,
-        RequestAcqStreamRequest
+        RequestAcqStreamRequest,
+        MeasureImpedancesRequest  // UG fork
         //updateAcquisitionParameters
     > payload;
 
@@ -215,6 +234,9 @@ struct ControlMsg
                     break;
                 case REQUEST_ACQ_STREAM:
                     msg.payload = j["payload"].get<RequestAcqStreamRequest>();
+                    break;
+                case MEASURE_IMPEDANCES:
+                    msg.payload = j["payload"].get<MeasureImpedancesRequest>();
                     break;
                 default:
                     msg.payload = std::monostate{};

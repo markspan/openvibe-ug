@@ -15,6 +15,7 @@
 
 #include <openvibe/acquisition-messaging/ovChannelInfo.h>
 #include <openvibe/RecordingStatus.hpp>  // UG fork
+#include <openvibe/ImpedanceRequest.hpp>  // UG fork
 
 #include <cmath>
 #include <filesystem>
@@ -49,6 +50,9 @@ CBoxAlgorithmBrainampFileWriterUG::SphericalPosition CBoxAlgorithmBrainampFileWr
 bool CBoxAlgorithmBrainampFileWriterUG::initialize()
 {
     m_isVmrkHeaderFileWritten = false;
+
+    // UG fork: the Acquisition client has the acquisition server measure the impedances before the signal starts (UG.md 2.63)
+    ImpedanceRequest::ask(this->getConfigurationManager());
 
     //init input signal 1
     m_streamDecoder = new Toolkit::TSignalDecoder<CBoxAlgorithmBrainampFileWriterUG>(*this, 0);
@@ -448,24 +452,40 @@ bool CBoxAlgorithmBrainampFileWriterUG::writeHeaderFile()
         m_headerFile << "Electrode positions of " << nPlaced << " channels, from the channel localisation input" << std::endl
                 << std::endl;
     }
+    // UG fork: the impedances, as BrainVision Recorder writes them
+    const std::string impedances = BrainVisionUG::impedanceBlock(m_impedanceTime, m_impedances);
+    if (!impedances.empty()) { m_headerFile << impedances << std::endl; }
 
     return true;
 }
 
 void CBoxAlgorithmBrainampFileWriterUG::readPositions(const CMatrix& localisation)
 {
-    if (localisation.getDimensionCount() != 2 || localisation.getDimensionSize(1) != 3)
+    // UG fork: a fourth column, from the Acquisition client, holds the impedances of the last check (impedanceColumnLabel())
+    const size_t columns = localisation.getDimensionCount() == 2 ? localisation.getDimensionSize(1) : 0;
+    std::string impedanceTime;
+    const bool withImpedances = columns == 4 && impedanceTimeFromColumnLabel(localisation.getDimensionLabel(1, 3), impedanceTime);
+    if (columns != 3 && !withImpedances)
     {
         this->getLogManager() << Kernel::LogLevel_Warning << "The channel localisation input is not one position (x, y, z) per channel; "
                 "the recording has no electrode positions\n";
         return;
     }
     m_positions.clear();
-    const double* xyz = localisation.getBuffer();
+    m_impedances.clear();
+    m_impedanceTime = withImpedances ? impedanceTime : std::string();
+    const double* values = localisation.getBuffer();
     for (size_t i = 0; i < localisation.getDimensionSize(0); ++i)
     {
-        const ovChannelInfo::Position position = fromChannelLocalisation({xyz[3 * i], xyz[3 * i + 1], xyz[3 * i + 2]});
+        const double* row                      = values + columns * i;
+        const ovChannelInfo::Position position = fromChannelLocalisation({row[0], row[1], row[2]});
         if (position.known) { m_positions[localisation.getDimensionLabel(0, i)] = toBrainVision(position.theta, position.phi); }
+        if (withImpedances && std::isfinite(row[3])) { m_impedances.emplace_back(localisation.getDimensionLabel(0, i), row[3]); }
+    }
+    if (!m_impedances.empty())
+    {
+        this->getLogManager() << Kernel::LogLevel_Info << "Impedances of " << m_impedances.size() << " electrodes, read at " << m_impedanceTime
+                << ", go into the header\n";
     }
 
     // UG fork: the positions usually come after the .vhdr is written, even when the Acquisition client sends them with the signal's

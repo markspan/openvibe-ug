@@ -686,7 +686,12 @@ int CDriverEEGO::readImpedances(double* values, const size_t count)
 
     // The impedance stream only carries the referential channels, so it is always shorter than
     // channelCount() (which also counts the bipolar and status channels). Values are in ohm.
-    const size_t measured = std::min(count, size_t(data.getChannelCount()));
+    // UG fork: after them come the reference's and the ground's (as Charmeleon reads the stream), which are no channel of the
+    // recording: upstream listed them under the names of the first two bipolar channels. The referential channels come first
+    // among the channels recorded, so value i is that of channel i.
+    const size_t referential = size_t(std::count_if(m_selectedChannels.begin(), m_selectedChannels.end(),
+                                                    [](const auto& channel) { return channel.second == es::channel::reference; }));
+    const size_t measured = std::min({count, size_t(data.getChannelCount()), referential});
     for (size_t channel = 0; channel < measured; ++channel)
     {
         values[channel] = data.getSample(uint32_t(channel), 0);
@@ -703,8 +708,8 @@ int CDriverEEGO::readImpedances(double* values, const size_t count)
 
 bool CDriverEEGO::stopImpedanceCheck()
 {
-    // Only the stream goes: Acquisition::start() leaves impedance mode by calling this and then
-    // starts streaming without re-running init(), so the amplifier has to survive.
+    // Only the stream goes; the amplifier is released by unInit(), which Acquisition calls next. UG fork: upstream's
+    // Acquisition::start() left impedance mode without unInit() and started nothing; it now starts again from init().
     m_stream.reset();
     return true;
 }

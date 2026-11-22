@@ -282,6 +282,22 @@ bool AcquisitionManager::startAcquisition(uint64_t id, std::string name) {
 }
 
 
+// UG fork: see Acquisition::measureImpedances(). Under the lock, so that Play or Stop in the server's window waits for it.
+bool AcquisitionManager::measureImpedances(uint64_t id, std::string name, std::string& outcome)
+{
+    std::lock_guard<std::mutex> lock(m_pImpl->acquisitionsMutex);
+    auto acquisitionIt = m_pImpl->acquisitions.find(name);
+    if (acquisitionIt == m_pImpl->acquisitions.end()) {
+        outcome = "there is no acquisition " + name;
+        return false;
+    }
+    if (!acquisitionIt->second->isControllableBy(id)) {
+        outcome = "the acquisition belongs to another client";
+        return false;
+    }
+    return acquisitionIt->second->measureImpedances(outcome);
+}
+
 /**
  * @brief Stops the specified acquisition if it is currently running.
  * @note Only the client that created the acquisition can stop it.

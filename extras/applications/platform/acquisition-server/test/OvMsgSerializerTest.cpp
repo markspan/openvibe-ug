@@ -121,3 +121,57 @@ TEST(OvMsgSerializerTest, ChannelInfoWithNamesOnly)
     // Nor does a missing block break it
     EXPECT_EQ(decodeChannelInfo(nullptr, 0, 2).names, (std::vector<std::string>{"", ""}));
 }
+
+// UG fork: the impedances of the last check travel after the positions (ovChannelInfo.h)
+TEST(OvMsgSerializerTest, ChannelInfoCarriesTheImpedances)
+{
+    ovChannelInfo info;
+    info.names         = {"Fp1", "Cz", "HEOG"};
+    info.montage       = "Refa-64.json";
+    info.positions     = {{true, 92.0, 108.0}, {true, 0.0, 0.0}, {}};
+    info.impedanceTime = "2026-11-22 10:42:17";
+    info.impedances    = {4.2, std::nan(""), 12.0};
+
+    const std::string block     = encodeChannelInfo(info, 3);
+    const ovChannelInfo decoded = decodeChannelInfo(block.data(), block.size(), 3);
+    EXPECT_EQ(decoded.montage, "Refa-64.json");
+    ASSERT_EQ(decoded.positions.size(), 3u);
+    EXPECT_TRUE(decoded.positions[0].known);
+    EXPECT_EQ(decoded.impedanceTime, "2026-11-22 10:42:17");
+    ASSERT_EQ(decoded.impedances.size(), 3u);
+    EXPECT_DOUBLE_EQ(decoded.impedances[0], 4.2);
+    EXPECT_TRUE(std::isnan(decoded.impedances[1]));
+    EXPECT_DOUBLE_EQ(decoded.impedances[2], 12.0);
+
+    // A client from before the impedances reads the montage as it did: the same block, cut after the positions
+    const std::string montageOnly = block.substr(0, block.find("impedances"));
+    const ovChannelInfo older     = decodeChannelInfo(montageOnly.data(), montageOnly.size(), 3);
+    EXPECT_EQ(older.montage, "Refa-64.json");
+    EXPECT_TRUE(older.impedanceTime.empty());
+    EXPECT_TRUE(older.impedances.empty());
+}
+
+TEST(OvMsgSerializerTest, ImpedancesWithoutAMontage)
+{
+    // eego's own check, without a montage: the montage and positions go empty, and are not kept
+    ovChannelInfo info;
+    info.names         = {"EEG1", "EEG2"};
+    info.impedanceTime = "2026-11-22 10:42:17";
+    info.impedances    = {3.0, 8.5};
+
+    const std::string block     = encodeChannelInfo(info, 2);
+    const ovChannelInfo decoded = decodeChannelInfo(block.data(), block.size(), 2);
+    EXPECT_EQ(decoded.names, info.names);
+    EXPECT_TRUE(decoded.montage.empty());
+    EXPECT_TRUE(decoded.positions.empty());
+    ASSERT_EQ(decoded.impedances.size(), 2u);
+    EXPECT_DOUBLE_EQ(decoded.impedances[1], 8.5);
+}
+
+TEST(OvMsgSerializerTest, TheImpedanceColumnLabelCarriesTheTime)
+{
+    std::string time;
+    EXPECT_TRUE(impedanceTimeFromColumnLabel(impedanceColumnLabel("2026-11-22 10:42:17"), time));
+    EXPECT_EQ(time, "2026-11-22 10:42:17");
+    EXPECT_FALSE(impedanceTimeFromColumnLabel("z", time));
+}

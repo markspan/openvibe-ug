@@ -88,6 +88,8 @@ public:
 	bool removeAcquisitionWriter(uint64_t id, std::string name, std::string writerName); ///< Removes the writer for the specified acquisition.
     bool startAcquisition(uint64_t id, std::string name); ///< Starts the specified acquisition if it is not already running.
     bool stopAcquisition(uint64_t id, std::string name); ///< Stops the specified acquisition if it is currently running.
+    /// UG fork: measures the impedances for the acquisition's next settings, see Acquisition::measureImpedances().
+    bool measureImpedances(uint64_t id, std::string name, std::string& outcome);
     bool isAcquisitionRunning(std::string name); ///< Checks if the specified acquisition is currently running.
     bool addClientToAcquisition(uint64_t clientId, std::string name); ///< Adds a client to the specified acquisition.
     bool removeClientFromAcquisition(uint64_t clientId, std::string name); ///< Removes a client from the specified acquisition.

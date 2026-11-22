@@ -148,6 +148,9 @@ protected:
     /// Where the electrodes sit, from the channel localisation input, by channel name, in BrainVision's convention; empty
     /// when nothing is connected there, e.g. when the signal comes from a file
     std::map<std::string, SphericalPosition> m_positions;
+    // UG fork: the impedances of the last check, from the channel localisation input's fourth column, in its order
+    std::string m_impedanceTime;  ///< When they were read; empty for none
+    std::vector<std::pair<std::string, double>> m_impedances;  ///< In kOhm
 };
 
 class CBoxAlgorithmBrainampFileWriterUGListener final : public Toolkit::TBoxListener<IBoxListener>
@@ -172,7 +175,8 @@ public:
     {
         return
                 "Writes the header file .vhdr to the output directory, which is created if needed; a header filename with a full path ignores the directory. The .eeg and .vmrk files will be created with the same name and in the same folder. Hardware triggers are saved in the .vmrk file as BrainVision stimulus markers: trigger 1 as \"S  1\", trigger 233 as \"S233\". "
-                "With a channel localisation stream on the third input, such as the Acquisition client's when the acquisition server named the channels with a Charmeleon montage, the header also records where the electrodes sat ([Coordinates]), matched to the channels by name.";
+                "With a channel localisation stream on the third input, such as the Acquisition client's when the acquisition server named the channels with a Charmeleon montage, the header also records where the electrodes sat ([Coordinates]), matched to the channels by name; "
+                "the box also has the acquisition server measure the impedances when the scenario starts, which the Acquisition client sends along on the same link, and lists them under [Comment] as BrainVision Recorder does.";
     }
 
     CString getCategory() const override { return "File reading and writing/BrainVision Format"; }

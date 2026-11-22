@@ -64,6 +64,12 @@ public:
     int readStimulations(ovStimulation* buff, uint32_t maxCount) override;
     void getData(samplesBuffer* buff) override;
 
+    // UG fork: the impedances, in the SDK's impedance mode, as Charmeleon reads them (Acquisition::measureImpedances())
+    bool supportsImpedanceCheck() const override { return true; }
+    bool startImpedanceCheck() override;
+    int readImpedances(double* values, size_t count) override;
+    bool stopImpedanceCheck() override;
+
     /// Makes Charmeleon open this driver's TMSi device, on its protocol.
     std::vector<std::string> charmeleonArguments() const override;
 
@@ -159,6 +165,9 @@ private:
     uint64_t m_lastSampleTime = 0; ///< Timestamp given to the last sample handed over, see getData().
     std::vector<uint32_t> m_triggerValues;  ///< UG fork: the trigger channel's value at each sample of the current read()
     std::deque<ovStimulation> m_stimQueue;
+
+    bool m_impedanceMode = false;              ///< UG fork: between startImpedanceCheck() and stopImpedanceCheck()
+    std::vector<unsigned long> m_impedanceBuffer;  ///< UG fork: what GetSamples gives in impedance mode
 };
 
 

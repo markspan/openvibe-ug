@@ -10,14 +10,17 @@
  *   - one name per channel; an empty one for a channel without a name,
  *   - then, when a montage named the channels, its file name (e.g. "Refa-64.json"),
  *   - and one position per channel: "<theta> <phi>" in degrees, or empty for a channel the montage does not
- *     place on the head (EOG, ECG, ...).
+ *     place on the head (EOG, ECG, ...),
+ *   - then, when the impedances were checked, the word "impedances", when they were measured ("2026-11-22 10:42:17",
+ *     local time), and one impedance per channel in kOhm, or empty for a channel without one. The montage and the
+ *     positions are then sent too, empty when there is no montage.
  *
  * A client that reads the names only, as the fork's first versions do, does not see the rest; a server that
  * sends the names only leaves the montage empty.
  *
  * In Designer, the Acquisition client box sends the positions on as a channel localisation stream
  * (OV_TypeId_ChannelLocalisation), in OpenViBE's frame (toChannelLocalisation()); the BrainVision writer (UG) takes
- * it on an input of its own.
+ * it on an input of its own. The impedances go along on that stream as a fourth column (impedanceColumnLabel()).
  */
 
 #include <cmath>
@@ -44,7 +47,27 @@ struct ovChannelInfo
     std::vector<std::string> names;   ///< One per channel
     std::string montage;              ///< File name of the Charmeleon montage that named the channels, empty for none
     std::vector<Position> positions;  ///< One per channel when there is a montage, else empty
+    std::string impedanceTime;        ///< When the impedances were measured, "YYYY-MM-DD hh:mm:ss" local time; empty when not checked
+    std::vector<double> impedances;   ///< One per channel when they were checked, in kOhm; NaN for a channel without one
 };
+
+/**
+ * @brief The label of the fourth column of a channel localisation matrix that also carries impedances, in kOhm.
+ *
+ * UG fork: the Acquisition client box sends the impedances on its Channel localisation output, so that a recording scenario needs no
+ * other link: the matrix then has a fourth column, x, y, z, and this, with one row for each channel that has a position or an
+ * impedance (a channel without a position at the origin, 0, 0, 0). The BrainVision writer (UG) reads it back.
+ */
+inline std::string impedanceColumnLabel(const std::string& time) { return "Impedance [kOhm] at " + time; }
+
+/// The time impedanceColumnLabel() put in @p label; false when @p label is no such label.
+inline bool impedanceTimeFromColumnLabel(const std::string& label, std::string& time)
+{
+    const std::string prefix = impedanceColumnLabel("");
+    if (label.compare(0, prefix.size(), prefix) != 0) { return false; }
+    time = label.substr(prefix.size());
+    return true;
+}
 
 /// A position in OpenViBE's channel localisation frame: on a unit sphere, x towards the nose, y towards the left ear
 /// (T7), z towards the vertex (Cz), as share/openvibe/electrode_sets/electrode_set_standard_cartesian.txt has them.
@@ -100,6 +123,29 @@ inline ovChannelInfo::Position parsePosition(const std::string& text)
     return position;
 }
 
+/// An impedance in kOhm, whatever the locale; empty for none
+inline std::string formatImpedance(const double kOhm)
+{
+    if (!std::isfinite(kOhm)) { return {}; }
+    std::ostringstream text;
+    text.imbue(std::locale::classic());
+    text.precision(10);
+    text << kOhm;
+    return text.str();
+}
+
+/// The impedance formatImpedance() wrote; NaN when @p text is empty or not a number
+inline double parseImpedance(const std::string& text)
+{
+    std::istringstream in(text);
+    in.imbue(std::locale::classic());
+    double value = 0.0;
+    return !text.empty() && (in >> value) ? value : std::nan("");
+}
+
+/// Marks the impedances in the block, after the positions
+constexpr const char* IMPEDANCES_TAG = "impedances";
+
 }  // namespace ovChannelInfoDetail
 
 /**
@@ -113,12 +159,24 @@ inline std::string encodeChannelInfo(const ovChannelInfo& info, const size_t cha
         if (i < info.names.size()) { block += info.names[i]; }
         block += '\0';
     }
-    if (info.montage.empty()) { return block; }
+    const bool hasImpedances = !info.impedanceTime.empty();
+    if (info.montage.empty() && !hasImpedances) { return block; }
 
     block += info.montage;
     block += '\0';
     for (size_t i = 0; i < channelCount; ++i) {
         if (i < info.positions.size() && info.positions[i].known) { block += ovChannelInfoDetail::formatPosition(info.positions[i]); }
+        block += '\0';
+    }
+    if (!hasImpedances) { return block; }
+
+    // UG fork: after the positions, so that a client that knows only the montage reads the montage as before
+    block += ovChannelInfoDetail::IMPEDANCES_TAG;
+    block += '\0';
+    block += info.impedanceTime;
+    block += '\0';
+    for (size_t i = 0; i < channelCount; ++i) {
+        if (i < info.impedances.size()) { block += ovChannelInfoDetail::formatImpedance(info.impedances[i]); }
         block += '\0';
     }
     return block;
@@ -144,11 +202,22 @@ inline ovChannelInfo decodeChannelInfo(const char* block, const size_t size, con
     info.names.resize(channelCount);
     for (auto& name : info.names) { read(name); }
 
-    if (!read(info.montage) || info.montage.empty()) { return info; }
-    info.positions.resize(channelCount);
+    if (!read(info.montage)) { return info; }
+    // A montage may be empty when impedances follow; the positions are then sent empty, and not kept
+    std::vector<ovChannelInfo::Position> positions(channelCount);
     std::string text;
-    for (auto& position : info.positions) {
+    for (auto& position : positions) {
         if (read(text)) { position = ovChannelInfoDetail::parsePosition(text); }
+    }
+    if (!info.montage.empty()) { info.positions = std::move(positions); }
+
+    if (!read(text) || text != ovChannelInfoDetail::IMPEDANCES_TAG || !read(info.impedanceTime) || info.impedanceTime.empty()) {
+        info.impedanceTime.clear();
+        return info;
+    }
+    info.impedances.assign(channelCount, std::nan(""));
+    for (auto& impedance : info.impedances) {
+        if (read(text)) { impedance = ovChannelInfoDetail::parseImpedance(text); }
     }
     return info;
 }

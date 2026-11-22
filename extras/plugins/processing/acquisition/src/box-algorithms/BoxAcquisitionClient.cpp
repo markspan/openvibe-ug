@@ -15,6 +15,8 @@
 #include "BoxAcquisitionClient.h"
 
 #include <algorithm>
+#include <openvibe/ImpedanceRequest.hpp>  // UG fork
+#include <cmath>
 
 namespace OpenViBE {
 namespace Plugins {
@@ -101,8 +103,45 @@ bool CBoxAcquisitionClient::processClock(Kernel::CMessageClock& /*msg*/)
   return true;
 }
 
+// UG fork: upstream asked for the stream as soon as the list of acquisitions came in. A scenario that records to BrainVision first
+// has the server measure the impedances, which come with the settings when the stream starts (ovChannelInfo.h).
+void CBoxAcquisitionClient::requestStreamWhenReady()
+{
+  // A server from before the request does not answer it; the recording then starts without the impedances
+  constexpr auto ANSWER_TIMEOUT = std::chrono::seconds(20);
+
+  if (m_streamRequested || !m_listReceived) { return; }
+
+  if (!m_impedancesAsked && ImpedanceRequest::wanted(this->getConfigurationManager())) {
+    m_impedancesAsked   = true;
+    m_impedancesAskedAt = std::chrono::steady_clock::now();
+    this->getLogManager() << Kernel::LogLevel_Info << "Asking the acquisition server for the impedances, for the recording; its signal "
+                             "stops for a few seconds while the amplifier measures them\n";
+    ControlMsg controlMsg;
+    controlMsg.command = ControlCommand::MEASURE_IMPEDANCES;
+    controlMsg.payload = MeasureImpedancesRequest{m_acquisitionName};
+    m_client->send<ControlMsg>(&controlMsg);
+    return;
+  }
+
+  if (m_impedancesAsked && !m_impedancesAnswered) {
+    if (std::chrono::steady_clock::now() - m_impedancesAskedAt < ANSWER_TIMEOUT) { return; }
+    this->getLogManager() << Kernel::LogLevel_Warning << "The acquisition server did not answer the request for the impedances (it may "
+                             "be older than OpenViBE 4.0.1-ug.11); the recording starts without them\n";
+  }
+  else if (m_impedancesAsked && !m_impedancesMeasured) {
+    this->getLogManager() << Kernel::LogLevel_Warning << "The acquisition server measured no impedances (its log says why); the "
+                             "recording has none\n";
+  }
+
+  m_streamRequested = true;
+  requestStreamFromAcquisition(true);
+}
+
 bool CBoxAcquisitionClient::process()
 {
+  requestStreamWhenReady();  // UG fork
+
   std::lock_guard<std::mutex> lock(m_signalMutex);
 
   // UG fork: what the network thread found, see receiveDataStream()
@@ -126,22 +165,31 @@ bool CBoxAcquisitionClient::process()
     m_lastEndTime = this->getPlayerContext().getCurrentTime();
     m_startTime = m_lastEndTime;
     boxContext.markOutputAsReadyToSend(0, m_startTime, m_lastEndTime);
-    boxContext.markOutputAsReadyToSend(1, m_startTime, m_lastEndTime);
+    // UG fork: from the scenario's start, as a stimulation stream has to be continuous from 0; the signal starts when the server's
+    // settings come in, which is later when the server first measures the impedances (UG.md 2.63). The kernel warned otherwise.
+    boxContext.markOutputAsReadyToSend(1, 0, m_lastEndTime);
 
     // UG fork: where the montage places the channels, once, at the same time as the signal's header, so that a box that
-    // takes both (the BrainVision writer (UG)) has the positions when the signal starts
+    // takes both (the BrainVision writer (UG)) has the positions when the signal starts. With the impedances measured for it,
+    // when the server sent them, in a fourth column (impedanceColumnLabel())
     if (!m_localisation.empty()) {
+      const size_t columns = m_impedanceTime.empty() ? 3 : 4;
       CMatrix* matrix = m_localisationEncoder.getInputMatrix();
-      matrix->resize(m_localisation.size(), 3);
+      matrix->resize(m_localisation.size(), columns);
       matrix->setDimensionLabel(1, 0, "x");
       matrix->setDimensionLabel(1, 1, "y");
       matrix->setDimensionLabel(1, 2, "z");
+      if (columns == 4) {
+        matrix->setDimensionLabel(1, 3, impedanceColumnLabel(m_impedanceTime).c_str());
+        this->getLogManager() << Kernel::LogLevel_Info << "Impedances measured at " << m_impedanceTime.c_str() << " by the acquisition server\n";
+      }
       double* buffer = matrix->getBuffer();
       for (size_t i = 0; i < m_localisation.size(); ++i) {
-        matrix->setDimensionLabel(0, i, m_localisation[i].first.c_str());
-        buffer[3 * i]     = m_localisation[i].second.x;
-        buffer[3 * i + 1] = m_localisation[i].second.y;
-        buffer[3 * i + 2] = m_localisation[i].second.z;
+        matrix->setDimensionLabel(0, i, m_localisation[i].name.c_str());
+        buffer[columns * i]     = m_localisation[i].position.x;
+        buffer[columns * i + 1] = m_localisation[i].position.y;
+        buffer[columns * i + 2] = m_localisation[i].position.z;
+        if (columns == 4) { buffer[columns * i + 3] = m_localisation[i].impedance; }
       }
       m_localisationEncoder.getInputDynamic() = false;
       m_localisationEncoder.encodeHeader();
@@ -216,12 +264,16 @@ bool CBoxAcquisitionClient::readFromServer(void* data, size_t dataSize, uint64_t
         AcquisitionListResponse acqListResp = std::get<AcquisitionListResponse>(payload);
         if(acqListResp.acquisitionNames.size() > 0) {
           m_acquisitionName = acqListResp.acquisitionNames.front();
-          requestStreamFromAcquisition(true);
+          m_listReceived    = true;  // UG fork: the stream is asked for in process(), see requestStreamWhenReady()
         }
       }
         break;
       case REQUEST_ACQ_STREAM:
         successResp = std::get<SuccessResponse>(response.payload);
+        break;
+      case MEASURE_IMPEDANCES:  // UG fork
+        m_impedancesMeasured = std::get<SuccessResponse>(response.payload).success;
+        m_impedancesAnswered = true;
         break;
       default:
         break;
@@ -321,8 +373,13 @@ bool CBoxAcquisitionClient::receiveDataStream(void* data, size_t dataSize, uint6
             m_channelNames       = std::move(names);
             m_montage            = info.montage;
             m_localisation.clear();
-            for (size_t i = 0; i < info.positions.size() && i < m_channelNames.size(); ++i) {
-              if (info.positions[i].known) { m_localisation.emplace_back(m_channelNames[i], toChannelLocalisation(info.positions[i])); }
+            m_impedanceTime = info.impedanceTime;
+            for (size_t i = 0; i < m_channelNames.size(); ++i) {
+              const bool placed      = i < info.positions.size() && info.positions[i].known;
+              const double impedance = i < info.impedances.size() ? info.impedances[i] : std::nan("");
+              if (placed || std::isfinite(impedance)) {
+                m_localisation.push_back({m_channelNames[i], placed ? toChannelLocalisation(info.positions[i]) : ovCartesianPosition{}, impedance});
+              }
             }
             m_blocks.configure(m_channelCount, m_sampleChunk);
 

@@ -209,6 +209,12 @@ bool Api::addClient(uint64_t clientId, std::string acquisitionName)
     return Api::instance().d->acqMgr.addClientToAcquisition(clientId, acquisitionName);
 }
 
+// UG fork
+bool Api::measureImpedances(uint64_t clientId, std::string acquisitionName, std::string& outcome)
+{
+    return Api::instance().d->acqMgr.measureImpedances(clientId, acquisitionName, outcome);
+}
+
 /**
  * @brief Removes a client from the specified acquisition.
  * @param clientId The ID of the client to be removed.

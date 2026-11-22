@@ -152,6 +152,8 @@ void CNetAcqControlAPI::processControlMessage(uint64_t id, ControlMsg& msg, Cont
             CmdRequestAcqStream(id, msg, resp); break;
        case GET_GLOBAL_STATUS:
            CmdGetGlobatStatus(resp); break;
+       case MEASURE_IMPEDANCES:
+           CmdMeasureImpedances(id, msg, resp); break;  // UG fork
        default:
            break;// Handle unknown command
    }
@@ -256,6 +258,21 @@ void CNetAcqControlAPI::CmdRequestAcqStream(uint64_t id, const ControlMsg& msg, 
     } else {
         response.success = Api::removeClient(id, acqName);
     }
+
+    resp.payload = response;
+}
+
+// UG fork: takes some seconds, on this thread, which then answers no other request; the clients wait for the answer anyway
+void CNetAcqControlAPI::CmdMeasureImpedances(uint64_t id, const ControlMsg& msg, ControlMsgResponse& resp)
+{
+    resp.command = MEASURE_IMPEDANCES;
+    const std::string acqName = std::get<MeasureImpedancesRequest>(msg.payload).acquisitionName;
+
+    std::cout << "[Acquisition] A scenario that records asks for the impedances; the stream stops while they are measured." << std::endl;
+    std::string outcome;
+    SuccessResponse response;
+    response.success = Api::measureImpedances(id, acqName, outcome);
+    std::cout << "[Acquisition] " << (response.success ? "Measured " : "No impedances: ") << outcome << "." << std::endl;
 
     resp.payload = response;
 }

@@ -96,6 +96,8 @@ public:
     //static bool setNbCycles(uint64_t id, std::string acquisitionName, uint32_t cycles);
 
     static bool addClient(uint64_t clientId, std::string acquisitionName);
+    /// UG fork: see AcquisitionManager::measureImpedances()
+    static bool measureImpedances(uint64_t clientId, std::string acquisitionName, std::string& outcome);
     static bool removeClient(uint64_t clientId, std::string acquisitionName);
     static std::list<uint64_t> getClients(std::string acquisitionName);
     /** @} */

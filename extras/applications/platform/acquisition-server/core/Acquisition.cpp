@@ -16,8 +16,12 @@
 #include "Acquisition.h"
 #include "DriftCalculator.h" // for DriftCalculator
 
+#include <algorithm>  // UG fork
 #include <chrono> // for high_resolution_clock
+#include <cmath>   // UG fork
+#include <ctime>   // UG fork
 #include <iostream>
+#include <thread>  // UG fork
 
 #ifdef _WIN32  // UG fork: for the multimedia scheduler, see RealtimeThread
 #ifndef NOMINMAX
@@ -276,6 +280,18 @@ void Acquisition::initAcquisition()
         m_driftCalculator     = std::unique_ptr<DriftCalculator>(new DriftCalculator(sampleRate, m_windowSize)); ///< Create a new drift calculator with the given sample rate and window size.
 
         m_channelInfo = m_driver->channelInfo();  // UG fork: the names, and the montage of a driver that has one
+        // UG fork: and the impedances measured for the scenario that asked, see measureImpedances()
+        {
+            std::lock_guard<std::mutex> lock(m_impedanceMutex);
+            if (!m_impedances.empty()) {
+                m_channelInfo.impedanceTime = m_impedanceTime;
+                m_channelInfo.impedances.assign(m_channelInfo.names.size(), std::nan(""));
+                for (size_t i = 0; i < m_channelInfo.names.size(); ++i) {
+                    const auto it = m_impedances.find(m_channelInfo.names[i]);
+                    if (it != m_impedances.end()) { m_channelInfo.impedances[i] = it->second; }
+                }
+            }
+        }
         for (auto& w : m_writers) {
             w->init(m_chunkSampleCount.value(), channelCount);
             w->onAcquisitionSetup(sampleRate, m_channelInfo);  // UG fork: the montage too; upstream passes the names
@@ -352,6 +368,76 @@ int Acquisition::readImpedances(double* values, size_t count)
 }
 
 
+namespace {
+/// The local time, as "YYYY-MM-DD hh:mm:ss"
+std::string localTimeText()
+{
+    const std::time_t now = std::time(nullptr);
+    std::tm local{};
+#ifdef _WIN32
+    localtime_s(&local, &now);
+#else
+    localtime_r(&now, &local);
+#endif
+    char text[32] = {};
+    std::strftime(text, sizeof(text), "%Y-%m-%d %H:%M:%S", &local);
+    return text;
+}
+}  // namespace
+
+bool Acquisition::measureImpedances(std::string& outcome, const std::chrono::milliseconds duration)
+{
+    // eego and TMSi give new values a few times a second, and the first may be zeros
+    const auto interval = std::min<std::chrono::milliseconds>(std::chrono::milliseconds(250), duration / 4);
+
+    {
+        std::lock_guard<std::mutex> lock(m_impedanceMutex);
+        m_impedances.clear();
+        m_impedanceTime.clear();
+    }
+    if (!supportsImpedanceCheck()) {
+        outcome = "the driver can not measure impedances";
+        return false;
+    }
+    if (m_state == State::ImpedanceCheck) {
+        outcome = "the server's own impedance check is open";
+        return false;
+    }
+
+    const bool wasStreaming = m_state == State::Streaming;
+    if (wasStreaming) { stop(); }
+
+    std::map<std::string, double> measured;
+    if (!startImpedanceCheck()) { outcome = "the amplifier could not be put in impedance mode"; }
+    else {
+        const std::vector<std::string> names = m_driver->channelNames().value();
+        std::vector<double> values(names.size());
+        std::vector<double> last;
+        for (const auto end = Clock::now() + duration; Clock::now() < end;) {
+            std::this_thread::sleep_for(interval);
+            const int n = m_driver->readImpedances(values.data(), values.size());
+            if (n <= 0) { continue; }
+            const auto read = values.begin() + std::min<size_t>(size_t(n), values.size());
+            if (std::any_of(values.begin(), read, [](const double v) { return v > 0; })) { last.assign(values.begin(), read); }
+        }
+        stopImpedanceCheck();
+
+        for (size_t i = 0; i < last.size(); ++i) {
+            if (!names[i].empty() && std::isfinite(last[i])) { measured[names[i]] = last[i] / 1000.0; }  // ohm to kOhm
+        }
+        outcome = measured.empty() ? "the amplifier gave no impedances" : "impedances of " + std::to_string(measured.size()) + " channels";
+    }
+
+    const bool got = !measured.empty();
+    if (got) {
+        std::lock_guard<std::mutex> lock(m_impedanceMutex);
+        m_impedances    = std::move(measured);
+        m_impedanceTime = localTimeText();
+    }
+    if (wasStreaming) { start(); }
+    return got;
+}
+
 void Acquisition::computeWindowSize(unsigned int sampleRate)
 {
     m_windowSize = sampleRate;
@@ -372,10 +458,10 @@ void Acquisition::computeWindowSize(unsigned int sampleRate)
  */
 void Acquisition::start()
 {
-    if (m_state == State::ImpedanceCheck) {
-        // Driver already initialized; exit impedance mode without full reinit, then set up streaming buffers.
-        m_driver->stopImpedanceCheck();
-    } else if (m_state != State::Streaming) {
+    // UG fork: upstream left impedance mode here and stopped, without starting the acquisition: Play after the server's own
+    // impedance check did nothing. The driver is now closed and started again from the beginning, as from Idle.
+    if (m_state == State::ImpedanceCheck) { stopImpedanceCheck(); }
+    if (m_state != State::Streaming) {
         // Idle → Streaming: full driver init + buffer setup.
         initAcquisition();
 
