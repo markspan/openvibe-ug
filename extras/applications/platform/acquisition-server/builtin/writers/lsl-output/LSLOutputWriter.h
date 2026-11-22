@@ -34,4 +34,5 @@ private:
 
     lsl::stream_outlet* m_signalOutlet   = nullptr;
     lsl::stream_outlet* m_stimulusOutlet = nullptr;
+    std::string m_outletKey;  ///< UG fork: the settings the outlets were opened with, see onAcquisitionSetup()
 };

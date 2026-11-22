@@ -233,3 +233,34 @@ TEST_F(LSLOutputWriterTest, theStreamIdDoesNotChange)
 }
 
 }  // namespace
+
+// UG fork: an acquisition started again with the same streams, as the impedance measurement does (UG.md 2.63), keeps the outlets
+// open, so that LabRecorder sees a pause and not streams that close and come back (UG.md 2.65)
+TEST_F(LSLOutputWriterTest, theSameStreamsStayOpenWhenTheAcquisitionStartsAgain)
+{
+    // A client that does not reconnect: it gets nothing more from an outlet that was closed and opened again
+    lsl::stream_inlet signal(find(m_signalName), 360, 0, false), markers(find(m_markerName), 360, 0, false);
+    connect(signal, markers);
+
+    m_writer->uninit();
+    m_writer->init(CHUNK, CHANNELS);
+    ovChannelInfo withImpedances{{"C3", "C4"}, "", {}};
+    withImpedances.impedanceTime = "2026-11-22 10:42:17";  // new impedances do not make other streams
+    withImpedances.impedances    = {4.0, 5.0};
+    m_writer->onAcquisitionSetup(SAMPLE_RATE, withImpedances);
+
+    write(serverClockNs());
+    std::vector<float> sample(CHANNELS);
+    EXPECT_NE(signal.pull_sample(sample.data(), CHANNELS, 2.0), 0.0) << "the client still gets samples";
+}
+
+TEST_F(LSLOutputWriterTest, otherStreamsOpenNewOutlets)
+{
+    m_writer->uninit();
+    m_writer->init(CHUNK, CHANNELS);
+    m_writer->onAcquisitionSetup(SAMPLE_RATE, {{"C3", "Cz"}, "", {}});  // another channel name: the stream says something else
+    const lsl::stream_info info = find(m_signalName);
+    lsl::stream_inlet signal(info);
+    lsl::stream_info full = signal.info(TIMEOUT);
+    EXPECT_EQ(std::string(full.desc().child("channels").child("channel").next_sibling("channel").child_value("label")), "Cz");
+}

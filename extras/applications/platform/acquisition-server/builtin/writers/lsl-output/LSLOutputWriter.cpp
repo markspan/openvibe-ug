@@ -76,14 +76,27 @@ LSLOutputWriter::~LSLOutputWriter()
     destroyOutlets();
 }
 
-void LSLOutputWriter::uninit()
-{
-    destroyOutlets();
-}
+// UG fork: the outlets stay open, for the next acquisition to use if it has the same streams, see onAcquisitionSetup(). Upstream
+// closed them here, which every Play does, and the impedance measurement too (UG.md 2.63).
+void LSLOutputWriter::uninit() { }
 
 void LSLOutputWriter::onAcquisitionSetup(uint32_t sampleRate, const ovChannelInfo& channels)
 {
+    // UG fork: an acquisition with the same streams as the last keeps their outlets open. LabRecorder, recording them, then sees a
+    // pause in the samples, and not streams that close and come back, which can break an XDF file (Brain Products, "Tips and tricks
+    // for using LSL"). The impedances, which come with every measurement, do not make other streams. See UG.md 2.65.
+    ovChannelInfo described = channels;
+    described.impedanceTime.clear();
+    described.impedances.clear();
+    const std::string key = m_signalStreamName.value() + '\0' + m_markerStreamName.value() + '\0' + std::to_string(sampleRate) + '\0'
+                            + std::to_string(m_channelCount) + '\0' + std::to_string(m_chunkSamplesCount) + '\0'
+                            + encodeChannelInfo(described, m_channelCount);
+    if (m_signalOutlet && key == m_outletKey) {
+        m_clockOffset = LslClock::measureOffset();
+        return;
+    }
     destroyOutlets();
+    m_outletKey = key;
 
     if (sampleRate != 0 && m_channelCount != 0 && m_chunkSamplesCount != 0) {
 

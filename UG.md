@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 92 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 93 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 394 files, about 37,700 lines added and 4,400 removed (of which 3,000 a test input) |
 
@@ -77,6 +77,7 @@ Everything outside the files listed here is identical to upstream.
 | Dominant frequency | A lane's tooltip said nothing of the rhythm in the signal | It names the dominant frequency of the last 4 s, when one peak from 6 to 100 Hz has at least 3 times the power of the frequencies around it |
 | Impedances in BrainVision files | Not recorded; TMSi impedances only in Charmeleon | A scenario with the BrainVision writer (UG) has the server measure the impedances when it starts (the signal stops for about 4 s), and the header lists them as BrainVision Recorder does; eego and TMSi, on the client's Channel localisation link |
 | LSL times | The LSL driver dates samples and markers when it reads them, and passes marker 7 on as stimulation 7, which the BrainVision writer leaves out; LSL Export dates everything from its first chunk, as if that came at time 0 | Both keep the times LSL asks for: the driver its sender's, on this PC's clock, with markers 1 to 255 as triggers; LSL Export each time on LSL's clock by its age in the scenario |
+| LSL streams across a restart | Closed and opened again at every Play, so a LabRecorder recording sees them go and come back | Kept open when the acquisition starts again with the same streams, as for the impedance measurement; LabRecorder sees a pause |
 | Apology in error messages | Always "We do most humbly apologise:" (2.23) | One of several, at random, aware of the errors before it: "And, sorry again:" right after another error, "I am afraid this is the 3rd time:" for a repeated kind |
 | Program descriptions | "OpenViBE Designer for Win32", in Task Manager and a file's Details, though the build is 64-bit | "OpenViBE Designer for Windows (64-bit)", and so for every program and DLL with a version resource |
 | Window titles and recordings | `OpenViBE Designer`, `Openvibe Acquisition Server`; a BrainVision header says the Vision Recorder made it | With the version after the name, e.g. `OpenViBE Designer 4.0.1-ug.6`, so a screenshot says which build ran; the BrainVision header (UG) names the OpenViBE version that wrote it |
@@ -1542,7 +1543,7 @@ With that, noise alone named a frequency 0 times in 1000 (white), 2 in 1000 (bro
 
 **Consequences**
 - Every recording from a scenario with the BrainVision writer (UG) has the impedances of the moment it started, from eego or TMSi, without opening Charmeleon.
-- **The server's signal stops for about 4 seconds** when such a scenario starts: LSL Output, so LabRecorder, and any other scenario see a gap there. The recording itself starts after the measurement and has none. Asked for in this form; measuring at the server's Play, or using Charmeleon's last values, were the alternatives that do not interrupt.
+- **The server's signal stops for about 4 seconds** when such a scenario starts: LSL Output, so LabRecorder, and any other scenario see a gap there. The LSL streams stay open through it (2.65). The recording itself starts after the measurement and has none. Asked for in this form; measuring at the server's Play, or using Charmeleon's last values, were the alternatives that do not interrupt.
 - The scenario's signal begins some 4 s later than before after Play in Designer.
 - On the localisation link a box that expects three columns does not take the four-column form; the 2D topographic map is one, and is fed from an electrode file in practice. LSL and XDF do not carry the impedances.
 - With TMSi, the server's own impedance list now works too, when Charmeleon is not installed.
@@ -1562,7 +1563,7 @@ A long-standing complaint about OpenViBE and LSL (sccn/lsl_archived [#100](https
 - `extras/plugins/processing/network-io/test/LSLTimeTest.cpp` (new), `test/CMakeLists.txt`
 
 **What it does**
-- **The LSL driver keeps its sender's times.** It pulled samples and markers without their times: the last sample of each read got the moment of the read, the others times spread evenly back to the read before (the first read's back to Play), and markers the moment they were read. The network's and LSL's delays and the reads' timing went into every time, differently for the samples and the markers, which come by different paths. It now pulls each sample's and marker's LSL time, has liblsl move them to this PC's LSL clock (`post_clocksync`; the signal's also smoothed and kept increasing, `post_dejitter | post_monotonize`, as XDF loaders do), and moves them to the server's clock with the offset the LSL Output uses, now shared (`LslClock.h`). A marker so lands on the sample its sender dated it at.
+- **The LSL driver keeps its sender's times.** It pulled samples and markers without their times: the last sample of each read got the moment of the read, the others times spread evenly back to the read before (the first read's back to Play), and markers the moment they were read. The network's and LSL's delays and the reads' timing went into every time, differently for the samples and the markers, which come by different paths. It now pulls each sample's and marker's LSL time, has liblsl move them to this PC's LSL clock (`post_clocksync`; the signal's also kept increasing, `post_monotonize`; 2.65 dropped the smoothing this first had), and moves them to the server's clock with the offset the LSL Output uses, now shared (`LslClock.h`). A marker so lands on the sample its sender dated it at.
 - **LSL markers reach BrainVision files.** A marker value from 1 to 255 is now a trigger, `OVTK_StimulationId_Label(value)`, as an amplifier's are, which the BrainVision writer (UG) records as `S  1` … `S255`. Upstream passed every value on as a stimulation ID (marker 7 became stimulation 7), which the writer leaves out. Other values stay stimulation IDs.
 - **A sender that starts again is picked up again:** the driver's inlets now recover.
 - **A marker ahead of its samples is no longer lost.** A marker dated after the last sample of the block it came with stayed in that block, which went back to the pool: `AbstractWriter::writeSamples()` now keeps it pending for the chunk that holds its sample, as it already did for TCP tags. With the sender's times, an LSL marker often comes before its samples.
@@ -1573,6 +1574,23 @@ A long-standing complaint about OpenViBE and LSL (sccn/lsl_archived [#100](https
 - Markers sent from Designer with LSL Export line up with other LSL streams in LabRecorder, to within a round of the player.
 - A stimulation from 1 to 255 sent over LSL as an OpenViBE stimulation ID, rather than as a trigger, now arrives as a trigger.
 - Tested: a real LSL sender on this PC whose samples and markers are 5 s old: each arrives at its sender's time, within 1 ms, markers on their samples, the trigger as a label (`LSLDriverTest`; upstream dated them 5 s late); the writer keeps a marker that comes ahead of its samples; the LSL Export's times (4 tests). Not run in Designer, nor against another PC.
+
+### 2.65 The LSL Output's streams stay open when the acquisition starts again; no online smoothing in the LSL driver
+
+**Files**
+- `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` and `.cpp`
+- `extras/applications/platform/acquisition-server/test/lsl-output/LSLOutputWriterTest.cpp`
+
+**The fault:** every start of an acquisition closed the LSL Output's two outlets and opened them again: each Play in the server, and since 2.63 each impedance measurement when a recording scenario starts. A LabRecorder recording them sees the streams close and come back. Brain Products warns that closing a stream before the recording ends "can result in broken XDF files" ([Tips and tricks for using LSL](https://www.brainproducts.com/support-resources/tips-and-tricks-for-lsl/)); at best the client reconnects (2.21 kept the stream's ID for that) and the file has a gap.
+
+**What it does:** an acquisition that describes the same streams as the last (the stream names, the rate, the channel count, the chunk size, and the channels' names, montage and positions) keeps the outlets open; only the clock offset is measured again. The impedances, which change at every measurement, do not count. Other streams close the old outlets and open new ones, as before. The outlets are closed when the writer goes, and no longer when the acquisition is set up anew.
+
+**Consequences**
+- During the impedance measurement at a scenario's start, and after Stop and Play with the same settings, LabRecorder sees a pause in the samples, not streams that close. The pause is still in the data: check an XDF for it before analysis, as Brain Products also advises.
+- After Stop the outlets stay open, without samples, until the server's settings change or it closes; upstream did the same until the next Play.
+- Tested: a client that does not reconnect keeps getting samples after the acquisition starts again with the same streams and new impedances; another channel name opens a new outlet with the new description; the earlier LSL Output tests (9 pass).
+
+**Also: the LSL driver no longer smooths times online.** 2.64 had liblsl smooth the incoming signal's times (`post_dejitter`). The LSL paper (Kothe et al., bioRxiv 10.1101/2024.02.13.580071) warns that such smoothing can "significantly (even catastrophically) distort the data" when samples are lost or the rate changes: after a dropout, e.g. over Bluetooth, it goes on fitting one line through sample numbers and times, and misdates the samples that follow. The driver now keeps the sender's times, moved to this PC's clock and kept increasing; loaders smooth a recording when they read it, and split it at gaps. Files: `CDriverLabStreamingLayer.cpp`. `LSLDriverTest` passes unchanged, as its sender's times are regular.
 
 ---
 
@@ -1635,12 +1653,12 @@ A long-standing complaint about OpenViBE and LSL (sccn/lsl_archived [#100](https
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.cpp` | 2.7, 2.18, 2.42, 2.64 |
 | M | `extras/applications/platform/acquisition-server/abstractions/writer/AbstractWriter.h` | 2.7, 2.21, 2.42 |
 | A | `extras/applications/platform/acquisition-server/builtin/LslClock.h` | 2.64 |
-| M | `extras/applications/platform/acquisition-server/builtin/drivers/labstreaminglayer/CDriverLabStreamingLayer.cpp` | 2.64 |
+| M | `extras/applications/platform/acquisition-server/builtin/drivers/labstreaminglayer/CDriverLabStreamingLayer.cpp` | 2.64, 2.65 |
 | M | `extras/applications/platform/acquisition-server/builtin/drivers/labstreaminglayer/CDriverLabStreamingLayer.h` | 2.64 |
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27, 2.41, 2.42, 2.63 |
 | A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27, 2.41, 2.63 |
-| M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21, 2.64 |
-| M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` | 2.21 |
+| M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21, 2.64, 2.65 |
+| M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` | 2.21, 2.65 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21, 2.30, 2.41, 2.42, 2.63 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.h` | 2.4, 2.6, 2.7, 2.8, 2.16, 2.41, 2.63 |
 | M | `extras/applications/platform/acquisition-server/core/AcquisitionManager.cpp` | 2.63 |
@@ -1713,7 +1731,7 @@ A long-standing complaint about OpenViBE and LSL (sccn/lsl_archived [#100](https
 | A | `extras/applications/platform/acquisition-server/test/lsl-input/CMakeLists.txt` | 2.64 |
 | A | `extras/applications/platform/acquisition-server/test/lsl-input/LSLDriverTest.cpp` | 2.64 |
 | A | `extras/applications/platform/acquisition-server/test/lsl-output/CMakeLists.txt` | 2.21 |
-| A | `extras/applications/platform/acquisition-server/test/lsl-output/LSLOutputWriterTest.cpp` | 2.21 |
+| A | `extras/applications/platform/acquisition-server/test/lsl-output/LSLOutputWriterTest.cpp` | 2.21, 2.65 |
 | M | `extras/applications/qml/OVDesignSystem/qml/ToolTip.qml` | 2.61 |
 | A | `extras/applications/demos/p300/bci-examples/p300-speller-python/` (5 scripts, 5 scenarios and a README) | 2.18 |
 | A | `extras/applications/demos/p300/bci-examples/p300-speller-xDAWN-python/` (6 scenarios, and a README) | 2.18 |

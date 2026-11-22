@@ -253,9 +253,12 @@ bool CDriverLabStreamingLayer::unInit()
 bool CDriverLabStreamingLayer::start()
 {
     // UG fork: recover, so that a sender that starts again is picked up again, which upstream's inlets did not do (false). The
-    // times are moved to this PC's LSL clock (clocksync), and a signal's are smoothed and kept increasing, as XDF loaders do
+    // times are moved to this PC's LSL clock (clocksync), and a signal's kept increasing. Not smoothed (post_dejitter): after samples
+    // lost on the way, e.g. over Bluetooth, the smoothing goes on fitting one line through sample numbers and times and misdates the
+    // samples that follow (Kothe et al. 2025, "The Lab Streaming Layer for synchronized multimodal recording"). Loaders smooth a
+    // recording when they read it, where they can split it at gaps. See UG.md 2.65
     m_signalInlet = new lsl::stream_inlet(m_signalStreamInfo, 360, 0, true);
-    m_signalInlet->set_postprocessing(lsl::post_clocksync | lsl::post_dejitter | lsl::post_monotonize);
+    m_signalInlet->set_postprocessing(lsl::post_clocksync | lsl::post_monotonize);
     m_clockOffset = LslClock::measureOffset();
     m_lastStamp   = 0;
     try { m_signalInlet->open_stream(LSL_OPEN_TIMEOUT); }
