@@ -133,6 +133,10 @@ private:
     std::vector<double> m_channelScale;  ///< UG fork: per device channel, what turns its values into microvolt (1 if not in volt), see init()
     uint64_t m_overflowSamples  = 0;     ///< UG fork: analog samples out of range since Play, recorded as 0
     uint64_t m_overflowReported = 0;     ///< UG fork: how many of those were reported
+    std::vector<uint64_t> m_overflowByChannel;  ///< UG fork: per recorded channel, out of range since the last report
+    std::chrono::steady_clock::time_point m_lastOverflowReport;  ///< UG fork: when they were last reported, see read()
+    /// UG fork: an electrode out of range is reported at most this often
+    static constexpr std::chrono::seconds OVERFLOW_REPORT_INTERVAL{10};
     int m_triggerChannel        = -1; ///< Device channel carrying the triggers, -1 if none.
     SteadyTrigger m_trigger;          ///< UG fork: turns the trigger channel into triggers, see getData()
 

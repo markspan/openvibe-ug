@@ -533,6 +533,7 @@ bool CDriverTMSi::init()
     }
     m_overflowSamples = 0;
     m_overflowReported = 0;
+    m_overflowByChannel.clear();  // UG fork
 
     // The trigger channel, named or else the first DIG channel that is not the sawtooth, which the SDK also types as DIG
     m_triggerChannel   = -1;
@@ -750,6 +751,8 @@ int CDriverTMSi::read(sampleType* data, const uint64_t size)
             if (raw[c] == OVERFLOW_32BITS && (format.Type == CHANNELTYPE_EXG || format.Type == CHANNELTYPE_BIP || format.Type == CHANNELTYPE_AUX)) {
                 out[virtualChannel] = 0;
                 ++m_overflowSamples;  // UG fork: reported below, as a 0 in the recording does not show it
+                if (virtualChannel >= m_overflowByChannel.size()) { m_overflowByChannel.resize(virtualChannel + 1, 0); }
+                ++m_overflowByChannel[virtualChannel];
             }
             else {
                 // UG fork: in microvolt for a channel in volt, see init()
@@ -767,11 +770,23 @@ int CDriverTMSi::read(sampleType* data, const uint64_t size)
         if (m_triggerChannel >= 0) { m_triggerValues.push_back(raw[m_triggerChannel] & 0xFFU); }  // UG fork
     }
 
-    // UG fork: an electrode out of range, e.g. come loose, is recorded as 0; say how often, at most once per block
-    if (m_overflowSamples != m_overflowReported) {
-        std::cout << "[TMSi] " << m_overflowSamples - m_overflowReported << " more samples out of the amplifier's range, recorded as 0 ("
-                  << m_overflowSamples << " since Play)." << std::endl;
-        m_overflowReported = m_overflowSamples;
+    // UG fork: an electrode out of range, e.g. come loose or not connected, is recorded as 0; say which, at once the first time and
+    // then at most every OVERFLOW_REPORT_INTERVAL. Reporting it at every read, as before, wrote a line per block for as long as an
+    // electrode stayed off: 40,000 lines in one session, from this thread, which reads the amplifier at multimedia priority.
+    const auto now = std::chrono::steady_clock::now();
+    if (m_overflowSamples != m_overflowReported && (m_overflowReported == 0 || now - m_lastOverflowReport >= OVERFLOW_REPORT_INTERVAL)) {
+        const std::vector<std::string> names = m_channelNames.value();
+        std::string which;
+        for (size_t i = 0; i < m_overflowByChannel.size(); ++i) {
+            if (m_overflowByChannel[i] == 0) { continue; }
+            which += (which.empty() ? "" : ", ") + (i < names.size() && !names[i].empty() ? names[i] : "channel " + std::to_string(i + 1));
+        }
+        std::cout << "[TMSi] " << m_overflowSamples - m_overflowReported << " samples out of the amplifier's range, recorded as 0, "
+                  << (m_overflowReported == 0 ? "on " : "since the last report, on ") << which << " (" << m_overflowSamples
+                  << " since Play). An electrode that is off or not connected does this." << std::endl;
+        m_overflowReported   = m_overflowSamples;
+        m_lastOverflowReport = now;
+        std::fill(m_overflowByChannel.begin(), m_overflowByChannel.end(), 0);
     }
 
     return int(toRead);

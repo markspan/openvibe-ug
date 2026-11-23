@@ -26,7 +26,7 @@ git grep -n "UG fork"
 | | |
 |---|---|
 | Upstream | `origin/main` at `4891073` ("Merge branch 'development' into 'main'", 2026-10-09) |
-| Fork | `main`, 93 commits on top of that base (`87afc64` onwards) |
+| Fork | `main`, 94 commits on top of that base (`87afc64` onwards) |
 | Upstream commits not in the fork | none at the time of writing |
 | Size | 394 files, about 37,700 lines added and 4,400 removed (of which 3,000 a test input) |
 
@@ -1592,6 +1592,17 @@ A long-standing complaint about OpenViBE and LSL (sccn/lsl_archived [#100](https
 
 **Also: the LSL driver no longer smooths times online.** 2.64 had liblsl smooth the incoming signal's times (`post_dejitter`). The LSL paper (Kothe et al., bioRxiv 10.1101/2024.02.13.580071) warns that such smoothing can "significantly (even catastrophically) distort the data" when samples are lost or the rate changes: after a dropout, e.g. over Bluetooth, it goes on fitting one line through sample numbers and times, and misdates the samples that follow. The driver now keeps the sender's times, moved to this PC's clock and kept increasing; loaders smooth a recording when they read it, and split it at gaps. Files: `CDriverLabStreamingLayer.cpp`. `LSLDriverTest` passes unchanged, as its sender's times are regular.
 
+### 2.66 TMSi: an electrode out of range is reported every 10 seconds, by name
+
+**Files**
+- `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` and `.cpp`
+
+**The fault:** 2.27 made the TMSi driver say when samples are out of the amplifier's range, which it records as 0. It said so after every read in which it happened: an electrode that is off or not connected, which is out of range all the time, gave a line per block for as long as the acquisition ran. One session in the lab wrote 39,667 such lines, 3.4 MB of log, from the thread that reads the amplifier at multimedia priority, and none said which electrode it was.
+
+**What it does:** the first time at once, then at most every 10 seconds, one line with the number of samples since the last report and the channels they were on, by their recorded names: `[TMSi] 5120 samples out of the amplifier's range, recorded as 0, since the last report, on X0, A2 (2893632 since Play). An electrode that is off or not connected does this.`
+
+**Consequence:** the log stays readable, and says which electrode to look at. Built and the test suite run; not yet run on the amplifier.
+
 ---
 
 ## 3. All modified files
@@ -1655,8 +1666,8 @@ A long-standing complaint about OpenViBE and LSL (sccn/lsl_archived [#100](https
 | A | `extras/applications/platform/acquisition-server/builtin/LslClock.h` | 2.64 |
 | M | `extras/applications/platform/acquisition-server/builtin/drivers/labstreaminglayer/CDriverLabStreamingLayer.cpp` | 2.64, 2.65 |
 | M | `extras/applications/platform/acquisition-server/builtin/drivers/labstreaminglayer/CDriverLabStreamingLayer.h` | 2.64 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27, 2.41, 2.42, 2.63 |
-| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27, 2.41, 2.63 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.cpp` | 2.1, 2.3, 2.4, 2.5, 2.6, 2.16, 2.24, 2.25, 2.27, 2.41, 2.42, 2.63, 2.66 |
+| A | `extras/applications/platform/acquisition-server/builtin/drivers/tmsi/CDriverTMSi.h` | 2.1, 2.3, 2.4, 2.6, 2.7, 2.24, 2.25, 2.27, 2.41, 2.63, 2.66 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.cpp` | 2.21, 2.64, 2.65 |
 | M | `extras/applications/platform/acquisition-server/builtin/writers/lsl-output/LSLOutputWriter.h` | 2.21, 2.65 |
 | M | `extras/applications/platform/acquisition-server/core/Acquisition.cpp` | 2.4, 2.6, 2.7, 2.21, 2.30, 2.41, 2.42, 2.63 |
